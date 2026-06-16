@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * @property int $id
  * @property string $name
- * @property array|null $settings
+ * @property array<string, mixed>|null $settings
  */
 class Agency extends Model
 {

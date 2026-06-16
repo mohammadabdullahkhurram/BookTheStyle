@@ -18,7 +18,8 @@ use Symfony\Component\HttpFoundation\Response;
  * swapping a salon id in the URL to reach another salon (IDOR).
  *
  * On success the resolved Salon is bound in the container as `currentSalon`
- * (consumed by SalonScope) and shared to views.
+ * and shared to views, so the active tenant is available to salon-scoped
+ * queries and the UI for the rest of the request.
  */
 class ResolveSalon
 {
@@ -41,7 +42,7 @@ class ResolveSalon
             abort(404);
         }
 
-        $salon = Salon::find($salonId);
+        $salon = Salon::find((int) $salonId);
 
         if ($salon === null) {
             abort(404);

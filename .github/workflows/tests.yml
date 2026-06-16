@@ -20,9 +20,18 @@ permissions:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    # 8.5 is allowed to fail: it isn't verified locally yet, so it runs for
+    # forward-compat signal without blocking the build.
+    continue-on-error: ${{ matrix.experimental || false }}
     strategy:
+      fail-fast: false
       matrix:
-        php-version: ['8.3', '8.4', '8.5']
+        # 8.4 is the floor we actually support: Laravel 13 pulls Symfony 8.1,
+        # which requires PHP >= 8.4.1, so 8.3 cannot install dependencies.
+        php-version: ['8.4']
+        include:
+          - php-version: '8.5'
+            experimental: true
 
     steps:
       - name: Checkout code

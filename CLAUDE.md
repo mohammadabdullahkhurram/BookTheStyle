@@ -6,7 +6,7 @@ Operating rules for Claude Code on this repo. **Read this and `SPEC.md` (the ful
 BookTheStyle — a multi-tenant salon booking platform. One **agency** operates many **salons** (sub-accounts). Each salon has services → qualifying stylists → app-managed availability → bookings that roll up into one master calendar, mirror to GoHighLevel (reminders + the voice AI + chat widget), and fan out to staff personal calendars via ICS feeds. **Scheduling only — no payments.** Full detail lives in `SPEC.md`.
 
 ## Stack (do not deviate without asking)
-- PHP 8.3+ (target 8.4) · **Laravel 13** · **Livewire 4** (+ Volt single-file components) · **Tailwind 4** · Alpine (bundled) · **Flux UI — FREE components only**.
+- PHP 8.4+ (Laravel 13 pulls Symfony 8.1, which requires PHP ≥ 8.4.1) · **Laravel 13** · **Livewire 4** (+ Volt single-file components) · **Tailwind 4** · Alpine (bundled) · **Flux UI — FREE components only**.
 - Auth: Laravel built-in (**Fortify**). **Not** WorkOS.
 - DB: **MySQL** (production target); SQLite allowed for local dev/tests.
 - Calendar UI: **Toast UI Calendar** (MIT). Never use FullCalendar Scheduler/resource views (paid/GPL).

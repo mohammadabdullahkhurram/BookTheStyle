@@ -14,14 +14,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $agency_id
  * @property string $name
  * @property string $timezone
- * @property array|null $branding
+ * @property array<string, mixed>|null $branding
  * @property string|null $ghl_location_id
  * @property string|null $ghl_token
  * @property bool $allow_walkins
  * @property bool $allow_same_day
  * @property int $max_advance_days
  * @property int $min_notice_minutes
- * @property array|null $feature_flags
+ * @property array<string, mixed>|null $feature_flags
  */
 class Salon extends Model
 {
@@ -91,6 +91,6 @@ class Salon extends Model
      */
     public function hasFeature(string $flag): bool
     {
-        return (bool) ($this->feature_flags[$flag] ?? false);
+        return (bool) (($this->feature_flags ?? [])[$flag] ?? false);
     }
 }

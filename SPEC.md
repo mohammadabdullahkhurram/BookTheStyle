@@ -212,7 +212,7 @@ Bake into `CLAUDE.md` as non-negotiable rules:
 
 ## 10. Tech stack (locked) + deploy
 
-- **Backend:** PHP 8.2+ / **Laravel** (built-in auth, CSRF, ORM, RBAC middleware, validation, queues).
+- **Backend:** PHP 8.4+ (Laravel 13 depends on Symfony 8.1, which requires PHP ≥ 8.4.1) / **Laravel** (built-in auth, CSRF, ORM, RBAC middleware, validation, queues).
 - **UI:** **Livewire + Alpine.js + Tailwind** — reactive, single-host, no separate JS build/deploy.
 - **DB:** MySQL (Hostinger).
 - **Calendar UI:** **Toast UI Calendar** (MIT, free commercial, flexible multi-stylist views). Custom component is the fallback if it limits us. *(Avoid FullCalendar Scheduler/resource views — paid/GPL.)*
