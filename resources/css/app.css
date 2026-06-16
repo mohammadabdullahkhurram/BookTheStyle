@@ -1,0 +1,112 @@
+@import 'tailwindcss';
+@import '../../vendor/livewire/flux/dist/flux.css';
+
+@source '../views';
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../vendor/livewire/flux-pro/stubs/**/*.blade.php';
+@source '../../vendor/livewire/flux/stubs/**/*.blade.php';
+
+/*
+| BookTheStyle design tokens — light, boutique, anti-slop.
+| Source of truth: CLAUDE.md §"Design tokens". Map Tailwind @theme AND the
+| Flux theme (which is built on the `zinc` neutral ramp + `accent` vars) to
+| these values so stock Flux components inherit our look.
+|
+| The accent is per-salon brandable: it is a single variable (--color-accent
+| and its companions) so a salon can override it at runtime later.
+*/
+@theme {
+    /* Type — Fraunces (display/serif headings) + Inter (UI/body). */
+    --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-serif: 'Fraunces', ui-serif, Georgia, Cambria, 'Times New Roman', serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+    /* Surfaces & ink. */
+    --color-paper: #faf8f5;
+    --color-card: #ffffff;
+    --color-muted: #f2eee8;
+    --color-ink: #1c1b19;
+    --color-secondary: #6b6660;
+    --color-border: #e7e1d8;
+
+    /* Accent (single brandable variable + companions). */
+    --color-accent: #1f6f6b;
+    --color-accent-hover: #185a56;
+    --color-accent-soft: #e3f0ee;
+    --color-accent-content: #1f6f6b;
+    --color-accent-foreground: #ffffff;
+
+    /* Status — muted/earthy, never neon. */
+    --color-success: #2f855a;
+    --color-warning: #b7791f;
+    --color-danger: #b23a2e;
+    --color-info: #2b6cb0;
+
+    /* Neutral ramp remapped to warm paper tones so Flux's zinc-based
+       components render in our palette instead of cool grey. */
+    --color-zinc-50: #faf8f5;
+    --color-zinc-100: #f2eee8;
+    --color-zinc-200: #e7e1d8;
+    --color-zinc-300: #d8d0c4;
+    --color-zinc-400: #b0a89c;
+    --color-zinc-500: #8b847a;
+    --color-zinc-600: #6b6660;
+    --color-zinc-700: #4b4742;
+    --color-zinc-800: #2c2a27;
+    --color-zinc-900: #1c1b19;
+    --color-zinc-950: #121110;
+
+    /* Radii — 6 / 10 / 16px. */
+    --radius-sm: 6px;
+    --radius-md: 6px;
+    --radius-lg: 10px;
+    --radius-xl: 16px;
+    --radius-2xl: 16px;
+
+    /* Subtle layered, low-opacity shadows (never heavy). */
+    --shadow-xs: 0 1px 2px 0 rgb(28 27 25 / 0.04);
+    --shadow-sm: 0 1px 2px 0 rgb(28 27 25 / 0.05), 0 1px 3px 0 rgb(28 27 25 / 0.04);
+    --shadow-md: 0 2px 4px -1px rgb(28 27 25 / 0.06), 0 6px 16px -4px rgb(28 27 25 / 0.06);
+    --shadow-lg: 0 8px 24px -6px rgb(28 27 25 / 0.10);
+}
+
+@layer base {
+    *,
+    ::after,
+    ::before,
+    ::backdrop,
+    ::file-selector-button {
+        border-color: var(--color-border, currentColor);
+    }
+
+    html {
+        background-color: var(--color-paper);
+    }
+
+    body {
+        color: var(--color-ink);
+        font-feature-settings: 'cv11', 'ss01';
+    }
+
+    /* Headings are the editorial serif. */
+    h1, h2, h3, h4,
+    [data-flux-heading] {
+        font-family: var(--font-serif);
+        letter-spacing: -0.01em;
+    }
+}
+
+/* Flux field/label spacing tweaks carried over from the starter. */
+[data-flux-field]:not(ui-radio, ui-checkbox) {
+    @apply grid gap-2;
+}
+
+[data-flux-label] {
+    @apply !mb-0 !leading-tight;
+}
+
+input:focus[data-flux-control],
+textarea:focus[data-flux-control],
+select:focus[data-flux-control] {
+    @apply outline-hidden ring-2 ring-accent ring-offset-2 ring-offset-accent-foreground;
+}
