@@ -1,13 +1,17 @@
 <x-layouts::app :title="$salon->name">
     <div class="mx-auto flex w-full max-w-4xl flex-col gap-8 p-6">
-        <div class="flex items-center justify-between gap-4">
+        <div>
+            <a href="{{ route('dashboard') }}" wire:navigate class="text-sm text-secondary transition hover:text-accent">
+                {{ __('← All salons') }}
+            </a>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-4">
             <div class="flex flex-col gap-1">
                 <flux:text class="text-xs uppercase tracking-wide text-secondary">{{ __('Salon') }}</flux:text>
                 <flux:heading size="xl" class="font-serif">{{ $salon->name }}</flux:heading>
             </div>
-            <a href="{{ route('dashboard') }}" wire:navigate class="text-sm text-secondary transition hover:text-accent">
-                {{ __('← All salons') }}
-            </a>
+            <x-salon-nav :salon="$salon" />
         </div>
 
         <div class="grid gap-4 sm:grid-cols-2">

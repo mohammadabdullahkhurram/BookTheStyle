@@ -1,12 +1,16 @@
 <x-layouts::app :title="__('Dashboard')">
     @php
         $user = auth()->user();
-        // Salons the user can open: their active memberships, plus every salon
-        // in their agency when they are a privileged agency user.
+        // Salons the user can open: active memberships, plus agency reach —
+        // every salon for an agency owner/admin, or assigned salons for an
+        // agency_user.
         $salons = $user->salons()->wherePivot('active', true)->get();
-        if ($user->agency_role?->isPrivileged() && $user->agency_id) {
-            $salons = $salons->merge($user->agency->salons()->get())->unique('id')->values();
+        if ($user->isAgencyOperator() && $user->agency_id) {
+            $salons = $salons->merge($user->agency->salons()->get());
+        } elseif ($user->agency_role === \App\Enums\AgencyRole::User) {
+            $salons = $salons->merge($user->assignedSalons()->get());
         }
+        $salons = $salons->unique('id')->sortBy('name')->values();
     @endphp
 
     <div class="mx-auto flex w-full max-w-5xl flex-col gap-8 p-6">
@@ -14,6 +18,17 @@
             <flux:heading size="xl" class="font-serif">{{ __('Welcome back, :name', ['name' => $user->name]) }}</flux:heading>
             <flux:text class="text-secondary">{{ __('Choose a salon to open its calendar and bookings.') }}</flux:text>
         </header>
+
+        @if ($user->isAgencyOperator())
+            <a href="{{ route('agency.overview') }}" wire:navigate
+               class="flex items-center justify-between rounded-xl border border-accent/30 bg-accent-soft p-5 transition hover:border-accent">
+                <div>
+                    <flux:heading class="font-serif text-accent">{{ __('Agency console') }}</flux:heading>
+                    <flux:text class="text-sm text-secondary">{{ __('Manage salons and agency users.') }}</flux:text>
+                </div>
+                <flux:icon.arrow-right class="text-accent" />
+            </a>
+        @endif
 
         @if ($salons->isEmpty())
             <div class="rounded-xl border border-border bg-card p-8 text-center shadow-sm">
@@ -34,7 +49,12 @@
                             <flux:icon.scissors variant="micro" />
                         </span>
                         <div>
-                            <flux:heading class="font-serif transition group-hover:text-accent">{{ $salon->name }}</flux:heading>
+                            <div class="flex items-center gap-2">
+                                <flux:heading class="font-serif transition group-hover:text-accent">{{ $salon->name }}</flux:heading>
+                                @unless ($salon->active)
+                                    <flux:badge color="zinc" size="sm">{{ __('Inactive') }}</flux:badge>
+                                @endunless
+                            </div>
                             <flux:text class="text-xs text-secondary">{{ $salon->timezone }}</flux:text>
                         </div>
                     </a>

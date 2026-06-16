@@ -33,14 +33,20 @@ class SalonPolicy
 
     public function view(User $user, Salon $salon): bool
     {
-        return $user->membershipFor($salon) !== null;
+        return $user->operatesSalon($salon) || $user->membershipFor($salon) !== null;
     }
 
     /**
-     * Owner/admin can manage the salon (settings, booking policy).
+     * Manage the salon's settings (booking policy, feature flags, branding).
+     * Salon owners/admins, or an agency operator authorised for this salon
+     * (owner/admin via `before`, or an agency_user assigned to it).
      */
     public function manage(User $user, Salon $salon): bool
     {
+        if ($user->operatesSalon($salon)) {
+            return true;
+        }
+
         return $user->membershipFor($salon)?->salon_role->isManager() ?? false;
     }
 

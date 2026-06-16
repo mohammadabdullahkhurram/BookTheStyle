@@ -2,9 +2,13 @@
 
 namespace App\Providers;
 
+use App\Models\Agency;
 use App\Models\Salon;
 use App\Models\User;
+use App\Policies\AgencyPolicy;
 use App\Policies\SalonPolicy;
+use App\Support\Notifications\MailTemporaryPasswordChannel;
+use App\Support\Notifications\TemporaryPasswordChannel;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +23,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // The one app-sent message (temp passwords) goes through a swappable
+        // channel. Default delivers via Laravel Mail (log driver locally);
+        // Phase 6 can rebind this to a GHL-routed channel without touching
+        // any call site. See App\Support\Notifications\TemporaryPasswordChannel.
+        $this->app->bind(
+            TemporaryPasswordChannel::class,
+            MailTemporaryPasswordChannel::class,
+        );
     }
 
     /**
@@ -39,6 +50,7 @@ class AppServiceProvider extends ServiceProvider
     protected function configureAuthorization(): void
     {
         Gate::policy(Salon::class, SalonPolicy::class);
+        Gate::policy(Agency::class, AgencyPolicy::class);
 
         // Convenience gate aliases that delegate to the policy (which applies
         // the privileged-agency `before` check). Use whichever reads clearer.

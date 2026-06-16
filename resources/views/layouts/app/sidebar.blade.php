@@ -15,6 +15,11 @@
                     <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
                         {{ __('Dashboard') }}
                     </flux:sidebar.item>
+                    @if (auth()->user()?->isAgencyOperator())
+                        <flux:sidebar.item icon="building-office-2" :href="route('agency.overview')" :current="request()->routeIs('agency.*')" wire:navigate>
+                            {{ __('Agency console') }}
+                        </flux:sidebar.item>
+                    @endif
                 </flux:sidebar.group>
             </flux:sidebar.nav>
 

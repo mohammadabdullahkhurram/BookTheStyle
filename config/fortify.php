@@ -165,7 +165,8 @@ return [
         // self-signup. Staff are provisioned by admins (invite + temp password
         // + forced change on first login). Do NOT re-enable Features::registration().
         Features::resetPasswords(),
-        Features::emailVerification(),
+        // Email verification is intentionally disabled — staff accounts are
+        // admin-provisioned and trusted, so verification must never block login.
         Features::twoFactorAuthentication([
             'confirm' => true,
             'confirmPassword' => true,

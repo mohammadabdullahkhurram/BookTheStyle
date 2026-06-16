@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $agency_id
  * @property string $name
  * @property string $timezone
+ * @property bool $active
  * @property array<string, mixed>|null $branding
  * @property string|null $ghl_location_id
  * @property string|null $ghl_token
@@ -32,6 +33,7 @@ class Salon extends Model
         'agency_id',
         'name',
         'timezone',
+        'active',
         'branding',
         'ghl_location_id',
         'ghl_token',
@@ -49,6 +51,7 @@ class Salon extends Model
     protected function casts(): array
     {
         return [
+            'active' => 'boolean',
             'branding' => 'array',
             'feature_flags' => 'array',
             // Encrypt the GHL Private Integration Token at rest (Security §9).
@@ -87,10 +90,32 @@ class Salon extends Model
     }
 
     /**
+     * Agency users explicitly scoped to this salon (agency_owner/admin reach
+     * every salon implicitly and are not listed here).
+     *
+     * @return BelongsToMany<User, $this>
+     */
+    public function assignedAgencyUsers(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'agency_salon_assignments')
+            ->withTimestamps();
+    }
+
+    /**
      * Whether a given feature flag is enabled for this salon.
      */
     public function hasFeature(string $flag): bool
     {
         return (bool) (($this->feature_flags ?? [])[$flag] ?? false);
+    }
+
+    /**
+     * The per-salon accent override (a hex color) if branding sets one.
+     */
+    public function accentColor(): ?string
+    {
+        $accent = $this->branding['accent'] ?? null;
+
+        return is_string($accent) && $accent !== '' ? $accent : null;
     }
 }

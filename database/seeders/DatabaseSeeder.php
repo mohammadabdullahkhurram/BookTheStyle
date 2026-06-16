@@ -19,6 +19,8 @@ use Illuminate\Database\Seeder;
  * Accounts
  * --------
  *   agency@bookthestyle.test     Agency Owner (BookTheStyle Agency)
+ *   admin@bookthestyle.test      Agency Admin (BookTheStyle Agency)
+ *   user@bookthestyle.test       Agency User  (assigned to Demo Salon only)
  *   owner@demo-salon.test        Salon Owner    (Demo Salon)
  *   frontdesk@demo-salon.test    Front Desk     (Demo Salon)
  *   stylist@demo-salon.test      Stylist        (Demo Salon)
@@ -41,6 +43,11 @@ class DatabaseSeeder extends Seeder
         $this->user('agency@bookthestyle.test', 'Avery Agency', [
             'agency_id' => $agency->id,
             'agency_role' => AgencyRole::Owner,
+        ]);
+
+        $this->user('admin@bookthestyle.test', 'Adira Admin', [
+            'agency_id' => $agency->id,
+            'agency_role' => AgencyRole::Admin,
         ]);
 
         // --- Demo salon + its staff -----------------------------------------
@@ -70,6 +77,13 @@ class DatabaseSeeder extends Seeder
             'must_change_password' => true,
         ]);
         $this->membership($newHire, $salon, SalonRole::User, StaffType::Stylist);
+
+        // An agency_user scoped to the Demo Salon only (their access scope).
+        $agencyUser = $this->user('user@bookthestyle.test', 'Uma Agency-User', [
+            'agency_id' => $agency->id,
+            'agency_role' => AgencyRole::User,
+        ]);
+        $agencyUser->assignedSalons()->syncWithoutDetaching([$salon->id]);
 
         // --- A second agency + salon (for tenant-isolation checks) ----------
         $otherAgency = Agency::firstOrCreate(['name' => 'Rival Agency']);

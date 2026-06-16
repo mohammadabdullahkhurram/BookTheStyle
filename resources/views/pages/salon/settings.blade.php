@@ -1,0 +1,163 @@
+<?php
+
+use App\Actions\Salons\UpdateBookingPolicy;
+use App\Actions\Salons\UpdateBranding;
+use App\Actions\Salons\UpdateFeatureFlags;
+use App\Models\Salon;
+use Flux\Flux;
+use Livewire\Attributes\Computed;
+use Livewire\Attributes\Title;
+use Livewire\Attributes\Validate;
+use Livewire\Component;
+
+new #[Title('Salon settings')] class extends Component {
+    public Salon $salon;
+
+    #[Validate('boolean')]
+    public bool $allow_walkins = true;
+
+    #[Validate('boolean')]
+    public bool $allow_same_day = true;
+
+    #[Validate('required|integer|min:1|max:365')]
+    public int $max_advance_days = 90;
+
+    #[Validate('required|integer|min:0|max:10080')]
+    public int $min_notice_minutes = 0;
+
+    #[Validate('required|string|max:255')]
+    public string $brandName = '';
+
+    #[Validate('nullable|regex:/^#[0-9a-fA-F]{6}$/')]
+    public string $accent = '';
+
+    /** @var array<string, bool> */
+    public array $flags = [];
+
+    public function mount(Salon $salon): void
+    {
+        $this->authorize('manage', $salon);
+        $this->salon = $salon;
+
+        $this->allow_walkins = $salon->allow_walkins;
+        $this->allow_same_day = $salon->allow_same_day;
+        $this->max_advance_days = $salon->max_advance_days;
+        $this->min_notice_minutes = $salon->min_notice_minutes;
+
+        $this->brandName = $salon->name;
+        $this->accent = $salon->accentColor() ?? '';
+
+        foreach (array_keys($this->catalog()) as $key) {
+            $this->flags[$key] = $salon->hasFeature($key);
+        }
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    #[Computed]
+    public function catalog(): array
+    {
+        /** @var array<string, string> $features */
+        $features = config('salon_features', []);
+
+        return $features;
+    }
+
+    public function savePolicy(UpdateBookingPolicy $action): void
+    {
+        $this->authorize('manage', $this->salon);
+
+        $data = $this->validate([
+            'allow_walkins' => ['boolean'],
+            'allow_same_day' => ['boolean'],
+            'max_advance_days' => ['required', 'integer', 'min:1', 'max:365'],
+            'min_notice_minutes' => ['required', 'integer', 'min:0', 'max:10080'],
+        ]);
+
+        $action->handle($this->salon, [
+            'allow_walkins' => $data['allow_walkins'],
+            'allow_same_day' => $data['allow_same_day'],
+            'max_advance_days' => $data['max_advance_days'],
+            'min_notice_minutes' => $data['min_notice_minutes'],
+        ]);
+
+        Flux::toast(variant: 'success', text: __('Booking policy saved.'));
+    }
+
+    public function saveBranding(UpdateBranding $action): void
+    {
+        $this->authorize('manage', $this->salon);
+
+        $this->validate([
+            'brandName' => ['required', 'string', 'max:255'],
+            'accent' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
+        ]);
+
+        $action->handle($this->salon, [
+            'name' => $this->brandName,
+            'accent' => $this->accent ?: null,
+        ]);
+        $this->salon->refresh();
+
+        Flux::toast(variant: 'success', text: __('Branding saved.'));
+    }
+
+    public function saveFlags(UpdateFeatureFlags $action): void
+    {
+        $this->authorize('manage', $this->salon);
+
+        // Keep only known flags; coerce to bool.
+        $clean = [];
+        foreach (array_keys($this->catalog()) as $key) {
+            $clean[$key] = (bool) ($this->flags[$key] ?? false);
+        }
+
+        $action->handle($this->salon, $clean);
+
+        Flux::toast(variant: 'success', text: __('Feature flags saved.'));
+    }
+}; ?>
+
+<div>
+    <div class="mx-auto flex w-full max-w-3xl flex-col gap-6 p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <flux:text class="text-xs uppercase tracking-wide text-secondary">{{ $salon->name }}</flux:text>
+                <flux:heading size="xl" class="font-serif">{{ __('Settings') }}</flux:heading>
+            </div>
+            <x-salon-nav :salon="$salon" />
+        </div>
+
+        <form wire:submit="savePolicy" class="flex flex-col gap-5 rounded-xl border border-border bg-card p-6 shadow-sm">
+            <flux:heading size="sm" class="font-serif">{{ __('Booking policy') }}</flux:heading>
+            <div class="flex flex-col gap-3">
+                <flux:checkbox wire:model="allow_walkins" :label="__('Allow walk-ins')" />
+                <flux:checkbox wire:model="allow_same_day" :label="__('Allow same-day booking')" />
+            </div>
+            <div class="grid gap-4 sm:grid-cols-2">
+                <flux:input type="number" wire:model="max_advance_days" :label="__('Max advance (days)')" min="1" max="365" />
+                <flux:input type="number" wire:model="min_notice_minutes" :label="__('Min notice (minutes)')" min="0" max="10080" />
+            </div>
+            <div><flux:button type="submit" variant="primary">{{ __('Save policy') }}</flux:button></div>
+        </form>
+
+        <form wire:submit="saveBranding" class="flex flex-col gap-5 rounded-xl border border-border bg-card p-6 shadow-sm">
+            <flux:heading size="sm" class="font-serif">{{ __('Branding') }}</flux:heading>
+            <flux:input wire:model="brandName" :label="__('Salon name')" required />
+            <flux:input wire:model="accent" :label="__('Accent color')" :description="__('Hex color, e.g. #1F6F6B. Sets this salon\'s brand accent.')" placeholder="#1F6F6B" />
+            <div><flux:button type="submit" variant="primary">{{ __('Save branding') }}</flux:button></div>
+        </form>
+
+        <form wire:submit="saveFlags" class="flex flex-col gap-5 rounded-xl border border-border bg-card p-6 shadow-sm">
+            <flux:heading size="sm" class="font-serif">{{ __('Feature flags') }}</flux:heading>
+            <flux:text class="text-sm text-secondary">{{ __('Per-salon toggles. Later phases read these to enable features for this salon.') }}</flux:text>
+            <div class="flex flex-col gap-3">
+                @foreach ($this->catalog as $key => $label)
+                    <flux:checkbox wire:model="flags.{{ $key }}" :label="__($label)" />
+                @endforeach
+            </div>
+            <div><flux:button type="submit" variant="primary">{{ __('Save flags') }}</flux:button></div>
+        </form>
+    </div>
+</div>

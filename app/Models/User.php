@@ -88,6 +88,49 @@ class User extends Authenticatable implements PasskeyUser
     }
 
     /**
+     * Salons an agency_user has been explicitly assigned to (their access
+     * scope). Empty for agency owners/admins, who reach every salon in their
+     * agency without an assignment row.
+     *
+     * @return BelongsToMany<Salon, $this>
+     */
+    public function assignedSalons(): BelongsToMany
+    {
+        return $this->belongsToMany(Salon::class, 'agency_salon_assignments')
+            ->withTimestamps();
+    }
+
+    /**
+     * Whether the user is an agency owner or admin (near-full agency reach).
+     */
+    public function isAgencyOperator(): bool
+    {
+        return $this->agency_role?->isPrivileged() ?? false;
+    }
+
+    /**
+     * Whether the user acts as an agency operator for the given salon: an
+     * agency owner/admin in the salon's agency, or an agency_user assigned to
+     * it. This is agency-side reach, distinct from a salon membership.
+     */
+    public function operatesSalon(Salon $salon): bool
+    {
+        if ($this->agency_id === null || $this->agency_id !== $salon->agency_id) {
+            return false;
+        }
+
+        if ($this->isAgencyOperator()) {
+            return true;
+        }
+
+        if ($this->agency_role === AgencyRole::User) {
+            return $this->assignedSalons()->whereKey($salon->id)->exists();
+        }
+
+        return false;
+    }
+
+    /**
      * The user's active membership for a salon, or null if none.
      */
     public function membershipFor(int|Salon $salon): ?SalonMembership
@@ -101,16 +144,13 @@ class User extends Authenticatable implements PasskeyUser
     }
 
     /**
-     * Whether the user has an active membership for the given salon. Agency
-     * owners/admins implicitly reach any salon within their own agency.
+     * Whether the user may reach the given salon at all: an active salon
+     * membership, or agency-side operator reach (owner/admin in the agency, or
+     * an agency_user assigned to it). This is the gate ResolveSalon enforces.
      */
     public function belongsToSalon(Salon $salon): bool
     {
-        if ($this->agency_id === $salon->agency_id && $this->agency_role?->isPrivileged()) {
-            return true;
-        }
-
-        return $this->membershipFor($salon) !== null;
+        return $this->operatesSalon($salon) || $this->membershipFor($salon) !== null;
     }
 
     /**
