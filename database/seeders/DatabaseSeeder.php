@@ -1,0 +1,107 @@
+<?php
+
+namespace Database\Seeders;
+
+use App\Enums\AgencyRole;
+use App\Enums\SalonRole;
+use App\Enums\StaffType;
+use App\Models\Agency;
+use App\Models\Salon;
+use App\Models\SalonMembership;
+use App\Models\User;
+use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use Illuminate\Database\Seeder;
+
+/**
+ * Dev seed data. All accounts use the password "password" unless noted.
+ * Idempotent: safe to re-run (keyed by email / name + agency).
+ *
+ * Accounts
+ * --------
+ *   agency@bookthestyle.test     Agency Owner (BookTheStyle Agency)
+ *   owner@demo-salon.test        Salon Owner    (Demo Salon)
+ *   frontdesk@demo-salon.test    Front Desk     (Demo Salon)
+ *   stylist@demo-salon.test      Stylist        (Demo Salon)
+ *   newhire@demo-salon.test      Stylist on a TEMPORARY password
+ *                                (password: "temporary" — forced change on first login)
+ *   owner@other-salon.test       Salon Owner    (Other Salon, different agency)
+ *
+ * The "Other Salon" exists so you can log in as a Demo Salon user and confirm
+ * that opening Other Salon's URL returns 403 (tenant isolation).
+ */
+class DatabaseSeeder extends Seeder
+{
+    use WithoutModelEvents;
+
+    public function run(): void
+    {
+        // --- Agency + agency owner ------------------------------------------
+        $agency = Agency::firstOrCreate(['name' => 'BookTheStyle Agency']);
+
+        $this->user('agency@bookthestyle.test', 'Avery Agency', [
+            'agency_id' => $agency->id,
+            'agency_role' => AgencyRole::Owner,
+        ]);
+
+        // --- Demo salon + its staff -----------------------------------------
+        $salon = Salon::firstOrCreate(
+            ['agency_id' => $agency->id, 'name' => 'Demo Salon'],
+            [
+                'timezone' => 'America/New_York',
+                'allow_walkins' => true,
+                'allow_same_day' => true,
+                'max_advance_days' => 60,
+                'min_notice_minutes' => 120,
+            ]
+        );
+
+        $owner = $this->user('owner@demo-salon.test', 'Olivia Owner');
+        $this->membership($owner, $salon, SalonRole::Owner);
+
+        $frontDesk = $this->user('frontdesk@demo-salon.test', 'Frankie Front-Desk');
+        $this->membership($frontDesk, $salon, SalonRole::User, StaffType::FrontDesk);
+
+        $stylist = $this->user('stylist@demo-salon.test', 'Simone Stylist');
+        $this->membership($stylist, $salon, SalonRole::User, StaffType::Stylist);
+
+        // New hire still on the admin-issued temporary password.
+        $newHire = $this->user('newhire@demo-salon.test', 'Nadia New-Hire', [
+            'password' => 'temporary',
+            'must_change_password' => true,
+        ]);
+        $this->membership($newHire, $salon, SalonRole::User, StaffType::Stylist);
+
+        // --- A second agency + salon (for tenant-isolation checks) ----------
+        $otherAgency = Agency::firstOrCreate(['name' => 'Rival Agency']);
+        $otherSalon = Salon::firstOrCreate(
+            ['agency_id' => $otherAgency->id, 'name' => 'Other Salon'],
+            ['timezone' => 'America/Los_Angeles']
+        );
+
+        $otherOwner = $this->user('owner@other-salon.test', 'Owen Other', [
+            'agency_id' => $otherAgency->id,
+        ]);
+        $this->membership($otherOwner, $otherSalon, SalonRole::Owner);
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    private function user(string $email, string $name, array $attributes = []): User
+    {
+        return User::updateOrCreate(['email' => $email], array_merge([
+            'name' => $name,
+            'password' => 'password',
+            'email_verified_at' => now(),
+            'must_change_password' => false,
+        ], $attributes));
+    }
+
+    private function membership(User $user, Salon $salon, SalonRole $role, ?StaffType $staffType = null): void
+    {
+        SalonMembership::updateOrCreate(
+            ['user_id' => $user->id, 'salon_id' => $salon->id],
+            ['salon_role' => $role, 'staff_type' => $staffType, 'active' => true],
+        );
+    }
+}
