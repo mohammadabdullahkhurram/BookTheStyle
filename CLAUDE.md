@@ -40,5 +40,6 @@ Map Tailwind 4 `@theme` **and** the Flux theme to these. The accent is **per-sal
 - No emoji in UI. Generous whitespace. Thin borders + soft shadows, never heavy gradients. **Do not ship the default starter look — customize to these tokens.**
 
 ## Workflow
+- **Work directly on `main`.** Commit and push straight to `main`; do **not** create feature branches or pull requests unless the owner explicitly asks. (`main` is the single active branch — the repo was consolidated onto it.)
 - Develop locally; commit in small, clear increments; push to GitHub.
 - End of each phase: report what changed, how to run + test it, seeded credentials, and any assumptions or flags.
