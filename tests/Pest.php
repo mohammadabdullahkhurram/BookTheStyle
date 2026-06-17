@@ -114,3 +114,34 @@ function makeBooking(Salon $salon, User $actor, User $stylist, Service $service,
         'notes' => null,
     ]);
 }
+
+/*
+| Whether a browser would send a cookie set with Domain=$cookieDomain to BOTH
+| $apexHost and $subHost — i.e. whether the login session is genuinely shared
+| across the apex and a salon subdomain. Encodes the two rules that bite local
+| dev: a Domain attribute for `localhost`/`*.localhost` is refused by browsers
+| (so it can't be shared), and a Domain must domain-match each host. This is the
+| check Laravel's test HTTP client does NOT enforce, so we assert it explicitly.
+*/
+function browserSharesCookie(?string $cookieDomain, string $apexHost, string $subHost): bool
+{
+    if ($cookieDomain === null || $cookieDomain === '') {
+        return false; // host-only cookie — never shared to another host
+    }
+
+    $domain = ltrim($cookieDomain, '.');
+
+    // Browsers refuse to set a Domain cookie for localhost / *.localhost.
+    if ($domain === 'localhost' || str_ends_with($domain, '.localhost')) {
+        return false;
+    }
+
+    // Must be a registrable (dotted) domain.
+    if (! str_contains($domain, '.')) {
+        return false;
+    }
+
+    $matches = fn (string $host): bool => $host === $domain || str_ends_with($host, '.'.$domain);
+
+    return $matches($apexHost) && $matches($subHost);
+}
