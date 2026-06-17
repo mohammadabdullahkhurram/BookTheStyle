@@ -20,8 +20,10 @@ use Symfony\Component\HttpFoundation\Response;
  *
  * script-src/style-src keep 'unsafe-inline' + 'unsafe-eval' because Livewire,
  * Alpine and Flux evaluate inline expressions, and @fonts / the per-salon accent
- * emit inline <style>. form-action is intentionally left unset so the logout
- * form on a salon subdomain may POST to the central (apex) logout route.
+ * emit inline <style>. style-src-elem is set explicitly (it otherwise falls back
+ * to style-src) so stylesheet <link>s resolve correctly. form-action is
+ * intentionally left unset so the logout form on a salon subdomain may POST to
+ * the central (apex) logout route.
  */
 class SecurityHeaders
 {
@@ -35,14 +37,24 @@ class SecurityHeaders
         $font = "'self' data:";
         $connect = "'self'";
 
-        // Local dev only: allow the Vite dev server (npm run dev). It serves the
-        // module scripts, the injected <link> stylesheets, fonts/source maps, and
-        // the HMR websocket — across whichever loopback host it resolves to
-        // (localhost / 127.0.0.1 / [::1]; the hot file commonly uses [::1]) on
-        // whatever port it picked. Production CSP is never widened by this.
+        // Local dev only: widen the allow-list to the origins a local browser
+        // actually hits. These are NOT 'self' on a salon subdomain:
+        //   - the Vite dev server (npm run dev) on a loopback host/port,
+        //   - assets/fonts served from the apex (config('app.domain')) but loaded
+        //     on a {slug}.{domain} subdomain page (cross-origin),
+        //   - the HMR websocket (ws://) on the dev server or the app domain.
+        // Derived from the configured local domain so it follows APP_DOMAIN
+        // (lvh.me today) and won't break if that changes. Production is untouched.
         if (app()->environment('local')) {
-            $http = 'http://localhost:* http://127.0.0.1:* http://[::1]:*';
-            $ws = 'ws://localhost:* ws://127.0.0.1:* ws://[::1]:*';
+            $domain = (string) config('app.domain', 'localhost');
+            $http = implode(' ', [
+                'http://localhost:*', 'http://127.0.0.1:*', 'http://[::1]:*',
+                "http://{$domain}:*", "http://*.{$domain}:*",
+            ]);
+            $ws = implode(' ', [
+                'ws://localhost:*', 'ws://127.0.0.1:*', 'ws://[::1]:*',
+                "ws://{$domain}:*", "ws://*.{$domain}:*",
+            ]);
             $script .= " {$http}";
             $style .= " {$http}";
             $img .= " {$http}";
@@ -54,6 +66,7 @@ class SecurityHeaders
             "default-src 'self'",
             "script-src {$script}",
             "style-src {$style}",
+            "style-src-elem {$style}",
             "img-src {$img}",
             "font-src {$font}",
             "connect-src {$connect}",
