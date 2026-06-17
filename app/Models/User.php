@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Enums\AgencyRole;
+use App\Enums\StaffType;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -141,6 +142,17 @@ class User extends Authenticatable implements PasskeyUser
             ->where('salon_id', $salonId)
             ->where('active', true)
             ->first();
+    }
+
+    /**
+     * The user's active membership for a salon when they are a stylist there,
+     * or null. Used to gate "edit my own availability".
+     */
+    public function stylistMembershipFor(Salon $salon): ?SalonMembership
+    {
+        $membership = $this->membershipFor($salon);
+
+        return $membership?->staff_type === StaffType::Stylist ? $membership : null;
     }
 
     /**

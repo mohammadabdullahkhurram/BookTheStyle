@@ -33,6 +33,8 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware('resolve.salon')->prefix('salons/{salon}')->group(function () {
         Route::get('/', fn () => view('salon.show', ['salon' => app('currentSalon')]))->name('salon.show');
         Route::livewire('staff', 'pages::salon.staff.index')->name('salon.staff');
+        Route::livewire('services', 'pages::salon.services.index')->name('salon.services');
+        Route::livewire('availability', 'pages::salon.availability.index')->name('salon.availability');
         Route::livewire('settings', 'pages::salon.settings')->name('salon.settings');
     });
 });

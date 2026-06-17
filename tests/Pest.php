@@ -1,5 +1,8 @@
 <?php
 
+use App\Models\Salon;
+use App\Models\SalonMembership;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -8,3 +11,24 @@ pest()->extend(TestCase::class)
     ->in('Feature');
 
 pest()->extend(TestCase::class)->in('Unit');
+
+/*
+| Shared salon-role helpers used across feature tests. (salonOwnerOf /
+| salonAdminOf are defined in StaffManagementTest and also available globally.)
+*/
+
+function stylistOf(Salon $salon, ?User $user = null): User
+{
+    $user ??= User::factory()->create();
+    SalonMembership::factory()->for($user)->for($salon)->stylist()->create();
+
+    return $user;
+}
+
+function frontDeskOf(Salon $salon): User
+{
+    $user = User::factory()->create();
+    SalonMembership::factory()->for($user)->for($salon)->frontDesk()->create();
+
+    return $user;
+}

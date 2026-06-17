@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\StaffType;
 use Database\Factories\SalonFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -98,6 +99,29 @@ class Salon extends Model
     public function assignedAgencyUsers(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'agency_salon_assignments')
+            ->withTimestamps();
+    }
+
+    /**
+     * @return HasMany<Service, $this>
+     */
+    public function services(): HasMany
+    {
+        return $this->hasMany(Service::class);
+    }
+
+    /**
+     * Active stylists in this salon (members with staff_type = stylist). These
+     * are the users eligible for service assignment and availability.
+     *
+     * @return BelongsToMany<User, $this>
+     */
+    public function stylistUsers(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'salon_memberships')
+            ->wherePivot('staff_type', StaffType::Stylist->value)
+            ->wherePivot('active', true)
+            ->withPivot(['salon_role', 'staff_type', 'active'])
             ->withTimestamps();
     }
 

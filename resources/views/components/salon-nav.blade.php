@@ -15,6 +15,16 @@
            class="{{ $tab }} {{ request()->routeIs('salon.staff') ? $active : $idle }}">{{ __('Staff') }}</a>
     @endcan
 
+    @can('manageServices', $salon)
+        <a href="{{ route('salon.services', $salon) }}" wire:navigate
+           class="{{ $tab }} {{ request()->routeIs('salon.services') ? $active : $idle }}">{{ __('Services') }}</a>
+    @endcan
+
+    @if (auth()->user()?->can('manage', $salon) || auth()->user()?->stylistMembershipFor($salon))
+        <a href="{{ route('salon.availability', $salon) }}" wire:navigate
+           class="{{ $tab }} {{ request()->routeIs('salon.availability') ? $active : $idle }}">{{ __('Availability') }}</a>
+    @endif
+
     @can('manage', $salon)
         <a href="{{ route('salon.settings', $salon) }}" wire:navigate
            class="{{ $tab }} {{ request()->routeIs('salon.settings') ? $active : $idle }}">{{ __('Settings') }}</a>

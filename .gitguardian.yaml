@@ -1,0 +1,21 @@
+# GitGuardian / ggshield configuration.
+#
+# Test fixtures and seeders use well-known DUMMY credentials ("password",
+# "temporary") that are not real secrets. We exclude those fixture paths from
+# secret scanning so GitGuardian stops false-flagging them. This does NOT change
+# how real secrets are handled — real secrets live only in .env (gitignored),
+# and GHL tokens are encrypted at rest. Nothing outside these fixture paths is
+# excluded.
+version: 2
+
+secret:
+  ignored-paths:
+    - "tests/**"
+    - "database/seeders/**"
+    - "database/factories/**"
+
+  ignored-matches:
+    - name: Dummy dev/seed login password used across fixtures
+      match: password
+    - name: Dummy temporary password fixture (forced-change flow)
+      match: temporary

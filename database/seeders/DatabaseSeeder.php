@@ -3,11 +3,15 @@
 namespace Database\Seeders;
 
 use App\Enums\AgencyRole;
+use App\Enums\AvailabilityKind;
 use App\Enums\SalonRole;
 use App\Enums\StaffType;
 use App\Models\Agency;
+use App\Models\Availability;
 use App\Models\Salon;
 use App\Models\SalonMembership;
+use App\Models\Service;
+use App\Models\StylistProfile;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -84,6 +88,35 @@ class DatabaseSeeder extends Seeder
             'agency_role' => AgencyRole::User,
         ]);
         $agencyUser->assignedSalons()->syncWithoutDetaching([$salon->id]);
+
+        // --- Demo salon catalog: services, assignments, availability --------
+        $cut = Service::firstOrCreate(
+            ['salon_id' => $salon->id, 'name' => 'Cut & Style'],
+            ['duration_min' => 45, 'color' => '#1F6F6B', 'active' => true],
+        );
+        $color = Service::firstOrCreate(
+            ['salon_id' => $salon->id, 'name' => 'Color'],
+            ['duration_min' => 90, 'color' => '#B7791F', 'active' => true],
+        );
+        $cut->stylists()->syncWithoutDetaching([$stylist->id]);
+        $color->stylists()->syncWithoutDetaching([$stylist->id]);
+
+        StylistProfile::updateOrCreate(
+            ['salon_id' => $salon->id, 'user_id' => $stylist->id],
+            ['bio' => 'Senior stylist specialising in cuts and colour.'],
+        );
+
+        // Mon–Fri, 9–5 with a midday break.
+        foreach ([0, 1, 2, 3, 4] as $weekday) {
+            Availability::firstOrCreate(
+                ['salon_id' => $salon->id, 'user_id' => $stylist->id, 'weekday' => $weekday, 'kind' => AvailabilityKind::Work, 'start_minute' => 9 * 60],
+                ['end_minute' => 17 * 60],
+            );
+            Availability::firstOrCreate(
+                ['salon_id' => $salon->id, 'user_id' => $stylist->id, 'weekday' => $weekday, 'kind' => AvailabilityKind::Break, 'start_minute' => 12 * 60],
+                ['end_minute' => 13 * 60],
+            );
+        }
 
         // --- A second agency + salon (for tenant-isolation checks) ----------
         $otherAgency = Agency::firstOrCreate(['name' => 'Rival Agency']);
