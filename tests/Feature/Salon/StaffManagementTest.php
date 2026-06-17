@@ -6,27 +6,12 @@ use App\Enums\SalonRole;
 use App\Mail\TemporaryPasswordMail;
 use App\Models\Agency;
 use App\Models\Salon;
-use App\Models\SalonMembership;
 use App\Models\User;
 use App\Support\Permissions\SalonStaffRoles;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Mail;
 
-function salonAdminOf(Salon $salon): User
-{
-    $user = User::factory()->create();
-    SalonMembership::factory()->for($user)->for($salon)->admin()->create();
-
-    return $user;
-}
-
-function salonOwnerOf(Salon $salon): User
-{
-    $user = User::factory()->create();
-    SalonMembership::factory()->for($user)->for($salon)->owner()->create();
-
-    return $user;
-}
+// salonOwnerOf / salonAdminOf / stylistOf / frontDeskOf live in tests/Pest.php.
 
 /*
 | Tenant isolation + anti-escalation for salon staff management.

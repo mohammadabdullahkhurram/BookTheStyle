@@ -13,9 +13,24 @@ pest()->extend(TestCase::class)
 pest()->extend(TestCase::class)->in('Unit');
 
 /*
-| Shared salon-role helpers used across feature tests. (salonOwnerOf /
-| salonAdminOf are defined in StaffManagementTest and also available globally.)
+| Shared salon-role helpers used across feature tests.
 */
+
+function salonOwnerOf(Salon $salon): User
+{
+    $user = User::factory()->create();
+    SalonMembership::factory()->for($user)->for($salon)->owner()->create();
+
+    return $user;
+}
+
+function salonAdminOf(Salon $salon): User
+{
+    $user = User::factory()->create();
+    SalonMembership::factory()->for($user)->for($salon)->admin()->create();
+
+    return $user;
+}
 
 function stylistOf(Salon $salon, ?User $user = null): User
 {

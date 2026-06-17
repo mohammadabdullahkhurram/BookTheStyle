@@ -98,8 +98,8 @@ class DatabaseSeeder extends Seeder
             ['salon_id' => $salon->id, 'name' => 'Color'],
             ['duration_min' => 90, 'color' => '#B7791F', 'active' => true],
         );
-        $cut->stylists()->syncWithoutDetaching([$stylist->id]);
-        $color->stylists()->syncWithoutDetaching([$stylist->id]);
+        $cut->stylists()->syncWithoutDetaching([$stylist->id => ['salon_id' => $salon->id]]);
+        $color->stylists()->syncWithoutDetaching([$stylist->id => ['salon_id' => $salon->id]]);
 
         StylistProfile::updateOrCreate(
             ['salon_id' => $salon->id, 'user_id' => $stylist->id],

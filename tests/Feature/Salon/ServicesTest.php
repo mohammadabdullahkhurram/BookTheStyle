@@ -6,6 +6,7 @@ use App\Actions\Services\SyncServiceStylists;
 use App\Actions\Services\UpdateService;
 use App\Models\Salon;
 use App\Models\Service;
+use App\Models\ServiceStylist;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Livewire\Livewire;
@@ -103,4 +104,24 @@ it('validates service input', function () {
     Livewire::test('pages::salon.services.index', ['salon' => $salon])
         ->set('name', 'X')->set('duration_min', 30)->set('color', 'not-a-color')
         ->call('create')->assertHasErrors(['color']);
+});
+
+it('keeps the service_stylist pivot salon-scoped with a matching salon_id', function () {
+    $salonA = Salon::factory()->create();
+    $salonB = Salon::factory()->create();
+    $stylistA = stylistOf($salonA);
+    $serviceA = Service::factory()->create(['salon_id' => $salonA->id]);
+
+    app(SyncServiceStylists::class)->handle($salonA, $serviceA, [$stylistA->id]);
+
+    // The pivot row carries salon A's id (defense-in-depth column).
+    expect(ServiceStylist::query()->where('service_id', $serviceA->id)->value('salon_id'))
+        ->toBe($salonA->id);
+
+    // The global scope hides it from another salon's context.
+    app()->instance('currentSalon', $salonB);
+    expect(ServiceStylist::count())->toBe(0);
+
+    app()->instance('currentSalon', $salonA);
+    expect(ServiceStylist::count())->toBe(1);
 });

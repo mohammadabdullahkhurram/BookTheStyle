@@ -43,11 +43,14 @@ class Service extends Model
     /**
      * Stylists qualified to perform this service.
      *
-     * @return BelongsToMany<User, $this>
+     * @return BelongsToMany<User, $this, ServiceStylist>
      */
     public function stylists(): BelongsToMany
     {
-        return $this->belongsToMany(User::class, 'service_stylist')->withTimestamps();
+        return $this->belongsToMany(User::class, 'service_stylist')
+            ->using(ServiceStylist::class)
+            ->withPivot('salon_id')
+            ->withTimestamps();
     }
 
     /**

@@ -28,7 +28,10 @@ class SyncServiceStylists
             ->map(fn ($id): int => (int) $id)
             ->all();
 
-        $service->stylists()->sync(array_values($valid));
+        // Always stamp the pivot's salon_id with the service's salon.
+        $service->stylists()->sync(
+            collect($valid)->mapWithKeys(fn (int $id) => [$id => ['salon_id' => $salon->id]])->all(),
+        );
 
         return $service;
     }
