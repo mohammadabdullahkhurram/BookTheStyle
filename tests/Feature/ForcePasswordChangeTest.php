@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\Salon;
+use App\Models\SalonMembership;
 use App\Models\User;
 
 /*
@@ -17,11 +19,13 @@ it('redirects a flagged user to the change-password screen', function () {
 });
 
 it('blocks a flagged user from a salon page too', function () {
+    $salon = Salon::factory()->create();
     $user = User::factory()->create(['must_change_password' => true]);
+    SalonMembership::factory()->for($user)->for($salon)->stylist()->create();
 
     // Even a salon-scoped URL bounces to the change screen first.
     $this->actingAs($user)
-        ->get('/salons/1')
+        ->get(route('salon.show', $salon))
         ->assertRedirect(route('password.change'));
 });
 

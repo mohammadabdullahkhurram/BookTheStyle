@@ -4,15 +4,21 @@ namespace Database\Seeders;
 
 use App\Enums\AgencyRole;
 use App\Enums\AvailabilityKind;
+use App\Enums\BookedByType;
+use App\Enums\BookingSource;
+use App\Enums\BookingStatus;
 use App\Enums\SalonRole;
 use App\Enums\StaffType;
 use App\Models\Agency;
 use App\Models\Availability;
+use App\Models\Booking;
+use App\Models\Client;
 use App\Models\Salon;
 use App\Models\SalonMembership;
 use App\Models\Service;
 use App\Models\StylistProfile;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -116,6 +122,37 @@ class DatabaseSeeder extends Seeder
                 ['salon_id' => $salon->id, 'user_id' => $stylist->id, 'weekday' => $weekday, 'kind' => AvailabilityKind::Break, 'start_minute' => 12 * 60],
                 ['end_minute' => 13 * 60],
             );
+        }
+
+        // --- A few demo bookings for today (dashboard/appointments) ---------
+        if ($salon->bookings()->count() === 0) {
+            $client = Client::firstOrCreate(
+                ['salon_id' => $salon->id, 'name' => 'Demo Client'],
+                ['phone' => '+15551234567', 'email' => 'demo.client@example.com'],
+            );
+            $today = CarbonImmutable::now($salon->timezone);
+
+            $scheduled = Booking::create([
+                'salon_id' => $salon->id, 'client_id' => $client->id,
+                'status' => BookingStatus::Booked, 'booked_by_type' => BookedByType::SalonOwner,
+                'booked_by_user_id' => $owner->id, 'source' => BookingSource::InApp, 'is_walkin' => false,
+            ]);
+            $scheduled->items()->create([
+                'salon_id' => $salon->id, 'service_id' => $cut->id, 'stylist_id' => $stylist->id,
+                'starts_at' => $today->setTime(10, 0), 'ends_at' => $today->setTime(10, 45),
+            ]);
+            $scheduled->statusEvents()->create(['salon_id' => $salon->id, 'to_status' => BookingStatus::Booked, 'actor_user_id' => $owner->id]);
+
+            $walkin = Booking::create([
+                'salon_id' => $salon->id, 'client_id' => $client->id,
+                'status' => BookingStatus::Arrived, 'booked_by_type' => BookedByType::FrontDesk,
+                'booked_by_user_id' => $frontDesk->id, 'source' => BookingSource::InApp, 'is_walkin' => true,
+            ]);
+            $walkin->items()->create([
+                'salon_id' => $salon->id, 'service_id' => $color->id, 'stylist_id' => $stylist->id,
+                'starts_at' => $today->setTime(14, 0), 'ends_at' => $today->setTime(15, 30),
+            ]);
+            $walkin->statusEvents()->create(['salon_id' => $salon->id, 'to_status' => BookingStatus::Arrived, 'actor_user_id' => $frontDesk->id]);
         }
 
         // --- A second agency + salon (for tenant-isolation checks) ----------

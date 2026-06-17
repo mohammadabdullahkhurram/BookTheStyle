@@ -31,7 +31,7 @@ Route::middleware(['auth'])->group(function () {
     // {salon} before anything inside renders — the request-level tenant boundary.
     // Each screen then authorises the specific capability (manage staff/settings).
     Route::middleware('resolve.salon')->prefix('salons/{salon}')->group(function () {
-        Route::get('/', fn () => view('salon.show', ['salon' => app('currentSalon')]))->name('salon.show');
+        Route::livewire('/', 'pages::salon.dashboard')->name('salon.show');
         Route::livewire('appointments', 'pages::salon.appointments.index')->name('salon.appointments');
         Route::livewire('book', 'pages::salon.bookings.create')->name('salon.bookings.create');
         Route::livewire('clients', 'pages::salon.clients.index')->name('salon.clients');
