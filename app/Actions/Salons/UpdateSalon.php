@@ -23,6 +23,7 @@ class UpdateSalon
 
         $salon->fill([
             'name' => $data['name'],
+            'slug' => $data['slug'],
             'timezone' => $data['timezone'],
             'branding' => $branding === [] ? null : $branding,
             'allow_walkins' => $data['allow_walkins'],

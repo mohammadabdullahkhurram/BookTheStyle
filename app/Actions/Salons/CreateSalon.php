@@ -10,7 +10,7 @@ use App\Models\Salon;
  * (AgencyPolicy::manageSalons) is enforced by the caller before this runs.
  *
  * @phpstan-type SalonInput array{
- *     name: string, timezone: string, accent?: string|null,
+ *     name: string, slug: string, timezone: string, accent?: string|null,
  *     allow_walkins?: bool, allow_same_day?: bool,
  *     max_advance_days?: int, min_notice_minutes?: int
  * }
@@ -24,6 +24,7 @@ class CreateSalon
     {
         return $agency->salons()->create([
             'name' => $data['name'],
+            'slug' => $data['slug'],
             'timezone' => $data['timezone'],
             'active' => true,
             'branding' => isset($data['accent']) && $data['accent']

@@ -68,7 +68,10 @@ new #[Title('Salons')] class extends Component {
                 <tbody class="divide-y divide-border">
                     @forelse ($this->salons as $salon)
                         <tr>
-                            <td class="px-4 py-3 font-medium text-ink">{{ $salon->name }}</td>
+                            <td class="px-4 py-3">
+                                <div class="font-medium text-ink">{{ $salon->name }}</div>
+                                <div class="text-xs text-secondary">{{ $salon->slug }}.{{ config('app.domain') }}</div>
+                            </td>
                             <td class="px-4 py-3 text-secondary">{{ $salon->timezone }}</td>
                             <td class="px-4 py-3 text-secondary">{{ $salon->memberships_count }}</td>
                             <td class="px-4 py-3">

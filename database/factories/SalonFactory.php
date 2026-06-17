@@ -18,6 +18,9 @@ class SalonFactory extends Factory
         return [
             'agency_id' => Agency::factory(),
             'name' => fake()->company().' Salon',
+            // A unique, DNS-safe subdomain label. Tests that need a specific
+            // subdomain pass an explicit slug (e.g. ['slug' => 'demo']).
+            'slug' => fake()->unique()->slug(2, false).'-'.fake()->unique()->numberBetween(1000, 9_999_999),
             'timezone' => 'America/New_York',
             'branding' => null,
             'ghl_location_id' => null,

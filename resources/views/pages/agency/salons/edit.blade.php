@@ -3,35 +3,48 @@
 use App\Actions\Salons\SetSalonActive;
 use App\Actions\Salons\UpdateSalon;
 use App\Models\Salon;
+use App\Rules\SalonSlug;
 use Flux\Flux;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
-use Livewire\Attributes\Validate;
 use Livewire\Component;
 
 new #[Title('Edit salon')] class extends Component {
     public Salon $salon;
 
-    #[Validate('required|string|max:255')]
     public string $name = '';
 
-    #[Validate('required|timezone:all')]
+    public string $slug = '';
+
     public string $timezone = '';
 
-    #[Validate('nullable|regex:/^#[0-9a-fA-F]{6}$/')]
     public string $accent = '';
 
-    #[Validate('boolean')]
     public bool $allow_walkins = true;
 
-    #[Validate('boolean')]
     public bool $allow_same_day = true;
 
-    #[Validate('required|integer|min:1|max:365')]
     public int $max_advance_days = 90;
 
-    #[Validate('required|integer|min:0|max:10080')]
     public int $min_notice_minutes = 0;
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function rules(): array
+    {
+        return [
+            'name' => ['required', 'string', 'max:255'],
+            'slug' => ['required', 'string', new SalonSlug, Rule::unique('salons', 'slug')->ignore($this->salon->id)],
+            'timezone' => ['required', 'timezone:all'],
+            'accent' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'allow_walkins' => ['boolean'],
+            'allow_same_day' => ['boolean'],
+            'max_advance_days' => ['required', 'integer', 'min:1', 'max:365'],
+            'min_notice_minutes' => ['required', 'integer', 'min:0', 'max:10080'],
+        ];
+    }
 
     public function mount(Salon $salon): void
     {
@@ -40,6 +53,7 @@ new #[Title('Edit salon')] class extends Component {
 
         $this->salon = $salon;
         $this->name = $salon->name;
+        $this->slug = $salon->slug;
         $this->timezone = $salon->timezone;
         $this->accent = $salon->accentColor() ?? '';
         $this->allow_walkins = $salon->allow_walkins;
@@ -93,6 +107,10 @@ new #[Title('Edit salon')] class extends Component {
 
         <form wire:submit="save" class="flex flex-col gap-6 rounded-xl border border-border bg-card p-6 shadow-sm">
             <flux:input wire:model="name" :label="__('Salon name')" required />
+
+            <flux:input wire:model="slug" :label="__('Subdomain slug')"
+                :description="__('Reached at {slug}.bookthestyle.com. Changing it changes the salon\'s URL.')"
+                required />
 
             <flux:select wire:model="timezone" :label="__('Timezone')">
                 @foreach ($this->timezones as $tz)

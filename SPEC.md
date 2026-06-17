@@ -72,7 +72,7 @@ Agency Owner/Admin inherit all sub-account capabilities across their assigned sa
 - **Resolution & isolation:** a `ResolveSalon` middleware looks up the salon by the subdomain slug, 404s an unknown or inactive slug, and enforces membership/operator reach (403 otherwise) — exactly the same authorization as before; only the resolution *source* changed from route param to Host. Tenant isolation stays fully server-side.
 - **Sessions are shared across subdomains** by scoping the session cookie to the parent domain (`SESSION_DOMAIN=.bookthestyle.com`), so a user who logs in on the apex stays logged in on any salon subdomain (while still getting a 403 on salons they don't belong to). Cookies remain HttpOnly + Secure + SameSite.
 - **Deploy (Phase 7 concern, out of scope here):** wildcard DNS (`*.bookthestyle.com`) and a wildcard TLS certificate are required in production; custom per-salon domains are a possible future extension.
-- **Local development** uses `*.localhost` (modern browsers route `*.localhost` to `127.0.0.1` with no `/etc/hosts` edits): the central app at `http://localhost:8000`, a salon at `http://{slug}.localhost:8000` (e.g. `http://demo.localhost:8000`). Set `APP_DOMAIN=localhost` and `SESSION_DOMAIN=localhost` locally.
+- **Local development** uses `*.localhost` (modern browsers route `*.localhost` to `127.0.0.1` with no `/etc/hosts` edits): the central app at `http://localhost:8000`, a salon at `http://{slug}.localhost:8000` (e.g. `http://demo.localhost:8000`). Set `APP_DOMAIN=localhost` and `SESSION_DOMAIN=.localhost` (leading dot, to share the session across subdomains) locally.
 
 ---
 

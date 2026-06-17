@@ -88,7 +88,11 @@ return [
 
     'prefix' => '',
 
-    'domain' => null,
+    // All authentication lives on the central (apex) domain — never on a salon
+    // subdomain. Pinning Fortify's routes here means route('login') etc. always
+    // generate apex URLs, so a guest who lands on a salon subdomain is bounced
+    // to the apex login and returns to the apex salon picker after signing in.
+    'domain' => env('APP_DOMAIN', 'localhost'),
 
     /*
     |--------------------------------------------------------------------------

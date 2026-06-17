@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $id
  * @property int $agency_id
  * @property string $name
+ * @property string $slug
  * @property string $timezone
  * @property bool $active
  * @property array<string, mixed>|null $branding
@@ -33,6 +34,7 @@ class Salon extends Model
     protected $fillable = [
         'agency_id',
         'name',
+        'slug',
         'timezone',
         'active',
         'branding',
@@ -62,6 +64,16 @@ class Salon extends Model
             'max_advance_days' => 'integer',
             'min_notice_minutes' => 'integer',
         ];
+    }
+
+    /**
+     * Salons are addressed by their subdomain slug everywhere in the app — the
+     * salon subdomain ({slug}.{app.domain}) and the agency console both bind and
+     * generate URLs by slug rather than id. Slugs are globally unique.
+     */
+    public function getRouteKeyName(): string
+    {
+        return 'slug';
     }
 
     /**

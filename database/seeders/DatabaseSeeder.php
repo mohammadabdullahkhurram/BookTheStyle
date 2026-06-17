@@ -64,6 +64,7 @@ class DatabaseSeeder extends Seeder
         $salon = Salon::firstOrCreate(
             ['agency_id' => $agency->id, 'name' => 'Demo Salon'],
             [
+                'slug' => 'demo',
                 'timezone' => 'America/New_York',
                 'allow_walkins' => true,
                 'allow_same_day' => true,
@@ -159,7 +160,7 @@ class DatabaseSeeder extends Seeder
         $otherAgency = Agency::firstOrCreate(['name' => 'Rival Agency']);
         $otherSalon = Salon::firstOrCreate(
             ['agency_id' => $otherAgency->id, 'name' => 'Other Salon'],
-            ['timezone' => 'America/Los_Angeles']
+            ['slug' => 'other', 'timezone' => 'America/Los_Angeles']
         );
 
         $otherOwner = $this->user('owner@other-salon.test', 'Owen Other', [

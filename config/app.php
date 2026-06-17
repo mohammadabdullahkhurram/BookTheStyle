@@ -56,6 +56,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Central (apex) Domain
+    |--------------------------------------------------------------------------
+    |
+    | The platform's apex domain. Central/system routes (marketing, auth, the
+    | agency console, /cal, /webhooks) live here, and each salon is served from
+    | a subdomain of it ({slug}.{domain}). Production: bookthestyle.com; local
+    | development: localhost (browsers route *.localhost to 127.0.0.1).
+    |
+    */
+
+    'domain' => env('APP_DOMAIN', 'localhost'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |

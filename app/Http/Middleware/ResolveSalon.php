@@ -9,17 +9,20 @@ use Illuminate\Support\Facades\View;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Resolves the active salon for a request and enforces membership.
+ * Resolves the active salon for a request from the subdomain slug and enforces
+ * membership.
  *
- * The salon id comes from the route ({salon}) or, failing that, the session.
- * The authenticated user MUST have an active membership for that salon (or be a
- * privileged agency user within the same agency); otherwise we abort 403. This
- * is the request-level tenant-isolation boundary — it is what stops a user
- * swapping a salon id in the URL to reach another salon (IDOR).
+ * The slug is the {salon} domain parameter of the salon subdomain group
+ * ({slug}.{app.domain}) — i.e. it comes from the request Host, not a path
+ * segment. An unknown or inactive slug is a 404 (the salon simply isn't a
+ * reachable tenant). The authenticated user MUST then have an active membership
+ * for that salon (or be a privileged agency user within the same agency);
+ * otherwise we abort 403. This is the request-level tenant-isolation boundary —
+ * it is what stops a logged-in user from reaching another salon's subdomain.
  *
- * On success the resolved Salon is bound in the container as `currentSalon`
- * and shared to views, so the active tenant is available to salon-scoped
- * queries and the UI for the rest of the request.
+ * On success the resolved Salon is bound in the container as `currentSalon`,
+ * re-bound as the `salon` route parameter (so component mounts receive the
+ * active-checked instance), and shared to views.
  */
 class ResolveSalon
 {
@@ -31,18 +34,22 @@ class ResolveSalon
             abort(403);
         }
 
-        $salonId = $request->route('salon') ?? $request->session()->get('current_salon_id');
+        // The {salon} domain parameter. Implicit binding may already have turned
+        // it into a Salon; otherwise it is the raw slug string from the Host.
+        $param = $request->route('salon');
+        $slug = $param instanceof Salon ? $param->slug : $param;
 
-        // A route param may already be a bound Salon model; normalise to id.
-        if ($salonId instanceof Salon) {
-            $salonId = $salonId->id;
-        }
-
-        if (empty($salonId)) {
+        if (! is_string($slug) || $slug === '') {
             abort(404);
         }
 
-        $salon = Salon::find((int) $salonId);
+        // Unknown OR inactive slug → 404: it is not a reachable tenant. (Active
+        // status is checked here, not by route binding, so deactivated salons
+        // disappear from the public subdomain entirely.)
+        $salon = Salon::query()
+            ->where('slug', $slug)
+            ->where('active', true)
+            ->first();
 
         if ($salon === null) {
             abort(404);
@@ -54,7 +61,7 @@ class ResolveSalon
         }
 
         app()->instance('currentSalon', $salon);
-        $request->session()->put('current_salon_id', $salon->id);
+        $request->route()?->setParameter('salon', $salon);
         View::share('currentSalon', $salon);
 
         return $next($request);

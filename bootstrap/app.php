@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\EnsurePasswordChanged;
 use App\Http\Middleware\ResolveSalon;
+use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -15,8 +16,10 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         // Force first-login password change before any other authenticated page.
+        // SecurityHeaders adds the CSP + hardening headers to every web response.
         $middleware->web(append: [
             EnsurePasswordChanged::class,
+            SecurityHeaders::class,
         ]);
 
         // Resolves + authorises the active salon (tenant-isolation boundary).
