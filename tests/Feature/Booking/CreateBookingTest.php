@@ -6,9 +6,7 @@ use App\Enums\BookingStatus;
 use App\Models\Booking;
 use App\Models\BookingItem;
 use App\Models\Client;
-use App\Models\Salon;
 use App\Models\Service;
-use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Carbon;
@@ -17,24 +15,7 @@ use Illuminate\Validation\ValidationException;
 beforeEach(fn () => Carbon::setTestNow(CarbonImmutable::parse('2026-06-22 12:00:00', 'UTC'))); // Mon 08:00 EDT
 afterEach(fn () => Carbon::setTestNow());
 
-function serviceFor(Salon $salon, User $stylist, int $duration = 60): Service
-{
-    $service = Service::factory()->create(['salon_id' => $salon->id, 'duration_min' => $duration]);
-    $service->stylists()->attach($stylist->id, ['salon_id' => $salon->id]);
-
-    return $service;
-}
-
-function bookingData(array $overrides = []): array
-{
-    return array_merge([
-        'client' => ['name' => 'Walk-in Client'],
-        'items' => [],
-        'start' => '2026-06-22 10:00',
-        'is_walkin' => false,
-        'notes' => null,
-    ], $overrides);
-}
+// serviceFor() / bookingData() / makeBooking() live in tests/Pest.php.
 
 it('creates a multi-service booking with sequential back-to-back blocks', function () {
     $salon = bookingSalon();

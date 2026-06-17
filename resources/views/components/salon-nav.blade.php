@@ -8,7 +8,12 @@
 
 <nav class="flex items-center gap-1 rounded-lg border border-border bg-card p-1 shadow-xs">
     <a href="{{ route('salon.show', $salon) }}" wire:navigate
-       class="{{ $tab }} {{ request()->routeIs('salon.show') ? $active : $idle }}">{{ __('Overview') }}</a>
+       class="{{ $tab }} {{ request()->routeIs('salon.show') ? $active : $idle }}">{{ __('Today') }}</a>
+
+    @can('accessBookings', $salon)
+        <a href="{{ route('salon.appointments', $salon) }}" wire:navigate
+           class="{{ $tab }} {{ request()->routeIs('salon.appointments') || request()->routeIs('salon.bookings.create') ? $active : $idle }}">{{ __('Appointments') }}</a>
+    @endcan
 
     @can('manageBookings', $salon)
         <a href="{{ route('salon.clients', $salon) }}" wire:navigate

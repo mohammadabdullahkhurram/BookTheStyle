@@ -32,6 +32,8 @@ Route::middleware(['auth'])->group(function () {
     // Each screen then authorises the specific capability (manage staff/settings).
     Route::middleware('resolve.salon')->prefix('salons/{salon}')->group(function () {
         Route::get('/', fn () => view('salon.show', ['salon' => app('currentSalon')]))->name('salon.show');
+        Route::livewire('appointments', 'pages::salon.appointments.index')->name('salon.appointments');
+        Route::livewire('book', 'pages::salon.bookings.create')->name('salon.bookings.create');
         Route::livewire('clients', 'pages::salon.clients.index')->name('salon.clients');
         Route::livewire('staff', 'pages::salon.staff.index')->name('salon.staff');
         Route::livewire('services', 'pages::salon.services.index')->name('salon.services');

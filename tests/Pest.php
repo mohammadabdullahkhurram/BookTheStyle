@@ -1,8 +1,11 @@
 <?php
 
+use App\Actions\Bookings\CreateBooking;
 use App\Models\Availability;
+use App\Models\Booking;
 use App\Models\Salon;
 use App\Models\SalonMembership;
+use App\Models\Service;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -76,4 +79,38 @@ function stylistWithHours(Salon $salon, int $weekday, int $startMin, int $endMin
     ]);
 
     return $stylist;
+}
+
+function serviceFor(Salon $salon, User $stylist, int $duration = 60): Service
+{
+    $service = Service::factory()->create(['salon_id' => $salon->id, 'duration_min' => $duration]);
+    $service->stylists()->attach($stylist->id, ['salon_id' => $salon->id]);
+
+    return $service;
+}
+
+/**
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function bookingData(array $overrides = []): array
+{
+    return array_merge([
+        'client' => ['name' => 'Walk-in Client'],
+        'items' => [],
+        'start' => '2026-06-22 10:00',
+        'is_walkin' => false,
+        'notes' => null,
+    ], $overrides);
+}
+
+function makeBooking(Salon $salon, User $actor, User $stylist, Service $service, string $start = '2026-06-22 10:00', string $clientName = 'Casey Client'): Booking
+{
+    return app(CreateBooking::class)->handle($actor, $salon, [
+        'client' => ['name' => $clientName],
+        'items' => [['service_id' => $service->id, 'stylist_id' => $stylist->id]],
+        'start' => $start,
+        'is_walkin' => false,
+        'notes' => null,
+    ]);
 }
