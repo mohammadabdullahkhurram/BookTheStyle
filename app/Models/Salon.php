@@ -111,6 +111,14 @@ class Salon extends Model
     }
 
     /**
+     * @return HasMany<Client, $this>
+     */
+    public function clients(): HasMany
+    {
+        return $this->hasMany(Client::class);
+    }
+
+    /**
      * Active stylists in this salon (members with staff_type = stylist). These
      * are the users eligible for service assignment and availability.
      *

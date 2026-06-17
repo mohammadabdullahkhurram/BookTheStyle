@@ -10,6 +10,11 @@
     <a href="{{ route('salon.show', $salon) }}" wire:navigate
        class="{{ $tab }} {{ request()->routeIs('salon.show') ? $active : $idle }}">{{ __('Overview') }}</a>
 
+    @can('manageBookings', $salon)
+        <a href="{{ route('salon.clients', $salon) }}" wire:navigate
+           class="{{ $tab }} {{ request()->routeIs('salon.clients') ? $active : $idle }}">{{ __('Clients') }}</a>
+    @endcan
+
     @can('manageStaff', $salon)
         <a href="{{ route('salon.staff', $salon) }}" wire:navigate
            class="{{ $tab }} {{ request()->routeIs('salon.staff') ? $active : $idle }}">{{ __('Staff') }}</a>

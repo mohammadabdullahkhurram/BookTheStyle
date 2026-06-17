@@ -61,6 +61,31 @@ class SalonPolicy
     }
 
     /**
+     * Front-desk-level booking capability: create/edit/cancel any booking,
+     * check clients in, and manage clients. Owner/admin (and agency operators)
+     * via `manage`, plus front desk. Stylists are NOT included here — they only
+     * see their own bookings/clients.
+     */
+    public function manageBookings(User $user, Salon $salon): bool
+    {
+        if ($this->manage($user, $salon)) {
+            return true;
+        }
+
+        return $user->membershipFor($salon)?->staff_type === StaffType::FrontDesk;
+    }
+
+    /**
+     * May reach the bookings area at all (dashboard/appointments): front desk +
+     * managers manage everything; a stylist sees only their own.
+     */
+    public function accessBookings(User $user, Salon $salon): bool
+    {
+        return $this->manageBookings($user, $salon)
+            || $user->stylistMembershipFor($salon) !== null;
+    }
+
+    /**
      * Only the salon owner connects/configures the salon's GHL (SPEC §3).
      */
     public function connectGhl(User $user, Salon $salon): bool
