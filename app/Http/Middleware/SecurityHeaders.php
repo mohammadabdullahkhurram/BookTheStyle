@@ -31,22 +31,31 @@ class SecurityHeaders
 
         $script = "'self' 'unsafe-inline' 'unsafe-eval'";
         $style = "'self' 'unsafe-inline'";
+        $img = "'self' data:";
+        $font = "'self' data:";
         $connect = "'self'";
 
-        // Allow the Vite dev server (npm run dev) when developing locally so HMR
-        // over http + websocket is not blocked. Never widened in production.
+        // Local dev only: allow the Vite dev server (npm run dev). It serves the
+        // module scripts, the injected <link> stylesheets, fonts/source maps, and
+        // the HMR websocket — across whichever loopback host it resolves to
+        // (localhost / 127.0.0.1 / [::1]; the hot file commonly uses [::1]) on
+        // whatever port it picked. Production CSP is never widened by this.
         if (app()->environment('local')) {
-            $script .= ' http://localhost:5173 http://[::1]:5173';
-            $style .= ' http://localhost:5173';
-            $connect .= ' http://localhost:5173 ws://localhost:5173 ws://[::1]:5173';
+            $http = 'http://localhost:* http://127.0.0.1:* http://[::1]:*';
+            $ws = 'ws://localhost:* ws://127.0.0.1:* ws://[::1]:*';
+            $script .= " {$http}";
+            $style .= " {$http}";
+            $img .= " {$http}";
+            $font .= " {$http}";
+            $connect .= " {$http} {$ws}";
         }
 
         $csp = implode('; ', [
             "default-src 'self'",
             "script-src {$script}",
             "style-src {$style}",
-            "img-src 'self' data:",
-            "font-src 'self' data:",
+            "img-src {$img}",
+            "font-src {$font}",
             "connect-src {$connect}",
             "object-src 'none'",
             "base-uri 'self'",
