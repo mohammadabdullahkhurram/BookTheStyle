@@ -119,6 +119,14 @@ class Salon extends Model
     }
 
     /**
+     * @return HasMany<Booking, $this>
+     */
+    public function bookings(): HasMany
+    {
+        return $this->hasMany(Booking::class);
+    }
+
+    /**
      * Active stylists in this salon (members with staff_type = stylist). These
      * are the users eligible for service assignment and availability.
      *

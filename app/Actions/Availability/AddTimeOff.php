@@ -7,8 +7,8 @@ use App\Models\Salon;
 use App\Models\TimeOff;
 use App\Models\User;
 use App\Support\Permissions\AvailabilityAccess;
+use Carbon\CarbonImmutable;
 use Illuminate\Auth\Access\AuthorizationException;
-use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -34,8 +34,9 @@ class AddTimeOff
         }
 
         $type = TimeOffType::from($data['type']);
-        $start = Carbon::parse($data['starts_at']);
-        $end = Carbon::parse($data['ends_at']);
+        // Input is salon-local wall time; the model stores it as a UTC instant.
+        $start = CarbonImmutable::parse($data['starts_at'], $salon->timezone);
+        $end = CarbonImmutable::parse($data['ends_at'], $salon->timezone);
 
         if ($end->lessThanOrEqualTo($start)) {
             throw ValidationException::withMessages([

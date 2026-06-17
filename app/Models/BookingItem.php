@@ -2,49 +2,39 @@
 
 namespace App\Models;
 
-use App\Enums\TimeOffType;
 use App\Models\Concerns\BelongsToSalon;
 use Carbon\CarbonImmutable;
-use Database\Factories\TimeOffFactory;
+use Database\Factories\BookingItemFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * A one-off time-off block that overrides a stylist's weekly availability.
- * starts_at/ends_at are absolute instants stored in UTC.
+ * One service within a visit, in one stylist's time block. starts_at/ends_at
+ * are absolute instants stored in UTC (normalised by StoresUtcTimes).
  *
  * @property int $id
  * @property int $salon_id
- * @property int $user_id
- * @property TimeOffType $type
- * @property string|null $note
+ * @property int $booking_id
+ * @property int $service_id
+ * @property int $stylist_id
  * @property CarbonImmutable $starts_at
  * @property CarbonImmutable $ends_at
  */
-class TimeOff extends Model
+class BookingItem extends Model
 {
-    /** @use HasFactory<TimeOffFactory> */
+    /** @use HasFactory<BookingItemFactory> */
     use BelongsToSalon, HasFactory;
-
-    protected $table = 'time_off';
 
     protected $fillable = [
         'salon_id',
-        'user_id',
-        'type',
-        'note',
+        'booking_id',
+        'service_id',
+        'stylist_id',
         'starts_at',
         'ends_at',
     ];
-
-    protected function casts(): array
-    {
-        return [
-            'type' => TimeOffType::class,
-        ];
-    }
 
     /**
      * @return Attribute<CarbonImmutable|null, mixed>
@@ -69,10 +59,26 @@ class TimeOff extends Model
     }
 
     /**
+     * @return BelongsTo<Booking, $this>
+     */
+    public function booking(): BelongsTo
+    {
+        return $this->belongsTo(Booking::class);
+    }
+
+    /**
+     * @return BelongsTo<Service, $this>
+     */
+    public function service(): BelongsTo
+    {
+        return $this->belongsTo(Service::class);
+    }
+
+    /**
      * @return BelongsTo<User, $this>
      */
-    public function user(): BelongsTo
+    public function stylist(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'stylist_id');
     }
 }

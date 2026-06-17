@@ -6,6 +6,7 @@ use App\Models\Concerns\BelongsToSalon;
 use Database\Factories\ClientFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * A salon's client (SPEC §4). Salon-scoped; ghl_contact_id is reserved for
@@ -30,4 +31,12 @@ class Client extends Model
         'email',
         'ghl_contact_id',
     ];
+
+    /**
+     * @return HasMany<Booking, $this>
+     */
+    public function bookings(): HasMany
+    {
+        return $this->hasMany(Booking::class);
+    }
 }
