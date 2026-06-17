@@ -63,6 +63,17 @@ Agency users may span multiple salons; salon users belong to one or more salons 
 
 Agency Owner/Admin inherit all sub-account capabilities across their assigned salons.
 
+### 3.1 Domain & tenant routing (subdomain-based)
+
+- **Production domain:** `bookthestyle.com`.
+- **Tenancy is subdomain-based.** Each salon is reached at `{slug}.bookthestyle.com`, where `slug` is a unique, URL-safe salon identifier. The active tenant is resolved from the request **Host** (the subdomain), not from a path segment — there is no `/salons/{id}` URL.
+- **Central / system routes live on the apex** (`bookthestyle.com`): marketing/landing, **all** authentication (login, logout, forced first-login password change), account settings, the agency console (`/agency…`), and the reserved system paths `/cal` (personal-calendar ICS feeds, Phase 5) and `/webhooks` (GHL inbound, Phase 6).
+- **Reserved subdomains** salons may not claim (they belong to system/central use): `www, app, api, admin, mail, cal, webhooks, assets, static, help, support, status`.
+- **Resolution & isolation:** a `ResolveSalon` middleware looks up the salon by the subdomain slug, 404s an unknown or inactive slug, and enforces membership/operator reach (403 otherwise) — exactly the same authorization as before; only the resolution *source* changed from route param to Host. Tenant isolation stays fully server-side.
+- **Sessions are shared across subdomains** by scoping the session cookie to the parent domain (`SESSION_DOMAIN=.bookthestyle.com`), so a user who logs in on the apex stays logged in on any salon subdomain (while still getting a 403 on salons they don't belong to). Cookies remain HttpOnly + Secure + SameSite.
+- **Deploy (Phase 7 concern, out of scope here):** wildcard DNS (`*.bookthestyle.com`) and a wildcard TLS certificate are required in production; custom per-salon domains are a possible future extension.
+- **Local development** uses `*.localhost` (modern browsers route `*.localhost` to `127.0.0.1` with no `/etc/hosts` edits): the central app at `http://localhost:8000`, a salon at `http://{slug}.localhost:8000` (e.g. `http://demo.localhost:8000`). Set `APP_DOMAIN=localhost` and `SESSION_DOMAIN=localhost` locally.
+
 ---
 
 ## 4. Domain model
