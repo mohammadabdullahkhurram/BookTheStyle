@@ -11,6 +11,9 @@
        class="{{ $tab }} {{ request()->routeIs('salon.show') ? $active : $idle }}">{{ __('Today') }}</a>
 
     @can('accessBookings', $salon)
+        <a href="{{ route('salon.calendar', $salon) }}" wire:navigate
+           class="{{ $tab }} {{ request()->routeIs('salon.calendar') ? $active : $idle }}">{{ __('Calendar') }}</a>
+
         <a href="{{ route('salon.appointments', $salon) }}" wire:navigate
            class="{{ $tab }} {{ request()->routeIs('salon.appointments') || request()->routeIs('salon.bookings.create') ? $active : $idle }}">{{ __('Appointments') }}</a>
     @endcan

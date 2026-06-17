@@ -51,6 +51,7 @@ Route::domain($central)->group(function () {
 */
 Route::domain('{salon}.'.$central)->middleware(['auth', 'resolve.salon'])->group(function () {
     Route::livewire('/', 'pages::salon.dashboard')->name('salon.show');
+    Route::livewire('calendar', 'pages::salon.calendar')->name('salon.calendar');
     Route::livewire('appointments', 'pages::salon.appointments.index')->name('salon.appointments');
     Route::livewire('book', 'pages::salon.bookings.create')->name('salon.bookings.create');
     Route::livewire('clients', 'pages::salon.clients.index')->name('salon.clients');

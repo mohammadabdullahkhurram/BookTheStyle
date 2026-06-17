@@ -37,8 +37,23 @@ new #[Title('New booking')] class extends Component {
         $this->items = [['service_id' => '', 'stylist_id' => '']];
 
         // A stylist booking their own visit is locked to themselves.
-        if (! Auth::user()->can('manageBookings', $salon) && Auth::user()->stylistMembershipFor($salon)) {
+        $isStylist = ! Auth::user()->can('manageBookings', $salon) && Auth::user()->stylistMembershipFor($salon);
+        if ($isStylist) {
             $this->items = [['service_id' => '', 'stylist_id' => (string) Auth::id()]];
+        }
+
+        // Click-to-book prefill from the calendar (date/time, and stylist for a
+        // manager). Conveniences only — CreateBooking re-validates everything,
+        // so a stale or hand-edited value can never bypass the slot engine.
+        $request = request();
+        if ($request->filled('date')) {
+            $this->date = $request->date('date')?->format('Y-m-d') ?? $this->date;
+        }
+        if ($request->filled('time') && preg_match('/^\d{2}:\d{2}$/', (string) $request->query('time'))) {
+            $this->startTime = (string) $request->query('time');
+        }
+        if (! $isStylist && $request->filled('stylist')) {
+            $this->items[0]['stylist_id'] = (string) (int) $request->query('stylist');
         }
     }
 
