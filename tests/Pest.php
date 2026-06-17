@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Availability;
 use App\Models\Salon;
 use App\Models\SalonMembership;
 use App\Models\User;
@@ -46,4 +47,33 @@ function frontDeskOf(Salon $salon): User
     SalonMembership::factory()->for($user)->for($salon)->frontDesk()->create();
 
     return $user;
+}
+
+/**
+ * A salon with America/New_York timezone and lenient booking policy, used by the
+ * slot-engine and booking tests (override the policy as needed).
+ *
+ * @param  array<string, mixed>  $overrides
+ */
+function bookingSalon(array $overrides = []): Salon
+{
+    return Salon::factory()->create(array_merge([
+        'timezone' => 'America/New_York',
+        'allow_walkins' => true,
+        'allow_same_day' => true,
+        'max_advance_days' => 90,
+        'min_notice_minutes' => 0,
+    ], $overrides));
+}
+
+function stylistWithHours(Salon $salon, int $weekday, int $startMin, int $endMin, ?User $stylist = null): User
+{
+    $stylist ??= stylistOf($salon);
+    Availability::factory()->create([
+        'salon_id' => $salon->id, 'user_id' => $stylist->id,
+        'weekday' => $weekday, 'kind' => 'work',
+        'start_minute' => $startMin, 'end_minute' => $endMin,
+    ]);
+
+    return $stylist;
 }

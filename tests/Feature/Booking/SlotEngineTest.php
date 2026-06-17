@@ -7,7 +7,6 @@ use App\Models\Client;
 use App\Models\Salon;
 use App\Models\Service;
 use App\Models\TimeOff;
-use App\Models\User;
 use App\Services\Booking\BookingPolicy;
 use App\Services\Booking\SlotEngine;
 use Carbon\CarbonImmutable;
@@ -27,28 +26,7 @@ beforeEach(function () {
 
 afterEach(fn () => Carbon::setTestNow());
 
-function bookingSalon(array $overrides = []): Salon
-{
-    return Salon::factory()->create(array_merge([
-        'timezone' => TZ,
-        'allow_walkins' => true,
-        'allow_same_day' => true,
-        'max_advance_days' => 90,
-        'min_notice_minutes' => 0,
-    ], $overrides));
-}
-
-function stylistWithHours(Salon $salon, int $weekday, int $startMin, int $endMin, ?User $stylist = null): User
-{
-    $stylist ??= stylistOf($salon);
-    Availability::factory()->create([
-        'salon_id' => $salon->id, 'user_id' => $stylist->id,
-        'weekday' => $weekday, 'kind' => 'work',
-        'start_minute' => $startMin, 'end_minute' => $endMin,
-    ]);
-
-    return $stylist;
-}
+// bookingSalon() and stylistWithHours() live in tests/Pest.php.
 
 /** @return list<string> slot start times as H:i in the salon tz */
 function slotTimes(array $slots): array

@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * One service within a visit, in one stylist's time block. starts_at/ends_at
- * are absolute instants stored in UTC (normalised by StoresUtcTimes).
+ * are absolute instants stored in UTC.
  *
  * @property int $id
  * @property int $salon_id
