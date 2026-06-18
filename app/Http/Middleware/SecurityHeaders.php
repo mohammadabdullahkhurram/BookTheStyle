@@ -17,6 +17,8 @@ use Symfony\Component\HttpFoundation\Response;
  *   - object-src 'none'            — no plugins.
  *   - base-uri 'self'              — block <base> tag hijacking.
  *   - frame-ancestors 'self'       — clickjacking protection (with X-Frame-Options).
+ *   - frame-src 'self'             — strict, except the register host adds the
+ *                                    configured book-a-call embed origin.
  *
  * script-src/style-src keep 'unsafe-inline' + 'unsafe-eval' because Livewire,
  * Alpine and Flux evaluate inline expressions, and @fonts / the per-salon accent
@@ -36,6 +38,17 @@ class SecurityHeaders
         $img = "'self' data:";
         $font = "'self' data:";
         $connect = "'self'";
+
+        // frame-src is strict ('self') everywhere EXCEPT the public register
+        // (book-a-call) host, which embeds a GoHighLevel calendar iframe. The
+        // allowed embed origin is configurable; production stays strict elsewhere.
+        $frame = "'self'";
+        if ($request->getHost() === 'register.'.config('app.domain')) {
+            $embed = trim((string) config('app.register_embed_frame_src', ''));
+            if ($embed !== '') {
+                $frame .= ' '.$embed;
+            }
+        }
 
         // Local dev only: widen the allow-list to the origins a local browser
         // actually hits. These are NOT 'self' on a salon subdomain:
@@ -70,6 +83,7 @@ class SecurityHeaders
             "img-src {$img}",
             "font-src {$font}",
             "connect-src {$connect}",
+            "frame-src {$frame}",
             "object-src 'none'",
             "base-uri 'self'",
             "frame-ancestors 'self'",

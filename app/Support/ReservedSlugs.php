@@ -4,10 +4,10 @@ namespace App\Support;
 
 /**
  * System subdomains that salons may NOT claim as their slug. These belong to
- * central/apex use (marketing, auth, agency console) or reserved system paths
- * such as /cal (Phase 5) and /webhooks (Phase 6). A salon slug becomes a live
- * subdomain ({slug}.bookthestyle.com), so collisions here would shadow the
- * platform itself.
+ * platform use: the apex marketing site, app.{domain} (the application + auth),
+ * register.{domain} (book a call), or reserved system paths such as /cal
+ * (Phase 5) and /webhooks (Phase 6). A salon slug becomes a live subdomain
+ * ({slug}.bookthestyle.com), so collisions here would shadow the platform.
  */
 final class ReservedSlugs
 {
@@ -17,6 +17,7 @@ final class ReservedSlugs
     public const LIST = [
         'www',
         'app',
+        'register',
         'api',
         'admin',
         'mail',

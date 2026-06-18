@@ -58,27 +58,28 @@ it('redirects a guest on a salon subdomain to login rather than revealing the te
         ->assertRedirect(route('login'));
 });
 
-it('shares the login session from the central domain to a salon subdomain', function () {
+it('shares the login session from the app domain to a salon subdomain', function () {
     $salon = Salon::factory()->create(['slug' => 'demo', 'name' => 'Demo Salon']);
     $owner = salonOwnerOf($salon); // factory users use the password "password"
 
-    $apex = config('app.domain');     // lvh.me  (registrable loopback)
-    $sub = 'demo.'.$apex;             // demo.lvh.me
+    $appHost = 'app.'.config('app.domain'); // app.lvh.me — where login lives
+    $sub = 'demo.'.config('app.domain');    // demo.lvh.me
 
-    // 1) Log in on the central (apex) domain.
+    // 1) Log in on the application domain (Fortify is pinned to app.).
+    expect(route('login.store'))->toBe('http://'.$appHost.'/login');
     $this->post(route('login.store'), [
         'email' => $owner->email,
         'password' => 'password',
     ])->assertRedirect();
     $this->assertAuthenticatedAs($owner);
 
-    // 2) The session cookie must be scoped so a real browser shares it from the
-    //    apex to the salon subdomain. This is the part Laravel's test client does
-    //    not enforce — and exactly what .localhost gets wrong.
+    // 2) The session cookie must be scoped so a real browser shares it from app.
+    //    to the salon subdomain. This is the part Laravel's test client does not
+    //    enforce — and exactly what .localhost gets wrong.
     $cookieDomain = config('session.domain');
     expect($cookieDomain)->not->toBeNull();
     expect($cookieDomain)->not->toBe('.localhost');
-    expect(browserSharesCookie($cookieDomain, $apex, $sub))->toBeTrue();
+    expect(browserSharesCookie($cookieDomain, $appHost, $sub))->toBeTrue();
 
     // 3) The SAME session is authenticated on the salon subdomain — a rendered
     //    dashboard, NOT a bounce to the login screen.

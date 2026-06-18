@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
+use Laravel\Fortify\Contracts\LogoutResponse;
 use Laravel\Fortify\Fortify;
 
 class FortifyServiceProvider extends ServiceProvider
@@ -18,7 +19,17 @@ class FortifyServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Auth lives on app.{domain}; after logout send the (now guest) user to
+        // the public marketing landing on the apex rather than back to app./ —
+        // which would just bounce them to the login screen. route('home') is a
+        // server-generated apex URL, so there is no open-redirect surface.
+        $this->app->instance(LogoutResponse::class, new class implements LogoutResponse
+        {
+            public function toResponse($request)
+            {
+                return redirect()->route('home');
+            }
+        });
     }
 
     /**

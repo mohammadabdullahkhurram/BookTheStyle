@@ -3,51 +3,84 @@
 use App\Http\Controllers\Auth\PasswordChangeController;
 use Illuminate\Support\Facades\Route;
 
-$central = config('app.domain');
+$central = config('app.domain');     // apex, e.g. bookthestyle.com / lvh.me
+$app = 'app.'.$central;              // the application
+$register = 'register.'.$central;   // public "book a call"
 
 /*
 |--------------------------------------------------------------------------
-| Central / apex domain  ({app.domain})
+| Apex  ({app.domain})  — public marketing
 |--------------------------------------------------------------------------
-| Marketing, all authentication, account settings, and the agency console
-| live on the apex. They are constrained to the apex host so they never
-| resolve on a salon subdomain (where "/" is the salon dashboard instead).
+| The landing page only. No auth, no tenant data. "Book a call" points at
+| register.{domain}; "Log in" points at app.{domain}/login.
 */
 Route::domain($central)->group(function () {
     Route::view('/', 'welcome')->name('home');
-
-    Route::middleware(['auth'])->group(function () {
-        // Forced first-login password change. Reachable even while flagged so the
-        // user is never trapped by EnsurePasswordChanged.
-        Route::get('password/change', [PasswordChangeController::class, 'show'])->name('password.change');
-        Route::put('password/change', [PasswordChangeController::class, 'update'])->name('password.change.update');
-
-        // The salon picker / landing after login.
-        Route::view('dashboard', 'dashboard')->name('dashboard');
-
-        // Agency console (agency owners/admins). Each screen authorises against the
-        // actor's own agency and rejects out-of-agency {salon}/{user} ids with 403.
-        Route::prefix('agency')->name('agency.')->group(function () {
-            Route::livewire('/', 'pages::agency.overview')->name('overview');
-            Route::livewire('salons', 'pages::agency.salons.index')->name('salons.index');
-            Route::livewire('salons/create', 'pages::agency.salons.create')->name('salons.create');
-            Route::livewire('salons/{salon}/edit', 'pages::agency.salons.edit')->name('salons.edit');
-            Route::livewire('users', 'pages::agency.users.index')->name('users.index');
-            Route::livewire('users/create', 'pages::agency.users.create')->name('users.create');
-            Route::livewire('users/{user}/edit', 'pages::agency.users.edit')->name('users.edit');
-        });
-    });
 });
 
 /*
 |--------------------------------------------------------------------------
-| Salon subdomain  ({slug}.{app.domain})
+| register.{app.domain}  — public "book a call"
 |--------------------------------------------------------------------------
-| The active salon is resolved from the subdomain slug (the {salon} domain
-| parameter — bound to a Salon by its slug route key). ResolveSalon enforces
-| active status + membership/operator reach before anything inside renders;
-| this is the request-level tenant-isolation boundary. Each screen then
-| authorises the specific capability (manage staff/settings/etc.).
+| A clean page that hosts a GoHighLevel calendar iframe (added later). Public,
+| no auth, no tenant data. Its CSP gets a configurable frame-src (SecurityHeaders
+| + config('app.register_embed_frame_src')) so the embed will be permitted.
+*/
+Route::domain($register)->group(function () {
+    Route::view('/', 'register')->name('book-call');
+});
+
+/*
+|--------------------------------------------------------------------------
+| app.{app.domain}  — the application
+|--------------------------------------------------------------------------
+| All central/auth surface: login/logout + forced password change (Fortify is
+| pinned to this host via config('fortify.domain')), account settings (see
+| settings.php), the agency console, and the salon picker/dashboard shell.
+|
+| Registered BEFORE the wildcard salon group so app.{domain}/ resolves here
+| (not as a salon named "app"). Future system paths /cal (ICS feeds, Phase 5)
+| and /webhooks (GHL inbound, Phase 6) will live on this host too — path-based
+| and authenticated by their own token/signature, not the session.
+*/
+Route::domain($app)->middleware(['auth'])->group(function () {
+    // app.{domain}/ → salon picker for an authenticated user; a guest is bounced
+    // to login by the auth middleware (never to the marketing landing).
+    Route::redirect('/', '/dashboard');
+
+    // Forced first-login password change. Reachable even while flagged so the
+    // user is never trapped by EnsurePasswordChanged.
+    Route::get('password/change', [PasswordChangeController::class, 'show'])->name('password.change');
+    Route::put('password/change', [PasswordChangeController::class, 'update'])->name('password.change.update');
+
+    // The salon picker / landing after login.
+    Route::view('dashboard', 'dashboard')->name('dashboard');
+
+    // Agency console (agency owners/admins). Each screen authorises against the
+    // actor's own agency and rejects out-of-agency {salon}/{user} ids with 403.
+    Route::prefix('agency')->name('agency.')->group(function () {
+        Route::livewire('/', 'pages::agency.overview')->name('overview');
+        Route::livewire('salons', 'pages::agency.salons.index')->name('salons.index');
+        Route::livewire('salons/create', 'pages::agency.salons.create')->name('salons.create');
+        Route::livewire('salons/{salon}/edit', 'pages::agency.salons.edit')->name('salons.edit');
+        Route::livewire('users', 'pages::agency.users.index')->name('users.index');
+        Route::livewire('users/create', 'pages::agency.users.create')->name('users.create');
+        Route::livewire('users/{user}/edit', 'pages::agency.users.edit')->name('users.edit');
+    });
+});
+
+// Account settings live on app.{domain} too. Required before the wildcard salon
+// group so app.{domain}/settings/* wins over a salon path.
+require __DIR__.'/settings.php';
+
+/*
+|--------------------------------------------------------------------------
+| Salon subdomain  ({slug}.{app.domain})  — tenants
+|--------------------------------------------------------------------------
+| Wildcard, so it is registered LAST: the explicit app./register. groups above
+| take precedence on "/". The active salon is resolved from the subdomain slug;
+| ResolveSalon enforces active status + membership (and rejects reserved slugs
+| such as "app"/"register" as a safety net) before anything inside renders.
 */
 Route::domain('{salon}.'.$central)->middleware(['auth', 'resolve.salon'])->group(function () {
     Route::livewire('/', 'pages::salon.dashboard')->name('salon.show');
@@ -60,5 +93,3 @@ Route::domain('{salon}.'.$central)->middleware(['auth', 'resolve.salon'])->group
     Route::livewire('availability', 'pages::salon.availability.index')->name('salon.availability');
     Route::livewire('settings', 'pages::salon.settings')->name('salon.settings');
 });
-
-require __DIR__.'/settings.php';

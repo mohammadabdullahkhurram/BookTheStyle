@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\Salon;
+use App\Support\ReservedSlugs;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\View;
@@ -40,6 +41,13 @@ class ResolveSalon
         $slug = $param instanceof Salon ? $param->slug : $param;
 
         if (! is_string($slug) || $slug === '') {
+            abort(404);
+        }
+
+        // Safety net: reserved system subdomains (app, register, www, cal, …) are
+        // never tenants. They have their own explicit route groups registered
+        // ahead of this wildcard, so this only fires if one slips through.
+        if (ReservedSlugs::isReserved($slug)) {
             abort(404);
         }
 

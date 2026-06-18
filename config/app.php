@@ -70,6 +70,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Register (book-a-call) Embed Frame Source
+    |--------------------------------------------------------------------------
+    |
+    | The CSP frame-src allow-list for the public register.{domain} "book a
+    | call" page only, so a GoHighLevel / LeadConnector calendar iframe can be
+    | embedded there. Every other host keeps a strict frame-src ('self'). The
+    | exact embed origin is confirmed when the GHL embed code is provided; the
+    | default covers the common LeadConnector/MessageSender embed domains.
+    |
+    */
+
+    'register_embed_frame_src' => env(
+        'REGISTER_EMBED_FRAME_SRC',
+        'https://*.leadconnectorhq.com https://*.msgsndr.com',
+    ),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |
