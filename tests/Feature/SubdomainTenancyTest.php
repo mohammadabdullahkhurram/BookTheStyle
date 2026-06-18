@@ -98,3 +98,37 @@ it('would NOT share a *.localhost session cookie (the bug this guards against)',
     // ...whereas a registrable loopback domain is shared.
     expect(browserSharesCookie('.lvh.me', 'lvh.me', 'demo.lvh.me'))->toBeTrue();
 });
+
+it('lets the seeded demo-salon owner load the demo subdomain dashboard (not the landing page)', function () {
+    // Runs the real DatabaseSeeder: the bounce report was about owner@demo-salon
+    // .test on demo.<domain>, so assert the seeded membership slug matches the
+    // 'demo' subdomain and that resolution/authorization lands on the dashboard.
+    $this->seed();
+
+    $owner = User::where('email', 'owner@demo-salon.test')->firstOrFail();
+    $demo = Salon::where('slug', 'demo')->firstOrFail();
+
+    expect($demo->active)->toBeTrue();
+    expect($owner->belongsToSalon($demo))->toBeTrue();
+
+    $response = $this->actingAs($owner)->get('http://demo.'.config('app.domain').'/');
+
+    $response->assertOk();                       // 200, not a redirect to landing/login
+    expect($response->isRedirect())->toBeFalse();
+    $response
+        ->assertSee('Demo Salon')                // the salon dashboard
+        ->assertSee('Today')
+        ->assertDontSee('Sign in to your salon'); // i.e. NOT the apex landing page
+});
+
+it('returns a real 403 for a non-member on a salon subdomain (never a silent landing redirect)', function () {
+    $salon = Salon::factory()->create(['slug' => 'demo', 'name' => 'Demo Salon']);
+    $outsider = User::factory()->create(); // authenticated, but no membership
+
+    $response = $this->actingAs($outsider)->get('http://demo.'.config('app.domain').'/');
+
+    $response->assertForbidden();                 // 403 — access-denied is explicit
+    expect($response->isRedirect())->toBeFalse(); // not a 302 to home/landing
+    expect($response->getStatusCode())->toBe(403);
+    $response->assertDontSee('Sign in to your salon');
+});
