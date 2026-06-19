@@ -42,9 +42,7 @@
                 viewable
             />
 
-            <flux:button variant="primary" type="submit" class="w-full" data-test="update-password-button">
-                {{ __('Update password') }}
-            </flux:button>
+            <x-ui.button type="submit" class="w-full" data-test="update-password-button">{{ __('Set password & continue') }}</x-ui.button>
         </form>
     </div>
 </x-layouts::auth>

@@ -16,49 +16,62 @@
     {{-- Public "book a call" page (register.{domain}). No auth, no tenant data.
          It hosts a GoHighLevel / LeadConnector calendar embed. The page's CSP
          frame-src is widened (only on this host) via config('app.register_embed_
-         frame_src') so the iframe is permitted once added. Minimal placeholder
-         for now; full visual design comes in the later styling pass. --}}
-    <body class="min-h-screen bg-paper text-ink antialiased">
-        <div class="mx-auto flex min-h-svh max-w-3xl flex-col px-6 py-8">
-            <header class="flex items-center justify-between">
-                <a href="{{ route('home') }}" class="flex items-center gap-3">
-                    <span class="flex size-9 items-center justify-center rounded-lg bg-accent text-accent-foreground shadow-sm">
-                        <x-app-logo-icon class="size-5 fill-current text-white" />
+         frame_src') so the iframe is permitted once added. --}}
+    <body class="min-h-screen bg-card text-ink antialiased">
+        <div class="flex min-h-svh flex-col" style="background: radial-gradient(90% 60% at 50% -10%, var(--accent-tint) 0%, rgba(255,255,255,0) 55%);">
+            {{-- Nav --}}
+            <header class="mx-auto flex w-full max-w-[1120px] items-center gap-4 px-6 py-5 sm:px-8">
+                <a href="{{ route('home') }}" class="flex items-center gap-2.5">
+                    <span class="flex size-9 items-center justify-center rounded-[12px] bg-accent text-white shadow-md">
+                        <x-app-logo-icon class="size-5 fill-current" />
                     </span>
-                    <span class="font-serif text-lg tracking-tight">BookTheStyle</span>
+                    <span class="font-display text-[18px] font-extrabold tracking-[-0.015em]"><span class="text-accent">Book</span><span class="text-ink">TheStyle</span></span>
                 </a>
-                <a href="{{ route('login') }}" class="text-sm font-medium text-secondary transition hover:text-accent">{{ __('Log in') }}</a>
+                <div class="flex-1"></div>
+                <a href="{{ route('login') }}" class="text-[15px] font-semibold text-[#3A3833] transition hover:text-accent">{{ __('Log in') }}</a>
             </header>
 
-            <main class="flex flex-1 flex-col justify-center py-12">
-                <h1 class="font-serif text-3xl leading-tight tracking-tight text-ink sm:text-4xl">
-                    {{ __('Book a call with us') }}
+            {{-- Intro + embed --}}
+            <main class="mx-auto w-full max-w-[840px] flex-1 px-6 pb-14 pt-6 text-center sm:px-8">
+                <h1 class="font-display text-[32px] font-extrabold leading-[1.08] tracking-[-0.02em] text-ink text-balance sm:text-[40px]">
+                    {{ __("Let's get your salon set up") }}
                 </h1>
-                <p class="mt-4 max-w-xl text-base leading-relaxed text-secondary">
-                    {{ __('Pick a time that works for you and we will walk you through setting up your salon on BookTheStyle.') }}
+                <p class="mx-auto mt-4 max-w-[520px] text-[17px] leading-[1.55] text-body">
+                    {{ __("Pick a time that works and we'll walk you through BookTheStyle — no commitment, just a friendly look at how it fits your salon.") }}
                 </p>
 
-                {{-- GHL calendar embed slot ---------------------------------------
-                     Paste the GoHighLevel / LeadConnector booking iframe INSIDE
-                     #ghl-embed when the embed code is provided, e.g.:
+                <div class="mt-9 overflow-hidden rounded-[20px] border border-border bg-card text-start" style="box-shadow: 0 16px 48px rgba(28,27,26,.08);">
+                    <div class="flex items-center justify-between border-b border-divider px-6 py-4">
+                        <div class="font-display text-[16px] font-semibold text-ink">{{ __('Choose a time') }}</div>
+                        <span class="text-[13px] text-faint">{{ __('30 min · video call') }}</span>
+                    </div>
 
-                       <iframe src="https://api.leadconnectorhq.com/widget/booking/XXXX"
-                               style="width:100%;border:none;overflow:hidden"
-                               scrolling="no" id="XXXX_booking"></iframe>
-                       <script src="https://link.msgsndr.com/js/form_embed.js"></script>
+                    {{-- GHL calendar embed slot ---------------------------------------
+                         Paste the GoHighLevel / LeadConnector booking iframe INSIDE
+                         #ghl-embed when the embed code is provided, e.g.:
 
-                     The allowed iframe origin is set by REGISTER_EMBED_FRAME_SRC
-                     (config app.register_embed_frame_src) and added to this page's
-                     CSP frame-src by App\Http\Middleware\SecurityHeaders. --}}
-                <div id="ghl-embed"
-                     class="mt-8 flex min-h-[28rem] items-center justify-center rounded-2xl border border-dashed border-border bg-card p-6 text-center text-sm text-secondary shadow-sm">
-                    {{ __('Scheduling calendar embed goes here.') }}
+                           <iframe src="https://api.leadconnectorhq.com/widget/booking/XXXX"
+                                   style="width:100%;border:none;overflow:hidden"
+                                   scrolling="no" id="XXXX_booking"></iframe>
+                           <script src="https://link.msgsndr.com/js/form_embed.js"></script>
+
+                         The allowed iframe origin is set by REGISTER_EMBED_FRAME_SRC
+                         (config app.register_embed_frame_src) and added to this page's
+                         CSP frame-src by App\Http\Middleware\SecurityHeaders. --}}
+                    <div class="p-7">
+                        <div id="ghl-embed"
+                             class="flex min-h-[360px] flex-col items-center justify-center gap-3.5 rounded-[14px] border-2 border-dashed border-[#D6D3CB] bg-field p-6 text-center">
+                            <div class="flex size-[54px] items-center justify-center rounded-[15px] bg-accent-tint text-accent">
+                                <flux:icon.calendar variant="outline" class="size-6" />
+                            </div>
+                            <div class="font-display text-[16px] font-semibold text-body">{{ __('Calendar embed') }}</div>
+                            <div class="max-w-[320px] text-[13.5px] text-fainter">{{ __('Your scheduling tool drops in here.') }}</div>
+                        </div>
+                    </div>
                 </div>
-            </main>
 
-            <footer class="mt-8 border-t border-border pt-6 text-xs text-secondary">
-                &copy; {{ date('Y') }} BookTheStyle. {{ __('Scheduling only — no payments.') }}
-            </footer>
+                <p class="mx-auto mt-6 text-[13.5px] text-fainter">{{ __('Prefer email? Reach us at hello@bookthestyle.com') }}</p>
+            </main>
         </div>
     </body>
 </html>

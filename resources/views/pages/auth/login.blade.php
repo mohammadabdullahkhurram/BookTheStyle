@@ -44,11 +44,12 @@
             <!-- Remember Me -->
             <flux:checkbox name="remember" :label="__('Remember me')" :checked="old('remember')" />
 
-            <div class="flex items-center justify-end">
-                <flux:button variant="primary" type="submit" class="w-full" data-test="login-button">
-                    {{ __('Log in') }}
-                </flux:button>
-            </div>
+            <x-ui.button type="submit" class="w-full" data-test="login-button">{{ __('Log in') }}</x-ui.button>
         </form>
+
+        <p class="text-center text-[14px] text-secondary">
+            {{ __('New to BookTheStyle?') }}
+            <a href="{{ route('book-call') }}" class="font-semibold text-accent transition hover:text-accent-hover">{{ __('Book a call') }}</a>
+        </p>
     </div>
 </x-layouts::auth>

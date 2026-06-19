@@ -8,7 +8,11 @@
 @php
     $classes = 'bts-btn'
         .($size === 'sm' ? ' bts-btn-sm' : '')
-        .($variant === 'secondary' ? ' bts-btn-secondary' : ' bts-btn-primary');
+        .match ($variant) {
+            'secondary' => ' bts-btn-secondary',
+            'danger' => ' bts-btn-danger',
+            default => ' bts-btn-primary',
+        };
 @endphp
 
 @if ($href)
