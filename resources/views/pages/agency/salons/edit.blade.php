@@ -5,6 +5,7 @@ use App\Actions\Salons\UpdateGhlConnection;
 use App\Actions\Salons\UpdateSalon;
 use App\Models\Salon;
 use App\Rules\SalonSlug;
+use App\Support\SalonProfile;
 use Flux\Flux;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
@@ -14,7 +15,34 @@ use Livewire\Component;
 new #[Title('Edit salon')] class extends Component {
     public Salon $salon;
 
+    // Business + contact profile (name = business / trading name).
     public string $name = '';
+
+    public string $legal_business_name = '';
+
+    public string $business_email = '';
+
+    public string $business_phone = '';
+
+    public string $website = '';
+
+    public string $address_line1 = '';
+
+    public string $address_line2 = '';
+
+    public string $city = '';
+
+    public string $region = '';
+
+    public string $postal_code = '';
+
+    public string $country = '';
+
+    public string $contact_name = '';
+
+    public string $contact_email = '';
+
+    public string $contact_phone = '';
 
     public string $slug = '';
 
@@ -47,7 +75,8 @@ new #[Title('Edit salon')] class extends Component {
     public function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'max:255'],
+            // Required business + contact profile (includes the trading name).
+            ...SalonProfile::rules(),
             'slug' => ['required', 'string', new SalonSlug, Rule::unique('salons', 'slug')->ignore($this->salon->id)],
             'timezone' => ['required', 'timezone:all'],
             'accent' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
@@ -64,7 +93,6 @@ new #[Title('Edit salon')] class extends Component {
         $this->authorize('manageSalons', $salon->agency);
 
         $this->salon = $salon;
-        $this->name = $salon->name;
         $this->slug = $salon->slug;
         $this->timezone = $salon->timezone;
         $this->accent = $salon->accentColor() ?? '';
@@ -73,7 +101,29 @@ new #[Title('Edit salon')] class extends Component {
         $this->max_advance_days = $salon->max_advance_days;
         $this->min_notice_minutes = $salon->min_notice_minutes;
 
+        $this->loadProfile();
         $this->refreshGhlState();
+    }
+
+    /**
+     * Load the business + contact profile from the salon into the form props.
+     */
+    private function loadProfile(): void
+    {
+        $this->name = $this->salon->name;
+        $this->legal_business_name = $this->salon->legal_business_name;
+        $this->business_email = $this->salon->business_email;
+        $this->business_phone = $this->salon->business_phone;
+        $this->website = $this->salon->website ?? '';
+        $this->address_line1 = $this->salon->address_line1;
+        $this->address_line2 = $this->salon->address_line2 ?? '';
+        $this->city = $this->salon->city;
+        $this->region = $this->salon->region;
+        $this->postal_code = $this->salon->postal_code;
+        $this->country = $this->salon->country;
+        $this->contact_name = $this->salon->contact_name;
+        $this->contact_email = $this->salon->contact_email;
+        $this->contact_phone = $this->salon->contact_phone;
     }
 
     /**
@@ -160,7 +210,9 @@ new #[Title('Edit salon')] class extends Component {
 
         <x-ui.card>
         <form wire:submit="save" class="flex flex-col gap-6">
-            <flux:input wire:model="name" :label="__('Salon name')" required />
+            @include('partials.salon-profile-fields')
+
+            <flux:separator :text="__('Subdomain & preferences')" />
 
             <flux:input wire:model="slug" :label="__('Subdomain slug')"
                 :description="__('Reached at {slug}.bookthestyle.com. Changing it changes the salon\'s URL.')"

@@ -53,6 +53,34 @@ function frontDeskOf(Salon $salon): User
 }
 
 /**
+ * A complete, valid business + contact profile payload for the salon create
+ * form (everything required except website / address_line2). Spread onto a
+ * Livewire create test with ->set(salonProfileInput([...])).
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function salonProfileInput(array $overrides = []): array
+{
+    return array_merge([
+        'name' => 'Glow Bar',
+        'legal_business_name' => 'Glow Bar LLC',
+        'business_email' => 'hello@glow-bar.test',
+        'business_phone' => '+1 212-555-0000',
+        'website' => 'https://glow-bar.test',
+        'address_line1' => '1 Test Street',
+        'address_line2' => '',
+        'city' => 'Testville',
+        'region' => 'Test Region',
+        'postal_code' => '12345',
+        'country' => 'United States',
+        'contact_name' => 'Test Contact',
+        'contact_email' => 'contact@glow-bar.test',
+        'contact_phone' => '+1 212-555-0001',
+    ], $overrides);
+}
+
+/**
  * A salon with America/New_York timezone and lenient booking policy, used by the
  * slot-engine and booking tests (override the policy as needed).
  *

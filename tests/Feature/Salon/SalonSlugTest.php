@@ -61,7 +61,7 @@ it('accepts a valid slug and persists it', function () {
 
     Livewire::actingAs(agencyOwnerFor($agency))
         ->test('pages::agency.salons.create')
-        ->set('name', 'Glow Bar')
+        ->set(salonProfileInput(['name' => 'Glow Bar']))
         ->set('slug', 'glow-bar')
         ->set('timezone', 'America/New_York')
         ->call('save')

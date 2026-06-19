@@ -69,7 +69,6 @@ it('saves + validates branding accent', function () {
     $this->actingAs(settingsOwner($salon));
 
     Livewire::test('pages::salon.settings', ['salon' => $salon])
-        ->set('brandName', 'Glow Studio')
         ->set('accent', '#1F6F6B')
         ->call('saveBranding')
         ->assertHasNoErrors();

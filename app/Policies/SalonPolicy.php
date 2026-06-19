@@ -94,6 +94,18 @@ class SalonPolicy
     }
 
     /**
+     * Create/edit the salon's business + point-of-contact profile (legal name,
+     * business email/phone/website, address, primary contact). Allowed for the
+     * salon's own owner/admin and — via `before()` — agency owners/admins in
+     * this agency. Salon staff (stylist/front-desk) and agency_users may view
+     * (per existing screens) but never edit.
+     */
+    public function manageProfile(User $user, Salon $salon): bool
+    {
+        return $user->membershipFor($salon)?->salon_role->isManager() ?? false;
+    }
+
+    /**
      * View/edit the salon's GoHighLevel connection credentials (Location ID,
      * Calendar ID, Private Integration Token). Allowed for the salon's own
      * owner/admin and — via `before()` — agency owners/admins in this agency.

@@ -73,6 +73,23 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
+        // Complete business + contact profile (also backfills an existing row).
+        $salon->fill([
+            'legal_business_name' => 'Demo Salon LLC',
+            'business_email' => 'hello@demo-salon.test',
+            'business_phone' => '+1 212-555-0100',
+            'website' => 'https://demo-salon.test',
+            'address_line1' => '123 Main Street',
+            'address_line2' => 'Suite 200',
+            'city' => 'New York',
+            'region' => 'New York',
+            'postal_code' => '10001',
+            'country' => 'United States',
+            'contact_name' => 'Olivia Owner',
+            'contact_email' => 'owner@demo-salon.test',
+            'contact_phone' => '+1 212-555-0101',
+        ])->save();
+
         $owner = $this->user('owner@demo-salon.test', 'Olivia Owner');
         $this->membership($owner, $salon, SalonRole::Owner);
 
@@ -162,6 +179,22 @@ class DatabaseSeeder extends Seeder
             ['agency_id' => $otherAgency->id, 'name' => 'Other Salon'],
             ['slug' => 'other', 'timezone' => 'America/Los_Angeles']
         );
+
+        $otherSalon->fill([
+            'legal_business_name' => 'Other Salon Inc',
+            'business_email' => 'hello@other-salon.test',
+            'business_phone' => '+1 310-555-0200',
+            'website' => 'https://other-salon.test',
+            'address_line1' => '456 Sunset Boulevard',
+            'address_line2' => null,
+            'city' => 'Los Angeles',
+            'region' => 'California',
+            'postal_code' => '90028',
+            'country' => 'United States',
+            'contact_name' => 'Owen Other',
+            'contact_email' => 'owner@other-salon.test',
+            'contact_phone' => '+1 310-555-0201',
+        ])->save();
 
         $otherOwner = $this->user('owner@other-salon.test', 'Owen Other', [
             'agency_id' => $otherAgency->id,

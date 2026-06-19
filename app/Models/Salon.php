@@ -19,6 +19,19 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property string $timezone
  * @property bool $active
  * @property array<string, mixed>|null $branding
+ * @property string $legal_business_name
+ * @property string $business_email
+ * @property string $business_phone
+ * @property string|null $website
+ * @property string $address_line1
+ * @property string|null $address_line2
+ * @property string $city
+ * @property string $region
+ * @property string $postal_code
+ * @property string $country
+ * @property string $contact_name
+ * @property string $contact_email
+ * @property string $contact_phone
  * @property bool $allow_walkins
  * @property bool $allow_same_day
  * @property int $max_advance_days
@@ -37,6 +50,19 @@ class Salon extends Model
         'timezone',
         'active',
         'branding',
+        'legal_business_name',
+        'business_email',
+        'business_phone',
+        'website',
+        'address_line1',
+        'address_line2',
+        'city',
+        'region',
+        'postal_code',
+        'country',
+        'contact_name',
+        'contact_email',
+        'contact_phone',
         'allow_walkins',
         'allow_same_day',
         'max_advance_days',

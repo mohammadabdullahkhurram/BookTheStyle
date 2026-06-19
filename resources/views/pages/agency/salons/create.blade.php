@@ -3,6 +3,7 @@
 use App\Actions\Salons\CreateSalon;
 use App\Models\Agency;
 use App\Rules\SalonSlug;
+use App\Support\SalonProfile;
 use Flux\Flux;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -11,7 +12,34 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 new #[Title('New salon')] class extends Component {
+    // Business + contact profile (name = business / trading name).
     public string $name = '';
+
+    public string $legal_business_name = '';
+
+    public string $business_email = '';
+
+    public string $business_phone = '';
+
+    public string $website = '';
+
+    public string $address_line1 = '';
+
+    public string $address_line2 = '';
+
+    public string $city = '';
+
+    public string $region = '';
+
+    public string $postal_code = '';
+
+    public string $country = '';
+
+    public string $contact_name = '';
+
+    public string $contact_email = '';
+
+    public string $contact_phone = '';
 
     public string $slug = '';
 
@@ -40,7 +68,8 @@ new #[Title('New salon')] class extends Component {
     public function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'max:255'],
+            // Required business + contact profile (includes the trading name).
+            ...SalonProfile::rules(),
             // Format + reserved blocklist via the rule; uniqueness across all
             // salons (slugs are live subdomains, so global) via Rule::unique.
             'slug' => ['required', 'string', new SalonSlug, Rule::unique('salons', 'slug')],
@@ -108,7 +137,9 @@ new #[Title('New salon')] class extends Component {
 
         <x-ui.card>
         <form wire:submit="save" class="flex flex-col gap-6">
-            <flux:input wire:model.blur="name" :label="__('Salon name')" required autofocus />
+            @include('partials.salon-profile-fields')
+
+            <flux:separator :text="__('Subdomain & preferences')" />
 
             <flux:input wire:model="slug" :label="__('Subdomain slug')"
                 :description="__('This salon will live at {slug}.bookthestyle.com. Lowercase letters, numbers, and hyphens only.')"

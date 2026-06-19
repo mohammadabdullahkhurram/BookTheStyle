@@ -5,13 +5,14 @@ namespace App\Actions\Salons;
 use App\Models\Salon;
 
 /**
- * Update a salon's display name + accent override (salon settings → branding).
- * The accent feeds the per-salon brandable accent token.
+ * Update a salon's accent override (salon settings → branding). The accent feeds
+ * the per-salon brandable accent token. The salon's trading name lives in the
+ * business profile (UpdateSalonProfile), not here.
  */
 class UpdateBranding
 {
     /**
-     * @param  array{name: string, accent: string|null}  $data
+     * @param  array{accent: string|null}  $data
      */
     public function handle(Salon $salon, array $data): Salon
     {
@@ -20,7 +21,6 @@ class UpdateBranding
         $branding = array_filter($branding, fn ($v) => $v !== null);
 
         $salon->update([
-            'name' => $data['name'],
             'branding' => $branding === [] ? null : $branding,
         ]);
 

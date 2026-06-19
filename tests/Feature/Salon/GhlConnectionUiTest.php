@@ -130,7 +130,7 @@ it('creates a salon with GHL fields from the console create screen', function ()
     $this->actingAs($admin);
 
     Livewire::test('pages::agency.salons.create')
-        ->set('name', 'Connected Salon')
+        ->set(salonProfileInput(['name' => 'Connected Salon']))
         ->set('slug', 'connected-salon')
         ->set('timezone', 'America/New_York')
         ->set('ghl_location_id', 'loc_new')

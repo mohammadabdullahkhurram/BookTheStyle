@@ -3,10 +3,12 @@
 namespace App\Actions\Salons;
 
 use App\Models\Salon;
+use App\Support\SalonProfile;
 
 /**
- * Update a salon's profile + default booking policy from the agency console.
- * Authorisation (AgencyPolicy::manageSalons) is enforced by the caller.
+ * Update a salon's identity, business + contact profile, and default booking
+ * policy from the agency console. Authorisation (AgencyPolicy::manageSalons) is
+ * enforced by the caller.
  */
 class UpdateSalon
 {
@@ -22,7 +24,6 @@ class UpdateSalon
         }
 
         $salon->fill([
-            'name' => $data['name'],
             'slug' => $data['slug'],
             'timezone' => $data['timezone'],
             'branding' => $branding === [] ? null : $branding,
@@ -30,6 +31,8 @@ class UpdateSalon
             'allow_same_day' => $data['allow_same_day'],
             'max_advance_days' => $data['max_advance_days'],
             'min_notice_minutes' => $data['min_notice_minutes'],
+            // Business + contact profile (includes the trading name).
+            ...SalonProfile::attributes($data),
         ])->save();
 
         return $salon;

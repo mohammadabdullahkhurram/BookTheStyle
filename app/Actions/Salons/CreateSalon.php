@@ -4,6 +4,7 @@ namespace App\Actions\Salons;
 
 use App\Models\Agency;
 use App\Models\Salon;
+use App\Support\SalonProfile;
 
 /**
  * Create a salon under an agency (agency console). Authorisation
@@ -31,7 +32,6 @@ class CreateSalon
     public function handle(Agency $agency, array $data): Salon
     {
         $salon = $agency->salons()->create([
-            'name' => $data['name'],
             'slug' => $data['slug'],
             'timezone' => $data['timezone'],
             'active' => true,
@@ -42,6 +42,8 @@ class CreateSalon
             'allow_same_day' => $data['allow_same_day'] ?? true,
             'max_advance_days' => $data['max_advance_days'] ?? 90,
             'min_notice_minutes' => $data['min_notice_minutes'] ?? 0,
+            // Business + contact profile (includes the trading name).
+            ...SalonProfile::attributes($data),
         ]);
 
         // Only create a connection row if at least one GHL field was provided.
