@@ -7,7 +7,6 @@
         <title>{{ __('Book a call') }} — {{ config('app.name', 'BookTheStyle') }}</title>
 
         <link rel="icon" href="/favicon.ico" sizes="any">
-        <link rel="icon" href="/favicon.svg" type="image/svg+xml">
         <link rel="icon" type="image/png" href="/favicon-32.png" sizes="32x32">
         <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
@@ -23,7 +22,7 @@
             {{-- Nav --}}
             <header class="mx-auto flex w-full max-w-[1120px] items-center gap-4 px-6 py-5 sm:px-8">
                 <a href="{{ route('home') }}" class="flex items-center">
-                    <x-app-logo />
+                    <x-app-logo class="h-8" />
                 </a>
                 <div class="flex-1"></div>
                 <a href="{{ route('login') }}" class="text-[15px] font-semibold text-[#3A3833] transition hover:text-accent">{{ __('Log in') }}</a>

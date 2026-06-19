@@ -7,7 +7,6 @@
         <title>{{ config('app.name', 'BookTheStyle') }} — Salon scheduling, beautifully handled</title>
 
         <link rel="icon" href="/favicon.ico" sizes="any">
-        <link rel="icon" href="/favicon.svg" type="image/svg+xml">
         <link rel="icon" type="image/png" href="/favicon-32.png" sizes="32x32">
         <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
@@ -20,7 +19,7 @@
         {{-- Nav --}}
         <header class="mx-auto flex max-w-[1120px] items-center gap-4 px-6 py-5 sm:px-8">
             <a href="{{ route('home') }}" class="flex items-center">
-                <x-app-logo />
+                <x-app-logo class="h-8" />
             </a>
             <div class="flex-1"></div>
             <a href="{{ route('login') }}" class="px-2 text-[15px] font-semibold text-[#3A3833] transition hover:text-accent">{{ __('Log in') }}</a>
@@ -118,7 +117,7 @@
         {{-- Footer --}}
         <footer class="mt-14 border-t border-divider">
             <div class="mx-auto flex max-w-[1040px] flex-wrap items-center gap-4 px-6 py-8 sm:px-8">
-                <x-app-logo chip-class="size-[30px] rounded-[9px]" icon-class="size-4" wordmark-class="text-[15px]" />
+                <x-app-logo class="h-6" />
                 <div class="flex-1"></div>
                 <div class="flex items-center gap-6 text-[14px] text-secondary">
                     <a href="{{ route('login') }}" class="transition hover:text-accent">{{ __('Log in') }}</a>

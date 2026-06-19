@@ -30,12 +30,9 @@
                 <div class="flex items-center gap-3 px-4 pb-3 pt-4">
                     <a href="{{ $salon ? route('salon.show', $salon) : route('dashboard') }}" wire:navigate
                        aria-label="{{ __('BookTheStyle') }}"
-                       class="flex size-11 shrink-0 items-center justify-center rounded-[13px] bg-accent-tint shadow-sm">
-                        <x-app-logo-icon class="size-6 text-accent" />
-                    </a>
-                    <a x-show="!collapsed" x-cloak href="{{ $salon ? route('salon.show', $salon) : route('dashboard') }}" wire:navigate
-                       class="min-w-0 flex-1 truncate font-display text-[17px] font-bold leading-none">
-                        <span class="text-accent">Book</span><span class="text-ink">TheStyle</span>
+                       class="flex min-w-0 flex-1 items-center" :class="collapsed ? 'justify-center' : ''">
+                        <x-app-logo x-show="!collapsed" x-cloak class="h-8" alt="" />
+                        <x-app-logo-icon x-show="collapsed" x-cloak class="size-9" alt="" />
                     </a>
                     <button type="button" x-show="!collapsed" x-cloak @click="collapsed = true"
                             class="shrink-0 rounded-md p-1 text-fainter transition hover:bg-muted hover:text-ink" aria-label="{{ __('Collapse sidebar') }}">
