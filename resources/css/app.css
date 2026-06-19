@@ -1,6 +1,16 @@
 @import 'tailwindcss';
 @import '../../vendor/livewire/flux/dist/flux.css';
 
+/*
+| Light mode only. Tailwind 4 defaults the `dark:` variant to
+| @media (prefers-color-scheme: dark), so Flux's pervasive dark:text-white /
+| dark:bg-zinc-* internals fire whenever the visitor's OS is in dark mode —
+| painting white text on our forced-light surfaces (the legibility bug).
+| Re-scope `dark:` to a `.dark` ancestor we never add, making every dark:
+| utility inert app-wide instead of patching them page-by-page.
+*/
+@custom-variant dark (&:where(.dark, .dark *));
+
 @source '../views';
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../vendor/livewire/flux-pro/stubs/**/*.blade.php';
@@ -255,6 +265,15 @@ select:focus[data-flux-control] {
         background-color: var(--color-field);
         border-color: var(--color-input-border);
         border-radius: var(--radius-input);
+        color: var(--color-body);
+    }
+
+    /* Placeholder is exactly the DESIGN-TOKENS placeholder ink regardless of
+       Flux variant (filled otherwise resolves to faint #9c9890). */
+    input[data-flux-control]::placeholder,
+    textarea[data-flux-control]::placeholder {
+        color: var(--color-placeholder);
+        opacity: 1;
     }
 
     /* Caption / overline (DESIGN-TOKENS type scale). */

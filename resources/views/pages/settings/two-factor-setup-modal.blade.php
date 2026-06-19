@@ -257,7 +257,7 @@ new class extends Component {
                 <div class="space-y-4">
                     <div class="relative flex items-center justify-center w-full">
                         <div class="absolute inset-0 w-full h-px top-1/2 bg-stone-200 dark:bg-stone-600"></div>
-                        <span class="relative px-2 text-sm bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-400">
+                        <span class="relative px-2 text-sm bg-white dark:bg-stone-800 text-secondary dark:text-stone-400">
                             {{ __('or, enter the code manually') }}
                         </span>
                     </div>
@@ -287,7 +287,7 @@ new class extends Component {
                                     type="text"
                                     readonly
                                     value="{{ $manualSetupKey }}"
-                                    class="w-full p-3 bg-transparent outline-none text-stone-900 dark:text-stone-100"
+                                    class="w-full p-3 bg-transparent outline-none text-ink dark:text-stone-100"
                                 />
 
                                 <button
@@ -298,7 +298,7 @@ new class extends Component {
                                     <flux:icon.check
                                         x-show="copied"
                                         variant="solid"
-                                        class="text-green-500"
+                                        class="text-success"
                                     ></flux:icon>
                                 </button>
                             @endempty
