@@ -6,27 +6,32 @@ use App\Models\User;
 use App\Services\Calendar\CalendarData;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Livewire\Livewire;
 
 /*
-| The booking calendar. Data is built server-side, salon-scoped and role-
-| filtered by CalendarData; the Livewire component gates master vs per-stylist,
-| handles click-to-book (re-validated by Phase 3), and re-pushes the feed on
-| poll. Mon 2026-06-22, "now" = 08:00 America/New_York.
+| The per-stylist column calendar. CalendarData builds a server-side, salon-
+| scoped, role-filtered day/week grid; the Livewire component gates master vs
+| per-stylist, handles click-to-book (re-validated by Phase 3) and polling.
+| Mon 2026-06-22, "now" = 08:00 America/New_York.
 */
 
 beforeEach(fn () => Carbon::setTestNow(CarbonImmutable::parse('2026-06-22 12:00:00', 'UTC')));
 afterEach(fn () => Carbon::setTestNow());
 
-/** The visible range covering Monday 2026-06-22 in the salon's timezone. */
-function calRange(): array
+/** Monday 2026-06-22 in the salon's timezone. */
+function calDay(): CarbonImmutable
 {
-    $from = CarbonImmutable::parse('2026-06-22 00:00', 'America/New_York');
-
-    return [$from, $from->addDay()];
+    return CarbonImmutable::parse('2026-06-22', 'America/New_York');
 }
 
-it('builds a master feed with every salon booking, coloured per stylist', function () {
+/** All booking client names across every column. */
+function gridClients(array $grid): Collection
+{
+    return collect($grid['columns'])->flatMap(fn ($c) => collect($c['bookings'])->pluck('client'));
+}
+
+it('builds a master day grid with one column per stylist and their bookings', function () {
     $salon = bookingSalon();
     $stylistA = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
     $stylistB = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
@@ -34,36 +39,36 @@ it('builds a master feed with every salon booking, coloured per stylist', functi
     makeBooking($salon, $owner, $stylistA, serviceFor($salon, $stylistA, 60), '2026-06-22 10:00', 'Alice Anderson');
     makeBooking($salon, $owner, $stylistB, serviceFor($salon, $stylistB, 60), '2026-06-22 11:00', 'Bob Brown');
 
-    [$from, $to] = calRange();
-    $data = app(CalendarData::class)->build($salon, $from, $to, null);
+    $grid = app(CalendarData::class)->day($salon, calDay(), null);
 
-    expect(collect($data['events'])->pluck('title'))
+    expect($grid['columns'])->toHaveCount(2);
+    expect(gridClients($grid))->toContain('Alice Anderson')->toContain('Bob Brown');
+
+    // Each booking lands in its own stylist's column.
+    $colA = collect($grid['columns'])->firstWhere('stylistId', $stylistA->id);
+    $colB = collect($grid['columns'])->firstWhere('stylistId', $stylistB->id);
+    expect(collect($colA['bookings'])->pluck('client'))->toContain('Alice Anderson')->not->toContain('Bob Brown');
+    expect(collect($colB['bookings'])->pluck('client'))->toContain('Bob Brown')->not->toContain('Alice Anderson');
+});
+
+it('scopes a stylist grid to a single column of their own bookings', function () {
+    $salon = bookingSalon();
+    $stylistA = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
+    $stylistB = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
+    $owner = salonOwnerOf($salon);
+    makeBooking($salon, $owner, $stylistA, serviceFor($salon, $stylistA, 60), '2026-06-22 10:00', 'Alice Anderson');
+    makeBooking($salon, $owner, $stylistB, serviceFor($salon, $stylistB, 60), '2026-06-22 11:00', 'Bob Brown');
+
+    $grid = app(CalendarData::class)->day($salon, calDay(), $stylistA->id);
+
+    expect($grid['columns'])->toHaveCount(1);
+    expect($grid['columns'][0]['stylistId'])->toBe($stylistA->id);
+    expect(collect($grid['columns'][0]['bookings'])->pluck('client'))
         ->toContain('Alice Anderson')
-        ->toContain('Bob Brown');
-    expect($data['calendars'])->toHaveCount(2);
-    // Each booking event is tagged with its stylist's calendar (colour) id.
-    expect(collect($data['events'])->pluck('calendarId')->unique()->sort()->values()->all())
-        ->toEqual([(string) $stylistA->id, (string) $stylistB->id]);
+        ->not->toContain('Bob Brown');
 });
 
-it('scopes a stylist feed to only their own bookings', function () {
-    $salon = bookingSalon();
-    $stylistA = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
-    $stylistB = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
-    $owner = salonOwnerOf($salon);
-    makeBooking($salon, $owner, $stylistA, serviceFor($salon, $stylistA, 60), '2026-06-22 10:00', 'Alice Anderson');
-    makeBooking($salon, $owner, $stylistB, serviceFor($salon, $stylistB, 60), '2026-06-22 11:00', 'Bob Brown');
-
-    [$from, $to] = calRange();
-    $data = app(CalendarData::class)->build($salon, $from, $to, $stylistA->id);
-
-    $titles = collect($data['events'])->pluck('title');
-    expect($titles)->toContain('Alice Anderson');
-    expect($titles)->not->toContain('Bob Brown');
-    expect(collect($data['events'])->every(fn ($e) => $e['calendarId'] === (string) $stylistA->id))->toBeTrue();
-});
-
-it('never leaks another salon\'s bookings into the feed', function () {
+it('never leaks another salon\'s bookings into the grid', function () {
     $salon = bookingSalon();
     $stylist = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
     makeBooking($salon, salonOwnerOf($salon), $stylist, serviceFor($salon, $stylist, 60), '2026-06-22 10:00', 'Mine Client');
@@ -72,36 +77,48 @@ it('never leaks another salon\'s bookings into the feed', function () {
     $otherStylist = stylistWithHours($other, 0, 9 * 60, 17 * 60);
     makeBooking($other, salonOwnerOf($other), $otherStylist, serviceFor($other, $otherStylist, 60), '2026-06-22 10:00', 'Other Salon Client');
 
-    [$from, $to] = calRange();
-    $data = app(CalendarData::class)->build($salon, $from, $to, null);
+    $grid = app(CalendarData::class)->day($salon, calDay(), null);
 
-    expect(collect($data['events'])->pluck('title'))
-        ->toContain('Mine Client')
-        ->not->toContain('Other Salon Client');
+    expect(gridClients($grid))->toContain('Mine Client')->not->toContain('Other Salon Client');
 });
 
-it('reflects working hours, time off, and breaks in the feed', function () {
+it('reflects working hours, breaks and time off in the grid', function () {
     $salon = bookingSalon();
     $stylist = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
 
-    // A break (weekly) and a one-off time-off block on the visible day.
-    Availability::factory()->for($salon)->break()->create(['user_id' => $stylist->id, 'weekday' => 0]);
+    Availability::factory()->for($salon)->break()->create(['user_id' => $stylist->id, 'weekday' => 0]); // 12:00–13:00
     TimeOff::factory()->for($salon)->create([
         'user_id' => $stylist->id,
         'starts_at' => CarbonImmutable::parse('2026-06-22 15:00', 'America/New_York'),
         'ends_at' => CarbonImmutable::parse('2026-06-22 16:00', 'America/New_York'),
     ]);
 
-    [$from, $to] = calRange();
-    $data = app(CalendarData::class)->build($salon, $from, $to, $stylist->id);
+    $grid = app(CalendarData::class)->day($salon, calDay(), $stylist->id);
 
-    // The grid is framed to the 9–17 work window.
-    expect($data['hourStart'])->toBe(9);
-    expect($data['hourEnd'])->toBe(17);
+    // Envelope framed to the 9–17 work window.
+    expect($grid['hourStart'])->toBe(9);
+    expect($grid['hourEnd'])->toBe(17);
 
-    $blockTitles = collect($data['blocks'])->pluck('title');
-    expect($blockTitles)->toContain('Time off');
-    expect($blockTitles)->toContain('Break');
+    $column = $grid['columns'][0];
+    expect(collect($column['blocked'])->pluck('label'))->toContain('Time off')->toContain('Break');
+
+    // Slot bookability reflects work / break / time off.
+    $slots = collect($column['slots']);
+    expect($slots->firstWhere('min', 10 * 60)['bookable'])->toBeTrue();   // 10:00 working
+    expect($slots->firstWhere('min', 12 * 60)['bookable'])->toBeFalse();  // 12:00 break
+    expect($slots->firstWhere('min', 15 * 60)['bookable'])->toBeFalse();  // 15:00 time off
+});
+
+it('builds a week grid of seven day columns', function () {
+    $salon = bookingSalon();
+    $stylist = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
+    makeBooking($salon, salonOwnerOf($salon), $stylist, serviceFor($salon, $stylist, 60), '2026-06-22 10:00', 'Weekly Wendy');
+
+    $grid = app(CalendarData::class)->week($salon, calDay(), null);
+
+    expect($grid['view'])->toBe('week');
+    expect($grid['columns'])->toHaveCount(7);
+    expect(gridClients($grid))->toContain('Weekly Wendy');
 });
 
 it('lets a manager see the master calendar and a stylist see only their own', function () {
@@ -139,7 +156,7 @@ it('renders the calendar page with the right heading per role', function () {
         ->get(route('salon.calendar', $salon))
         ->assertOk()
         ->assertSee('Master calendar')
-        ->assertSee('bookingCalendar'); // the Alpine calendar mounts
+        ->assertSee('Today'); // the toolbar
 
     $this->actingAs($stylist)
         ->get(route('salon.calendar', $salon))
@@ -147,36 +164,38 @@ it('renders the calendar page with the right heading per role', function () {
         ->assertSee('My calendar');
 });
 
-it('re-pushes the current feed on poll (near-real-time)', function () {
+it('shows current state on poll refresh (near-real-time)', function () {
     $salon = bookingSalon();
     $stylist = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
     $service = serviceFor($salon, $stylist, 60);
     $owner = salonOwnerOf($salon);
 
-    [$from, $to] = calRange();
+    $component = Livewire::actingAs($owner)->test('pages::salon.calendar', ['salon' => $salon]);
 
-    $component = Livewire::actingAs($owner)
-        ->test('pages::salon.calendar', ['salon' => $salon])
-        ->call('setRange', $from->utc()->toIso8601ZuluString(), $to->utc()->toIso8601ZuluString());
-
-    // A booking appears after the initial render...
+    // A booking appears after the initial render (today, within working hours)...
     makeBooking($salon, $owner, $stylist, $service, '2026-06-22 13:00', 'Polly Poll');
 
-    // ...and the next poll carries it in the dispatched payload.
-    $component->call('refresh')->assertDispatched('calendar:data', function ($event, $params) {
-        return collect($params['payload']['events'])->pluck('title')->contains('Polly Poll');
-    });
+    // ...and the next poll renders it in the grid.
+    $component->call('refresh')->assertSee('Polly Poll');
 });
 
 it('opens the prefilled booking form on click-to-book', function () {
     $salon = bookingSalon();
     $stylist = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
     $owner = salonOwnerOf($salon);
+    $iso = CarbonImmutable::parse('2026-06-22 14:00', 'America/New_York')->utc()->toIso8601ZuluString();
 
+    // No stylist column hint → date + time only.
     Livewire::actingAs($owner)
         ->test('pages::salon.calendar', ['salon' => $salon])
-        ->call('selectSlot', CarbonImmutable::parse('2026-06-22 14:00', 'America/New_York')->utc()->toIso8601ZuluString())
+        ->call('selectSlot', $iso)
         ->assertRedirect(route('salon.bookings.create', ['salon' => $salon, 'date' => '2026-06-22', 'time' => '14:00']));
+
+    // Clicking inside a stylist's column prefills that stylist too.
+    Livewire::actingAs($owner)
+        ->test('pages::salon.calendar', ['salon' => $salon])
+        ->call('selectSlot', $iso, $stylist->id)
+        ->assertRedirect(route('salon.bookings.create', ['salon' => $salon, 'date' => '2026-06-22', 'time' => '14:00', 'stylist' => $stylist->id]));
 });
 
 it('still rejects a conflicting slot even when the form was prefilled', function () {
