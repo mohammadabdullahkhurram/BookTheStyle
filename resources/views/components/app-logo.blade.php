@@ -9,7 +9,7 @@
 <img
     src="/images/full-logo.png"
     alt="{{ $alt }}"
-    width="1000"
-    height="500"
+    width="891"
+    height="189"
     {{ $attributes->class('inline-block w-auto select-none') }}
 />

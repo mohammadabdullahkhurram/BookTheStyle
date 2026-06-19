@@ -20,7 +20,13 @@ Rendered via the `<x-app-logo />` and `<x-app-logo-icon />` Blade components.
   transparent — re-export with a transparent background (or ask and it can be
   cleaned again).
 - Dark ink reads on the app's light surfaces. A pre-sized copy is fine
-  (`full-logo` ~1000×500, `icon-logo` 512×512); larger is okay, it scales down.
+  (`full-logo` ~891×189, `icon-logo` 512×512 and **square**); larger is okay,
+  it scales down.
+- **Trim transparent padding to the artwork.** The logo is sized by height, so
+  big empty top/bottom margins make it render small. `full-logo` should be the
+  wordmark edge-to-edge (with only a hair of margin); `icon-logo` should be the
+  mark centred in a square. The supplied files had ~⅔ of their height as empty
+  padding — that was trimmed.
 
 ## Favicons
 

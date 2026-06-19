@@ -22,7 +22,7 @@
             {{-- Nav --}}
             <header class="mx-auto flex w-full max-w-[1120px] items-center gap-4 px-6 py-5 sm:px-8">
                 <a href="{{ route('home') }}" class="flex items-center">
-                    <x-app-logo class="h-8" />
+                    <x-app-logo class="h-9" />
                 </a>
                 <div class="flex-1"></div>
                 <a href="{{ route('login') }}" class="text-[15px] font-semibold text-[#3A3833] transition hover:text-accent">{{ __('Log in') }}</a>
