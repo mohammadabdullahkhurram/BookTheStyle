@@ -37,7 +37,7 @@ new #[Title('Profile settings')] class extends Component {
     }
 }; ?>
 
-<section class="w-full">
+<section class="mx-auto w-full max-w-4xl px-8 py-7">
     @include('partials.settings-heading')
 
     <flux:heading class="sr-only">{{ __('Profile settings') }}</flux:heading>
@@ -48,12 +48,8 @@ new #[Title('Profile settings')] class extends Component {
 
             <flux:input wire:model="email" :label="__('Email')" type="email" required autocomplete="email" />
 
-            <div class="flex items-center gap-4">
-                <div class="flex items-center justify-end">
-                    <flux:button variant="primary" type="submit" class="w-full" data-test="update-profile-button">
-                        {{ __('Save') }}
-                    </flux:button>
-                </div>
+            <div>
+                <x-ui.button type="submit" data-test="update-profile-button">{{ __('Save') }}</x-ui.button>
             </div>
         </form>
 

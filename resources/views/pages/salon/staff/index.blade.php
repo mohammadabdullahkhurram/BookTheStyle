@@ -156,87 +156,88 @@ new #[Title('Staff')] class extends Component {
 }; ?>
 
 <div>
-    <div class="mx-auto flex w-full max-w-4xl flex-col gap-6 p-6">
-        <div class="flex items-center justify-between">
-            <div>
-                <flux:text class="text-xs uppercase tracking-wide text-secondary">{{ $salon->name }}</flux:text>
-                <flux:heading size="xl" class="font-serif">{{ __('Staff') }}</flux:heading>
-            </div>
-            <x-salon-nav :salon="$salon" />
-        </div>
+    <div class="mx-auto flex w-full max-w-4xl flex-col gap-7 px-8 py-7">
+        <x-ui.page-header :overline="__('Manage')" :title="__('Staff')" />
 
-        <form wire:submit="invite" class="flex flex-col gap-4 rounded-xl border border-border bg-card p-6 shadow-sm">
-            <flux:heading size="sm" class="font-serif">{{ __('Invite staff') }}</flux:heading>
-            <div class="grid gap-4 sm:grid-cols-2">
-                <flux:input wire:model="name" :label="__('Name')" required />
-                <flux:input wire:model="email" type="email" :label="__('Email')" required />
-                <flux:select wire:model.live="role" :label="__('Role')">
-                    @foreach ($this->assignableRoles as $r)
-                        <flux:select.option value="{{ $r->value }}">{{ $r->label() }}</flux:select.option>
-                    @endforeach
-                </flux:select>
-                @if ($role === 'user')
-                    <flux:select wire:model="staff_type" :label="__('Staff type')">
-                        <flux:select.option value="stylist">{{ __('Stylist') }}</flux:select.option>
-                        <flux:select.option value="front_desk">{{ __('Front Desk') }}</flux:select.option>
+        <x-ui.card class="flex flex-col gap-4">
+            <h2 class="bts-card-title">{{ __('Invite staff') }}</h2>
+            <form wire:submit="invite" class="flex flex-col gap-4">
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <flux:input wire:model="name" :label="__('Name')" required />
+                    <flux:input wire:model="email" type="email" :label="__('Email')" required />
+                    <flux:select wire:model.live="role" :label="__('Role')">
+                        @foreach ($this->assignableRoles as $r)
+                            <flux:select.option value="{{ $r->value }}">{{ $r->label() }}</flux:select.option>
+                        @endforeach
                     </flux:select>
-                @endif
-            </div>
-            <div>
-                <flux:button type="submit" variant="primary" icon="plus">{{ __('Send invite') }}</flux:button>
-            </div>
-        </form>
+                    @if ($role === 'user')
+                        <flux:select wire:model="staff_type" :label="__('Staff type')">
+                            <flux:select.option value="stylist">{{ __('Stylist') }}</flux:select.option>
+                            <flux:select.option value="front_desk">{{ __('Front Desk') }}</flux:select.option>
+                        </flux:select>
+                    @endif
+                </div>
+                <div>
+                    <x-ui.button type="submit"><flux:icon.plus variant="micro" class="shrink-0" />{{ __('Send invite') }}</x-ui.button>
+                </div>
+            </form>
+        </x-ui.card>
 
-        <div class="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-            <table class="w-full text-sm">
-                <thead class="bg-muted/50 text-left text-xs uppercase tracking-wide text-secondary">
-                    <tr>
-                        <th class="px-4 py-3 font-medium">{{ __('Name') }}</th>
-                        <th class="px-4 py-3 font-medium">{{ __('Role') }}</th>
-                        <th class="px-4 py-3 font-medium">{{ __('Type') }}</th>
-                        <th class="px-4 py-3 font-medium">{{ __('Status') }}</th>
-                        <th class="px-4 py-3"></th>
+        <x-ui.card padding="p-0" class="overflow-hidden">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="bts-overline border-b border-divider">
+                        <th class="px-6 py-3.5 font-semibold">{{ __('Name') }}</th>
+                        <th class="px-6 py-3.5 font-semibold">{{ __('Role') }}</th>
+                        <th class="px-6 py-3.5 font-semibold">{{ __('Type') }}</th>
+                        <th class="px-6 py-3.5 font-semibold">{{ __('Status') }}</th>
+                        <th class="px-6 py-3.5"></th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-border">
+                <tbody class="divide-y divide-row">
                     @forelse ($this->memberships as $m)
-                        <tr>
-                            <td class="px-4 py-3">
-                                <div class="font-medium text-ink">{{ $m->user->name }}</div>
-                                <div class="text-xs text-secondary">{{ $m->user->email }}</div>
+                        <tr @class(['opacity-65' => ! $m->active])>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-3">
+                                    <x-ui.avatar :name="$m->user->name" :seed="$m->user->id" size="sm" />
+                                    <div>
+                                        <div class="text-[15px] font-medium text-ink">{{ $m->user->name }}</div>
+                                        <div class="text-[12.5px] text-faint">{{ $m->user->email }}</div>
+                                    </div>
+                                </div>
                             </td>
-                            <td class="px-4 py-3 text-secondary">{{ $m->salon_role->label() }}</td>
-                            <td class="px-4 py-3 text-secondary">{{ $m->staff_type?->label() ?? '—' }}</td>
-                            <td class="px-4 py-3">
+                            <td class="px-6 py-4 text-[15px] text-secondary">{{ $m->salon_role->label() }}</td>
+                            <td class="px-6 py-4 text-[15px] text-secondary">{{ $m->staff_type?->label() ?? '—' }}</td>
+                            <td class="px-6 py-4">
                                 @if ($m->active)
-                                    <flux:badge color="green" size="sm">{{ __('Active') }}</flux:badge>
+                                    <span class="bts-pill" style="background-color:#E7EFE4;color:#3E5C3A;">{{ __('Active') }}</span>
                                 @else
-                                    <flux:badge color="zinc" size="sm">{{ __('Inactive') }}</flux:badge>
+                                    <span class="bts-pill" style="background-color:#F0EEEA;color:#9C9890;">{{ __('Inactive') }}</span>
                                 @endif
                             </td>
-                            <td class="px-4 py-3">
-                                <div class="flex items-center justify-end gap-3">
-                                    <flux:button size="xs" variant="ghost" wire:click="startEdit({{ $m->id }})">{{ __('Edit') }}</flux:button>
-                                    <flux:button size="xs" variant="ghost" wire:click="resetPassword({{ $m->id }})">{{ __('Reset password') }}</flux:button>
-                                    <flux:button size="xs" variant="ghost" wire:click="toggleActive({{ $m->id }})">
+                            <td class="px-6 py-4">
+                                <div class="flex items-center justify-end gap-4">
+                                    <button type="button" wire:click="startEdit({{ $m->id }})" class="text-[13px] font-semibold text-accent transition hover:text-accent-hover">{{ __('Edit') }}</button>
+                                    <button type="button" wire:click="resetPassword({{ $m->id }})" class="text-[13px] font-medium text-secondary transition hover:text-ink">{{ __('Reset password') }}</button>
+                                    <button type="button" wire:click="toggleActive({{ $m->id }})" class="text-[13px] font-medium text-secondary transition hover:text-ink">
                                         {{ $m->active ? __('Deactivate') : __('Reactivate') }}
-                                    </flux:button>
+                                    </button>
                                 </div>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="px-4 py-6 text-center text-secondary">{{ __('No staff yet. Invite someone above.') }}</td>
+                            <td colspan="5" class="px-6 py-10 text-center text-[15px] text-faint">{{ __('No staff yet. Invite someone above.') }}</td>
                         </tr>
                     @endforelse
                 </tbody>
             </table>
-        </div>
+        </x-ui.card>
     </div>
 
     <flux:modal wire:model="showEdit" class="max-w-md">
         <form wire:submit="saveEdit" class="flex flex-col gap-5">
-            <flux:heading size="lg" class="font-serif">{{ __('Edit staff member') }}</flux:heading>
+            <h2 class="bts-card-title">{{ __('Edit staff member') }}</h2>
             <flux:select wire:model.live="editRole" :label="__('Role')">
                 @foreach ($this->assignableRoles as $r)
                     <flux:select.option value="{{ $r->value }}">{{ $r->label() }}</flux:select.option>
@@ -249,8 +250,8 @@ new #[Title('Staff')] class extends Component {
                 </flux:select>
             @endif
             <div class="flex justify-end gap-3">
-                <flux:button type="button" variant="ghost" wire:click="$set('showEdit', false)">{{ __('Cancel') }}</flux:button>
-                <flux:button type="submit" variant="primary">{{ __('Save') }}</flux:button>
+                <x-ui.button type="button" variant="secondary" wire:click="$set('showEdit', false)">{{ __('Cancel') }}</x-ui.button>
+                <x-ui.button type="submit">{{ __('Save') }}</x-ui.button>
             </div>
         </form>
     </flux:modal>
@@ -260,7 +261,7 @@ new #[Title('Staff')] class extends Component {
             <x-temp-password-panel :name="$tempForName" :password="$temporaryPassword" />
         @endif
         <div class="mt-4 flex justify-end">
-            <flux:button variant="primary" wire:click="$set('showTempPassword', false)">{{ __('Done') }}</flux:button>
+            <x-ui.button wire:click="$set('showTempPassword', false)">{{ __('Done') }}</x-ui.button>
         </div>
     </flux:modal>
 </div>

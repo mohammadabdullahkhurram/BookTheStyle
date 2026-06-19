@@ -181,23 +181,17 @@ new #[Title('New booking')] class extends Component {
 }; ?>
 
 <div>
-    <div class="mx-auto flex w-full max-w-3xl flex-col gap-6 p-6">
-        <div class="flex items-center justify-between">
-            <div>
-                <flux:text class="text-xs uppercase tracking-wide text-secondary">{{ $salon->name }}</flux:text>
-                <flux:heading size="xl" class="font-serif">{{ __('New booking') }}</flux:heading>
-            </div>
-            <x-salon-nav :salon="$salon" />
-        </div>
+    <div class="mx-auto flex w-full max-w-3xl flex-col gap-7 px-8 py-7">
+        <x-ui.page-header :overline="__('New booking')" :title="__('Create a booking')" />
 
-        @error('start') <flux:text class="text-sm text-danger">{{ $message }}</flux:text> @enderror
-        @error('items') <flux:text class="text-sm text-danger">{{ $message }}</flux:text> @enderror
-        @error('client') <flux:text class="text-sm text-danger">{{ $message }}</flux:text> @enderror
+        @error('start') <div class="text-[14px] text-danger">{{ $message }}</div> @enderror
+        @error('items') <div class="text-[14px] text-danger">{{ $message }}</div> @enderror
+        @error('client') <div class="text-[14px] text-danger">{{ $message }}</div> @enderror
 
         <form wire:submit="save" class="flex flex-col gap-6">
             {{-- Client --}}
-            <div class="flex flex-col gap-4 rounded-xl border border-border bg-card p-6 shadow-sm">
-                <flux:heading size="sm" class="font-serif">{{ __('Client') }}</flux:heading>
+            <x-ui.card class="flex flex-col gap-4">
+                <h2 class="bts-card-title">{{ __('Client') }}</h2>
                 <flux:radio.group wire:model.live="clientMode" variant="segmented">
                     <flux:radio value="existing" label="{{ __('Existing') }}" />
                     <flux:radio value="new" label="{{ __('New') }}" />
@@ -218,11 +212,11 @@ new #[Title('New booking')] class extends Component {
                         <flux:input wire:model="newEmail" type="email" :label="__('Email')" />
                     </div>
                 @endif
-            </div>
+            </x-ui.card>
 
             {{-- Services --}}
-            <div class="flex flex-col gap-4 rounded-xl border border-border bg-card p-6 shadow-sm">
-                <flux:heading size="sm" class="font-serif">{{ __('Services') }}</flux:heading>
+            <x-ui.card class="flex flex-col gap-4">
+                <h2 class="bts-card-title">{{ __('Services') }}</h2>
                 @foreach ($items as $i => $item)
                     <div class="grid items-end gap-3 sm:grid-cols-[1fr_1fr_auto]">
                         <flux:select wire:model.live="items.{{ $i }}.service_id" :label="__('Service')">
@@ -237,15 +231,20 @@ new #[Title('New booking')] class extends Component {
                                 <flux:select.option value="{{ $stylist->id }}">{{ $stylist->name }}</flux:select.option>
                             @endforeach
                         </flux:select>
-                        <flux:button type="button" variant="ghost" size="sm" wire:click="removeItem({{ $i }})" icon="trash" />
+                        <flux:button type="button" variant="subtle" size="sm" wire:click="removeItem({{ $i }})" icon="trash" :aria-label="__('Remove service')" />
                     </div>
                 @endforeach
-                <div><flux:button type="button" variant="ghost" size="sm" icon="plus" wire:click="addItem">{{ __('Add service') }}</flux:button></div>
-            </div>
+                <div>
+                    <button type="button" wire:click="addItem"
+                            class="inline-flex items-center gap-1.5 rounded-[9px] px-2.5 py-1.5 text-[14px] font-semibold text-accent transition hover:bg-accent-tint">
+                        <flux:icon.plus variant="micro" />{{ __('Add service') }}
+                    </button>
+                </div>
+            </x-ui.card>
 
             {{-- When --}}
-            <div class="flex flex-col gap-4 rounded-xl border border-border bg-card p-6 shadow-sm">
-                <flux:heading size="sm" class="font-serif">{{ __('When') }}</flux:heading>
+            <x-ui.card class="flex flex-col gap-4">
+                <h2 class="bts-card-title">{{ __('When') }}</h2>
                 @if ($salon->allow_walkins)
                     <flux:checkbox wire:model.live="isWalkin" :label="__('Walk-in (start now and check in)')" />
                 @endif
@@ -258,10 +257,11 @@ new #[Title('New booking')] class extends Component {
 
                     @if ($this->suggestions !== [])
                         <div>
-                            <flux:text class="mb-2 text-sm text-secondary">{{ __('Available start times (first stylist):') }}</flux:text>
+                            <div class="bts-field-label mb-2">{{ __('Available start times (first stylist)') }}</div>
                             <div class="flex flex-wrap gap-2">
                                 @foreach ($this->suggestions as $time)
-                                    <flux:button type="button" size="xs" variant="{{ $startTime === $time ? 'primary' : 'ghost' }}" wire:click="pickSlot('{{ $time }}')">{{ $time }}</flux:button>
+                                    <button type="button" wire:click="pickSlot('{{ $time }}')"
+                                            class="rounded-[9px] border px-3 py-1.5 text-[14px] font-medium transition {{ $startTime === $time ? 'border-accent bg-accent-tint text-accent-ink' : 'border-input-border bg-field text-body hover:border-faint' }}">{{ $time }}</button>
                                 @endforeach
                             </div>
                         </div>
@@ -269,11 +269,11 @@ new #[Title('New booking')] class extends Component {
                 @endunless
 
                 <flux:textarea wire:model="notes" :label="__('Notes (optional)')" rows="2" />
-            </div>
+            </x-ui.card>
 
             <div class="flex items-center gap-3">
-                <flux:button type="submit" variant="primary">{{ __('Create booking') }}</flux:button>
-                <flux:button :href="route('salon.show', $salon)" wire:navigate variant="ghost">{{ __('Cancel') }}</flux:button>
+                <x-ui.button type="submit">{{ __('Create booking') }}</x-ui.button>
+                <x-ui.button variant="secondary" :href="route('salon.show', $salon)" wire:navigate>{{ __('Cancel') }}</x-ui.button>
             </div>
         </form>
     </div>

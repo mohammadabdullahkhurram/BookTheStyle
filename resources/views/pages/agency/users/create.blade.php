@@ -75,20 +75,20 @@ new #[Title('New agency user')] class extends Component {
 }; ?>
 
 <div>
-    <div class="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6">
-        <div>
-            <flux:heading size="xl" class="font-serif">{{ __('New agency user') }}</flux:heading>
-            <flux:text class="text-secondary">{{ __('Create an operator. They receive a temporary password and must change it on first login.') }}</flux:text>
-        </div>
+    <div class="mx-auto flex w-full max-w-2xl flex-col gap-7 px-8 py-7">
+        <x-ui.page-header :overline="__('Agency')" :title="__('New agency user')">
+            <x-slot:subtitle>{{ __('Create an operator. They receive a temporary password and must change it on first login.') }}</x-slot:subtitle>
+        </x-ui.page-header>
 
         @if ($temporaryPassword)
             <x-temp-password-panel :name="$createdName" :password="$temporaryPassword" />
             <div class="flex items-center gap-3">
-                <flux:button :href="route('agency.users.index')" wire:navigate variant="primary">{{ __('Done') }}</flux:button>
-                <flux:button wire:click="$set('temporaryPassword', null)" variant="ghost">{{ __('Add another') }}</flux:button>
+                <x-ui.button :href="route('agency.users.index')" wire:navigate>{{ __('Done') }}</x-ui.button>
+                <x-ui.button variant="secondary" wire:click="$set('temporaryPassword', null)">{{ __('Add another') }}</x-ui.button>
             </div>
         @else
-            <form wire:submit="save" class="flex flex-col gap-6 rounded-xl border border-border bg-card p-6 shadow-sm">
+            <x-ui.card>
+            <form wire:submit="save" class="flex flex-col gap-6">
                 <flux:input wire:model="name" :label="__('Name')" required autofocus />
                 <flux:input wire:model="email" type="email" :label="__('Email')" required />
 
@@ -111,10 +111,11 @@ new #[Title('New agency user')] class extends Component {
                 @endif
 
                 <div class="flex items-center gap-3">
-                    <flux:button type="submit" variant="primary">{{ __('Create user') }}</flux:button>
-                    <flux:button :href="route('agency.users.index')" wire:navigate variant="ghost">{{ __('Cancel') }}</flux:button>
+                    <x-ui.button type="submit">{{ __('Create user') }}</x-ui.button>
+                    <x-ui.button variant="secondary" :href="route('agency.users.index')" wire:navigate>{{ __('Cancel') }}</x-ui.button>
                 </div>
             </form>
+            </x-ui.card>
         @endif
     </div>
 </div>

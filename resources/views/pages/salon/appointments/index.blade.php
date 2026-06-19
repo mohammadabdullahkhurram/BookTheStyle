@@ -100,80 +100,83 @@ new #[Title('Appointments')] class extends Component {
 }; ?>
 
 <div>
-    <div class="mx-auto flex w-full max-w-5xl flex-col gap-6 p-6">
-        <div class="flex items-center justify-between">
-            <div>
-                <flux:text class="text-xs uppercase tracking-wide text-secondary">{{ $salon->name }}</flux:text>
-                <flux:heading size="xl" class="font-serif">{{ __('Appointments') }}</flux:heading>
-            </div>
-            <x-salon-nav :salon="$salon" />
-        </div>
+    <div class="mx-auto flex w-full max-w-5xl flex-col gap-7 px-8 py-7">
+        <x-ui.page-header :overline="__('Check-in')" :title="__('Appointments')">
+            <x-slot:actions>
+                @can('manageBookings', $salon)
+                    <x-ui.button :href="route('salon.bookings.create', $salon)" wire:navigate>
+                        <flux:icon.plus variant="micro" class="shrink-0" />{{ __('Add booking') }}
+                    </x-ui.button>
+                @endcan
+            </x-slot:actions>
+        </x-ui.page-header>
 
-        <div class="flex flex-wrap items-center gap-3">
-            <flux:input type="date" wire:model.live="date" class="max-w-44" />
-            <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" :placeholder="__('Search client')" class="max-w-64" />
-            <flux:spacer />
-            <flux:button :href="route('salon.bookings.create', $salon)" wire:navigate variant="primary" icon="plus">{{ __('New booking') }}</flux:button>
+        <div class="flex flex-wrap items-end gap-3">
+            <flux:input type="date" wire:model.live="date" class="max-w-44" :label="__('Date')" />
+            <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" :placeholder="__('Search client')" :label="__('Search')" class="max-w-64" />
         </div>
 
         <div class="flex flex-col gap-3">
             @forelse ($this->bookings as $booking)
                 @php($start = $booking->items->min('starts_at'))
-                <div class="rounded-xl border border-border bg-card p-4 shadow-sm">
+                @php($dimmed = in_array($booking->status, [\App\Enums\BookingStatus::Completed, \App\Enums\BookingStatus::NoShow, \App\Enums\BookingStatus::Cancelled], true))
+                @php($seed = $booking->items->first()?->stylist_id ?? 0)
+                <x-ui.card padding="p-5" class="{{ $dimmed ? 'opacity-65' : '' }}">
                     <div class="flex flex-wrap items-start justify-between gap-4">
-                        <div class="flex flex-col gap-1">
-                            <div class="flex items-center gap-2">
-                                <span class="font-serif text-lg text-ink">{{ $start?->setTimezone($salon->timezone)->format('g:i A') }}</span>
-                                <flux:badge :color="$booking->status->color()" size="sm">{{ $booking->status->label() }}</flux:badge>
-                                @if ($booking->is_walkin)<flux:badge color="zinc" size="sm">{{ __('Walk-in') }}</flux:badge>@endif
+                        <div class="flex items-start gap-4">
+                            <div class="w-16 shrink-0 pt-0.5 text-[14px] font-medium text-faint">{{ $start?->setTimezone($salon->timezone)->format('g:i A') }}</div>
+                            <x-ui.avatar :name="$booking->client->name" :seed="$seed" size="sm" class="mt-0.5" />
+                            <div class="flex flex-col gap-1.5">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="text-[15px] font-semibold text-ink">{{ $booking->client->name }}</span>
+                                    <x-ui.status-pill :status="$booking->status" />
+                                    @if ($booking->is_walkin)<span class="bts-pill" style="background-color:#F0EEEA;color:#9C9890;">{{ __('Walk-in') }}</span>@endif
+                                </div>
+                                <div class="text-[14px] text-secondary">
+                                    @foreach ($booking->items as $item)
+                                        <span class="inline-flex items-center gap-1.5">
+                                            <span class="size-2 rounded-full" style="background-color: {{ $item->service->color }}"></span>
+                                            {{ $item->service->name }} · {{ $item->stylist->name }}@if (! $loop->last), @endif
+                                        </span>
+                                    @endforeach
+                                </div>
+                                <div class="text-[12.5px] text-faint">{{ __('Booked by') }} {{ $booking->bookedBy?->name ?? $booking->booked_by_type->label() }} · {{ $booking->source->label() }}</div>
                             </div>
-                            <div class="font-medium text-ink">{{ $booking->client->name }}</div>
-                            <div class="text-sm text-secondary">
-                                @foreach ($booking->items as $item)
-                                    <span class="inline-flex items-center gap-1">
-                                        <span class="size-2 rounded-full" style="background-color: {{ $item->service->color }}"></span>
-                                        {{ $item->service->name }} · {{ $item->stylist->name }}@if (! $loop->last), @endif
-                                    </span>
-                                @endforeach
-                            </div>
-                            <div class="text-xs text-secondary">{{ __('Booked by') }} {{ $booking->bookedBy?->name ?? $booking->booked_by_type->label() }} · {{ $booking->source->label() }}</div>
                         </div>
 
                         <div class="flex flex-col items-end gap-2">
                             <div class="flex flex-wrap justify-end gap-2">
                                 @foreach ($booking->status->allowedTransitions() as $next)
-                                    <flux:button size="xs"
-                                        variant="{{ $next === \App\Enums\BookingStatus::Arrived ? 'primary' : 'ghost' }}"
-                                        wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')">
-                                        {{ $next === \App\Enums\BookingStatus::Arrived ? __('Mark arrived') : $next->label() }}
-                                    </flux:button>
+                                    @if ($next === \App\Enums\BookingStatus::Arrived)
+                                        <x-ui.button size="sm" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')">{{ __('Mark arrived') }}</x-ui.button>
+                                    @else
+                                        <x-ui.button size="sm" variant="secondary" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')">{{ $next->label() }}</x-ui.button>
+                                    @endif
                                 @endforeach
                             </div>
-                            <flux:button size="xs" variant="ghost" wire:click="openTimeline({{ $booking->id }})">{{ __('History') }}</flux:button>
+                            <button type="button" wire:click="openTimeline({{ $booking->id }})" class="text-[13px] font-medium text-secondary transition hover:text-accent">{{ __('History') }}</button>
                         </div>
                     </div>
-                </div>
+                </x-ui.card>
             @empty
-                <div class="rounded-xl border border-border bg-card p-8 text-center text-secondary shadow-sm">
+                <x-ui.card padding="p-10" class="text-center text-[15px] text-faint">
                     {{ __('No appointments for this day.') }}
-                </div>
+                </x-ui.card>
             @endforelse
         </div>
     </div>
 
     <flux:modal wire:model="showTimeline" class="max-w-md">
-        <flux:heading size="lg" class="font-serif">{{ __('Status history') }}</flux:heading>
+        <h2 class="bts-card-title">{{ __('Status history') }}</h2>
         <div class="mt-4 flex flex-col gap-3">
             @forelse ($this->timeline as $event)
-                <div class="flex items-center justify-between text-sm">
-                    <div>
-                        <span class="font-medium text-ink">{{ $event->to_status->label() }}</span>
-                        @if ($event->actor)<span class="text-secondary"> · {{ $event->actor->name }}</span>@endif
-                    </div>
-                    <span class="text-xs text-secondary">{{ $event->created_at?->setTimezone($salon->timezone)->format('M j, g:i A') }}</span>
+                <div class="flex items-center justify-between gap-3 text-[14px]">
+                    <x-ui.status-pill :status="$event->to_status" />
+                    <span class="flex-1 truncate text-secondary">{{ $event->actor?->name }}</span>
+                    <span class="text-[12.5px] text-faint">{{ $event->created_at?->setTimezone($salon->timezone)->format('M j, g:i A') }}</span>
                 </div>
             @empty
-                <flux:text class="text-sm text-secondary">{{ __('No history yet.') }}</flux:text>
+                <div class="text-[14px] text-secondary">{{ __('No history yet.') }}</div>
             @endforelse
         </div>
     </flux:modal>

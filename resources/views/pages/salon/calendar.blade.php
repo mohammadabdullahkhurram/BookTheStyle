@@ -158,14 +158,9 @@ new #[Title('Calendar')] class extends Component {
 }; ?>
 
 <div wire:poll.5s="refresh">
-    <div class="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
-        <div class="flex flex-wrap items-center justify-between gap-4">
-            <div>
-                <flux:text class="text-xs uppercase tracking-wide text-secondary">{{ $salon->name }}</flux:text>
-                <flux:heading size="xl" class="font-serif">{{ $isMaster ? __('Master calendar') : __('My calendar') }}</flux:heading>
-            </div>
-            <x-salon-nav :salon="$salon" />
-        </div>
+    <div class="mx-auto flex w-full max-w-6xl flex-col gap-7 px-8 py-7">
+        <x-ui.page-header :overline="__('Calendar')" :title="$isMaster ? __('Master calendar') : __('My calendar')" />
+        {{-- Stage 3 rebuilds the calendar body as a per-stylist column view. --}}
 
         <div x-data="bookingCalendar(@js($this->jsConfig))" wire:ignore>
             {{-- Toolbar --}}

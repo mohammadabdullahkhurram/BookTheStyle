@@ -43,60 +43,57 @@ new #[Title('Salons')] class extends Component {
 }; ?>
 
 <div>
-    <div class="mx-auto flex w-full max-w-5xl flex-col gap-6 p-6">
-        <div class="flex items-center justify-between">
-            <div>
-                <flux:heading size="xl" class="font-serif">{{ __('Salons') }}</flux:heading>
-                <flux:text class="text-secondary">{{ __('Create, edit, and deactivate sub-accounts.') }}</flux:text>
-            </div>
-            <flux:button :href="route('agency.salons.create')" wire:navigate variant="primary" icon="plus">
-                {{ __('New salon') }}
-            </flux:button>
-        </div>
+    <div class="mx-auto flex w-full max-w-5xl flex-col gap-7 px-8 py-7">
+        <x-ui.page-header :overline="__('Agency')" :title="__('Salons')">
+            <x-slot:subtitle>{{ __('Create, edit, and deactivate sub-accounts.') }}</x-slot:subtitle>
+            <x-slot:actions>
+                <x-ui.button :href="route('agency.salons.create')" wire:navigate><flux:icon.plus variant="micro" class="shrink-0" />{{ __('New salon') }}</x-ui.button>
+            </x-slot:actions>
+        </x-ui.page-header>
 
-        <div class="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-            <table class="w-full text-sm">
-                <thead class="bg-muted/50 text-left text-xs uppercase tracking-wide text-secondary">
-                    <tr>
-                        <th class="px-4 py-3 font-medium">{{ __('Salon') }}</th>
-                        <th class="px-4 py-3 font-medium">{{ __('Timezone') }}</th>
-                        <th class="px-4 py-3 font-medium">{{ __('Staff') }}</th>
-                        <th class="px-4 py-3 font-medium">{{ __('Status') }}</th>
-                        <th class="px-4 py-3"></th>
+        <x-ui.card padding="p-0" class="overflow-hidden">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="bts-overline border-b border-divider">
+                        <th class="px-6 py-3.5 font-semibold">{{ __('Salon') }}</th>
+                        <th class="px-6 py-3.5 font-semibold">{{ __('Timezone') }}</th>
+                        <th class="px-6 py-3.5 font-semibold">{{ __('Staff') }}</th>
+                        <th class="px-6 py-3.5 font-semibold">{{ __('Status') }}</th>
+                        <th class="px-6 py-3.5"></th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-border">
+                <tbody class="divide-y divide-row">
                     @forelse ($this->salons as $salon)
-                        <tr>
-                            <td class="px-4 py-3">
-                                <div class="font-medium text-ink">{{ $salon->name }}</div>
-                                <div class="text-xs text-secondary">{{ $salon->slug }}.{{ config('app.domain') }}</div>
+                        <tr @class(['opacity-65' => ! $salon->active])>
+                            <td class="px-6 py-4">
+                                <div class="text-[15px] font-medium text-ink">{{ $salon->name }}</div>
+                                <div class="text-[12.5px] text-faint">{{ $salon->slug }}.{{ config('app.domain') }}</div>
                             </td>
-                            <td class="px-4 py-3 text-secondary">{{ $salon->timezone }}</td>
-                            <td class="px-4 py-3 text-secondary">{{ $salon->memberships_count }}</td>
-                            <td class="px-4 py-3">
+                            <td class="px-6 py-4 text-[15px] text-secondary">{{ $salon->timezone }}</td>
+                            <td class="px-6 py-4 text-[15px] text-secondary">{{ $salon->memberships_count }}</td>
+                            <td class="px-6 py-4">
                                 @if ($salon->active)
-                                    <flux:badge color="green" size="sm">{{ __('Active') }}</flux:badge>
+                                    <span class="bts-pill" style="background-color:#E7EFE4;color:#3E5C3A;">{{ __('Active') }}</span>
                                 @else
-                                    <flux:badge color="zinc" size="sm">{{ __('Inactive') }}</flux:badge>
+                                    <span class="bts-pill" style="background-color:#F0EEEA;color:#9C9890;">{{ __('Inactive') }}</span>
                                 @endif
                             </td>
-                            <td class="px-4 py-3">
-                                <div class="flex items-center justify-end gap-3">
-                                    <flux:link :href="route('agency.salons.edit', $salon)" wire:navigate class="text-sm">{{ __('Edit') }}</flux:link>
-                                    <flux:button size="xs" variant="ghost" wire:click="toggleActive({{ $salon->id }})">
+                            <td class="px-6 py-4">
+                                <div class="flex items-center justify-end gap-4">
+                                    <a href="{{ route('agency.salons.edit', $salon) }}" wire:navigate class="text-[13px] font-semibold text-accent transition hover:text-accent-hover">{{ __('Edit') }}</a>
+                                    <button type="button" wire:click="toggleActive({{ $salon->id }})" class="text-[13px] font-medium text-secondary transition hover:text-ink">
                                         {{ $salon->active ? __('Deactivate') : __('Reactivate') }}
-                                    </flux:button>
+                                    </button>
                                 </div>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="px-4 py-6 text-center text-secondary">{{ __('No salons yet.') }}</td>
+                            <td colspan="5" class="px-6 py-10 text-center text-[15px] text-faint">{{ __('No salons yet.') }}</td>
                         </tr>
                     @endforelse
                 </tbody>
             </table>
-        </div>
+        </x-ui.card>
     </div>
 </div>

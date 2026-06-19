@@ -92,20 +92,20 @@ new #[Title('Edit salon')] class extends Component {
 }; ?>
 
 <div>
-    <div class="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6">
-        <div class="flex items-center justify-between">
-            <div>
-                <flux:heading size="xl" class="font-serif">{{ $salon->name }}</flux:heading>
-                <flux:text class="text-secondary">{{ __('Edit salon profile and default booking policy.') }}</flux:text>
-            </div>
-            @if ($salon->active)
-                <flux:badge color="green" size="sm">{{ __('Active') }}</flux:badge>
-            @else
-                <flux:badge color="zinc" size="sm">{{ __('Inactive') }}</flux:badge>
-            @endif
-        </div>
+    <div class="mx-auto flex w-full max-w-2xl flex-col gap-7 px-8 py-7">
+        <x-ui.page-header :overline="__('Edit salon')" :title="$salon->name">
+            <x-slot:subtitle>{{ __('Edit salon profile and default booking policy.') }}</x-slot:subtitle>
+            <x-slot:actions>
+                @if ($salon->active)
+                    <span class="bts-pill" style="background-color:#E7EFE4;color:#3E5C3A;">{{ __('Active') }}</span>
+                @else
+                    <span class="bts-pill" style="background-color:#F0EEEA;color:#9C9890;">{{ __('Inactive') }}</span>
+                @endif
+            </x-slot:actions>
+        </x-ui.page-header>
 
-        <form wire:submit="save" class="flex flex-col gap-6 rounded-xl border border-border bg-card p-6 shadow-sm">
+        <x-ui.card>
+        <form wire:submit="save" class="flex flex-col gap-6">
             <flux:input wire:model="name" :label="__('Salon name')" required />
 
             <flux:input wire:model="slug" :label="__('Subdomain slug')"
@@ -133,21 +133,23 @@ new #[Title('Edit salon')] class extends Component {
             </div>
 
             <div class="flex items-center gap-3">
-                <flux:button type="submit" variant="primary">{{ __('Save changes') }}</flux:button>
-                <flux:button :href="route('agency.salons.index')" wire:navigate variant="ghost">{{ __('Back') }}</flux:button>
+                <x-ui.button type="submit">{{ __('Save changes') }}</x-ui.button>
+                <x-ui.button variant="secondary" :href="route('agency.salons.index')" wire:navigate>{{ __('Back') }}</x-ui.button>
             </div>
         </form>
+        </x-ui.card>
 
-        <div class="flex items-center justify-between rounded-xl border border-border bg-card p-5 shadow-sm">
+        <x-ui.card padding="p-5" class="flex items-center justify-between gap-4">
             <div>
-                <flux:heading size="sm">{{ $salon->active ? __('Deactivate salon') : __('Reactivate salon') }}</flux:heading>
-                <flux:text class="text-sm text-secondary">
+                <h3 class="text-[16px] font-semibold text-ink">{{ $salon->active ? __('Deactivate salon') : __('Reactivate salon') }}</h3>
+                <p class="text-[14px] text-secondary">
                     {{ $salon->active ? __('Hides the salon from staff. No data is deleted.') : __('Make the salon available to staff again.') }}
-                </flux:text>
+                </p>
             </div>
-            <flux:button wire:click="toggleActive" variant="{{ $salon->active ? 'danger' : 'primary' }}" size="sm">
+            <button type="button" wire:click="toggleActive"
+                    class="bts-btn bts-btn-sm shrink-0 {{ $salon->active ? 'border border-input-border bg-card text-danger hover:border-danger' : 'bts-btn-primary' }}">
                 {{ $salon->active ? __('Deactivate') : __('Reactivate') }}
-            </flux:button>
-        </div>
+            </button>
+        </x-ui.card>
     </div>
 </div>

@@ -32,53 +32,55 @@ new #[Title('Agency users')] class extends Component {
 }; ?>
 
 <div>
-    <div class="mx-auto flex w-full max-w-5xl flex-col gap-6 p-6">
-        <div class="flex items-center justify-between">
-            <div>
-                <flux:heading size="xl" class="font-serif">{{ __('Agency users') }}</flux:heading>
-                <flux:text class="text-secondary">{{ __('Operators of the agency and their salon scope.') }}</flux:text>
-            </div>
-            <flux:button :href="route('agency.users.create')" wire:navigate variant="primary" icon="plus">
-                {{ __('New user') }}
-            </flux:button>
-        </div>
+    <div class="mx-auto flex w-full max-w-5xl flex-col gap-7 px-8 py-7">
+        <x-ui.page-header :overline="__('Agency')" :title="__('Agency users')">
+            <x-slot:subtitle>{{ __('Operators of the agency and their salon scope.') }}</x-slot:subtitle>
+            <x-slot:actions>
+                <x-ui.button :href="route('agency.users.create')" wire:navigate><flux:icon.plus variant="micro" class="shrink-0" />{{ __('New user') }}</x-ui.button>
+            </x-slot:actions>
+        </x-ui.page-header>
 
-        <div class="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-            <table class="w-full text-sm">
-                <thead class="bg-muted/50 text-left text-xs uppercase tracking-wide text-secondary">
-                    <tr>
-                        <th class="px-4 py-3 font-medium">{{ __('Name') }}</th>
-                        <th class="px-4 py-3 font-medium">{{ __('Role') }}</th>
-                        <th class="px-4 py-3 font-medium">{{ __('Salon scope') }}</th>
-                        <th class="px-4 py-3"></th>
+        <x-ui.card padding="p-0" class="overflow-hidden">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="bts-overline border-b border-divider">
+                        <th class="px-6 py-3.5 font-semibold">{{ __('Name') }}</th>
+                        <th class="px-6 py-3.5 font-semibold">{{ __('Role') }}</th>
+                        <th class="px-6 py-3.5 font-semibold">{{ __('Salon scope') }}</th>
+                        <th class="px-6 py-3.5"></th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-border">
+                <tbody class="divide-y divide-row">
                     @forelse ($this->users as $user)
                         <tr>
-                            <td class="px-4 py-3">
-                                <div class="font-medium text-ink">{{ $user->name }}</div>
-                                <div class="text-xs text-secondary">{{ $user->email }}</div>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-3">
+                                    <x-ui.avatar :name="$user->name" :seed="$user->id" size="sm" />
+                                    <div>
+                                        <div class="text-[15px] font-medium text-ink">{{ $user->name }}</div>
+                                        <div class="text-[12.5px] text-faint">{{ $user->email }}</div>
+                                    </div>
+                                </div>
                             </td>
-                            <td class="px-4 py-3 text-secondary">{{ $user->agency_role->label() }}</td>
-                            <td class="px-4 py-3 text-secondary">
+                            <td class="px-6 py-4 text-[15px] text-secondary">{{ $user->agency_role->label() }}</td>
+                            <td class="px-6 py-4 text-[15px] text-secondary">
                                 @if ($user->agency_role === \App\Enums\AgencyRole::User)
                                     {{ $user->assignedSalons->pluck('name')->join(', ') ?: __('No salons assigned') }}
                                 @else
                                     {{ __('All salons') }}
                                 @endif
                             </td>
-                            <td class="px-4 py-3 text-right">
-                                <flux:link :href="route('agency.users.edit', $user)" wire:navigate class="text-sm">{{ __('Edit') }}</flux:link>
+                            <td class="px-6 py-4 text-right">
+                                <a href="{{ route('agency.users.edit', $user) }}" wire:navigate class="text-[13px] font-semibold text-accent transition hover:text-accent-hover">{{ __('Edit') }}</a>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="4" class="px-4 py-6 text-center text-secondary">{{ __('No agency users yet.') }}</td>
+                            <td colspan="4" class="px-6 py-10 text-center text-[15px] text-faint">{{ __('No agency users yet.') }}</td>
                         </tr>
                     @endforelse
                 </tbody>
             </table>
-        </div>
+        </x-ui.card>
     </div>
 </div>

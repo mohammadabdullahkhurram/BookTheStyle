@@ -132,78 +132,76 @@ new #[Title('Services')] class extends Component {
 }; ?>
 
 <div>
-    <div class="mx-auto flex w-full max-w-4xl flex-col gap-6 p-6">
-        <div class="flex items-center justify-between">
-            <div>
-                <flux:text class="text-xs uppercase tracking-wide text-secondary">{{ $salon->name }}</flux:text>
-                <flux:heading size="xl" class="font-serif">{{ __('Services') }}</flux:heading>
-            </div>
-            <x-salon-nav :salon="$salon" />
-        </div>
+    <div class="mx-auto flex w-full max-w-4xl flex-col gap-7 px-8 py-7">
+        <x-ui.page-header :overline="__('Manage')" :title="__('Services')" />
 
-        <form wire:submit="create" class="flex flex-col gap-4 rounded-xl border border-border bg-card p-6 shadow-sm">
-            <flux:heading size="sm" class="font-serif">{{ __('Add a service') }}</flux:heading>
-            <div class="grid items-end gap-4 sm:grid-cols-4">
-                <div class="sm:col-span-2"><flux:input wire:model="name" :label="__('Name')" required /></div>
-                <flux:input type="number" wire:model="duration_min" :label="__('Duration (min)')" min="5" max="600" step="5" />
-                <flux:input type="color" wire:model="color" :label="__('Color')" />
-            </div>
-            <div><flux:button type="submit" variant="primary" icon="plus">{{ __('Add service') }}</flux:button></div>
-        </form>
+        <x-ui.card class="flex flex-col gap-4">
+            <h2 class="bts-card-title">{{ __('Add a service') }}</h2>
+            <form wire:submit="create" class="flex flex-col gap-4">
+                <div class="grid items-end gap-4 sm:grid-cols-4">
+                    <div class="sm:col-span-2"><flux:input wire:model="name" :label="__('Name')" required /></div>
+                    <flux:input type="number" wire:model="duration_min" :label="__('Duration (min)')" min="5" max="600" step="5" />
+                    <flux:input type="color" wire:model="color" :label="__('Color')" />
+                </div>
+                <div>
+                    <x-ui.button type="submit"><flux:icon.plus variant="micro" class="shrink-0" />{{ __('Add service') }}</x-ui.button>
+                </div>
+            </form>
+        </x-ui.card>
 
-        <div class="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-            <table class="w-full text-sm">
-                <thead class="bg-muted/50 text-left text-xs uppercase tracking-wide text-secondary">
-                    <tr>
-                        <th class="px-4 py-3 font-medium">{{ __('Service') }}</th>
-                        <th class="px-4 py-3 font-medium">{{ __('Duration') }}</th>
-                        <th class="px-4 py-3 font-medium">{{ __('Stylists') }}</th>
-                        <th class="px-4 py-3 font-medium">{{ __('Status') }}</th>
-                        <th class="px-4 py-3"></th>
+        <x-ui.card padding="p-0" class="overflow-hidden">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="bts-overline border-b border-divider">
+                        <th class="px-6 py-3.5 font-semibold">{{ __('Service') }}</th>
+                        <th class="px-6 py-3.5 font-semibold">{{ __('Duration') }}</th>
+                        <th class="px-6 py-3.5 font-semibold">{{ __('Stylists') }}</th>
+                        <th class="px-6 py-3.5 font-semibold">{{ __('Status') }}</th>
+                        <th class="px-6 py-3.5"></th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-border">
+                <tbody class="divide-y divide-row">
                     @forelse ($this->services as $service)
-                        <tr>
-                            <td class="px-4 py-3">
-                                <div class="flex items-center gap-2">
+                        <tr @class(['opacity-65' => ! $service->active])>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-2.5">
                                     <span class="size-3 rounded-full" style="background-color: {{ $service->color }}"></span>
-                                    <span class="font-medium text-ink">{{ $service->name }}</span>
+                                    <span class="text-[15px] font-medium text-ink">{{ $service->name }}</span>
                                 </div>
                             </td>
-                            <td class="px-4 py-3 text-secondary">{{ $service->duration_min }} {{ __('min') }}</td>
-                            <td class="px-4 py-3 text-secondary">
+                            <td class="px-6 py-4 text-[15px] text-secondary">{{ $service->duration_min }} {{ __('min') }}</td>
+                            <td class="px-6 py-4 text-[15px] text-secondary">
                                 {{ $service->stylists->pluck('name')->join(', ') ?: __('None assigned') }}
                             </td>
-                            <td class="px-4 py-3">
+                            <td class="px-6 py-4">
                                 @if ($service->active)
-                                    <flux:badge color="green" size="sm">{{ __('Active') }}</flux:badge>
+                                    <span class="bts-pill" style="background-color:#E7EFE4;color:#3E5C3A;">{{ __('Active') }}</span>
                                 @else
-                                    <flux:badge color="zinc" size="sm">{{ __('Inactive') }}</flux:badge>
+                                    <span class="bts-pill" style="background-color:#F0EEEA;color:#9C9890;">{{ __('Inactive') }}</span>
                                 @endif
                             </td>
-                            <td class="px-4 py-3">
-                                <div class="flex items-center justify-end gap-3">
-                                    <flux:button size="xs" variant="ghost" wire:click="startEdit({{ $service->id }})">{{ __('Edit') }}</flux:button>
-                                    <flux:button size="xs" variant="ghost" wire:click="toggleActive({{ $service->id }})">
+                            <td class="px-6 py-4">
+                                <div class="flex items-center justify-end gap-4">
+                                    <button type="button" wire:click="startEdit({{ $service->id }})" class="text-[13px] font-semibold text-accent transition hover:text-accent-hover">{{ __('Edit') }}</button>
+                                    <button type="button" wire:click="toggleActive({{ $service->id }})" class="text-[13px] font-medium text-secondary transition hover:text-ink">
                                         {{ $service->active ? __('Deactivate') : __('Reactivate') }}
-                                    </flux:button>
+                                    </button>
                                 </div>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="px-4 py-6 text-center text-secondary">{{ __('No services yet. Add one above.') }}</td>
+                            <td colspan="5" class="px-6 py-10 text-center text-[15px] text-faint">{{ __('No services yet. Add one above.') }}</td>
                         </tr>
                     @endforelse
                 </tbody>
             </table>
-        </div>
+        </x-ui.card>
     </div>
 
     <flux:modal wire:model="showEdit" class="max-w-md">
         <form wire:submit="saveEdit" class="flex flex-col gap-5">
-            <flux:heading size="lg" class="font-serif">{{ __('Edit service') }}</flux:heading>
+            <h2 class="bts-card-title">{{ __('Edit service') }}</h2>
             <flux:input wire:model="editName" :label="__('Name')" required />
             <div class="grid grid-cols-2 gap-4">
                 <flux:input type="number" wire:model="editDuration" :label="__('Duration (min)')" min="5" max="600" step="5" />
@@ -224,8 +222,8 @@ new #[Title('Services')] class extends Component {
             </div>
 
             <div class="flex justify-end gap-3">
-                <flux:button type="button" variant="ghost" wire:click="$set('showEdit', false)">{{ __('Cancel') }}</flux:button>
-                <flux:button type="submit" variant="primary">{{ __('Save') }}</flux:button>
+                <x-ui.button type="button" variant="secondary" wire:click="$set('showEdit', false)">{{ __('Cancel') }}</x-ui.button>
+                <x-ui.button type="submit">{{ __('Save') }}</x-ui.button>
             </div>
         </form>
     </flux:modal>

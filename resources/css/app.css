@@ -238,4 +238,39 @@ select:focus[data-flux-control] {
         background-color: var(--color-muted);
         border-radius: var(--radius-sm);
     }
+
+    /* Flux form controls → DESIGN-TOKENS input spec (field bg, input border,
+       radius 11). Text inputs / selects / textareas across every form inherit. */
+    input[data-flux-control]:not([type='checkbox']):not([type='radio']),
+    textarea[data-flux-control],
+    select[data-flux-control] {
+        background-color: var(--color-field);
+        border-color: var(--color-input-border);
+        border-radius: var(--radius-input);
+    }
+
+    /* Caption / overline (DESIGN-TOKENS type scale). */
+    .bts-overline {
+        font-size: 12.5px;
+        font-weight: 600;
+        line-height: 1;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--color-faint);
+    }
+
+    /* Section / card title (Schibsted 18 / 700). */
+    .bts-card-title {
+        font-family: var(--font-display);
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--color-ink);
+    }
+
+    /* Definition-list row label (Hanken 13 / 600). */
+    .bts-field-label {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--color-secondary);
+    }
 }

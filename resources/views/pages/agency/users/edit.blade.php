@@ -70,13 +70,13 @@ new #[Title('Edit agency user')] class extends Component {
 }; ?>
 
 <div>
-    <div class="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6">
-        <div>
-            <flux:heading size="xl" class="font-serif">{{ $user->name }}</flux:heading>
-            <flux:text class="text-secondary">{{ $user->email }}</flux:text>
-        </div>
+    <div class="mx-auto flex w-full max-w-2xl flex-col gap-7 px-8 py-7">
+        <x-ui.page-header :overline="__('Edit agency user')" :title="$user->name">
+            <x-slot:subtitle>{{ $user->email }}</x-slot:subtitle>
+        </x-ui.page-header>
 
-        <form wire:submit="save" class="flex flex-col gap-6 rounded-xl border border-border bg-card p-6 shadow-sm">
+        <x-ui.card>
+        <form wire:submit="save" class="flex flex-col gap-6">
             <flux:input wire:model="name" :label="__('Name')" required />
 
             <flux:select wire:model.live="agency_role" :label="__('Agency role')">
@@ -98,9 +98,10 @@ new #[Title('Edit agency user')] class extends Component {
             @endif
 
             <div class="flex items-center gap-3">
-                <flux:button type="submit" variant="primary">{{ __('Save changes') }}</flux:button>
-                <flux:button :href="route('agency.users.index')" wire:navigate variant="ghost">{{ __('Back') }}</flux:button>
+                <x-ui.button type="submit">{{ __('Save changes') }}</x-ui.button>
+                <x-ui.button variant="secondary" :href="route('agency.users.index')" wire:navigate>{{ __('Back') }}</x-ui.button>
             </div>
         </form>
+        </x-ui.card>
     </div>
 </div>

@@ -91,13 +91,13 @@ new #[Title('New salon')] class extends Component {
 }; ?>
 
 <div>
-    <div class="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6">
-        <div>
-            <flux:heading size="xl" class="font-serif">{{ __('New salon') }}</flux:heading>
-            <flux:text class="text-secondary">{{ __('Set up a new sub-account.') }}</flux:text>
-        </div>
+    <div class="mx-auto flex w-full max-w-2xl flex-col gap-7 px-8 py-7">
+        <x-ui.page-header :overline="__('Agency')" :title="__('New salon')">
+            <x-slot:subtitle>{{ __('Set up a new sub-account.') }}</x-slot:subtitle>
+        </x-ui.page-header>
 
-        <form wire:submit="save" class="flex flex-col gap-6 rounded-xl border border-border bg-card p-6 shadow-sm">
+        <x-ui.card>
+        <form wire:submit="save" class="flex flex-col gap-6">
             <flux:input wire:model.blur="name" :label="__('Salon name')" required autofocus />
 
             <flux:input wire:model="slug" :label="__('Subdomain slug')"
@@ -125,9 +125,10 @@ new #[Title('New salon')] class extends Component {
             </div>
 
             <div class="flex items-center gap-3">
-                <flux:button type="submit" variant="primary">{{ __('Create salon') }}</flux:button>
-                <flux:button :href="route('agency.salons.index')" wire:navigate variant="ghost">{{ __('Cancel') }}</flux:button>
+                <x-ui.button type="submit">{{ __('Create salon') }}</x-ui.button>
+                <x-ui.button variant="secondary" :href="route('agency.salons.index')" wire:navigate>{{ __('Cancel') }}</x-ui.button>
             </div>
         </form>
+        </x-ui.card>
     </div>
 </div>
