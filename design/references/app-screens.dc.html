@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Hanken Grotesk', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: #DAD7D0; border-radius: 99px; border: 3px solid transparent; background-clip: padding-box; }
+  ::-webkit-scrollbar-thumb:hover { background: #C7C3BA; background-clip: padding-box; border: 3px solid transparent; }
+  @keyframes btsFade { from { transform: translateY(6px); } to { transform: none; } }
+  @keyframes btsPop { from { transform: translateY(10px) scale(.98); } to { transform: none; } }
+  input::placeholder { color:#A8A49C; }
+</style>
+</helmet>
+
+<div ref="{{ rootRef }}" style="display:flex; height:100vh; width:100%; overflow:hidden; background:var(--app-bg); color:#1C1B1A; font-family:'Hanken Grotesk', system-ui, sans-serif; --accent:#6555E4; --accent-hover:#5544CC; --accent-tint:#ECEAFB; --accent-ink:#4B3FA0; --app-bg:#F6F5F3; --side-bg:#FFFFFF; --side-fg:#A09C94; --side-ink:#56534C; --side-border:#EAE8E3;">
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside style="{{ sideStyle }}">
+
+    <!-- header: collapsed -->
+    <sc-if value="{{ collapsed }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex; flex-direction:column; align-items:center; gap:10px; width:100%; margin-bottom:16px;">
+      <div style="width:42px; height:42px; flex:none; border-radius:13px; background:var(--accent); display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,0,0,.13);">
+        <svg width="25" height="25" viewBox="0 0 100 100" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"><path d="M31 17 V83"></path><path d="M31 17 H53 a23 23 0 0 1 0 46 H40"></path><path d="M31 83 H44"></path><line x1="38" y1="40" x2="64" y2="64"></line><line x1="38" y1="64" x2="64" y2="40"></line><circle cx="69" cy="67" r="6.5"></circle><circle cx="69" cy="37" r="6.5"></circle></svg>
+      </div>
+      <button onClick="{{ toggleSidebar }}" title="Expand menu" style="{{ toggleStyle }}">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+      </button>
+    </div>
+    </sc-if>
+
+    <!-- header: expanded -->
+    <sc-if value="{{ expanded }}">
+    <div style="display:flex; align-items:center; gap:11px; width:100%; height:46px; padding:0 6px; margin-bottom:16px;">
+      <div style="width:42px; height:42px; flex:none; border-radius:13px; background:var(--accent); display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,0,0,.13);">
+        <svg width="25" height="25" viewBox="0 0 100 100" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"><path d="M31 17 V83"></path><path d="M31 17 H53 a23 23 0 0 1 0 46 H40"></path><path d="M31 83 H44"></path><line x1="38" y1="40" x2="64" y2="64"></line><line x1="38" y1="64" x2="64" y2="40"></line><circle cx="69" cy="67" r="6.5"></circle><circle cx="69" cy="37" r="6.5"></circle></svg>
+      </div>
+      <div style="flex:1; min-width:0; font-family:'Schibsted Grotesk'; font-weight:800; font-size:17px; letter-spacing:-.015em; white-space:nowrap; overflow:hidden;"><span style="color:var(--accent);">Book</span><span style="color:#1C1B1A;">TheStyle</span></div>
+      <button onClick="{{ toggleSidebar }}" title="Collapse menu" style="{{ toggleStyle }}">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      </button>
+    </div>
+    </sc-if>
+
+    <nav style="{{ navWrap }}">
+      <button onClick="{{ goDashboard }}" title="Today" style="{{ navDash }}">
+        <svg width="21" height="21" style="flex:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect></svg>
+        <sc-if value="{{ expanded }}"><span style="{{ labelStyle }}">Today</span></sc-if>
+      </button>
+      <button onClick="{{ goCalendar }}" title="Calendar" style="{{ navCal }}">
+        <svg width="21" height="21" style="flex:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+        <sc-if value="{{ expanded }}"><span style="{{ labelStyle }}">Calendar</span></sc-if>
+      </button>
+      <button onClick="{{ goCheckin }}" title="Check-in" style="{{ navCheck }}">
+        <svg width="21" height="21" style="flex:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+        <sc-if value="{{ expanded }}"><span style="{{ labelStyle }}">Check-in</span></sc-if>
+      </button>
+    </nav>
+
+    <div style="flex:1;"></div>
+
+    <div style="{{ navWrap }}">
+      <button onClick="{{ goBooking }}" title="New booking" style="{{ addBtn }}">
+        <svg width="22" height="22" style="flex:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        <sc-if value="{{ expanded }}"><span style="{{ labelStyle }}">New booking</span></sc-if>
+      </button>
+      <button onClick="{{ goSettings }}" title="Settings" style="{{ navSettings }}">
+        <svg width="20" height="20" style="flex:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        <sc-if value="{{ expanded }}"><span style="{{ labelStyle }}">Settings</span></sc-if>
+      </button>
+      <button onClick="{{ goProfile }}" title="Profile" style="{{ profileRow }}">
+        <span style="width:34px; height:34px; flex:none; border-radius:50%; background:#2B2A33; color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:600; font-family:'Schibsted Grotesk';">AR</span>
+        <sc-if value="{{ expanded }}">
+          <span style="display:flex; flex-direction:column; min-width:0; text-align:left;"><span style="font-size:13.5px; font-weight:600; white-space:nowrap;">Aria Rowan</span><span style="font-size:12px; color:var(--side-fg); white-space:nowrap;">Salon owner</span></span>
+        </sc-if>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main style="flex:1; min-width:0; display:flex; flex-direction:column; overflow:hidden;">
+
+    <!-- ===== DASHBOARD ===== -->
+    <sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ true }}">
+    <section style="flex:1; overflow:auto; animation:btsFade .25s ease;">
+      <header style="display:flex; align-items:flex-end; justify-content:space-between; padding:24px 28px 16px;">
+        <div>
+          <div style="font-size:13px; color:#9C9890; letter-spacing:.02em;">Wednesday, 18 June</div>
+          <h1 style="margin:2px 0 0; font-family:'Schibsted Grotesk'; font-size:26px; font-weight:700;">Today at the salon</h1>
+        </div>
+        <button onClick="{{ goBooking }}" style="height:40px; padding:0 18px; border-radius:10px; border:none; background:var(--accent); color:#fff; font-size:14px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:7px; font-family:'Hanken Grotesk'; box-shadow:0 2px 8px rgba(0,0,0,.1);"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>Add booking</button>
+      </header>
+
+      <!-- stat cards -->
+      <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; padding:0 28px;">
+        <div style="background:#fff; border:1px solid #EAE8E3; border-radius:16px; padding:18px 20px; box-shadow:0 1px 2px rgba(0,0,0,.04);">
+          <div style="font-size:13px; color:#6B6862;">Total bookings</div>
+          <div style="font-family:'Schibsted Grotesk'; font-size:34px; font-weight:700; line-height:1.1; margin-top:6px;">11</div>
+          <div style="font-size:12.5px; color:#9C9890; margin-top:2px;">across 4 stylists</div>
+        </div>
+        <div style="background:#fff; border:1px solid #EAE8E3; border-radius:16px; padding:18px 20px; box-shadow:0 1px 2px rgba(0,0,0,.04);">
+          <div style="font-size:13px; color:#6B6862;">Waiting</div>
+          <div style="font-family:'Schibsted Grotesk'; font-size:34px; font-weight:700; line-height:1.1; margin-top:6px; color:#356088;">3</div>
+          <div style="font-size:12.5px; color:#9C9890; margin-top:2px;">arrived, not started</div>
+        </div>
+        <div style="background:#fff; border:1px solid #EAE8E3; border-radius:16px; padding:18px 20px; box-shadow:0 1px 2px rgba(0,0,0,.04);">
+          <div style="font-size:13px; color:#6B6862;">Completed</div>
+          <div style="font-family:'Schibsted Grotesk'; font-size:34px; font-weight:700; line-height:1.1; margin-top:6px; color:#3E5C3A;">2</div>
+          <div style="font-size:12.5px; color:#9C9890; margin-top:2px;">so far today</div>
+        </div>
+        <div style="background:#fff; border:1px solid #EAE8E3; border-radius:16px; padding:18px 20px; box-shadow:0 1px 2px rgba(0,0,0,.04);">
+          <div style="font-size:13px; color:#6B6862;">No-shows</div>
+          <div style="font-family:'Schibsted Grotesk'; font-size:34px; font-weight:700; line-height:1.1; margin-top:6px; color:#A23A3A;">1</div>
+          <div style="font-size:12.5px; color:#9C9890; margin-top:2px;">today</div>
+        </div>
+      </div>
+
+      <!-- bookings list -->
+      <div style="padding:22px 28px 32px;">
+        <div style="background:#fff; border:1px solid #EAE8E3; border-radius:18px; overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.04);">
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 22px; border-bottom:1px solid #F0EEE9;">
+            <h2 style="margin:0; font-family:'Schibsted Grotesk'; font-size:16px; font-weight:600;">Today's bookings</h2>
+            <span style="font-size:13px; color:#9C9890;">11 appointments</span>
+          </div>
+          <div style="display:grid; grid-template-columns:64px 1.7fr 1.5fr 1.2fr 116px 132px; padding:10px 22px; font-size:12px; color:#9C9890; text-transform:uppercase; letter-spacing:.04em; border-bottom:1px solid #F0EEE9;">
+            <div>Time</div><div>Client</div><div>Service</div><div>Stylist</div><div>Status</div><div>Booked by</div>
+          </div>
+          <sc-for list="{{ bookings }}" as="b" hint-placeholder-count="6">
+            <div style="display:grid; grid-template-columns:64px 1.7fr 1.5fr 1.2fr 116px 132px; align-items:center; padding:13px 22px; border-bottom:1px solid #F4F2ED; opacity:{{ b.opacity }};">
+              <div style="font-family:'Schibsted Grotesk'; font-size:13px; font-weight:600; color:#6B6862;">{{ b.t }}</div>
+              <div style="display:flex; align-items:center; gap:10px;"><div style="width:30px; height:30px; flex:none; border-radius:50%; background:{{ b.avatar }}; color:#fff; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:600; font-family:'Schibsted Grotesk';">{{ b.i }}</div><span style="font-size:14px; font-weight:600;">{{ b.n }}</span></div>
+              <div style="font-size:13.5px; color:#4A4843;">{{ b.s }}</div>
+              <div style="font-size:13.5px; color:#4A4843;">{{ b.st }}</div>
+              <div><span style="display:inline-block; padding:4px 11px; border-radius:99px; font-size:12px; font-weight:600; background:{{ b.statusBg }}; color:{{ b.statusColor }};">{{ b.statusLabel }}</span></div>
+              <div style="display:flex; align-items:center; gap:7px;"><span style="width:7px; height:7px; border-radius:50%; flex:none; background:{{ b.srcColor }};"></span><span style="font-size:12.5px; color:#6B6862;">{{ b.src }}</span></div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+    </sc-if>
+
+    <!-- ===== CALENDAR ===== -->
+    <sc-if value="{{ isCalendar }}">
+    <section style="flex:1; display:flex; flex-direction:column; overflow:hidden; animation:btsFade .25s ease;">
+      <!-- toolbar -->
+      <header style="display:flex; align-items:center; gap:14px; padding:18px 24px; flex:none;">
+        <button onClick="{{ today }}" style="height:40px; padding:0 16px; border-radius:10px; border:1px solid #E0DDD6; background:#fff; font-size:14px; font-weight:600; color:#3A3833; cursor:pointer; font-family:'Hanken Grotesk';">Today</button>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <button onClick="{{ prevDay }}" style="width:36px; height:36px; border-radius:9px; border:1px solid #E0DDD6; background:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#6B6862;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+          <div style="font-family:'Schibsted Grotesk'; font-size:18px; font-weight:600; min-width:140px; text-align:center;">Wed 18 Jun</div>
+          <button onClick="{{ nextDay }}" style="width:36px; height:36px; border-radius:9px; border:1px solid #E0DDD6; background:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#6B6862;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
+        </div>
+        <div style="flex:1;"></div>
+        <div style="display:flex; background:#EFEDE8; border-radius:10px; padding:3px;">
+          <button onClick="{{ setDay }}" style="{{ dayBtn }}">Day</button>
+          <button onClick="{{ setWeek }}" style="{{ weekBtn }}">Week</button>
+        </div>
+        <button title="Filter stylists" style="width:40px; height:40px; border-radius:10px; border:1px solid #E0DDD6; background:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#6B6862;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"></line><line x1="7" y1="12" x2="17" y2="12"></line><line x1="10" y1="18" x2="14" y2="18"></line></svg></button>
+        <button onClick="{{ goBooking }}" style="height:40px; padding:0 18px; border-radius:10px; border:none; background:var(--accent); color:#fff; font-size:14px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:7px; font-family:'Hanken Grotesk'; box-shadow:0 2px 8px rgba(0,0,0,.1);" style-hover="background:var(--accent-hover);"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>Add booking</button>
+      </header>
+
+      <!-- DAY grid -->
+      <sc-if value="{{ isDay }}" hint-placeholder-val="{{ true }}">
+      <div style="flex:1; overflow:auto; padding:0 24px 24px;">
+        <div style="background:#fff; border:1px solid #EAE8E3; border-radius:18px; overflow:hidden; min-width:760px;">
+          <!-- stylist header -->
+          <div style="display:flex; border-bottom:1px solid #EAE8E3; position:sticky; top:0; background:#fff; z-index:2;">
+            <div style="width:64px; flex:none; border-right:1px solid #F0EEE9;"></div>
+            <sc-for list="{{ columns }}" as="col" hint-placeholder-count="4">
+              <div style="flex:1; padding:14px 16px; display:flex; align-items:center; gap:10px; border-right:{{ col.headerBorder }};"><div style="width:30px; height:30px; border-radius:50%; background:{{ col.avatar }}; color:#fff; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:600; font-family:'Schibsted Grotesk';">{{ col.initials }}</div><span style="font-weight:600; font-size:15px;">{{ col.name }}</span></div>
+            </sc-for>
+          </div>
+          <!-- body -->
+          <div style="display:flex;">
+            <!-- time gutter -->
+            <div style="width:64px; flex:none; position:relative; height:672px; border-right:1px solid #F0EEE9;">
+              <div style="position:absolute; top:-8px; right:10px; font-size:12px; color:#A09C94; font-family:'Schibsted Grotesk';">9 am</div>
+              <div style="position:absolute; top:104px; right:10px; font-size:12px; color:#A09C94; font-family:'Schibsted Grotesk';">10</div>
+              <div style="position:absolute; top:216px; right:10px; font-size:12px; color:#A09C94; font-family:'Schibsted Grotesk';">11</div>
+              <div style="position:absolute; top:328px; right:10px; font-size:12px; color:#A09C94; font-family:'Schibsted Grotesk';">12</div>
+              <div style="position:absolute; top:440px; right:10px; font-size:12px; color:#A09C94; font-family:'Schibsted Grotesk';">1 pm</div>
+              <div style="position:absolute; top:552px; right:10px; font-size:12px; color:#A09C94; font-family:'Schibsted Grotesk';">2 pm</div>
+            </div>
+            <sc-for list="{{ columns }}" as="col" hint-placeholder-count="4">
+              <div style="flex:1; position:relative; height:672px; border-right:{{ col.colBorder }}; background-image:repeating-linear-gradient(to bottom, #F0EEE9 0, #F0EEE9 1px, transparent 1px, transparent 56px);">
+                <sc-for list="{{ col.appts }}" as="a" hint-placeholder-count="3">
+                  <div onClick="{{ a.onClick }}" style="{{ a.blockStyle }}">
+                    <sc-if value="{{ a.showMeta }}" hint-placeholder-val="{{ true }}"><div style="{{ a.timeStyle }}">{{ a.time }}</div></sc-if>
+                    <div style="{{ a.nameStyle }}">{{ a.client }}</div>
+                    <sc-if value="{{ a.showMeta }}" hint-placeholder-val="{{ true }}"><div style="{{ a.subStyle }}">{{ a.service }}</div></sc-if>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- WEEK overview -->
+      <sc-if value="{{ isWeek }}">
+      <div style="flex:1; overflow:auto; padding:0 24px 24px;">
+        <div style="display:grid; grid-template-columns:repeat(7, 1fr); gap:12px; min-width:920px;">
+          <sc-for list="{{ week }}" as="d" hint-placeholder-count="7">
+            <div style="background:{{ d.bg }}; border:1px solid {{ d.border }}; border-radius:14px; padding:12px; min-height:300px;">
+              <div style="display:flex; align-items:baseline; gap:6px; margin-bottom:12px;">
+                <span style="font-size:12px; color:#9C9890; text-transform:uppercase; letter-spacing:.04em;">{{ d.dow }}</span>
+                <span style="font-family:'Schibsted Grotesk'; font-size:16px; font-weight:700; color:{{ d.numColor }};">{{ d.num }}</span>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:6px;">
+                <sc-for list="{{ d.appts }}" as="a" hint-placeholder-count="2">
+                  <div style="background:{{ a.bg }}; border:1px solid {{ a.border }}; border-radius:9px; padding:6px 8px;">
+                    <div style="font-size:11px; font-weight:600; color:{{ a.ink }}; font-family:'Schibsted Grotesk';">{{ a.time }}</div>
+                    <div style="font-size:12.5px; font-weight:600; color:#2a2724;">{{ a.name }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      </sc-if>
+    </section>
+    </sc-if>
+
+    <!-- ===== NEW BOOKING ===== -->
+    <sc-if value="{{ isBooking }}">
+    <section style="flex:1; overflow:auto; animation:btsFade .25s ease;">
+      <div style="max-width:720px; margin:0 auto; padding:32px 24px 48px;">
+        <h1 style="margin:0 0 22px; font-family:'Schibsted Grotesk'; font-size:24px; font-weight:700;">New booking</h1>
+        <div style="background:#fff; border:1px solid #EAE8E3; border-radius:18px; padding:26px; box-shadow:0 1px 3px rgba(0,0,0,.05);">
+
+          <sc-if value="{{ bkMsg }}">
+            <div style="background:var(--accent-tint); color:var(--accent-ink); border-radius:11px; padding:12px 16px; font-size:14px; font-weight:600; margin-bottom:20px;">{{ bkMsg }}</div>
+          </sc-if>
+
+          <label style="display:block; font-size:13px; font-weight:600; color:#6B6862; margin-bottom:9px;">Client</label>
+          <div style="display:inline-flex; background:#EFEDE8; border-radius:10px; padding:3px; margin-bottom:14px;">
+            <button onClick="{{ setExisting }}" style="{{ existingBtn }}">Existing client</button>
+            <button onClick="{{ setNew }}" style="{{ newBtn }}">New client</button>
+          </div>
+
+          <sc-if value="{{ clientExisting }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex; align-items:center; gap:10px; height:48px; padding:0 14px; border:1px solid #E0DDD6; border-radius:11px; background:#FCFBF9; margin-bottom:22px;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9C9890" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              <span style="flex:1; font-size:15px; font-weight:600;">Brenda Massey</span>
+              <span style="font-size:13px; color:#9C9890;">+44 7700 900112</span>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ clientNew }}">
+            <div style="margin-bottom:22px;">
+              <input value="{{ bkNewName }}" onInput="{{ onNewName }}" placeholder="Full name" style="width:100%; height:48px; padding:0 14px; border:1px solid #E0DDD6; border-radius:11px; background:#fff; font-size:15px; font-family:'Hanken Grotesk'; color:#1C1B1A; margin-bottom:10px; outline:none;" style-focus="border-color:var(--accent);">
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                <input value="{{ bkNewEmail }}" onInput="{{ onNewEmail }}" type="email" placeholder="Email address" style="width:100%; height:48px; padding:0 14px; border:1px solid #E0DDD6; border-radius:11px; background:#fff; font-size:15px; font-family:'Hanken Grotesk'; color:#1C1B1A; outline:none;" style-focus="border-color:var(--accent);">
+                <input value="{{ bkNewPhone }}" onInput="{{ onNewPhone }}" type="tel" placeholder="Phone number" style="width:100%; height:48px; padding:0 14px; border:1px solid #E0DDD6; border-radius:11px; background:#fff; font-size:15px; font-family:'Hanken Grotesk'; color:#1C1B1A; outline:none;" style-focus="border-color:var(--accent);">
+              </div>
+            </div>
+          </sc-if>
+
+          <label style="display:block; font-size:13px; font-weight:600; color:#6B6862; margin-bottom:9px;">Services</label>
+          <div style="display:flex; flex-wrap:wrap; gap:9px; margin-bottom:12px;">
+            <sc-for list="{{ bkServices }}" as="sv" hint-placeholder-count="2">
+              <div style="display:flex; align-items:center; gap:8px; padding:8px 10px 8px 14px; background:var(--accent-tint); border-radius:99px;">
+                <span style="font-size:13.5px; font-weight:600; color:var(--accent-ink);">{{ sv.label }}</span>
+                <button onClick="{{ sv.onRemove }}" style="width:20px; height:20px; border-radius:50%; border:none; background:rgba(0,0,0,.06); color:var(--accent-ink); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:13px; line-height:1;">×</button>
+              </div>
+            </sc-for>
+          </div>
+          <button onClick="{{ addService }}" style="display:inline-flex; align-items:center; gap:7px; height:38px; padding:0 14px; border:1px dashed #C9C5BC; border-radius:10px; background:#fff; font-size:13.5px; font-weight:600; color:#4A4843; cursor:pointer; margin-bottom:24px; font-family:'Hanken Grotesk';"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>Add service</button>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:24px;">
+            <div>
+              <label style="display:block; font-size:13px; font-weight:600; color:#6B6862; margin-bottom:7px;">Stylist</label>
+              <button onClick="{{ cycleStylist }}" style="display:flex; align-items:center; gap:10px; width:100%; height:48px; padding:0 14px; border:1px solid #E0DDD6; border-radius:11px; background:#fff; cursor:pointer; font-family:'Hanken Grotesk';">
+                <sc-if value="{{ bkStylistAvatar }}"><span style="width:26px; height:26px; flex:none; border-radius:50%; background:{{ bkStylistAvatar }}; color:#fff; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:600; font-family:'Schibsted Grotesk';">{{ bkStylistInitials }}</span></sc-if>
+                <span style="flex:1; text-align:left; font-size:15px; font-weight:600;">{{ bkStylistLabel }}</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9C9890" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </button>
+            </div>
+            <div>
+              <label style="display:block; font-size:13px; font-weight:600; color:#6B6862; margin-bottom:7px;">Date</label>
+              <div style="display:flex; align-items:center; gap:10px; height:48px; padding:0 14px; border:1px solid #E0DDD6; border-radius:11px; background:#fff;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9C9890" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                <span style="font-size:15px; font-weight:600;">Wed 18 Jun</span>
+              </div>
+            </div>
+          </div>
+
+          <label style="display:block; font-size:13px; font-weight:600; color:#6B6862; margin-bottom:10px;">Available start times</label>
+          <div style="display:flex; flex-wrap:wrap; gap:9px; margin-bottom:24px;">
+            <sc-for list="{{ slots }}" as="sl" hint-placeholder-count="7">
+              <button onClick="{{ sl.onSelect }}" style="{{ sl.style }}">{{ sl.label }}</button>
+            </sc-for>
+          </div>
+
+          <div style="height:1px; background:#F0EEE9; margin:4px 0 20px;"></div>
+
+          <div style="display:flex; align-items:center; gap:13px; margin-bottom:26px;">
+            <button onClick="{{ toggleWalkin }}" style="{{ walkinTrack }}"><span style="{{ walkinKnob }}"></span></button>
+            <span style="font-size:14.5px; font-weight:600;">Walk-in <span style="font-weight:400; color:#9C9890;">(start now, check in on arrival)</span></span>
+          </div>
+
+          <div style="display:flex; justify-content:flex-end; gap:12px;">
+            <button onClick="{{ goDashboard }}" style="height:46px; padding:0 22px; border-radius:11px; border:1px solid #E0DDD6; background:#fff; font-size:15px; font-weight:600; color:#3A3833; cursor:pointer; font-family:'Hanken Grotesk';">Cancel</button>
+            <button onClick="{{ createBooking }}" style="height:46px; padding:0 26px; border-radius:11px; border:none; background:var(--accent); color:#fff; font-size:15px; font-weight:600; cursor:pointer; font-family:'Hanken Grotesk'; box-shadow:0 2px 10px rgba(0,0,0,.12);">Create booking</button>
+          </div>
+        </div>
+      </div>
+    </section>
+    </sc-if>
+
+    <!-- ===== CHECK-IN ===== -->
+    <sc-if value="{{ isCheckin }}">
+    <section style="flex:1; overflow:auto; animation:btsFade .25s ease;">
+      <div style="max-width:980px; margin:0 auto; padding:28px 24px 40px;">
+        <div style="display:flex; align-items:center; gap:14px; margin-bottom:22px;">
+          <div style="flex:1; display:flex; align-items:center; gap:11px; height:48px; padding:0 16px; border:1px solid #E0DDD6; border-radius:12px; background:#fff;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9C9890" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <span style="font-size:15px; color:#9C9890;">Search client or phone</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <button onClick="{{ prevDay }}" style="width:40px; height:40px; border-radius:10px; border:1px solid #E0DDD6; background:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#6B6862;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+            <div style="font-family:'Schibsted Grotesk'; font-size:16px; font-weight:600; min-width:104px; text-align:center;">Wed 18 Jun</div>
+            <button onClick="{{ nextDay }}" style="width:40px; height:40px; border-radius:10px; border:1px solid #E0DDD6; background:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#6B6862;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
+          </div>
+        </div>
+
+        <div style="background:#fff; border:1px solid #EAE8E3; border-radius:18px; overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.04);">
+          <sc-for list="{{ checkins }}" as="c" hint-placeholder-count="6">
+            <div style="display:flex; align-items:center; gap:16px; padding:15px 20px; border-bottom:1px solid #F4F2ED; opacity:{{ c.opacity }};">
+              <div style="font-family:'Schibsted Grotesk'; font-size:14px; font-weight:600; color:#6B6862; width:48px; flex:none;">{{ c.time }}</div>
+              <div style="width:34px; height:34px; flex:none; border-radius:50%; background:{{ c.avatar }}; color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:600; font-family:'Schibsted Grotesk';">{{ c.initials }}</div>
+              <div style="flex:1; min-width:0;">
+                <div style="font-size:15px; font-weight:600;">{{ c.name }}</div>
+                <div style="font-size:13px; color:#9C9890;">{{ c.sub }}</div>
+              </div>
+              <span style="display:inline-block; padding:5px 12px; border-radius:99px; font-size:12.5px; font-weight:600; background:{{ c.statusBg }}; color:{{ c.statusColor }};">{{ c.statusLabel }}</span>
+              <sc-if value="{{ c.canCancel }}">
+                <button onClick="{{ c.onCancel }}" style="height:40px; padding:0 14px; border-radius:10px; border:1px solid #EBD3D3; background:#fff; font-size:14px; font-weight:600; color:#A23A3A; cursor:pointer; white-space:nowrap; font-family:'Hanken Grotesk';">Cancel</button>
+              </sc-if>
+              <sc-if value="{{ c.hasAction }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ c.onAdvance }}" style="height:40px; padding:0 18px; border-radius:10px; border:1px solid #E0DDD6; background:#fff; font-size:14px; font-weight:600; color:#2A2724; cursor:pointer; white-space:nowrap; font-family:'Hanken Grotesk'; display:flex; align-items:center; gap:7px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>{{ c.actionLabel }}</button>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+    </sc-if>
+
+    <!-- ===== SETTINGS ===== -->
+    <sc-if value="{{ isSettings }}">
+    <section style="flex:1; overflow:auto; animation:btsFade .25s ease;">
+      <div style="max-width:760px; margin:0 auto; padding:32px 24px 48px;">
+        <h1 style="margin:0 0 22px; font-family:'Schibsted Grotesk'; font-size:24px; font-weight:700;">Settings</h1>
+
+        <!-- Salon details -->
+        <div style="background:#fff; border:1px solid #EAE8E3; border-radius:18px; padding:6px 24px; margin-bottom:18px; box-shadow:0 1px 2px rgba(0,0,0,.04);">
+          <div style="padding:16px 0 8px; font-family:'Schibsted Grotesk'; font-size:16px; font-weight:600;">Salon details</div>
+          <div style="display:flex; align-items:center; padding:14px 0; border-top:1px solid #F4F2ED;"><div style="width:160px; flex:none; font-size:13.5px; color:#9C9890;">Salon name</div><div style="flex:1; font-size:14.5px; font-weight:600;">BookTheStyle Studio</div></div>
+          <div style="display:flex; align-items:center; padding:14px 0; border-top:1px solid #F4F2ED;"><div style="width:160px; flex:none; font-size:13.5px; color:#9C9890;">Address</div><div style="flex:1; font-size:14.5px; font-weight:600;">14 Carrington Lane, London E2 7DG</div></div>
+          <div style="display:flex; align-items:center; padding:14px 0; border-top:1px solid #F4F2ED;"><div style="width:160px; flex:none; font-size:13.5px; color:#9C9890;">Phone</div><div style="flex:1; font-size:14.5px; font-weight:600;">+44 20 7946 0112</div></div>
+        </div>
+
+        <!-- Opening hours -->
+        <div style="background:#fff; border:1px solid #EAE8E3; border-radius:18px; padding:6px 24px; margin-bottom:18px; box-shadow:0 1px 2px rgba(0,0,0,.04);">
+          <div style="padding:16px 0 8px; font-family:'Schibsted Grotesk'; font-size:16px; font-weight:600;">Opening hours</div>
+          <sc-for list="{{ hours }}" as="h" hint-placeholder-count="7">
+            <div style="display:flex; align-items:center; padding:12px 0; border-top:1px solid #F4F2ED;"><div style="width:160px; flex:none; font-size:14px; font-weight:600;">{{ h.day }}</div><div style="flex:1; font-size:14px; color:{{ h.color }};">{{ h.value }}</div></div>
+          </sc-for>
+        </div>
+
+        <!-- Booking channels -->
+        <div style="background:#fff; border:1px solid #EAE8E3; border-radius:18px; padding:6px 24px; box-shadow:0 1px 2px rgba(0,0,0,.04);">
+          <div style="padding:16px 0 8px; font-family:'Schibsted Grotesk'; font-size:16px; font-weight:600;">Booking channels</div>
+          <sc-for list="{{ channels }}" as="r" hint-placeholder-count="4">
+            <div style="display:flex; align-items:center; gap:14px; padding:14px 0; border-top:1px solid #F4F2ED;">
+              <div style="flex:1;"><div style="font-size:14.5px; font-weight:600;">{{ r.label }}</div><div style="font-size:13px; color:#9C9890; margin-top:1px;">{{ r.desc }}</div></div>
+              <button onClick="{{ r.onToggle }}" style="{{ r.track }}"><span style="{{ r.knob }}"></span></button>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+    </sc-if>
+
+    <!-- ===== PROFILE ===== -->
+    <sc-if value="{{ isProfile }}">
+    <section style="flex:1; overflow:auto; animation:btsFade .25s ease;">
+      <div style="max-width:680px; margin:0 auto; padding:32px 24px 48px;">
+        <h1 style="margin:0 0 22px; font-family:'Schibsted Grotesk'; font-size:24px; font-weight:700;">My profile</h1>
+
+        <div style="background:#fff; border:1px solid #EAE8E3; border-radius:18px; padding:26px; margin-bottom:18px; box-shadow:0 1px 2px rgba(0,0,0,.04); display:flex; align-items:center; gap:18px;">
+          <div style="width:68px; height:68px; flex:none; border-radius:50%; background:#2B2A33; color:#fff; display:flex; align-items:center; justify-content:center; font-size:24px; font-weight:600; font-family:'Schibsted Grotesk';">AR</div>
+          <div style="flex:1;">
+            <div style="font-family:'Schibsted Grotesk'; font-size:21px; font-weight:700;">Aria Rowan</div>
+            <div style="font-size:14px; color:#9C9890; margin-top:2px;">Salon owner</div>
+          </div>
+          <span style="display:inline-block; padding:6px 13px; border-radius:99px; font-size:12.5px; font-weight:600; background:var(--accent-tint); color:var(--accent-ink);">Admin</span>
+        </div>
+
+        <div style="background:#fff; border:1px solid #EAE8E3; border-radius:18px; padding:6px 24px; margin-bottom:18px; box-shadow:0 1px 2px rgba(0,0,0,.04);">
+          <div style="padding:16px 0 8px; font-family:'Schibsted Grotesk'; font-size:16px; font-weight:600;">Account</div>
+          <div style="display:flex; align-items:center; padding:14px 0; border-top:1px solid #F4F2ED;"><div style="width:140px; flex:none; font-size:13.5px; color:#9C9890;">Email</div><div style="flex:1; font-size:14.5px; font-weight:600;">aria.rowan@bookthestyle.com</div></div>
+          <div style="display:flex; align-items:center; padding:14px 0; border-top:1px solid #F4F2ED;"><div style="width:140px; flex:none; font-size:13.5px; color:#9C9890;">Phone</div><div style="flex:1; font-size:14.5px; font-weight:600;">+44 7700 900001</div></div>
+          <div style="display:flex; align-items:center; padding:14px 0; border-top:1px solid #F4F2ED;"><div style="width:140px; flex:none; font-size:13.5px; color:#9C9890;">Role</div><div style="flex:1; font-size:14.5px; font-weight:600;">Owner · full access</div></div>
+          <div style="display:flex; align-items:center; padding:14px 0; border-top:1px solid #F4F2ED;"><div style="width:140px; flex:none; font-size:13.5px; color:#9C9890;">Member since</div><div style="flex:1; font-size:14.5px; font-weight:600;">March 2024</div></div>
+        </div>
+
+        <div style="background:#fff; border:1px solid #EAE8E3; border-radius:18px; padding:6px 24px; box-shadow:0 1px 2px rgba(0,0,0,.04);">
+          <div style="padding:16px 0 8px; font-family:'Schibsted Grotesk'; font-size:16px; font-weight:600;">Preferences</div>
+          <sc-for list="{{ prefs }}" as="p" hint-placeholder-count="2">
+            <div style="display:flex; align-items:center; gap:14px; padding:14px 0; border-top:1px solid #F4F2ED;">
+              <div style="flex:1;"><div style="font-size:14.5px; font-weight:600;">{{ p.label }}</div><div style="font-size:13px; color:#9C9890; margin-top:1px;">{{ p.desc }}</div></div>
+              <button onClick="{{ p.onToggle }}" style="{{ p.track }}"><span style="{{ p.knob }}"></span></button>
+            </div>
+          </sc-for>
+          <div style="border-top:1px solid #F4F2ED; padding:18px 0;">
+            <button onClick="{{ signOut }}" style="height:44px; padding:0 20px; border-radius:11px; border:1px solid #EBD3D3; background:#fff; font-size:14.5px; font-weight:600; color:#A23A3A; cursor:pointer; font-family:'Hanken Grotesk';">Sign out</button>
+          </div>
+        </div>
+      </div>
+    </section>
+    </sc-if>
+
+  </main>
+
+  <!-- ============ APPOINTMENT DETAIL MODAL ============ -->
+  <sc-if value="{{ appt }}">
+  <div onClick="{{ closeAppt }}" style="position:fixed; inset:0; background:rgba(28,27,26,.34); display:flex; align-items:center; justify-content:center; z-index:60; animation:btsFade .15s ease;">
+    <div onClick="{{ stop }}" style="width:430px; max-width:calc(100vw - 40px); background:#fff; border-radius:20px; overflow:hidden; box-shadow:0 26px 64px rgba(0,0,0,.3); animation:btsPop .2s ease;">
+      <div style="background:{{ apptHeaderBg }}; padding:20px 22px; display:flex; align-items:flex-start; justify-content:space-between;">
+        <div style="min-width:0;">
+          <div style="font-size:12.5px; font-weight:600; color:{{ apptHeaderInk }}; font-family:'Schibsted Grotesk';">{{ apptTimeService }}</div>
+          <div style="font-family:'Schibsted Grotesk'; font-size:22px; font-weight:700; margin-top:3px; color:#1C1B1A;">{{ apptFullName }}</div>
+        </div>
+        <button onClick="{{ closeAppt }}" style="width:32px; height:32px; flex:none; border-radius:9px; border:none; background:rgba(0,0,0,.07); color:#3A3833; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:17px; line-height:1;">×</button>
+      </div>
+      <div style="padding:20px 22px 22px;">
+        <span style="display:inline-block; padding:5px 13px; border-radius:99px; font-size:12.5px; font-weight:600; background:{{ apptStatusBg }}; color:{{ apptStatusColor }}; margin-bottom:16px;">{{ apptStatusLabel }}</span>
+
+        <div style="display:flex; align-items:center; padding:12px 0; border-top:1px solid #F4F2ED;"><div style="width:104px; flex:none; font-size:13px; color:#9C9890;">Stylist</div><div style="flex:1; display:flex; align-items:center; gap:9px;"><span style="width:26px; height:26px; flex:none; border-radius:50%; background:{{ apptStylistAvatar }}; color:#fff; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:600; font-family:'Schibsted Grotesk';">{{ apptStylistInitials }}</span><span style="font-size:14.5px; font-weight:600;">{{ apptStylistName }}</span></div></div>
+        <div style="display:flex; align-items:center; padding:12px 0; border-top:1px solid #F4F2ED;"><div style="width:104px; flex:none; font-size:13px; color:#9C9890;">Service</div><div style="flex:1; font-size:14.5px; font-weight:600;">{{ apptService }}</div></div>
+
+        <div style="height:1px; background:#F0EEE9; margin:8px 0;"></div>
+        <div style="font-size:12px; color:#9C9890; text-transform:uppercase; letter-spacing:.04em; margin:6px 0 2px;">Contact</div>
+        <div style="display:flex; align-items:center; padding:12px 0; border-top:1px solid #F4F2ED;"><div style="width:104px; flex:none; font-size:13px; color:#9C9890;">Phone</div><div style="flex:1; font-size:14.5px; font-weight:600;">{{ apptPhone }}</div></div>
+        <div style="display:flex; align-items:center; padding:12px 0; border-top:1px solid #F4F2ED;"><div style="width:104px; flex:none; font-size:13px; color:#9C9890;">Email</div><div style="flex:1; font-size:14.5px; font-weight:600; word-break:break-all;">{{ apptEmail }}</div></div>
+        <div style="display:flex; align-items:center; padding:12px 0; border-top:1px solid #F4F2ED;"><div style="width:104px; flex:none; font-size:13px; color:#9C9890;">Booked by</div><div style="flex:1; font-size:14.5px; font-weight:600;">{{ apptBookedBy }}</div></div>
+
+        <div style="display:flex; gap:11px; margin-top:18px;">
+          <button onClick="{{ closeAppt }}" style="flex:1; height:46px; border-radius:11px; border:1px solid #E0DDD6; background:#fff; font-size:15px; font-weight:600; color:#3A3833; cursor:pointer; font-family:'Hanken Grotesk';">Close</button>
+          <button onClick="{{ closeApptCheckin }}" style="flex:1; height:46px; border-radius:11px; border:none; background:var(--accent); color:#fff; font-size:15px; font-weight:600; cursor:pointer; font-family:'Hanken Grotesk'; box-shadow:0 2px 10px rgba(0,0,0,.12);">Go to check-in</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ============ AUTH OVERLAY ============ -->
+  <sc-if value="{{ showAuth }}">
+  <div style="position:fixed; inset:0; z-index:100; background:radial-gradient(120% 80% at 50% -10%, var(--accent-tint) 0%, var(--app-bg) 55%); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; overflow:auto;">
+
+    <!-- brand lockup -->
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:26px;">
+      <div style="width:46px; height:46px; flex:none; border-radius:14px; background:var(--accent); display:flex; align-items:center; justify-content:center; box-shadow:0 6px 16px rgba(0,0,0,.16);">
+        <svg width="27" height="27" viewBox="0 0 100 100" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"><path d="M31 17 V83"></path><path d="M31 17 H53 a23 23 0 0 1 0 46 H40"></path><path d="M31 83 H44"></path><line x1="38" y1="40" x2="64" y2="64"></line><line x1="38" y1="64" x2="64" y2="40"></line><circle cx="69" cy="67" r="6.5"></circle><circle cx="69" cy="37" r="6.5"></circle></svg>
+      </div>
+      <div style="font-family:'Schibsted Grotesk'; font-weight:800; font-size:21px; letter-spacing:-.015em;"><span style="color:var(--accent);">Book</span><span style="color:#1C1B1A;">TheStyle</span></div>
+    </div>
+
+    <!-- ===== LOGIN ===== -->
+    <sc-if value="{{ isLogin }}" hint-placeholder-val="{{ true }}">
+    <div style="width:400px; max-width:100%;">
+      <div style="background:#fff; border:1px solid #EAE8E3; border-radius:20px; padding:32px; box-shadow:0 12px 40px rgba(28,27,26,.08);">
+        <h1 style="margin:0; font-family:'Schibsted Grotesk'; font-size:23px; font-weight:700;">Welcome back</h1>
+        <p style="margin:6px 0 24px; font-size:14px; color:#9C9890;">Log in to your salon dashboard.</p>
+
+        <label style="display:block; font-size:13px; font-weight:600; color:#6B6862; margin-bottom:7px;">Email</label>
+        <input value="{{ authEmail }}" onInput="{{ onAuthEmail }}" type="email" placeholder="you@bookthestyle.com" style="width:100%; height:48px; padding:0 14px; border:1px solid #E0DDD6; border-radius:11px; background:#FCFBF9; font-size:15px; font-family:'Hanken Grotesk'; color:#1C1B1A; margin-bottom:16px; outline:none;" style-focus="border-color:var(--accent); background:#fff;">
+
+        <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:7px;">
+          <label style="font-size:13px; font-weight:600; color:#6B6862;">Password</label>
+          <span style="font-size:12.5px; font-weight:600; color:var(--accent); cursor:pointer; white-space:nowrap; flex:none;">Forgot password?</span>
+        </div>
+        <div style="position:relative; margin-bottom:24px;">
+          <input value="{{ authPw }}" onInput="{{ onAuthPw }}" type="{{ authPwType }}" placeholder="Enter your password" style="width:100%; height:48px; padding:0 46px 0 14px; border:1px solid #E0DDD6; border-radius:11px; background:#FCFBF9; font-size:15px; font-family:'Hanken Grotesk'; color:#1C1B1A; outline:none;" style-focus="border-color:var(--accent); background:#fff;">
+          <button onClick="{{ toggleAuthPw }}" title="Show password" style="position:absolute; top:0; right:0; width:46px; height:48px; border:none; background:transparent; color:#9C9890; cursor:pointer; display:flex; align-items:center; justify-content:center;">{{ authPwIcon }}</button>
+        </div>
+
+        <button onClick="{{ login }}" style="width:100%; height:48px; border-radius:12px; border:none; background:var(--accent); color:#fff; font-size:15px; font-weight:600; cursor:pointer; font-family:'Hanken Grotesk'; box-shadow:0 2px 10px rgba(0,0,0,.12);" style-hover="background:var(--accent-hover);">Log in</button>
+      </div>
+      <div style="text-align:center; margin-top:20px; font-size:14px; color:#6B6862;">New to BookTheStyle? <span onClick="{{ bookCall }}" style="color:var(--accent); font-weight:600; cursor:pointer;">Book a call</span></div>
+    </div>
+    </sc-if>
+
+    <!-- ===== SET PASSWORD ===== -->
+    <sc-if value="{{ isSetPassword }}">
+    <div style="width:400px; max-width:100%;">
+      <div style="background:#fff; border:1px solid #EAE8E3; border-radius:20px; padding:32px; box-shadow:0 12px 40px rgba(28,27,26,.08);">
+        <h1 style="margin:0; font-family:'Schibsted Grotesk'; font-size:23px; font-weight:700;">Set your password</h1>
+        <p style="margin:6px 0 20px; font-size:14px; color:#9C9890;">Choose a new password to finish setting up your account.</p>
+
+        <div style="display:flex; align-items:center; gap:9px; padding:10px 13px; background:var(--accent-tint); border-radius:11px; margin-bottom:22px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-ink)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+          <span style="font-size:13.5px; color:var(--accent-ink); font-weight:600;">maya@bookthestyle.com</span>
+        </div>
+
+        <label style="display:block; font-size:13px; font-weight:600; color:#6B6862; margin-bottom:7px;">New password</label>
+        <div style="position:relative; margin-bottom:6px;">
+          <input value="{{ spwNew }}" onInput="{{ onSpwNew }}" type="{{ spwType }}" placeholder="Create a password" style="{{ spwNewInputStyle }}" style-focus="border-color:var(--accent); background:#fff;">
+          <button onClick="{{ toggleSpw }}" title="Show password" style="position:absolute; top:0; right:0; width:46px; height:48px; border:none; background:transparent; color:#9C9890; cursor:pointer; display:flex; align-items:center; justify-content:center;">{{ spwIcon }}</button>
+        </div>
+        <div style="font-size:12.5px; color:#9C9890; margin-bottom:18px;">{{ spwHint }}</div>
+
+        <label style="display:block; font-size:13px; font-weight:600; color:#6B6862; margin-bottom:7px;">Confirm password</label>
+        <input value="{{ spwConfirm }}" onInput="{{ onSpwConfirm }}" type="{{ spwType }}" placeholder="Re-enter your password" style="{{ spwConfirmInputStyle }}" style-focus="border-color:var(--accent); background:#fff;">
+
+        <sc-if value="{{ spwErr }}">
+          <div style="font-size:13px; color:#A23A3A; font-weight:600; margin-top:10px;">{{ spwErr }}</div>
+        </sc-if>
+
+        <button onClick="{{ setPassword }}" style="width:100%; height:48px; border-radius:12px; border:none; background:var(--accent); color:#fff; font-size:15px; font-weight:600; cursor:pointer; font-family:'Hanken Grotesk'; box-shadow:0 2px 10px rgba(0,0,0,.12); margin-top:22px;" style-hover="background:var(--accent-hover);">Set password &amp; continue</button>
+      </div>
+    </div>
+    </sc-if>
+
+  </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;100%&quot;,&quot;height&quot;:&quot;100%&quot;},&quot;authScreen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;app&quot;,&quot;login&quot;,&quot;setPassword&quot;],&quot;default&quot;:&quot;app&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;accent&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;violet&quot;,&quot;sage&quot;,&quot;terracotta&quot;],&quot;default&quot;:&quot;violet&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;sidebarStyle&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.rootRef = React.createRef();
+    this.STY = {
+      Simone: { name:'Simone', initials:'SI', avatar:'#6E9968', bg:'#E7EFE4', border:'#D5E4D0', ink:'#3E5C3A', nameC:'#26331F', subC:'#5A7355' },
+      Maya:   { name:'Maya',   initials:'MA', avatar:'#C76A8C', bg:'#FBE7EE', border:'#F2D2DE', ink:'#8E3D5A', nameC:'#3a2026', subC:'#9A5871' },
+      Jonah:  { name:'Jonah',  initials:'JO', avatar:'#D49A4E', bg:'#FBEFD6', border:'#EEDDB6', ink:'#8A5A1E', nameC:'#3a2c14', subC:'#8a6a36' },
+      Elise:  { name:'Elise',  initials:'EL', avatar:'#8C7FE0', bg:'#EAE6FB', border:'#D8D1F2', ink:'#4B3F9E', nameC:'#262040', subC:'#5d52a3' },
+    };
+    this.STATUS = {
+      booked:     { label:'Booked',     bg:'#F0EEEA', color:'#6B6862' },
+      arrived:    { label:'Arrived',    bg:'#E3EDF6', color:'#356088' },
+      in_service: { label:'In service', bg:'#FBEFD6', color:'#8A5A1E' },
+      completed:  { label:'Completed',  bg:'#E7EFE4', color:'#3E5C3A' },
+      no_show:    { label:'No-show',    bg:'#F8E3E3', color:'#A23A3A' },
+      cancelled:  { label:'Cancelled',  bg:'#F0EEEA', color:'#9C9890' },
+    };
+    this.ACTION = { booked:'Mark arrived', arrived:'Mark in service', in_service:'Complete' };
+    this.NEXT   = { booked:'arrived', arrived:'in_service', in_service:'completed' };
+    this.SRC = { 'Front desk':'#9C9890', 'Voice AI':'var(--accent)', 'Chat widget':'#4FA3B0', 'Owner':'#D49A4E' };
+    this.servicePool = [
+      { name:'Toner', dur:'20m' }, { name:'Treatment', dur:'30m' },
+      { name:'Beard trim', dur:'15m' }, { name:'Hair cut', dur:'45m' }, { name:'Gloss', dur:'25m' },
+    ];
+    this.stylistCycle = ['Any available','Simone','Maya','Jonah','Elise'];
+
+    this.calData = [
+      { key:'Simone', appts:[
+        { time:'9:00',  client:'Brenda M.', fullName:'Brenda Massey', service:'Blow dry',     phone:'+44 7700 900112', email:'brenda.massey@gmail.com', bookedBy:'Front desk', status:'completed', top:4,   height:80 },
+        { time:'10:30', client:'Craig M.',  fullName:'Craig Mango',   service:'Cut & colour', phone:'+44 7700 900145', email:'craig.mango@gmail.com',   bookedBy:'Voice AI',   status:'booked',    top:172, height:160 },
+        { time:'12:00', client:'Zain D.',   fullName:'Zain Doyle',    service:'Hair colour',  phone:'+44 7700 900233', email:'zain.doyle@gmail.com',    bookedBy:'Voice AI',   status:'booked',    top:340, height:152 },
+      ]},
+      { key:'Maya', appts:[
+        { time:'9:00',  client:'Alena G.',   fullName:'Alena Geidt',    service:'Hair cut',    phone:'+44 7700 900318', email:'alena.geidt@gmail.com',    bookedBy:'Chat widget', status:'booked',     top:4,   height:48 },
+        { time:'10:00', client:'Marilyn C.', fullName:'Marilyn Carder', service:'Cut & beard', phone:'+44 7700 900412', email:'marilyn.carder@gmail.com', bookedBy:'Owner',       status:'in_service', top:116, height:108 },
+        { time:'12:30', client:'Desirae S.', fullName:'Desirae Sims',   service:'Blow dry',    phone:'+44 7700 900587', email:'desirae.sims@gmail.com',   bookedBy:'Chat widget', status:'booked',     top:396, height:92 },
+      ]},
+      { key:'Jonah', appts:[
+        { time:'9:30',  client:'Phillip D.', fullName:'Phillip Drake', service:'Beard groom', phone:'+44 7700 900690', email:'phillip.drake@gmail.com', bookedBy:'Front desk', status:'arrived', top:60,  height:108 },
+        { time:'11:00', client:'Megan W.',   fullName:'Megan Webb',    service:'Hair cut',    phone:'+44 7700 900744', email:'megan.webb@gmail.com',    bookedBy:'Front desk', status:'booked',  top:228, height:104 },
+      ]},
+      { key:'Elise', appts:[
+        { time:'9:00',  client:'James H.', fullName:'James Harmon', service:'Treatment',     phone:'+44 7700 900801', email:'james.harmon@gmail.com', bookedBy:'Voice AI', status:'completed', top:4,   height:104 },
+        { time:'10:30', client:'Amy J.',   fullName:'Amy Jensen',   service:'Cut & colour',  phone:'+44 7700 900856', email:'amy.jensen@gmail.com',   bookedBy:'Chat widget', status:'booked', top:172, height:160 },
+        { time:'12:00', client:'Randy P.', fullName:'Randy Press',  service:'Spa treatment', phone:'+44 7700 900912', email:'randy.press@gmail.com',  bookedBy:'Owner',    status:'no_show',   top:340, height:152 },
+      ]},
+    ];
+
+    const ap = props && props.authScreen;
+    this.state = {
+      screen: 'dashboard',
+      auth: (ap === 'login' || ap === 'setPassword') ? ap : null,
+      authEmail: '', authPw: '', authShowPw: false,
+      spwNew: '', spwConfirm: '', spwShow: false, spwErr: '',
+      sidebarExpanded: false,
+      calView: 'day',
+      selectedAppt: null,
+      bkClientMode: 'existing',
+      bkNewName: '', bkNewEmail: '', bkNewPhone: '',
+      bkServices: [ { id:1, name:'Cut & colour', dur:'90m' }, { id:2, name:'Blow dry', dur:'30m' } ],
+      bkStylist: 'Simone',
+      bkTime: '10:00',
+      bkWalkin: false,
+      bkMsg: '',
+      bkSeq: 3,
+      channels: { frontDesk:true, voiceAI:true, chatWidget:true, online:false },
+      prefs: { emailNotif:true, dailyDigest:false },
+      checkins: [
+        { id:'c1', time:'9:00',  name:'Brenda Massey',  initials:'BM', service:'Blow dry',     stylist:'Simone', status:'completed' },
+        { id:'c2', time:'9:00',  name:'James Harmon',   initials:'JH', service:'Treatment',    stylist:'Elise',  status:'arrived' },
+        { id:'c3', time:'9:30',  name:'Alena Geidt',    initials:'AG', service:'Hair cut',     stylist:'Maya',   status:'booked' },
+        { id:'c4', time:'9:30',  name:'Phillip Drake',  initials:'PD', service:'Beard groom',  stylist:'Jonah',  status:'arrived' },
+        { id:'c5', time:'10:00', name:'Marilyn Carder', initials:'MC', service:'Cut & beard',  stylist:'Maya',   status:'in_service' },
+        { id:'c6', time:'10:30', name:'Craig Mango',    initials:'CM', service:'Cut & colour', stylist:'Simone', status:'booked' },
+        { id:'c7', time:'11:15', name:'Randy Press',    initials:'RP', service:'Spa treatment',stylist:'Elise',  status:'no_show' },
+      ],
+    };
+  }
+
+  componentDidMount() { this.applyTheme(); }
+  componentDidUpdate(prev) {
+    if (prev.accent !== this.props.accent || prev.sidebarStyle !== this.props.sidebarStyle) this.applyTheme();
+    if (prev.authScreen !== this.props.authScreen) {
+      const ap = this.props.authScreen;
+      this.setState({ auth: (ap === 'login' || ap === 'setPassword') ? ap : null });
+    }
+  }
+
+  setPassword() {
+    const { spwNew, spwConfirm } = this.state;
+    if (spwNew.length < 8) { this.setState({ spwErr: 'Use at least 8 characters.' }); return; }
+    if (spwNew !== spwConfirm) { this.setState({ spwErr: "Passwords don't match." }); return; }
+    this.setState({ auth: null, spwErr: '', screen: 'dashboard' });
+  }
+
+  applyTheme() {
+    const el = this.rootRef.current; if (!el) return;
+    const themes = {
+      violet:     { a:'#6555E4', h:'#5544CC', t:'#ECEAFB', ink:'#4B3FA0' },
+      sage:       { a:'#5C7458', h:'#4C6249', t:'#E7EEE5', ink:'#3E5C3A' },
+      terracotta: { a:'#C0613E', h:'#A8512F', t:'#F4E6DD', ink:'#8C432A' },
+    };
+    const th = themes[this.props.accent] || themes.violet;
+    el.style.setProperty('--accent', th.a);
+    el.style.setProperty('--accent-hover', th.h);
+    el.style.setProperty('--accent-tint', th.t);
+    el.style.setProperty('--accent-ink', th.ink);
+    const dark = this.props.sidebarStyle === 'dark';
+    el.style.setProperty('--side-bg', dark ? '#1E1D2A' : '#FFFFFF');
+    el.style.setProperty('--side-fg', dark ? '#8E8BA0' : '#A09C94');
+    el.style.setProperty('--side-ink', dark ? '#D7D4E4' : '#56534C');
+    el.style.setProperty('--side-border', dark ? '#1E1D2A' : '#EAE8E3');
+  }
+
+  navStyle(active) {
+    const ex = this.state.sidebarExpanded;
+    const base = { display:'flex', alignItems:'center', border:'none', cursor:'pointer', transition:'background .15s, color .15s', whiteSpace:'nowrap', overflow:'hidden',
+      ...(ex
+        ? { width:'100%', height:'44px', justifyContent:'flex-start', gap:'13px', padding:'0 13px', borderRadius:'12px' }
+        : { width:'46px', height:'46px', justifyContent:'center', borderRadius:'13px' }) };
+    return active
+      ? { ...base, background:'var(--accent-tint)', color:'var(--accent)' }
+      : { ...base, background:'transparent', color: ex ? 'var(--side-ink)' : 'var(--side-fg)' };
+  }
+  segStyle(active) {
+    const base = { border:'none', cursor:'pointer', height:'34px', padding:'0 16px', borderRadius:'8px', fontSize:'14px', fontWeight:600, fontFamily:"'Hanken Grotesk'", transition:'all .15s' };
+    return active
+      ? { ...base, background:'#fff', color:'#1C1B1A', boxShadow:'0 1px 3px rgba(0,0,0,.12)' }
+      : { ...base, background:'transparent', color:'#7A776F' };
+  }
+  toggleUI(on) {
+    return {
+      track:{ width:'46px', height:'27px', borderRadius:'99px', border:'none', cursor:'pointer', padding:'3px', display:'flex', justifyContent: on?'flex-end':'flex-start', background: on?'var(--accent)':'#D6D3CB', transition:'background .15s', flex:'none' },
+      knob:{ width:'21px', height:'21px', borderRadius:'50%', background:'#fff', boxShadow:'0 1px 3px rgba(0,0,0,.25)', display:'block' },
+    };
+  }
+
+  addService() {
+    const have = this.state.bkServices.map(s => s.name);
+    const next = this.servicePool.find(p => !have.includes(p.name));
+    if (!next) return;
+    this.setState(s => ({ bkServices: [...s.bkServices, { id:s.bkSeq, name:next.name, dur:next.dur }], bkSeq:s.bkSeq+1 }));
+  }
+  removeService(id) { this.setState(s => ({ bkServices: s.bkServices.filter(x => x.id !== id) })); }
+  cycleStylist() {
+    const i = this.stylistCycle.indexOf(this.state.bkStylist);
+    this.setState({ bkStylist: this.stylistCycle[(i + 1) % this.stylistCycle.length] });
+  }
+  createBooking() {
+    const who = this.state.bkStylist === 'Any available' ? 'next available stylist' : this.state.bkStylist;
+    const client = this.state.bkClientMode === 'new' ? (this.state.bkNewName.trim() || 'new client') : 'Brenda Massey';
+    this.setState({ bkMsg: 'Booking confirmed for ' + client + ' at ' + this.state.bkTime + ' with ' + who + '.' });
+  }
+  advance(id) {
+    this.setState(s => ({ checkins: s.checkins.map(c => c.id === id ? { ...c, status: this.NEXT[c.status] || c.status } : c) }));
+  }
+  cancelCheckin(id) {
+    this.setState(s => ({ checkins: s.checkins.map(c => c.id === id ? { ...c, status:'cancelled' } : c) }));
+  }
+
+  renderVals() {
+    const s = this.state;
+    const go = (screen) => () => this.setState({ screen, bkMsg:'' });
+    const dim = (st) => (st==='completed'||st==='no_show'||st==='cancelled');
+
+    // ===== calendar columns =====
+    const lastIdx = this.calData.length - 1;
+    const columns = this.calData.map((c, ci) => {
+      const sty = this.STY[c.key];
+      const lineBorder = ci === lastIdx ? 'none' : '1px solid #F0EEE9';
+      return {
+        name: sty.name, initials: sty.initials, avatar: sty.avatar,
+        headerBorder: lineBorder, colBorder: lineBorder,
+        appts: c.appts.map(a => {
+          const showMeta = a.height >= 60;
+          return {
+            time:a.time, client:a.client, service:a.service, showMeta,
+            blockStyle:{ position:'absolute', top:a.top+'px', left:'6px', right:'6px', height:a.height+'px', background:sty.bg, border:'1px solid '+sty.border, borderRadius:'11px', padding: showMeta?'8px 11px':'7px 11px', cursor:'pointer', overflow:'hidden' },
+            timeStyle:{ fontSize:'12px', fontWeight:600, color:sty.ink, fontFamily:"'Schibsted Grotesk'" },
+            nameStyle:{ fontSize: showMeta?'14px':'13px', fontWeight:600, color:sty.nameC, marginTop: showMeta?'1px':'0' },
+            subStyle:{ fontSize:'12.5px', color:sty.subC },
+            onClick:() => this.setState({ selectedAppt: { ...a, stylist:c.key } }),
+          };
+        }),
+      };
+    });
+
+    // ===== selected appointment =====
+    let appt = null, apptVals = {};
+    if (s.selectedAppt) {
+      const a = s.selectedAppt; const sty = this.STY[a.stylist]; const m = this.STATUS[a.status];
+      appt = true;
+      apptVals = {
+        apptHeaderBg: sty.bg, apptHeaderInk: sty.ink,
+        apptTimeService: a.time + ' · ' + a.service,
+        apptFullName: a.fullName, apptService: a.service,
+        apptStylistName: sty.name, apptStylistAvatar: sty.avatar, apptStylistInitials: sty.initials,
+        apptPhone: a.phone, apptEmail: a.email, apptBookedBy: a.bookedBy,
+        apptStatusLabel: m.label, apptStatusBg: m.bg, apptStatusColor: m.color,
+      };
+    }
+
+    // ===== dashboard bookings =====
+    const raw = [
+      ['9:00','Brenda Massey','BM','Blow dry','Simone','completed','Front desk'],
+      ['9:00','James Harmon','JH','Treatment','Elise','completed','Voice AI'],
+      ['9:30','Alena Geidt','AG','Hair cut','Maya','arrived','Chat widget'],
+      ['9:30','Phillip Drake','PD','Beard groom','Jonah','arrived','Front desk'],
+      ['10:00','Marilyn Carder','MC','Cut & beard','Maya','in_service','Owner'],
+      ['10:30','Craig Mango','CM','Cut & colour','Simone','arrived','Voice AI'],
+      ['10:30','Amy Jensen','AJ','Cut & colour','Elise','booked','Chat widget'],
+      ['11:00','Megan Webb','MW','Hair cut','Jonah','booked','Front desk'],
+      ['12:00','Zain Doyle','ZD','Hair colour','Simone','booked','Voice AI'],
+      ['12:00','Randy Press','RP','Spa treatment','Elise','no_show','Owner'],
+      ['12:30','Desirae Sims','DS','Blow dry','Maya','booked','Chat widget'],
+    ];
+    const bookings = raw.map(([t,n,i,sv,st,status,src]) => {
+      const m = this.STATUS[status];
+      return { t, n, i, s:sv, st, avatar:this.STY[st].avatar, statusLabel:m.label, statusBg:m.bg, statusColor:m.color,
+        src, srcColor:this.SRC[src] || '#9C9890', opacity: dim(status) ? 0.55 : 1 };
+    });
+
+    // ===== check-ins =====
+    const checkins = s.checkins.map(c => {
+      const m = this.STATUS[c.status];
+      const hasAction = !!this.ACTION[c.status];
+      return { time:c.time, name:c.name, initials:c.initials, sub:c.service + ' · ' + c.stylist,
+        avatar:this.STY[c.stylist].avatar, statusLabel:m.label, statusBg:m.bg, statusColor:m.color,
+        hasAction, actionLabel:this.ACTION[c.status] || '', onAdvance:() => this.advance(c.id),
+        canCancel: !dim(c.status), onCancel:() => this.cancelCheckin(c.id),
+        opacity: dim(c.status) ? 0.5 : 1 };
+    });
+
+    // ===== booking form =====
+    const bkServices = s.bkServices.map(sv => ({ label: sv.name + ' · ' + sv.dur, onRemove:() => this.removeService(sv.id) }));
+    const slotBase = { padding:0, height:'42px', width:'74px', textAlign:'center', borderRadius:'10px', fontSize:'14px', fontWeight:600, cursor:'pointer', fontFamily:"'Schibsted Grotesk'", transition:'all .12s' };
+    const slots = [['9:00',true],['9:30',false],['10:00',false],['10:30',false],['11:00',true],['1:30',false],['2:00',false]].map(([label,disabled]) => {
+      const selected = !disabled && s.bkTime === label;
+      let style;
+      if (disabled) style = { ...slotBase, color:'#C2BEB6', textDecoration:'line-through', cursor:'not-allowed', background:'#F6F5F3', border:'1px solid #EAE8E3' };
+      else if (selected) style = { ...slotBase, color:'var(--accent)', fontWeight:700, background:'var(--accent-tint)', border:'2px solid var(--accent)' };
+      else style = { ...slotBase, color:'#3A3833', background:'#fff', border:'1px solid #E0DDD6' };
+      return { label, style, onSelect: disabled ? () => {} : () => this.setState({ bkTime: label }) };
+    });
+    const styObj = this.STY[s.bkStylist];
+
+    const walkinTrack = { width:'46px', height:'27px', borderRadius:'99px', border:'none', cursor:'pointer', padding:'3px', display:'flex', justifyContent: s.bkWalkin ? 'flex-end' : 'flex-start', background: s.bkWalkin ? 'var(--accent)' : '#D6D3CB', transition:'background .15s' };
+    const walkinKnob = { width:'21px', height:'21px', borderRadius:'50%', background:'#fff', boxShadow:'0 1px 3px rgba(0,0,0,.25)', display:'block' };
+
+    // ===== settings =====
+    const hours = [
+      { day:'Monday', value:'9:00 – 18:00' }, { day:'Tuesday', value:'9:00 – 18:00' },
+      { day:'Wednesday', value:'9:00 – 18:00' }, { day:'Thursday', value:'9:00 – 20:00' },
+      { day:'Friday', value:'9:00 – 20:00' }, { day:'Saturday', value:'8:30 – 17:00' },
+      { day:'Sunday', value:'Closed', closed:true },
+    ].map(h => ({ ...h, color: h.closed ? '#A8A49C' : '#4A4843' }));
+
+    const chDefs = [
+      ['frontDesk','Front desk','Walk-ins and phone bookings'],
+      ['voiceAI','Voice AI','Automated phone booking assistant'],
+      ['chatWidget','Chat widget','Bookings from the website chat'],
+      ['online','Online self-booking','Public booking page for clients'],
+    ];
+    const channels = chDefs.map(([key,label,desc]) => {
+      const on = !!s.channels[key]; const ui = this.toggleUI(on);
+      return { label, desc, track:ui.track, knob:ui.knob, onToggle:() => this.setState(st => ({ channels: { ...st.channels, [key]: !st.channels[key] } })) };
+    });
+
+    // ===== profile prefs =====
+    const prDefs = [
+      ['emailNotif','Email notifications','Get an email when a new booking comes in'],
+      ['dailyDigest','Daily digest','Morning summary of the day ahead'],
+    ];
+    const prefs = prDefs.map(([key,label,desc]) => {
+      const on = !!s.prefs[key]; const ui = this.toggleUI(on);
+      return { label, desc, track:ui.track, knob:ui.knob, onToggle:() => this.setState(st => ({ prefs: { ...st.prefs, [key]: !st.prefs[key] } })) };
+    });
+
+    // ===== week overview =====
+    const mk = (time,name,who) => ({ time, name, bg:this.wkBg(who).bg, border:this.wkBg(who).border, ink:this.wkBg(who).ink });
+    const week = [
+      { dow:'Mon', num:'16', today:false, appts:[mk('9:30','Beth L.','Maya'), mk('11:00','Carl P.','Jonah')] },
+      { dow:'Tue', num:'17', today:false, appts:[mk('10:00','Dana R.','Simone'), mk('13:00','Owen K.','Elise'), mk('15:30','Faye T.','Maya')] },
+      { dow:'Wed', num:'18', today:true,  appts:[mk('9:00','Brenda M.','Simone'), mk('10:00','Marilyn C.','Maya'), mk('12:00','Randy P.','Elise')] },
+      { dow:'Thu', num:'19', today:false, appts:[mk('9:30','Gil S.','Jonah'), mk('11:30','Hana W.','Elise')] },
+      { dow:'Fri', num:'20', today:false, appts:[mk('10:30','Iris B.','Maya'), mk('14:00','Jude N.','Simone'), mk('16:00','Kara V.','Jonah')] },
+      { dow:'Sat', num:'21', today:false, appts:[mk('9:00','Liam O.','Elise'), mk('10:30','Mona D.','Maya'), mk('12:30','Nico F.','Simone')] },
+      { dow:'Sun', num:'22', today:false, appts:[] },
+    ].map(d => ({ ...d,
+      bg: d.today ? 'var(--accent-tint)' : '#fff',
+      border: d.today ? 'transparent' : '#EAE8E3',
+      numColor: d.today ? 'var(--accent)' : '#1C1B1A' }));
+
+    // ===== sidebar =====
+    const ex = s.sidebarExpanded;
+    const sideStyle = { width: ex ? '236px' : '72px', flex:'none', flexShrink:0, background:'var(--side-bg)', borderRight:'1px solid var(--side-border)', display:'flex', flexDirection:'column', alignItems: ex ? 'stretch' : 'center', padding:'16px 12px', overflow:'hidden' };
+    const navWrap = { display:'flex', flexDirection:'column', gap:'6px', width:'100%', alignItems: ex ? 'stretch' : 'center' };
+    const labelStyle = { fontSize:'14.5px', fontWeight:600, fontFamily:"'Hanken Grotesk'", whiteSpace:'nowrap' };
+    const toggleStyle = { display:'flex', alignItems:'center', justifyContent:'center', width: ex ? '34px' : '40px', height: ex ? '34px' : '40px', flex:'none', borderRadius:'10px', border:'none', background:'transparent', color:'var(--side-fg)', cursor:'pointer', transition:'background .15s' };
+    const addBtnBase = { display:'flex', alignItems:'center', border:'none', cursor:'pointer', background: s.screen==='booking' ? 'var(--accent-hover)' : 'var(--accent)', color:'#fff', boxShadow:'0 4px 12px rgba(0,0,0,.16)', whiteSpace:'nowrap', overflow:'hidden', fontFamily:"'Hanken Grotesk'",
+      ...(ex ? { width:'100%', height:'44px', justifyContent:'flex-start', gap:'13px', padding:'0 13px', borderRadius:'12px' } : { width:'46px', height:'46px', justifyContent:'center', borderRadius:'13px' }) };
+    const profileActive = s.screen === 'profile';
+    const profileRow = { display:'flex', alignItems:'center', border:'none', cursor:'pointer', background: profileActive ? 'var(--accent-tint)' : 'transparent', transition:'background .15s', whiteSpace:'nowrap', overflow:'hidden', color:'var(--side-ink)',
+      ...(ex ? { width:'100%', height:'52px', justifyContent:'flex-start', gap:'11px', padding:'0 9px', borderRadius:'12px' } : { width:'46px', height:'46px', justifyContent:'center', borderRadius:'13px', padding:0 }) };
+
+    return {
+      rootRef: this.rootRef,
+      isDashboard: s.screen === 'dashboard', isCalendar: s.screen === 'calendar',
+      isBooking: s.screen === 'booking', isCheckin: s.screen === 'checkin',
+      isSettings: s.screen === 'settings', isProfile: s.screen === 'profile',
+      isDay: s.calView === 'day', isWeek: s.calView === 'week',
+      goCalendar: go('calendar'), goDashboard: go('dashboard'), goBooking: go('booking'),
+      goCheckin: go('checkin'), goSettings: go('settings'), goProfile: go('profile'),
+      navCal: this.navStyle(s.screen==='calendar'), navDash: this.navStyle(s.screen==='dashboard'),
+      navCheck: this.navStyle(s.screen==='checkin'), navSettings: this.navStyle(s.screen==='settings'),
+      expanded: ex, collapsed: !ex, toggleSidebar: () => this.setState(st => ({ sidebarExpanded: !st.sidebarExpanded })),
+      sideStyle, navWrap, labelStyle, toggleStyle, addBtn: addBtnBase, profileRow,
+      dayBtn: this.segStyle(s.calView==='day'), weekBtn: this.segStyle(s.calView==='week'),
+      setDay: () => this.setState({ calView:'day' }), setWeek: () => this.setState({ calView:'week' }),
+      today: () => {}, prevDay: () => {}, nextDay: () => {},
+      columns, bookings, checkins, week, hours, channels, prefs,
+      bkServices, slots, addService: () => this.addService(),
+      cycleStylist: () => this.cycleStylist(), createBooking: () => this.createBooking(),
+      toggleWalkin: () => this.setState(st => ({ bkWalkin: !st.bkWalkin })),
+      walkinTrack, walkinKnob, bkMsg: s.bkMsg,
+      bkStylistLabel: s.bkStylist,
+      bkStylistAvatar: styObj ? styObj.avatar : null,
+      bkStylistInitials: styObj ? styObj.initials : '',
+      clientExisting: s.bkClientMode === 'existing', clientNew: s.bkClientMode === 'new',
+      existingBtn: this.segStyle(s.bkClientMode==='existing'), newBtn: this.segStyle(s.bkClientMode==='new'),
+      setExisting: () => this.setState({ bkClientMode:'existing' }), setNew: () => this.setState({ bkClientMode:'new' }),
+      bkNewName: s.bkNewName, bkNewEmail: s.bkNewEmail, bkNewPhone: s.bkNewPhone,
+      onNewName: (e) => this.setState({ bkNewName: e.target.value }),
+      onNewEmail: (e) => this.setState({ bkNewEmail: e.target.value }),
+      onNewPhone: (e) => this.setState({ bkNewPhone: e.target.value }),
+      appt, ...apptVals,
+      closeAppt: () => this.setState({ selectedAppt:null }),
+      closeApptCheckin: () => this.setState({ selectedAppt:null, screen:'checkin' }),
+      stop: (e) => e.stopPropagation(),
+      ...this.authVals(),
+    };
+  }
+
+  eyeIcon(shown) {
+    const h = React.createElement;
+    if (shown) {
+      return h('svg', { width:18, height:18, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round' },
+        h('path', { d:'M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24' }),
+        h('line', { x1:1, y1:1, x2:23, y2:23 }));
+    }
+    return h('svg', { width:18, height:18, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round' },
+      h('path', { d:'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z' }),
+      h('circle', { cx:12, cy:12, r:3 }));
+  }
+
+  authVals() {
+    const s = this.state;
+    const inputBase = { width:'100%', height:'48px', padding:'0 46px 0 14px', border:'1px solid #E0DDD6', borderRadius:'11px', background:'#FCFBF9', fontSize:'15px', fontFamily:"'Hanken Grotesk'", color:'#1C1B1A', outline:'none' };
+    const confirmBad = s.spwConfirm.length > 0 && s.spwNew !== s.spwConfirm;
+    return {
+      showAuth: !!s.auth, isLogin: s.auth === 'login', isSetPassword: s.auth === 'setPassword',
+      signOut: () => this.setState({ auth:'login', sidebarExpanded:false }),
+      // login
+      authEmail: s.authEmail, authPw: s.authPw,
+      onAuthEmail: (e) => this.setState({ authEmail: e.target.value }),
+      onAuthPw: (e) => this.setState({ authPw: e.target.value }),
+      authPwType: s.authShowPw ? 'text' : 'password',
+      authPwIcon: this.eyeIcon(s.authShowPw),
+      toggleAuthPw: () => this.setState(st => ({ authShowPw: !st.authShowPw })),
+      login: () => this.setState({ auth:null, screen:'dashboard' }),
+      bookCall: () => {},
+      // set password
+      spwNew: s.spwNew, spwConfirm: s.spwConfirm,
+      onSpwNew: (e) => this.setState({ spwNew: e.target.value, spwErr:'' }),
+      onSpwConfirm: (e) => this.setState({ spwConfirm: e.target.value, spwErr:'' }),
+      spwType: s.spwShow ? 'text' : 'password',
+      spwIcon: this.eyeIcon(s.spwShow),
+      toggleSpw: () => this.setState(st => ({ spwShow: !st.spwShow })),
+      spwHint: s.spwNew.length >= 8 ? 'Looks good.' : 'At least 8 characters.',
+      spwNewInputStyle: inputBase,
+      spwConfirmInputStyle: { ...inputBase, padding:'0 14px', borderColor: confirmBad ? '#D98A8A' : '#E0DDD6' },
+      spwErr: s.spwErr,
+      setPassword: () => this.setPassword(),
+    };
+  }
+
+  wkBg(who) {
+    const map = {
+      Simone:{ bg:'#E7EFE4', border:'#D5E4D0', ink:'#3E5C3A' },
+      Maya:  { bg:'#FBE7EE', border:'#F2D2DE', ink:'#8E3D5A' },
+      Jonah: { bg:'#FBEFD6', border:'#EEDDB6', ink:'#8A5A1E' },
+      Elise: { bg:'#EAE6FB', border:'#D8D1F2', ink:'#4B3F9E' },
+    };
+    return map[who] || map.Simone;
+  }
+}
+</script>
+</body>
+</html>

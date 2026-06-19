@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=Hanken+Grotesk:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Hanken Grotesk', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  .mono { font-family: 'Spline Sans Mono', ui-monospace, Menlo, monospace; }
+</style>
+</helmet>
+
+<div ref="{{ rootRef }}" style="min-height:100vh; width:100%; background:#F6F5F3; color:#1C1B1A; font-family:'Hanken Grotesk', system-ui, sans-serif; --accent:#6555E4; --accent-hover:#5544CC; --accent-tint:#ECEAFB; --accent-ink:#4B3FA0;">
+  <div style="max-width:1080px; margin:0 auto; padding:48px 40px 80px;">
+
+    <!-- header -->
+    <div style="display:flex; align-items:center; gap:14px; margin-bottom:8px;">
+      <div style="width:46px; height:46px; flex:none; border-radius:14px; background:var(--accent); display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,0,0,.13);">
+        <svg width="27" height="27" viewBox="0 0 100 100" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"><path d="M31 17 V83"></path><path d="M31 17 H53 a23 23 0 0 1 0 46 H40"></path><path d="M31 83 H44"></path><line x1="38" y1="40" x2="64" y2="64"></line><line x1="38" y1="64" x2="64" y2="40"></line><circle cx="69" cy="67" r="6.5"></circle><circle cx="69" cy="37" r="6.5"></circle></svg>
+      </div>
+      <div style="font-family:'Schibsted Grotesk'; font-weight:800; font-size:22px; letter-spacing:-.015em;"><span style="color:var(--accent);">Book</span><span style="color:#1C1B1A;">TheStyle</span></div>
+    </div>
+    <h1 style="margin:0; font-family:'Schibsted Grotesk'; font-size:34px; font-weight:800; letter-spacing:-.02em;">Design tokens &amp; style guide</h1>
+    <p style="margin:8px 0 0; font-size:16px; color:#56534C; max-width:620px;">Every token rendered with its literal value. Colors are defined as CSS custom properties; the accent set is swappable (violet shown — sage &amp; terracotta included below).</p>
+
+    <!-- ============ COLOR ============ -->
+    <h2 style="font-family:'Schibsted Grotesk'; font-size:13px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:#9C9890; margin:52px 0 0;">Color</h2>
+
+    <sc-for list="{{ colorGroups }}" as="g" hint-placeholder-count="6">
+      <div style="margin-top:26px;">
+        <div style="font-family:'Schibsted Grotesk'; font-size:17px; font-weight:700;">{{ g.title }}</div>
+        <sc-if value="{{ g.note }}"><div style="font-size:13.5px; color:#9C9890; margin-top:2px;">{{ g.note }}</div></sc-if>
+        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(158px, 1fr)); gap:14px; margin-top:14px;">
+          <sc-for list="{{ g.items }}" as="c" hint-placeholder-count="4">
+            <div style="background:#fff; border:1px solid #EAE8E3; border-radius:14px; padding:10px; box-shadow:0 1px 2px rgba(0,0,0,.04);">
+              <div style="height:60px; border-radius:9px; background:{{ c.hex }}; border:1px solid {{ c.ring }};"></div>
+              <div style="font-size:13px; font-weight:600; margin-top:9px;">{{ c.name }}</div>
+              <div class="mono" style="font-size:12px; color:#6B6862; margin-top:1px;">{{ c.hex }}</div>
+              <sc-if value="{{ c.varName }}"><div class="mono" style="font-size:11px; color:#A09C94; margin-top:2px;">{{ c.varName }}</div></sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-for>
+
+    <!-- ============ TYPE ============ -->
+    <h2 style="font-family:'Schibsted Grotesk'; font-size:13px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:#9C9890; margin:56px 0 0;">Typography</h2>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:18px;">
+      <div style="background:#fff; border:1px solid #EAE8E3; border-radius:16px; padding:20px 22px; box-shadow:0 1px 2px rgba(0,0,0,.04);">
+        <div style="font-family:'Schibsted Grotesk'; font-size:34px; font-weight:800; letter-spacing:-.02em;">Schibsted Grotesk</div>
+        <div style="font-size:14px; color:#56534C; margin-top:6px;">Display &amp; headings · weights 400 / 500 / 600 / 700 / 800</div>
+      </div>
+      <div style="background:#fff; border:1px solid #EAE8E3; border-radius:16px; padding:20px 22px; box-shadow:0 1px 2px rgba(0,0,0,.04);">
+        <div style="font-family:'Hanken Grotesk'; font-size:34px; font-weight:600;">Hanken Grotesk</div>
+        <div style="font-size:14px; color:#56534C; margin-top:6px;">Body, labels &amp; UI · weights 400 / 500 / 600 / 700</div>
+      </div>
+    </div>
+
+    <div style="background:#fff; border:1px solid #EAE8E3; border-radius:16px; margin-top:14px; overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.04);">
+      <sc-for list="{{ typeScale }}" as="t" hint-placeholder-count="9">
+        <div style="display:flex; align-items:baseline; gap:18px; padding:16px 22px; border-top:{{ t.border }};">
+          <div style="flex:1; min-width:0; {{ t.css }}">{{ t.sample }}</div>
+          <div class="mono" style="flex:none; width:300px; font-size:12.5px; color:#6B6862; text-align:right;">{{ t.spec }}</div>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- ============ SPACING ============ -->
+    <h2 style="font-family:'Schibsted Grotesk'; font-size:13px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:#9C9890; margin:56px 0 0;">Spacing scale</h2>
+    <div style="font-size:13.5px; color:#9C9890; margin-top:4px;">Base rhythm in px — used for padding and gaps throughout.</div>
+    <div style="background:#fff; border:1px solid #EAE8E3; border-radius:16px; margin-top:16px; padding:8px 22px; box-shadow:0 1px 2px rgba(0,0,0,.04);">
+      <sc-for list="{{ spacing }}" as="sp" hint-placeholder-count="9">
+        <div style="display:flex; align-items:center; gap:18px; padding:9px 0; border-top:{{ sp.border }};">
+          <div class="mono" style="width:54px; flex:none; font-size:13px; color:#1C1B1A; font-weight:500;">{{ sp.label }}</div>
+          <div style="height:16px; width:{{ sp.w }}; background:var(--accent-tint); border:1px solid var(--accent); border-radius:4px;"></div>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- ============ RADIUS ============ -->
+    <h2 style="font-family:'Schibsted Grotesk'; font-size:13px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:#9C9890; margin:56px 0 0;">Corner radius</h2>
+    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr)); gap:14px; margin-top:16px;">
+      <sc-for list="{{ radii }}" as="r" hint-placeholder-count="6">
+        <div style="background:#fff; border:1px solid #EAE8E3; border-radius:14px; padding:16px; box-shadow:0 1px 2px rgba(0,0,0,.04); display:flex; flex-direction:column; align-items:center; gap:12px;">
+          <div style="width:72px; height:64px; background:var(--accent-tint); border:1.5px solid var(--accent); border-radius:{{ r.v }};"></div>
+          <div style="text-align:center;"><div style="font-size:13px; font-weight:600; line-height:1.25; min-height:32px; display:flex; align-items:center; justify-content:center;">{{ r.name }}</div><div class="mono" style="font-size:12px; color:#6B6862; margin-top:4px;">{{ r.v }}</div></div>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- ============ COMPONENTS ============ -->
+    <h2 style="font-family:'Schibsted Grotesk'; font-size:13px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:#9C9890; margin:56px 0 0;">Components</h2>
+
+    <!-- buttons -->
+    <div style="background:#fff; border:1px solid #EAE8E3; border-radius:18px; padding:24px; margin-top:18px; box-shadow:0 1px 2px rgba(0,0,0,.04);">
+      <div style="font-family:'Schibsted Grotesk'; font-size:16px; font-weight:700; margin-bottom:16px;">Buttons</div>
+      <div style="display:flex; flex-wrap:wrap; gap:28px;">
+        <div>
+          <button style="height:48px; padding:0 26px; border-radius:12px; border:none; background:var(--accent); color:#fff; font-size:15px; font-weight:600; font-family:'Hanken Grotesk'; box-shadow:0 2px 10px rgba(0,0,0,.12);">Primary button</button>
+          <div class="mono" style="font-size:12px; color:#6B6862; margin-top:10px; line-height:1.7;">bg <span style="color:#1C1B1A;">var(--accent)</span> · text #FFFFFF<br>radius 12 · h 48 · 15px/600<br>shadow 0 2px 10px rgba(0,0,0,.12)<br>hover bg var(--accent-hover)</div>
+        </div>
+        <div>
+          <button style="height:48px; padding:0 24px; border-radius:12px; border:1px solid #E0DDD6; background:#fff; color:#3A3833; font-size:15px; font-weight:600; font-family:'Hanken Grotesk';">Secondary button</button>
+          <div class="mono" style="font-size:12px; color:#6B6862; margin-top:10px; line-height:1.7;">bg #FFFFFF · text #3A3833<br>border 1px #E0DDD6<br>radius 12 · h 48 · 15px/600</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- inputs -->
+    <div style="background:#fff; border:1px solid #EAE8E3; border-radius:18px; padding:24px; margin-top:16px; box-shadow:0 1px 2px rgba(0,0,0,.04);">
+      <div style="font-family:'Schibsted Grotesk'; font-size:16px; font-weight:700; margin-bottom:16px;">Input field</div>
+      <div style="display:flex; flex-wrap:wrap; gap:28px; align-items:flex-start;">
+        <div>
+          <label style="display:block; font-size:13px; font-weight:600; color:#6B6862; margin-bottom:7px;">Label</label>
+          <input value="Default value" readonly style="width:280px; height:48px; padding:0 14px; border:1px solid #E0DDD6; border-radius:11px; background:#FCFBF9; font-size:15px; font-family:'Hanken Grotesk'; color:#1C1B1A; outline:none;">
+        </div>
+        <div>
+          <label style="display:block; font-size:13px; font-weight:600; color:#6B6862; margin-bottom:7px;">Focused</label>
+          <input value="Typing…" readonly style="width:280px; height:48px; padding:0 14px; border:1px solid var(--accent); border-radius:11px; background:#fff; font-size:15px; font-family:'Hanken Grotesk'; color:#1C1B1A; outline:none;">
+        </div>
+      </div>
+      <div class="mono" style="font-size:12px; color:#6B6862; margin-top:14px; line-height:1.7;">h 48 · radius 11 · 15px/400 · bg #FCFBF9 · border 1px #E0DDD6<br>label 13px/600 #6B6862 · placeholder #A8A49C · focus border var(--accent), bg #FFFFFF</div>
+    </div>
+
+    <!-- status pills -->
+    <div style="background:#fff; border:1px solid #EAE8E3; border-radius:18px; padding:24px; margin-top:16px; box-shadow:0 1px 2px rgba(0,0,0,.04);">
+      <div style="font-family:'Schibsted Grotesk'; font-size:16px; font-weight:700; margin-bottom:6px;">Status pills</div>
+      <div class="mono" style="font-size:12px; color:#9C9890; margin-bottom:16px;">padding 5px 13px · radius 99px · 12.5px/600</div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(180px,1fr)); gap:14px;">
+        <sc-for list="{{ pills }}" as="p" hint-placeholder-count="6">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <span style="display:inline-block; padding:5px 13px; border-radius:99px; font-size:12.5px; font-weight:600; background:{{ p.bg }}; color:{{ p.color }};">{{ p.label }}</span>
+            <div class="mono" style="font-size:11px; color:#6B6862; line-height:1.5;">{{ p.bg }}<br>{{ p.color }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- cards -->
+    <div style="background:#fff; border:1px solid #EAE8E3; border-radius:18px; padding:24px; margin-top:16px; box-shadow:0 1px 2px rgba(0,0,0,.04);">
+      <div style="font-family:'Schibsted Grotesk'; font-size:16px; font-weight:700; margin-bottom:16px;">Cards</div>
+      <div style="display:flex; flex-wrap:wrap; gap:20px; align-items:flex-start;">
+        <div style="width:230px; background:#fff; border:1px solid #EAE8E3; border-radius:16px; padding:18px 20px; box-shadow:0 1px 2px rgba(0,0,0,.04);">
+          <div style="font-size:13px; color:#6B6862;">Stat card</div>
+          <div style="font-family:'Schibsted Grotesk'; font-size:34px; font-weight:700; line-height:1.1; margin-top:6px;">11</div>
+          <div style="font-size:12.5px; color:#9C9890; margin-top:2px;">supporting label</div>
+        </div>
+        <div class="mono" style="font-size:12px; color:#6B6862; line-height:1.8; padding-top:4px;">surface #FFFFFF<br>border 1px #EAE8E3<br>radius 16 (stat) / 18 (list) / 20 (modal)<br>shadow 0 1px 2px rgba(0,0,0,.04)<br>padding 18–26</div>
+      </div>
+    </div>
+
+    <!-- appointment block -->
+    <div style="background:#fff; border:1px solid #EAE8E3; border-radius:18px; padding:24px; margin-top:16px; box-shadow:0 1px 2px rgba(0,0,0,.04);">
+      <div style="font-family:'Schibsted Grotesk'; font-size:16px; font-weight:700; margin-bottom:6px;">Calendar appointment block</div>
+      <div class="mono" style="font-size:12px; color:#9C9890; margin-bottom:18px;">radius 11 · padding 8px 11px · bg + border + ink from the stylist's pastel family</div>
+      <div style="display:flex; flex-wrap:wrap; gap:16px;">
+        <sc-for list="{{ blocks }}" as="b" hint-placeholder-count="4">
+          <div style="width:188px;">
+            <div style="background:{{ b.bg }}; border:1px solid {{ b.border }}; border-radius:11px; padding:8px 11px;">
+              <div style="font-size:12px; font-weight:600; color:{{ b.ink }}; font-family:'Schibsted Grotesk';">{{ b.time }}</div>
+              <div style="font-size:14px; font-weight:600; color:{{ b.nameC }}; margin-top:1px;">{{ b.client }}</div>
+              <div style="font-size:12.5px; color:{{ b.subC }};">{{ b.service }}</div>
+            </div>
+            <div class="mono" style="font-size:11px; color:#6B6862; margin-top:9px; line-height:1.6;">{{ b.name }}<br>bg {{ b.bg }}<br>border {{ b.border }}<br>ink {{ b.ink }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1080,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  constructor(props) { super(props); this.rootRef = React.createRef(); }
+  renderVals() {
+    const sw = (name, hex, ring, varName) => ({ name, hex, ring: ring || hex, varName: varName || '' });
+    const light = '#E6E3DD';
+
+    const colorGroups = [
+      { title:'Accent — violet (default theme)', note:'Defined as CSS variables; swap the four values to re-theme.', items:[
+        sw('Accent', '#6555E4', '#6555E4', '--accent'),
+        sw('Accent hover', '#5544CC', '#5544CC', '--accent-hover'),
+        sw('Accent tint', '#ECEAFB', light, '--accent-tint'),
+        sw('Accent ink', '#4B3FA0', '#4B3FA0', '--accent-ink'),
+      ]},
+      { title:'Alternate accent themes', note:'Same four-token structure, ready to swap in.', items:[
+        sw('Sage', '#5C7458'), sw('Sage tint', '#E7EEE5', light),
+        sw('Terracotta', '#C0613E'), sw('Terracotta tint', '#F4E6DD', light),
+      ]},
+      { title:'Surfaces & backgrounds', items:[
+        sw('App background', '#F6F5F3', light),
+        sw('Surface / card', '#FFFFFF', light),
+        sw('Input field', '#FCFBF9', light),
+        sw('Segmented track', '#EFEDE8', light),
+        sw('Sidebar (dark opt.)', '#1E1D2A'),
+      ]},
+      { title:'Text', items:[
+        sw('Primary', '#1C1B1A'),
+        sw('Body', '#56534C'),
+        sw('Muted', '#6B6862'),
+        sw('Faint', '#9C9890'),
+        sw('Fainter / icons', '#A09C94'),
+        sw('Placeholder', '#A8A49C'),
+      ]},
+      { title:'Borders & dividers', items:[
+        sw('Card border', '#EAE8E3', light),
+        sw('Input border', '#E0DDD6', light),
+        sw('Divider', '#F0EEE9', light),
+        sw('Row divider', '#F4F2ED', light),
+      ]},
+      { title:'Stylist & service pastels — Simone (green)', items:[
+        sw('Block bg', '#E7EFE4', light), sw('Block border', '#D5E4D0', light), sw('Ink', '#3E5C3A'), sw('Avatar', '#6E9968'),
+      ]},
+      { title:'Maya (pink)', items:[
+        sw('Block bg', '#FBE7EE', light), sw('Block border', '#F2D2DE', light), sw('Ink', '#8E3D5A'), sw('Avatar', '#C76A8C'),
+      ]},
+      { title:'Jonah (amber)', items:[
+        sw('Block bg', '#FBEFD6', light), sw('Block border', '#EEDDB6', light), sw('Ink', '#8A5A1E'), sw('Avatar', '#D49A4E'),
+      ]},
+      { title:'Elise (violet)', items:[
+        sw('Block bg', '#EAE6FB', light), sw('Block border', '#D8D1F2', light), sw('Ink', '#4B3F9E'), sw('Avatar', '#8C7FE0'),
+      ]},
+    ];
+
+    const ts = (sample, css, spec, i) => ({ sample, css, spec, border: i === 0 ? 'none' : '1px solid #F4F2ED' });
+    const typeScale = [
+      ts('Display', "font-family:'Schibsted Grotesk'; font-size:60px; font-weight:800; letter-spacing:-.025em; line-height:1;", 'Schibsted · 60px · 800 · -0.025em', 0),
+      ts('Page heading', "font-family:'Schibsted Grotesk'; font-size:26px; font-weight:700;", 'Schibsted · 26px · 700', 1),
+      ts('Stat number', "font-family:'Schibsted Grotesk'; font-size:34px; font-weight:700;", 'Schibsted · 34px · 700', 2),
+      ts('Section / card title', "font-family:'Schibsted Grotesk'; font-size:18px; font-weight:700;", 'Schibsted · 18px · 700', 3),
+      ts('Subsection', "font-family:'Schibsted Grotesk'; font-size:16px; font-weight:600;", 'Schibsted · 16px · 600', 4),
+      ts('Body large', "font-family:'Hanken Grotesk'; font-size:17px; font-weight:400; color:#56534C;", 'Hanken · 17px · 400', 5),
+      ts('Body', "font-family:'Hanken Grotesk'; font-size:15px; font-weight:400;", 'Hanken · 15px · 400', 6),
+      ts('Body small', "font-family:'Hanken Grotesk'; font-size:14px; font-weight:400; color:#4A4843;", 'Hanken · 14px · 400', 7),
+      ts('Label', "font-family:'Hanken Grotesk'; font-size:13px; font-weight:600; color:#6B6862;", 'Hanken · 13px · 600', 8),
+      ts('Caption / overline', "font-family:'Hanken Grotesk'; font-size:12.5px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color:#9C9890;", 'Hanken · 12.5px · 600 · uppercase', 9),
+    ];
+
+    const spacing = [6, 9, 12, 16, 18, 22, 24, 28, 32].map((n, i) => ({ label: n + 'px', w: n + 'px', border: i === 0 ? 'none' : '1px solid #F4F2ED' }));
+
+    const radii = [
+      { name:'Segment', v:'8px' }, { name:'Chip / small', v:'9px' }, { name:'Input', v:'11px' },
+      { name:'Button', v:'12px' }, { name:'Nav item', v:'13px' }, { name:'Stat card', v:'16px' },
+      { name:'List card', v:'18px' }, { name:'Modal / hero', v:'20px' }, { name:'Pill', v:'99px' }, { name:'Avatar', v:'50%' },
+    ];
+
+    const pills = [
+      { label:'Booked',     bg:'#F0EEEA', color:'#6B6862' },
+      { label:'Arrived',    bg:'#E3EDF6', color:'#356088' },
+      { label:'In service', bg:'#FBEFD6', color:'#8A5A1E' },
+      { label:'Completed',  bg:'#E7EFE4', color:'#3E5C3A' },
+      { label:'No-show',    bg:'#F8E3E3', color:'#A23A3A' },
+      { label:'Cancelled',  bg:'#F0EEEA', color:'#9C9890' },
+    ];
+
+    const blocks = [
+      { name:'Simone', time:'9:00',  client:'Brenda M.', service:'Blow dry',     bg:'#E7EFE4', border:'#D5E4D0', ink:'#3E5C3A', nameC:'#26331F', subC:'#5A7355' },
+      { name:'Maya',   time:'10:00', client:'Marilyn C.',service:'Cut & beard',  bg:'#FBE7EE', border:'#F2D2DE', ink:'#8E3D5A', nameC:'#3a2026', subC:'#9A5871' },
+      { name:'Jonah',  time:'11:00', client:'Megan W.',  service:'Hair cut',     bg:'#FBEFD6', border:'#EEDDB6', ink:'#8A5A1E', nameC:'#3a2c14', subC:'#8a6a36' },
+      { name:'Elise',  time:'12:00', client:'Randy P.',  service:'Spa treatment',bg:'#EAE6FB', border:'#D8D1F2', ink:'#4B3F9E', nameC:'#262040', subC:'#5d52a3' },
+    ];
+
+    return { rootRef: this.rootRef, colorGroups, typeScale, spacing, radii, pills, blocks };
+  }
+}
+</script>
+</body>
+</html>
