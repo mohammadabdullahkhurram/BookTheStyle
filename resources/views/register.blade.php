@@ -8,6 +8,7 @@
 
         <link rel="icon" href="/favicon.ico" sizes="any">
         <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+        <link rel="icon" type="image/png" href="/favicon-32.png" sizes="32x32">
         <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
         @fonts
@@ -21,11 +22,8 @@
         <div class="flex min-h-svh flex-col" style="background: radial-gradient(90% 60% at 50% -10%, var(--accent-tint) 0%, rgba(255,255,255,0) 55%);">
             {{-- Nav --}}
             <header class="mx-auto flex w-full max-w-[1120px] items-center gap-4 px-6 py-5 sm:px-8">
-                <a href="{{ route('home') }}" class="flex items-center gap-2.5">
-                    <span class="flex size-9 items-center justify-center rounded-[12px] bg-accent text-white shadow-md">
-                        <x-app-logo-icon class="size-5 fill-current" />
-                    </span>
-                    <span class="font-display text-[18px] font-extrabold tracking-[-0.015em]"><span class="text-accent">Book</span><span class="text-ink">TheStyle</span></span>
+                <a href="{{ route('home') }}" class="flex items-center">
+                    <x-app-logo />
                 </a>
                 <div class="flex-1"></div>
                 <a href="{{ route('login') }}" class="text-[15px] font-semibold text-[#3A3833] transition hover:text-accent">{{ __('Log in') }}</a>

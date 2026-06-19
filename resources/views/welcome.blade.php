@@ -8,6 +8,7 @@
 
         <link rel="icon" href="/favicon.ico" sizes="any">
         <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+        <link rel="icon" type="image/png" href="/favicon-32.png" sizes="32x32">
         <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
         @fonts
@@ -18,11 +19,8 @@
     <body class="min-h-screen bg-card text-ink antialiased">
         {{-- Nav --}}
         <header class="mx-auto flex max-w-[1120px] items-center gap-4 px-6 py-5 sm:px-8">
-            <a href="{{ route('home') }}" class="flex items-center gap-2.5">
-                <span class="flex size-9 items-center justify-center rounded-[12px] bg-accent text-white shadow-md">
-                    <x-app-logo-icon class="size-5 fill-current" />
-                </span>
-                <span class="font-display text-[18px] font-extrabold tracking-[-0.015em]"><span class="text-accent">Book</span><span class="text-ink">TheStyle</span></span>
+            <a href="{{ route('home') }}" class="flex items-center">
+                <x-app-logo />
             </a>
             <div class="flex-1"></div>
             <a href="{{ route('login') }}" class="px-2 text-[15px] font-semibold text-[#3A3833] transition hover:text-accent">{{ __('Log in') }}</a>
@@ -120,12 +118,7 @@
         {{-- Footer --}}
         <footer class="mt-14 border-t border-divider">
             <div class="mx-auto flex max-w-[1040px] flex-wrap items-center gap-4 px-6 py-8 sm:px-8">
-                <div class="flex items-center gap-2.5">
-                    <span class="flex size-[30px] items-center justify-center rounded-[9px] bg-accent text-white">
-                        <x-app-logo-icon class="size-4 fill-current" />
-                    </span>
-                    <span class="font-display text-[15px] font-bold text-ink">BookTheStyle</span>
-                </div>
+                <x-app-logo chip-class="size-[30px] rounded-[9px]" icon-class="size-4" wordmark-class="text-[15px]" />
                 <div class="flex-1"></div>
                 <div class="flex items-center gap-6 text-[14px] text-secondary">
                     <a href="{{ route('login') }}" class="transition hover:text-accent">{{ __('Log in') }}</a>

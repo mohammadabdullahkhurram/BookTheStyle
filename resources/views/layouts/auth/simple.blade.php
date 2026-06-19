@@ -8,8 +8,8 @@
             <div class="pointer-events-none absolute inset-0" style="background: radial-gradient(70% 50% at 50% 0%, var(--accent-tint) 0%, rgba(255,255,255,0) 55%);"></div>
 
             <a href="{{ route('home') }}" class="relative flex flex-col items-center gap-3">
-                <span class="flex size-11 items-center justify-center rounded-[13px] bg-accent text-white shadow-md">
-                    <x-app-logo-icon class="size-6 fill-current" />
+                <span class="flex size-11 items-center justify-center rounded-[13px] bg-accent-tint shadow-md">
+                    <x-app-logo-icon class="size-6 text-accent" />
                 </span>
                 <span class="font-display text-[18px] font-extrabold tracking-[-0.015em]"><span class="text-accent">Book</span><span class="text-ink">TheStyle</span></span>
             </a>

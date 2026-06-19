@@ -1,8 +1,33 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 42" {{ $attributes }}>
-    <path 
-        fill="currentColor" 
-        fill-rule="evenodd" 
-        clip-rule="evenodd"
-        d="M17.2 5.633 8.6.855 0 5.633v26.51l16.2 9 16.2-9v-8.442l7.6-4.223V9.856l-8.6-4.777-8.6 4.777V18.3l-5.6 3.111V5.633ZM38 18.301l-5.6 3.11v-6.157l5.6-3.11V18.3Zm-1.06-7.856-5.54 3.078-5.54-3.079 5.54-3.078 5.54 3.079ZM24.8 18.3v-6.157l5.6 3.111v6.158L24.8 18.3Zm-1 1.732 5.54 3.078-13.14 7.302-5.54-3.078 13.14-7.3v-.002Zm-16.2 7.89 7.6 4.222V38.3L2 30.966V7.92l5.6 3.111v16.892ZM8.6 9.3 3.06 6.222 8.6 3.143l5.54 3.08L8.6 9.3Zm21.8 15.51-13.2 7.334V38.3l13.2-7.334v-6.156ZM9.6 11.034l5.6-3.11v14.6l-5.6 3.11v-14.6Z"
-    />
+@props([
+    'label' => null,
+])
+
+{{-- BookTheStyle icon mark: a rounded "B" letterform with an integrated pair of
+     scissors. Recreated as a clean vector (the supplied raster was an unusable
+     flattened export). No hardcoded fills — stroke/fill follow `currentColor`,
+     so each placement sets the colour for its background:
+       light surface → text-accent (brand purple);  dark/accent chip → text-white.
+     When the mark stands in for the brand name, pass :label so it carries an
+     accessible name; otherwise it is decorative (aria-hidden). --}}
+<svg
+    viewBox="0 0 48 48"
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2.8"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    @if ($label) role="img" aria-label="{{ $label }}" @else aria-hidden="true" focusable="false" @endif
+    {{ $attributes->class('shrink-0') }}
+>
+    {{-- B letterform: spine + two bowls --}}
+    <path d="M15 10V38" />
+    <path d="M15 10h9a7 7 0 0 1 0 14h-9" />
+    <path d="M15 24h10.5a7.5 7.5 0 0 1 0 14H15" />
+    {{-- Scissors: finger rings + crossing blades --}}
+    <circle cx="36" cy="14" r="3" />
+    <circle cx="36" cy="34" r="3" />
+    <path d="M33.7 15.9 18 29" />
+    <path d="M33.7 32.1 18 19" />
+    <circle cx="24" cy="24" r="1.5" fill="currentColor" stroke="none" />
 </svg>

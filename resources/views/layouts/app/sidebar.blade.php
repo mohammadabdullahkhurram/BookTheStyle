@@ -29,8 +29,9 @@
                 {{-- Logo + collapse --}}
                 <div class="flex items-center gap-3 px-4 pb-3 pt-4">
                     <a href="{{ $salon ? route('salon.show', $salon) : route('dashboard') }}" wire:navigate
-                       class="flex size-11 shrink-0 items-center justify-center rounded-[13px] bg-accent text-white shadow-sm">
-                        <x-app-logo-icon class="size-6 fill-current" />
+                       aria-label="{{ __('BookTheStyle') }}"
+                       class="flex size-11 shrink-0 items-center justify-center rounded-[13px] bg-accent-tint shadow-sm">
+                        <x-app-logo-icon class="size-6 text-accent" />
                     </a>
                     <a x-show="!collapsed" x-cloak href="{{ $salon ? route('salon.show', $salon) : route('dashboard') }}" wire:navigate
                        class="min-w-0 flex-1 truncate font-display text-[17px] font-bold leading-none">
