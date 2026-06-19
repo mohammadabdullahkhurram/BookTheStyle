@@ -23,4 +23,7 @@ yarn-error.log
 /.vscode
 /.zed
 
+# Claude Code: keep shared project settings, ignore machine-local ones
+/.claude/settings.local.json
+
 .DS_Store
