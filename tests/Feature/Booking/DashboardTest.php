@@ -19,7 +19,7 @@ it('shows today\'s bookings + stats to a manager', function () {
     Livewire::test('pages::salon.dashboard', ['salon' => $salon])
         ->assertSee('Dana Diner')
         ->assertSee('Total')
-        ->assertSee('Per-stylist load');
+        ->assertSee("Today's bookings");
 });
 
 it('shows a stylist only their own bookings on the dashboard', function () {

@@ -30,14 +30,16 @@ BookTheStyle — a multi-tenant salon booking platform. One **agency** operates 
 - Business logic in service/action classes, not controllers or Livewire components. Keep components thin.
 - Migrations are the schema source of truth; everything reversible.
 
-## Design tokens (light mode — anti-slop; enforce everywhere)
-Map Tailwind 4 `@theme` **and** the Flux theme to these. The accent is **per-salon brandable** (salons can override it later), so keep it a single variable.
+## Design tokens (light mode — enforce everywhere)
+**`DESIGN-TOKENS.md` is the authoritative source** for exact hexes, type scale, spacing, radii, and component specs — build to it. Map Tailwind 4 `@theme` **and** the Flux theme to these (see `resources/css/app.css`). Light mode only; sentence case; no emoji.
 
-- Fonts: headings **Fraunces** (serif), UI/body **Inter** (both Google Fonts). Optional mono: JetBrains Mono.
-- Colors: page bg `#FAF8F5` · card `#FFFFFF` · muted surface `#F2EEE8` · ink `#1C1B19` · secondary text `#6B6660` · border `#E7E1D8` · accent `#1F6F6B` · accent-hover `#185A56` · accent-soft `#E3F0EE`.
-- Status: arrived/success `#2F855A` · late/warning `#B7791F` · no-show/danger `#B23A2E` · info `#2B6CB0` (keep muted/earthy, never neon).
-- Radii 6 / 10 / 16px · subtle layered low-opacity shadows · 4px spacing scale.
-- No emoji in UI. Generous whitespace. Thin borders + soft shadows, never heavy gradients. **Do not ship the default starter look — customize to these tokens.**
+- Fonts (self-hosted via `@fonts`, no CDN): headings/display **Schibsted Grotesk** (400–800, `--font-display`/`--font-serif`), body/UI **Hanken Grotesk** (400–700, `--font-sans`).
+- **Accent is four swappable tokens** (`--accent` / `--accent-hover` / `--accent-tint` / `--accent-ink`) — **violet** default (`#6555E4`/`#5544CC`/`#ECEAFB`/`#4B3FA0`); **sage** and **terracotta** are presets (`<html data-accent="sage|terracotta">`). A salon's branding accent overrides these four via `App\Support\AccentPalette` (preset name or hex; head partial emits the inline override). Utilities `bg-accent` / `text-accent` / `bg-accent-soft`(=tint) map to them.
+- Surfaces: app bg `#F6F5F3` (`paper`) · card `#FFFFFF` · muted/track `#EFEDE8` · field `#FCFBF9`. Text: ink `#1C1B1A` · body `#56534C` · secondary/muted `#6B6862` · faint `#9C9890`. Borders: card `#EAE8E3` (`border`) · input `#E0DDD6` · row `#F4F2ED`.
+- Status pills + stat tones (exact bg/text in DESIGN-TOKENS §"Status pills"): booked grey · arrived `#E3EDF6`/`#356088` · in-service `#FBEFD6`/`#8A5A1E` · completed `#E7EFE4`/`#3E5C3A` · no-show `#F8E3E3`/`#A23A3A` · cancelled. Stat-number tones: info/success/danger.
+- Pastel families (`App\Support\PastelPalette`, rotate by stylist): green/pink/amber/violet — calendar blocks + client avatars.
+- Radii (DESIGN-TOKENS): segment 8 · chip 9 · input 11 · button 12 · nav 13 · stat 16 · list 18 · modal 20 · pill 99. Subtle shadows (`0 1px 2px /.04`; button `0 2px 10px /.12`). Spacing 6·9·12·16·18·22·24·28·32.
+- Reusable primitives: `x-ui.button` (primary/secondary), `x-ui.status-pill`, `x-ui.avatar`, `x-ui.stat-card`, `x-ui.booked-by` + `.bts-*` classes. Build new screens from these so they inherit the system. **Do not ship the default starter look.**
 
 ## Workflow
 - **Work directly on `main`.** Commit and push straight to `main`; do **not** create feature branches or pull requests unless the owner explicitly asks. (`main` is the single active branch — the repo was consolidated onto it.)

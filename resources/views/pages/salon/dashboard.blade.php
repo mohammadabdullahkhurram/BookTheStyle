@@ -97,41 +97,31 @@ new #[Title('Today')] class extends Component {
 }; ?>
 
 <div>
-    <div class="mx-auto flex w-full max-w-5xl flex-col gap-6 p-6">
-        <div>
-            <a href="{{ route('dashboard') }}" wire:navigate class="text-sm text-secondary transition hover:text-accent">{{ __('← All salons') }}</a>
-        </div>
-
-        <div class="flex flex-wrap items-center justify-between gap-4">
+    <div class="mx-auto flex w-full max-w-6xl flex-col gap-7 px-8 py-7">
+        {{-- Header --}}
+        <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
-                <flux:text class="text-xs uppercase tracking-wide text-secondary">{{ $salon->name }}</flux:text>
-                <flux:heading size="xl" class="font-serif">{{ __('Today') }}</flux:heading>
+                <div class="text-[13px] text-secondary">{{ \Carbon\CarbonImmutable::parse($date, $salon->timezone)->translatedFormat('l, j F') }}</div>
+                <h1 class="mt-1 font-display text-[26px] font-bold leading-none text-ink">{{ __('Today at the salon') }}</h1>
             </div>
-            <x-salon-nav :salon="$salon" />
+            @can('manageBookings', $salon)
+                <x-ui.button :href="route('salon.bookings.create', $salon)" wire:navigate>
+                    <flux:icon.plus variant="micro" class="shrink-0" />
+                    {{ __('Add booking') }}
+                </x-ui.button>
+            @endcan
         </div>
 
         {{-- Stats --}}
-        <div class="grid gap-4 sm:grid-cols-4">
-            @foreach (['total' => __('Total'), 'waiting' => __('Arrived / waiting'), 'completed' => __('Completed'), 'no_shows' => __('No-shows')] as $key => $label)
-                <div class="rounded-xl border border-border bg-card p-4 shadow-sm">
-                    <flux:text class="text-3xl font-serif text-ink">{{ $this->stats[$key] }}</flux:text>
-                    <flux:text class="text-xs text-secondary">{{ $label }}</flux:text>
-                </div>
-            @endforeach
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <x-ui.stat-card :label="__('Total bookings')" :value="$this->stats['total']"
+                :sublabel="trans_choice('across :count stylist|across :count stylists', count($this->stats['per_stylist']), ['count' => count($this->stats['per_stylist'])])" />
+            <x-ui.stat-card :label="__('Waiting')" :value="$this->stats['waiting']" :sublabel="__('arrived, not started')" tone="info" />
+            <x-ui.stat-card :label="__('Completed')" :value="$this->stats['completed']" :sublabel="__('so far today')" tone="success" />
+            <x-ui.stat-card :label="__('No-shows')" :value="$this->stats['no_shows']" :sublabel="__('today')" tone="danger" />
         </div>
 
-        @if ($this->stats['per_stylist'] !== [])
-            <div class="rounded-xl border border-border bg-card p-4 shadow-sm">
-                <flux:heading size="sm" class="font-serif">{{ __('Per-stylist load') }}</flux:heading>
-                <div class="mt-2 flex flex-wrap gap-2">
-                    @foreach ($this->stats['per_stylist'] as $name => $count)
-                        <flux:badge color="zinc" size="sm">{{ $name }}: {{ $count }}</flux:badge>
-                    @endforeach
-                </div>
-            </div>
-        @endif
-
-        {{-- Filters --}}
+        {{-- Filters (compact; keeps date switching + manager filters) --}}
         <div class="flex flex-wrap items-end gap-3">
             <flux:input type="date" wire:model.live="date" class="max-w-44" :label="__('Date')" />
             @if ($this->isManager)
@@ -154,42 +144,50 @@ new #[Title('Today')] class extends Component {
                     <flux:select.option value="{{ $status->value }}">{{ $status->label() }}</flux:select.option>
                 @endforeach
             </flux:select>
-            <flux:spacer />
-            @can('manageBookings', $salon)
-                <flux:button :href="route('salon.bookings.create', $salon)" wire:navigate variant="primary" icon="plus">{{ __('New booking') }}</flux:button>
-            @endcan
         </div>
 
         {{-- Today's bookings --}}
-        <div class="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-            <table class="w-full text-sm">
-                <thead class="bg-muted/50 text-left text-xs uppercase tracking-wide text-secondary">
-                    <tr>
-                        <th class="px-4 py-3 font-medium">{{ __('Time') }}</th>
-                        <th class="px-4 py-3 font-medium">{{ __('Client') }}</th>
-                        <th class="px-4 py-3 font-medium">{{ __('Services / stylists') }}</th>
-                        <th class="px-4 py-3 font-medium">{{ __('Status') }}</th>
-                        <th class="px-4 py-3 font-medium">{{ __('Booked by') }}</th>
+        <div class="overflow-hidden rounded-[18px] border border-border bg-card shadow-card">
+            <div class="flex items-start justify-between gap-4 px-6 py-5">
+                <h2 class="font-display text-[18px] font-bold text-ink">{{ __("Today's bookings") }}</h2>
+                <div class="text-right text-[14px] leading-tight text-secondary">
+                    <span class="block font-display text-[18px] font-bold text-ink">{{ $this->bookings->count() }}</span>
+                    {{ __('appointments') }}
+                </div>
+            </div>
+
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="border-y border-divider text-[12.5px] font-semibold uppercase tracking-[0.04em] text-faint">
+                        <th class="px-6 py-3 font-semibold">{{ __('Time') }}</th>
+                        <th class="px-2 py-3 font-semibold">{{ __('Client') }}</th>
+                        <th class="px-2 py-3 font-semibold">{{ __('Service') }}</th>
+                        <th class="px-2 py-3 font-semibold">{{ __('Stylist') }}</th>
+                        <th class="px-2 py-3 font-semibold">{{ __('Status') }}</th>
+                        <th class="px-6 py-3 font-semibold">{{ __('Booked by') }}</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-border">
+                <tbody class="divide-y divide-row">
                     @forelse ($this->bookings as $booking)
+                        @php($start = $booking->items->min('starts_at'))
+                        @php($stylistSeed = $booking->items->first()?->stylist_id ?? 0)
+                        @php($bookedLabel = $booking->source === \App\Enums\BookingSource::InApp ? $booking->booked_by_type->label() : $booking->source->label())
                         <tr>
-                            <td class="px-4 py-3 text-ink">{{ $booking->items->min('starts_at')?->setTimezone($salon->timezone)->format('g:i A') }}</td>
-                            <td class="px-4 py-3 font-medium text-ink">{{ $booking->client->name }}</td>
-                            <td class="px-4 py-3 text-secondary">
-                                @foreach ($booking->items as $item)
-                                    {{ $item->service->name }} · {{ $item->stylist->name }}@if (! $loop->last) <br> @endif
-                                @endforeach
+                            <td class="px-6 py-4 align-top text-[14px] text-faint">{{ $start?->setTimezone($salon->timezone)->format('g:i A') }}</td>
+                            <td class="px-2 py-4 align-top">
+                                <div class="flex items-center gap-3">
+                                    <x-ui.avatar :name="$booking->client->name" :seed="$stylistSeed" size="sm" />
+                                    <span class="text-[15px] font-medium leading-tight text-ink">{{ $booking->client->name }}</span>
+                                    @if ($booking->is_walkin)<span class="bts-pill" style="background-color:#F0EEEA;color:#9C9890;">{{ __('Walk-in') }}</span>@endif
+                                </div>
                             </td>
-                            <td class="px-4 py-3">
-                                <flux:badge :color="$booking->status->color()" size="sm">{{ $booking->status->label() }}</flux:badge>
-                                @if ($booking->is_walkin)<flux:badge color="zinc" size="sm">{{ __('Walk-in') }}</flux:badge>@endif
-                            </td>
-                            <td class="px-4 py-3 text-xs text-secondary">{{ $booking->bookedBy?->name ?? $booking->booked_by_type->label() }} · {{ $booking->source->label() }}</td>
+                            <td class="px-2 py-4 align-top text-[15px] text-secondary">{{ $booking->items->map(fn ($i) => $i->service->name)->unique()->join(', ') }}</td>
+                            <td class="px-2 py-4 align-top text-[15px] text-secondary">{{ $booking->items->map(fn ($i) => $i->stylist->name)->unique()->join(', ') }}</td>
+                            <td class="px-2 py-4 align-top"><x-ui.status-pill :status="$booking->status" /></td>
+                            <td class="px-6 py-4 align-top"><x-ui.booked-by :label="$bookedLabel" :source="$booking->source" /></td>
                         </tr>
                     @empty
-                        <tr><td colspan="5" class="px-4 py-6 text-center text-secondary">{{ __('No bookings for this day.') }}</td></tr>
+                        <tr><td colspan="6" class="px-6 py-10 text-center text-[15px] text-faint">{{ __('No bookings for this day.') }}</td></tr>
                     @endforelse
                 </tbody>
             </table>

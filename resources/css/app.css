@@ -7,70 +7,121 @@
 @source '../../vendor/livewire/flux/stubs/**/*.blade.php';
 
 /*
-| BookTheStyle design tokens — light, boutique, anti-slop.
-| Source of truth: CLAUDE.md §"Design tokens". Map Tailwind @theme AND the
-| Flux theme (which is built on the `zinc` neutral ramp + `accent` vars) to
-| these values so stock Flux components inherit our look.
-|
-| The accent is per-salon brandable: it is a single variable (--color-accent
-| and its companions) so a salon can override it at runtime later.
+| BookTheStyle design system — authoritative values in DESIGN-TOKENS.md.
+| Light mode only. Schibsted Grotesk (display) + Hanken Grotesk (body), both
+| self-hosted via @fonts (no CDN). Existing utility names (paper/card/ink/
+| secondary/border/accent…) are kept and remapped to the new palette so the
+| whole app inherits the restyle. The accent is four swappable variables
+| (--accent / --accent-hover / --accent-tint / --accent-ink); a salon can
+| override them (see partials/head.blade.php + App\Support\AccentPalette).
 */
 @theme {
-    /* Type — Fraunces (display/serif headings) + Inter (UI/body). */
-    --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
-    --font-serif: 'Fraunces', ui-serif, Georgia, Cambria, 'Times New Roman', serif;
-    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    /* Type — Schibsted Grotesk (display/headings) + Hanken Grotesk (body/UI). */
+    --font-sans: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-serif: 'Schibsted Grotesk', ui-sans-serif, system-ui, sans-serif;
+    --font-display: 'Schibsted Grotesk', ui-sans-serif, system-ui, sans-serif;
 
-    /* Surfaces & ink. */
-    --color-paper: #faf8f5;
-    --color-card: #ffffff;
-    --color-muted: #f2eee8;
-    --color-ink: #1c1b19;
-    --color-secondary: #6b6660;
-    --color-border: #e7e1d8;
+    /* Surfaces & backgrounds. */
+    --color-paper: #f6f5f3;   /* app background */
+    --color-app: #f6f5f3;
+    --color-card: #ffffff;    /* surface / card */
+    --color-surface: #ffffff;
+    --color-muted: #efede8;   /* muted surface / segmented track */
+    --color-field: #fcfbf9;   /* input field */
+    --color-sidebar-dark: #1e1d2a;
 
-    /* Accent (single brandable variable + companions). */
-    --color-accent: #1f6f6b;
-    --color-accent-hover: #185a56;
-    --color-accent-soft: #e3f0ee;
-    --color-accent-content: #1f6f6b;
+    /* Text. */
+    --color-ink: #1c1b1a;        /* primary */
+    --color-body: #56534c;       /* body */
+    --color-secondary: #6b6862;  /* muted */
+    --color-faint: #9c9890;
+    --color-fainter: #a09c94;    /* icons */
+    --color-placeholder: #a8a49c;
+
+    /* Borders & dividers. */
+    --color-border: #eae8e3;      /* card border */
+    --color-input-border: #e0ddd6;
+    --color-divider: #f0eee9;
+    --color-row: #f4f2ed;         /* row divider */
+
+    /* Accent — four swappable tokens (default violet set in @layer base). */
+    --color-accent: var(--accent);
+    --color-accent-hover: var(--accent-hover);
+    --color-accent-tint: var(--accent-tint);
+    --color-accent-soft: var(--accent-tint);     /* legacy alias */
+    --color-accent-ink: var(--accent-ink);
+    --color-accent-content: var(--accent-ink);   /* Flux text-on-accent-tint */
     --color-accent-foreground: #ffffff;
 
-    /* Status — muted/earthy, never neon. */
-    --color-success: #2f855a;
-    --color-warning: #b7791f;
-    --color-danger: #b23a2e;
-    --color-info: #2b6cb0;
+    /* Status — semantic ink colors (stat numbers, dots). */
+    --color-success: #3e5c3a;
+    --color-warning: #8a5a1e;
+    --color-danger: #a23a3a;
+    --color-info: #356088;
 
     /* Neutral ramp remapped to warm paper tones so Flux's zinc-based
        components render in our palette instead of cool grey. */
-    --color-zinc-50: #faf8f5;
-    --color-zinc-100: #f2eee8;
-    --color-zinc-200: #e7e1d8;
-    --color-zinc-300: #d8d0c4;
-    --color-zinc-400: #b0a89c;
-    --color-zinc-500: #8b847a;
-    --color-zinc-600: #6b6660;
-    --color-zinc-700: #4b4742;
+    --color-zinc-50: #f6f5f3;
+    --color-zinc-100: #efede8;
+    --color-zinc-200: #eae8e3;
+    --color-zinc-300: #e0ddd6;
+    --color-zinc-400: #a8a49c;
+    --color-zinc-500: #9c9890;
+    --color-zinc-600: #6b6862;
+    --color-zinc-700: #56534c;
     --color-zinc-800: #2c2a27;
-    --color-zinc-900: #1c1b19;
-    --color-zinc-950: #121110;
+    --color-zinc-900: #1c1b1a;
+    --color-zinc-950: #131210;
 
-    /* Radii — 6 / 10 / 16px. */
-    --radius-sm: 6px;
-    --radius-md: 6px;
-    --radius-lg: 10px;
-    --radius-xl: 16px;
-    --radius-2xl: 16px;
+    /* Corner radius (DESIGN-TOKENS). */
+    --radius-sm: 8px;     /* segment */
+    --radius-md: 11px;    /* input */
+    --radius-lg: 13px;    /* nav item */
+    --radius-xl: 16px;    /* stat card */
+    --radius-2xl: 18px;   /* list card */
+    --radius-3xl: 20px;   /* modal / hero */
 
-    /* Subtle layered, low-opacity shadows (never heavy). */
-    --shadow-xs: 0 1px 2px 0 rgb(28 27 25 / 0.04);
-    --shadow-sm: 0 1px 2px 0 rgb(28 27 25 / 0.05), 0 1px 3px 0 rgb(28 27 25 / 0.04);
-    --shadow-md: 0 2px 4px -1px rgb(28 27 25 / 0.06), 0 6px 16px -4px rgb(28 27 25 / 0.06);
-    --shadow-lg: 0 8px 24px -6px rgb(28 27 25 / 0.10);
+    /* Per-element radii (used by components for exactness). */
+    --radius-chip: 9px;
+    --radius-input: 11px;
+    --radius-button: 12px;
+    --radius-nav: 13px;
+    --radius-stat: 16px;
+    --radius-list: 18px;
+    --radius-modal: 20px;
+
+    /* Shadows. */
+    --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.04);
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.04);
+    --shadow-md: 0 2px 10px rgb(0 0 0 / 0.12);
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.04);
+    --shadow-button: 0 2px 10px rgb(0 0 0 / 0.12);
 }
 
 @layer base {
+    /* Default accent = violet. Presets selectable via <html data-accent="…">;
+       a per-salon brand override sets these four inline (head partial). */
+    :root {
+        --accent: #6555e4;
+        --accent-hover: #5544cc;
+        --accent-tint: #eceafb;
+        --accent-ink: #4b3fa0;
+    }
+
+    :root[data-accent='sage'] {
+        --accent: #5c7458;
+        --accent-hover: #4f6349;
+        --accent-tint: #e7eee5;
+        --accent-ink: #3e5c3a;
+    }
+
+    :root[data-accent='terracotta'] {
+        --accent: #c0613e;
+        --accent-hover: #a8502f;
+        --accent-tint: #f4e6dd;
+        --accent-ink: #8a431f;
+    }
+
     *,
     ::after,
     ::before,
@@ -79,20 +130,26 @@
         border-color: var(--color-border, currentColor);
     }
 
+    [x-cloak] {
+        display: none !important;
+    }
+
     html {
         background-color: var(--color-paper);
     }
 
     body {
         color: var(--color-ink);
-        font-feature-settings: 'cv11', 'ss01';
+        font-family: var(--font-sans);
+        -webkit-font-smoothing: antialiased;
     }
 
-    /* Headings are the editorial serif. */
+    /* Headings are the display grotesk. */
     h1, h2, h3, h4,
     [data-flux-heading] {
-        font-family: var(--font-serif);
+        font-family: var(--font-display);
         letter-spacing: -0.01em;
+        color: var(--color-ink);
     }
 }
 
@@ -108,5 +165,77 @@
 input:focus[data-flux-control],
 textarea:focus[data-flux-control],
 select:focus[data-flux-control] {
-    @apply outline-hidden ring-2 ring-accent ring-offset-2 ring-offset-accent-foreground;
+    @apply outline-hidden ring-2 ring-accent ring-offset-2 ring-offset-card;
+}
+
+/* ---------------------------------------------------------------------------
+| Design-system component primitives. Built here (not as Flux overrides) so the
+| exact DESIGN-TOKENS radii / heights / colors are guaranteed and every screen
+| that uses the x-ui.* Blade components or these classes inherits them.
+--------------------------------------------------------------------------- */
+@layer components {
+    /* Buttons (x-ui.button). Height 48, radius 12, 15px/600. */
+    .bts-btn {
+        @apply inline-flex h-12 items-center justify-center gap-2 rounded-[12px] px-5 text-[15px] font-semibold transition;
+    }
+    .bts-btn-sm {
+        @apply h-9 rounded-[10px] px-3 text-[13px];
+    }
+    .bts-btn-primary {
+        background-color: var(--accent);
+        color: #fff;
+        box-shadow: var(--shadow-button);
+    }
+    .bts-btn-primary:hover {
+        background-color: var(--accent-hover);
+    }
+    .bts-btn-secondary {
+        background-color: #fff;
+        color: #3a3833;
+        border: 1px solid var(--color-input-border);
+    }
+    .bts-btn-secondary:hover {
+        border-color: var(--color-faint);
+    }
+
+    /* Status pill (x-ui.status-pill). 12.5px/600, padding 5/13, radius 99. */
+    .bts-pill {
+        @apply inline-flex items-center rounded-full font-semibold;
+        padding: 5px 13px;
+        font-size: 12.5px;
+        line-height: 1;
+        white-space: nowrap;
+    }
+
+    /* Nav item (sidebar). Radius 13; accent-tint active. */
+    .bts-nav-item {
+        @apply flex items-center gap-3 rounded-[13px] px-3 py-2.5 text-[15px] font-medium transition;
+        color: var(--color-secondary);
+    }
+    .bts-nav-item:hover {
+        background-color: var(--color-muted);
+        color: var(--color-ink);
+    }
+    .bts-nav-item-active {
+        background-color: var(--accent-tint);
+        color: var(--accent-ink);
+    }
+    .bts-nav-item-active:hover {
+        background-color: var(--accent-tint);
+        color: var(--accent-ink);
+    }
+
+    /* Cards. */
+    .bts-card {
+        background-color: #fff;
+        border: 1px solid var(--color-border);
+        box-shadow: var(--shadow-card);
+    }
+
+    /* Segmented toggle track (Flux radio.group variant=segmented). */
+    [data-flux-radio-group][variant='segmented'],
+    ui-radio-group[variant='segmented'] {
+        background-color: var(--color-muted);
+        border-radius: var(--radius-sm);
+    }
 }

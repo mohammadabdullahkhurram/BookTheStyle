@@ -14,16 +14,14 @@ export default defineConfig({
                 'resources/js/passkeys.js',
             ],
             refresh: true,
+            // Self-hosted at build time (no CDN → CSP stays clean).
+            // Schibsted Grotesk = display/headings, Hanken Grotesk = body/UI.
             fonts: [
-                bunny('Inter', {
+                bunny('Schibsted Grotesk', {
+                    weights: [400, 500, 600, 700, 800],
+                }),
+                bunny('Hanken Grotesk', {
                     weights: [400, 500, 600, 700],
-                }),
-                bunny('Fraunces', {
-                    weights: [400, 500, 600],
-                    italic: true,
-                }),
-                bunny('JetBrains Mono', {
-                    weights: [400, 500],
                 }),
             ],
         }),

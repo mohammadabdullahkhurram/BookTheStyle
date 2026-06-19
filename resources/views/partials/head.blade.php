@@ -13,9 +13,10 @@
 
 @vite(['resources/css/app.css', 'resources/js/app.js'])
 
-{{-- Per-salon brandable accent: overrides the accent token on salon-scoped
-     pages (currentSalon is bound by ResolveSalon). Guarded to a hex value. --}}
-@php($__salonAccent = app()->bound('currentSalon') ? app('currentSalon')?->accentColor() : null)
-@if ($__salonAccent && preg_match('/^#[0-9a-fA-F]{6}$/', $__salonAccent))
-    <style>:root{--color-accent: {{ $__salonAccent }};--color-accent-content: {{ $__salonAccent }};}</style>
+{{-- Per-salon brandable accent: overrides the four swappable accent tokens on
+     salon-scoped pages (currentSalon is bound by ResolveSalon). A salon's chosen
+     accent (preset name or hex) resolves to accent / hover / tint / ink. --}}
+@php($__accent = \App\Support\AccentPalette::resolve(app()->bound('currentSalon') ? app('currentSalon')?->accentColor() : null))
+@if ($__accent)
+    <style>:root{--accent: {{ $__accent['accent'] }};--accent-hover: {{ $__accent['hover'] }};--accent-tint: {{ $__accent['tint'] }};--accent-ink: {{ $__accent['ink'] }};}</style>
 @endif

@@ -21,7 +21,7 @@ it('lets a member open their own salon', function () {
     $this->actingAs($user)
         ->get(route('salon.show', $salon))
         ->assertOk()
-        ->assertSee($salon->name);
+        ->assertSee('Today at the salon');
 });
 
 it('forbids a member from opening a salon they do not belong to', function () {

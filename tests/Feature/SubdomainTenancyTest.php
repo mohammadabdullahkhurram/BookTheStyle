@@ -21,7 +21,7 @@ it('resolves a salon from its subdomain slug', function () {
     $this->actingAs($owner)
         ->get(route('salon.show', $salon))
         ->assertOk()
-        ->assertSee('Demo Salon');
+        ->assertSee('Today at the salon');
 });
 
 it('404s an unknown subdomain slug for an authenticated user', function () {
@@ -85,7 +85,7 @@ it('shares the login session from the app domain to a salon subdomain', function
     //    dashboard, NOT a bounce to the login screen.
     $this->get('http://'.$sub.'/')
         ->assertOk()
-        ->assertSee('Demo Salon');
+        ->assertSee('Today at the salon');
     $this->assertAuthenticatedAs($owner);
 });
 
@@ -117,8 +117,7 @@ it('lets the seeded demo-salon owner load the demo subdomain dashboard (not the 
     $response->assertOk();                       // 200, not a redirect to landing/login
     expect($response->isRedirect())->toBeFalse();
     $response
-        ->assertSee('Demo Salon')                // the salon dashboard
-        ->assertSee('Today')
+        ->assertSee('Today at the salon')        // the salon dashboard
         ->assertDontSee('Sign in to your salon'); // i.e. NOT the apex landing page
 });
 
