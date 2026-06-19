@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * @property int $id
@@ -18,8 +19,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $timezone
  * @property bool $active
  * @property array<string, mixed>|null $branding
- * @property string|null $ghl_location_id
- * @property string|null $ghl_token
  * @property bool $allow_walkins
  * @property bool $allow_same_day
  * @property int $max_advance_days
@@ -38,17 +37,11 @@ class Salon extends Model
         'timezone',
         'active',
         'branding',
-        'ghl_location_id',
-        'ghl_token',
         'allow_walkins',
         'allow_same_day',
         'max_advance_days',
         'min_notice_minutes',
         'feature_flags',
-    ];
-
-    protected $hidden = [
-        'ghl_token',
     ];
 
     protected function casts(): array
@@ -57,8 +50,6 @@ class Salon extends Model
             'active' => 'boolean',
             'branding' => 'array',
             'feature_flags' => 'array',
-            // Encrypt the GHL Private Integration Token at rest (Security §9).
-            'ghl_token' => 'encrypted',
             'allow_walkins' => 'boolean',
             'allow_same_day' => 'boolean',
             'max_advance_days' => 'integer',
@@ -112,6 +103,27 @@ class Salon extends Model
     {
         return $this->belongsToMany(User::class, 'agency_salon_assignments')
             ->withTimestamps();
+    }
+
+    /**
+     * The salon's GoHighLevel connection credentials (one-to-one). Optional —
+     * a salon may have no row until it is connected. The token it holds is
+     * encrypted at rest; see SalonGhlConnection.
+     *
+     * @return HasOne<SalonGhlConnection, $this>
+     */
+    public function ghlConnection(): HasOne
+    {
+        return $this->hasOne(SalonGhlConnection::class);
+    }
+
+    /**
+     * Whether the salon has a complete GHL connection (location + token +
+     * calendar). Without exposing the token.
+     */
+    public function ghlConnected(): bool
+    {
+        return $this->ghlConnection?->isConnected() ?? false;
     }
 
     /**

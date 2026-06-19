@@ -23,8 +23,6 @@ class SalonFactory extends Factory
             'slug' => fake()->unique()->slug(2, false).'-'.fake()->unique()->numberBetween(1000, 9_999_999),
             'timezone' => 'America/New_York',
             'branding' => null,
-            'ghl_location_id' => null,
-            'ghl_token' => null,
             'allow_walkins' => true,
             'allow_same_day' => true,
             'max_advance_days' => 90,
