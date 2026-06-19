@@ -27,6 +27,13 @@ new #[Title('New salon')] class extends Component {
 
     public int $min_notice_minutes = 0;
 
+    // GoHighLevel connection — all optional at creation; can be filled later.
+    public string $ghl_location_id = '';
+
+    public string $ghl_calendar_id = '';
+
+    public string $ghl_token = '';
+
     /**
      * @return array<string, mixed>
      */
@@ -43,6 +50,9 @@ new #[Title('New salon')] class extends Component {
             'allow_same_day' => ['boolean'],
             'max_advance_days' => ['required', 'integer', 'min:1', 'max:365'],
             'min_notice_minutes' => ['required', 'integer', 'min:0', 'max:10080'],
+            'ghl_location_id' => ['nullable', 'string', 'max:255'],
+            'ghl_calendar_id' => ['nullable', 'string', 'max:255'],
+            'ghl_token' => ['nullable', 'string', 'max:1000'],
         ];
     }
 
@@ -123,6 +133,14 @@ new #[Title('New salon')] class extends Component {
                 <flux:input type="number" wire:model="max_advance_days" :label="__('Max advance (days)')" min="1" max="365" />
                 <flux:input type="number" wire:model="min_notice_minutes" :label="__('Min notice (minutes)')" min="0" max="10080" />
             </div>
+
+            <flux:separator :text="__('GoHighLevel connection')" />
+
+            <p class="-mt-1 text-[14px] text-secondary">{{ __('Optional — leave blank and connect this salon later from its settings. The token is stored encrypted.') }}</p>
+
+            <flux:input wire:model="ghl_location_id" :label="__('Location ID')" :description="__('The GoHighLevel sub-account / location ID.')" placeholder="e.g. aBcD1234" />
+            <flux:input wire:model="ghl_calendar_id" :label="__('Calendar ID')" :description="__('The salon\'s master GoHighLevel calendar ID.')" placeholder="e.g. cal_aBcD1234" />
+            <flux:input type="password" wire:model="ghl_token" :label="__('Private integration token')" :description="__('Stored encrypted at rest. Write-only — never shown back.')" autocomplete="off" />
 
             <div class="flex items-center gap-3">
                 <x-ui.button type="submit">{{ __('Create salon') }}</x-ui.button>

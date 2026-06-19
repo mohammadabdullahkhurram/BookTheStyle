@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Salons\SetSalonActive;
+use App\Actions\Salons\UpdateGhlConnection;
 use App\Actions\Salons\UpdateSalon;
 use App\Models\Salon;
 use App\Rules\SalonSlug;
@@ -28,6 +29,17 @@ new #[Title('Edit salon')] class extends Component {
     public int $max_advance_days = 90;
 
     public int $min_notice_minutes = 0;
+
+    // GoHighLevel connection. Token is write-only (never seeded here).
+    public string $ghlLocationId = '';
+
+    public string $ghlCalendarId = '';
+
+    public string $ghlToken = '';
+
+    public string $ghlStatus = 'not_connected';
+
+    public bool $tokenIsSet = false;
 
     /**
      * @return array<string, mixed>
@@ -60,6 +72,22 @@ new #[Title('Edit salon')] class extends Component {
         $this->allow_same_day = $salon->allow_same_day;
         $this->max_advance_days = $salon->max_advance_days;
         $this->min_notice_minutes = $salon->min_notice_minutes;
+
+        $this->refreshGhlState();
+    }
+
+    /**
+     * Load the non-secret GHL connection state (location/calendar/status) for
+     * display. Never loads the token into a property.
+     */
+    private function refreshGhlState(): void
+    {
+        $connection = $this->salon->ghlConnection()->first();
+
+        $this->ghlLocationId = $connection?->location_id ?? '';
+        $this->ghlCalendarId = $connection?->calendar_id ?? '';
+        $this->tokenIsSet = (bool) $connection?->hasToken();
+        $this->ghlStatus = $connection?->status() ?? 'not_connected';
     }
 
     /**
@@ -88,6 +116,32 @@ new #[Title('Edit salon')] class extends Component {
         $this->salon->refresh();
 
         Flux::toast(variant: 'success', text: $this->salon->active ? __('Salon reactivated.') : __('Salon deactivated.'));
+    }
+
+    /**
+     * Store the salon's GoHighLevel connection. Authorised at the salon level
+     * (agency owner/admin pass via SalonPolicy::before; salon owner/admin too).
+     */
+    public function saveGhlConnection(UpdateGhlConnection $action): void
+    {
+        $this->authorize('manageGhlConnection', $this->salon);
+
+        $data = $this->validate([
+            'ghlLocationId' => ['nullable', 'string', 'max:255'],
+            'ghlCalendarId' => ['nullable', 'string', 'max:255'],
+            'ghlToken' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $action->handle($this->salon, [
+            'location_id' => $data['ghlLocationId'],
+            'calendar_id' => $data['ghlCalendarId'],
+            'private_integration_token' => $data['ghlToken'],
+        ]);
+
+        $this->ghlToken = '';
+        $this->refreshGhlState();
+
+        Flux::toast(variant: 'success', text: __('GoHighLevel connection saved.'));
     }
 }; ?>
 
@@ -138,6 +192,10 @@ new #[Title('Edit salon')] class extends Component {
             </div>
         </form>
         </x-ui.card>
+
+        @can('manageGhlConnection', $salon)
+            @include('partials.ghl-connection-card')
+        @endcan
 
         <x-ui.card padding="p-5" class="flex items-center justify-between gap-4">
             <div>
