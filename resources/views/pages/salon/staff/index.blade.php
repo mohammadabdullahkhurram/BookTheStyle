@@ -63,6 +63,16 @@ new #[Title('Staff')] class extends Component {
         return array_map(fn (SalonRole $r) => $r->value, $this->assignableRoles());
     }
 
+    /**
+     * Whether the current actor may manage a given membership (i.e. has
+     * authority over its role). Hides the row actions; the server enforces it
+     * regardless in every action.
+     */
+    public function canManageMembership(SalonMembership $membership): bool
+    {
+        return (new SalonStaffRoles)->canAssign(Auth::user(), $this->salon, $membership->salon_role);
+    }
+
     public function invite(InviteStaff $action): void
     {
         $this->authorize('manageStaff', $this->salon);
@@ -217,11 +227,15 @@ new #[Title('Staff')] class extends Component {
                             </td>
                             <td class="px-6 py-4">
                                 <div class="flex items-center justify-end gap-4">
-                                    <button type="button" wire:click="startEdit({{ $m->id }})" class="text-[13px] font-semibold text-accent transition hover:text-accent-hover">{{ __('Edit') }}</button>
-                                    <button type="button" wire:click="resetPassword({{ $m->id }})" class="text-[13px] font-medium text-secondary transition hover:text-ink">{{ __('Reset password') }}</button>
-                                    <button type="button" wire:click="toggleActive({{ $m->id }})" class="text-[13px] font-medium text-secondary transition hover:text-ink">
-                                        {{ $m->active ? __('Deactivate') : __('Reactivate') }}
-                                    </button>
+                                    @if ($this->canManageMembership($m))
+                                        <button type="button" wire:click="startEdit({{ $m->id }})" class="text-[13px] font-semibold text-accent transition hover:text-accent-hover">{{ __('Edit') }}</button>
+                                        <button type="button" wire:click="resetPassword({{ $m->id }})" class="text-[13px] font-medium text-secondary transition hover:text-ink">{{ __('Reset password') }}</button>
+                                        <button type="button" wire:click="toggleActive({{ $m->id }})" class="text-[13px] font-medium text-secondary transition hover:text-ink">
+                                            {{ $m->active ? __('Deactivate') : __('Reactivate') }}
+                                        </button>
+                                    @else
+                                        <span class="text-[13px] text-faint">{{ __('—') }}</span>
+                                    @endif
                                 </div>
                             </td>
                         </tr>

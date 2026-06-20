@@ -38,17 +38,22 @@ it('forbids the invite action across salons even if the route is bypassed', func
     ]))->toThrow(AuthorizationException::class);
 });
 
-it('does not let a salon admin grant a role above their own', function () {
+it('does not let a salon admin grant or manage owners/admins', function () {
     $salon = Salon::factory()->create();
     $admin = salonAdminOf($salon);
 
+    // A salon admin may grant the staff (user) role only — never owner/admin.
     $assignable = (new SalonStaffRoles)->assignable($admin, $salon);
-    expect($assignable)->toEqualCanonicalizing([SalonRole::Admin, SalonRole::User]);
+    expect($assignable)->toEqualCanonicalizing([SalonRole::User]);
     expect($assignable)->not->toContain(SalonRole::Owner);
+    expect($assignable)->not->toContain(SalonRole::Admin);
 
-    // Inviting an owner is rejected server-side.
+    // Inviting an owner OR an admin is rejected server-side.
     expect(fn () => app(InviteStaff::class)->handle($admin, $salon, [
         'name' => 'X', 'email' => 'x@example.com', 'salon_role' => 'salon_owner',
+    ]))->toThrow(AuthorizationException::class);
+    expect(fn () => app(InviteStaff::class)->handle($admin, $salon, [
+        'name' => 'Y', 'email' => 'y@example.com', 'salon_role' => 'salon_admin',
     ]))->toThrow(AuthorizationException::class);
 });
 

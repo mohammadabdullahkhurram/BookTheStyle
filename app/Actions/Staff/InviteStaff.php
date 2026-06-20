@@ -47,6 +47,16 @@ class InviteStaff
         $existing = User::where('email', $data['email'])->first();
 
         if ($existing !== null) {
+            $current = $salon->memberships()->where('user_id', $existing->id)->first();
+
+            // If they already belong to this salon, the actor must also have
+            // authority over their *current* role — so the invite form can't be
+            // used to overwrite (e.g. demote) an owner/admin the actor may not
+            // manage.
+            if ($current !== null && ! $this->roles->canAssign($actor, $salon, $current->salon_role)) {
+                throw new AuthorizationException('You may not manage that staff member.');
+            }
+
             SalonMembership::updateOrCreate(
                 ['user_id' => $existing->id, 'salon_id' => $salon->id],
                 ['salon_role' => $role, 'staff_type' => $staffType, 'active' => true],
