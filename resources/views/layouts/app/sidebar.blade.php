@@ -65,6 +65,30 @@
                                 <span x-show="!collapsed" x-cloak>{{ __('Check-in') }}</span>
                             </a>
                         @endcan
+
+                        {{-- Management links. Visibility mirrors each screen's own
+                             server-side authorization, so no link ever 403s. --}}
+                        @can('manageServices', $salon)
+                            <a href="{{ route('salon.services', $salon) }}" wire:navigate
+                               class="bts-nav-item {{ request()->routeIs('salon.services') ? 'bts-nav-item-active' : '' }}">
+                                <flux:icon.sparkles variant="micro" class="shrink-0" />
+                                <span x-show="!collapsed" x-cloak>{{ __('Services') }}</span>
+                            </a>
+                        @endcan
+                        @can('manageStaff', $salon)
+                            <a href="{{ route('salon.staff', $salon) }}" wire:navigate
+                               class="bts-nav-item {{ request()->routeIs('salon.staff') ? 'bts-nav-item-active' : '' }}">
+                                <flux:icon.users variant="micro" class="shrink-0" />
+                                <span x-show="!collapsed" x-cloak>{{ __('Staff') }}</span>
+                            </a>
+                        @endcan
+                        @if ((new \App\Support\Permissions\AvailabilityAccess)->canManageAny($user, $salon))
+                            <a href="{{ route('salon.availability', $salon) }}" wire:navigate
+                               class="bts-nav-item {{ request()->routeIs('salon.availability') ? 'bts-nav-item-active' : '' }}">
+                                <flux:icon.clock variant="micro" class="shrink-0" />
+                                <span x-show="!collapsed" x-cloak>{{ __('Availability') }}</span>
+                            </a>
+                        @endif
                     @else
                         <a href="{{ route('dashboard') }}" wire:navigate
                            class="bts-nav-item {{ request()->routeIs('dashboard') ? 'bts-nav-item-active' : '' }}">
