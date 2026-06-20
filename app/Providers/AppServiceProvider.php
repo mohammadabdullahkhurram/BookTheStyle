@@ -10,9 +10,12 @@ use App\Policies\SalonPolicy;
 use App\Support\Notifications\MailTemporaryPasswordChannel;
 use App\Support\Notifications\TemporaryPasswordChannel;
 use Carbon\CarbonImmutable;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 
@@ -40,6 +43,17 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaults();
         $this->configureAuthorization();
+        $this->configureRateLimiting();
+    }
+
+    /**
+     * Rate limiters. Calendar clients poll the ICS feed periodically, so it gets
+     * a generous-but-bounded per-IP limit to absorb polling while blocking abuse
+     * / token-guessing floods.
+     */
+    protected function configureRateLimiting(): void
+    {
+        RateLimiter::for('calendar-feed', fn (Request $request) => Limit::perMinute(60)->by($request->ip()));
     }
 
     /**

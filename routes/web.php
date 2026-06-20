@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\PasswordChangeController;
+use App\Http\Controllers\CalendarFeedController;
 use Illuminate\Support\Facades\Route;
 
 $central = config('app.domain');     // apex, e.g. bookthestyle.com / lvh.me
@@ -67,6 +68,20 @@ Route::domain($app)->middleware(['auth'])->group(function () {
         Route::livewire('users/create', 'pages::agency.users.create')->name('users.create');
         Route::livewire('users/{user}/edit', 'pages::agency.users.edit')->name('users.edit');
     });
+});
+
+/*
+| Personal calendar ICS feeds (Phase 5) — GET /cal/{token}.ics on the
+| application host. Public + token-authorized (no session; calendar clients
+| fetch unauthenticated), and independent of salon-subdomain resolution. The
+| token is hashed for lookup; an unknown/revoked token 404s without revealing
+| validity. Rate-limited per IP. "cal" is a reserved slug, so no salon can
+| shadow it.
+*/
+Route::domain($app)->middleware('throttle:calendar-feed')->group(function () {
+    Route::get('cal/{token}.ics', CalendarFeedController::class)
+        ->where('token', '[A-Fa-f0-9]+')
+        ->name('cal.feed');
 });
 
 // Account settings live on app.{domain} too. Required before the wildcard salon
