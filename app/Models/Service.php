@@ -49,7 +49,7 @@ class Service extends Model
     {
         return $this->belongsToMany(User::class, 'service_stylist')
             ->using(ServiceStylist::class)
-            ->withPivot('salon_id')
+            ->withPivot('salon_id', 'duration_override', 'buffer_override')
             ->withTimestamps();
     }
 

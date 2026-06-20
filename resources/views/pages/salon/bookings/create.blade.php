@@ -3,6 +3,7 @@
 use App\Actions\Bookings\CreateBooking;
 use App\Models\Salon;
 use App\Models\Service;
+use App\Services\Booking\DurationResolver;
 use App\Services\Booking\SlotEngine;
 use Carbon\CarbonImmutable;
 use Flux\Flux;
@@ -95,25 +96,58 @@ new #[Title('New booking')] class extends Component {
 
     /**
      * Slot suggestions for the first item's stylist + service on the chosen date.
+     * For a specific stylist these are that stylist's slots (using their resolved
+     * duration). For "any available", every qualified active stylist is evaluated
+     * with their OWN duration and each slot is tagged with the stylist + their
+     * client-facing minutes, so picking one binds that stylist.
      *
-     * @return list<string>
+     * @return list<array{time: string, stylistId: int, minutes: int, name: string, anyAvailable: bool}>
      */
     #[Computed]
     public function suggestions(): array
     {
         $first = $this->items[0] ?? null;
-        if ($first === null || $first['service_id'] === '' || $first['stylist_id'] === '' || $this->date === '') {
+        if ($first === null || $first['service_id'] === '' || $this->date === '') {
             return [];
         }
 
-        $service = $this->salon->services()->whereKey($first['service_id'])->first();
+        $service = $this->salon->services()->where('active', true)->whereKey($first['service_id'])->first();
         if ($service === null) {
             return [];
         }
 
-        $slots = app(SlotEngine::class)->slotsFor($this->salon, (int) $first['stylist_id'], $service->duration_min, $this->date);
+        $engine = app(SlotEngine::class);
+        $resolver = app(DurationResolver::class);
+        $tz = $this->salon->timezone;
 
-        return array_map(fn (CarbonImmutable $s) => $s->setTimezone($this->salon->timezone)->format('H:i'), $slots);
+        $anyAvailable = $first['stylist_id'] === '';
+        if ($anyAvailable) {
+            $activeIds = $this->salon->stylistUsers()->pluck('users.id')->map(fn ($i) => (int) $i)->all();
+            $candidateIds = $service->stylists()->pluck('users.id')->map(fn ($i) => (int) $i)
+                ->filter(fn ($id) => in_array($id, $activeIds, true))->values()->all();
+        } else {
+            $candidateIds = [(int) $first['stylist_id']];
+        }
+
+        $names = $this->salon->stylistUsers()->pluck('name', 'users.id');
+
+        $out = [];
+        foreach ($candidateIds as $sid) {
+            $resolved = $resolver->resolve($this->salon, $service, $sid);
+            foreach ($engine->slotsFor($this->salon, $sid, $resolved->blockedMinutes(), $this->date) as $slot) {
+                $out[] = [
+                    'time' => $slot->setTimezone($tz)->format('H:i'),
+                    'stylistId' => $sid,
+                    'minutes' => $resolved->clientFacingMinutes(),
+                    'name' => (string) ($names[$sid] ?? ''),
+                    'anyAvailable' => $anyAvailable,
+                ];
+            }
+        }
+
+        usort($out, fn ($a, $b) => [$a['time'], $a['stylistId']] <=> [$b['time'], $b['stylistId']]);
+
+        return $out;
     }
 
     public function addItem(): void
@@ -130,9 +164,15 @@ new #[Title('New booking')] class extends Component {
         }
     }
 
-    public function pickSlot(string $time): void
+    public function pickSlot(string $time, ?int $stylistId = null): void
     {
         $this->startTime = $time;
+
+        // "Any available" → bind the chosen candidate so it validates against
+        // that stylist (manager-only path; stylists are locked to themselves).
+        if ($stylistId !== null && $this->canManage && isset($this->items[0]) && $this->items[0]['stylist_id'] === '') {
+            $this->items[0]['stylist_id'] = (string) $stylistId;
+        }
     }
 
     public function save(CreateBooking $action): void
@@ -257,11 +297,17 @@ new #[Title('New booking')] class extends Component {
 
                     @if ($this->suggestions !== [])
                         <div>
-                            <div class="bts-field-label mb-2">{{ __('Available start times (first stylist)') }}</div>
+                            <div class="bts-field-label mb-2">{{ __('Available start times') }}</div>
                             <div class="flex flex-wrap gap-2">
-                                @foreach ($this->suggestions as $time)
-                                    <button type="button" wire:click="pickSlot('{{ $time }}')"
-                                            class="rounded-[9px] border px-3 py-1.5 text-[14px] font-medium transition {{ $startTime === $time ? 'border-accent bg-accent-tint text-accent-ink' : 'border-input-border bg-field text-body hover:border-faint' }}">{{ $time }}</button>
+                                @foreach ($this->suggestions as $slot)
+                                    @php($selected = $startTime === $slot['time'] && (! $slot['anyAvailable'] || (string) ($items[0]['stylist_id'] ?? '') === (string) $slot['stylistId']))
+                                    <button type="button" wire:click="pickSlot('{{ $slot['time'] }}', {{ $slot['stylistId'] }})"
+                                            class="flex flex-col items-start rounded-[9px] border px-3 py-1.5 text-left transition {{ $selected ? 'border-accent bg-accent-tint text-accent-ink' : 'border-input-border bg-field text-body hover:border-faint' }}">
+                                        <span class="text-[14px] font-medium leading-tight">{{ $slot['time'] }}</span>
+                                        @if ($slot['anyAvailable'])
+                                            <span class="text-[12px] leading-tight opacity-80">{{ $slot['name'] }} · {{ $slot['minutes'] }} {{ __('min') }}</span>
+                                        @endif
+                                    </button>
                                 @endforeach
                             </div>
                         </div>

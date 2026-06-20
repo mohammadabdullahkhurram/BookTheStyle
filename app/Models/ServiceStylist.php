@@ -14,6 +14,8 @@ use Illuminate\Database\Eloquent\Relations\Pivot;
  * @property int $salon_id
  * @property int $service_id
  * @property int $user_id
+ * @property int|null $duration_override
+ * @property int|null $buffer_override
  */
 class ServiceStylist extends Pivot
 {
@@ -24,4 +26,15 @@ class ServiceStylist extends Pivot
     public $incrementing = true;
 
     public $timestamps = true;
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'duration_override' => 'integer',
+            'buffer_override' => 'integer',
+        ];
+    }
 }

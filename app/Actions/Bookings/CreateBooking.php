@@ -12,6 +12,8 @@ use App\Models\Salon;
 use App\Models\Service;
 use App\Models\User;
 use App\Services\Booking\BookingPolicy;
+use App\Services\Booking\DurationResolver;
+use App\Services\Booking\ResolvedDuration;
 use App\Services\Booking\SlotEngine;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -35,6 +37,7 @@ class CreateBooking
         private SlotEngine $engine,
         private BookingPolicy $policy,
         private CreateClient $createClient,
+        private DurationResolver $resolver,
     ) {}
 
     /**
@@ -75,13 +78,17 @@ class CreateBooking
                 }
 
                 $itemStart = $cursor;
-                $duration = $service->duration_min;
 
-                $stylistId = $item['stylist_id'] !== null
-                    ? $this->assertQualified($service, (int) $item['stylist_id'])
-                    : $this->leastBusyAvailable($salon, $service, $itemStart, $duration);
+                // Resolve the stylist + their duration. For "any available" each
+                // candidate is evaluated with their OWN resolved blocked time.
+                if ($item['stylist_id'] !== null) {
+                    $stylistId = $this->assertQualified($service, (int) $item['stylist_id']);
+                    $duration = $this->resolver->resolve($salon, $service, $stylistId);
+                } else {
+                    [$stylistId, $duration] = $this->leastBusyAvailable($salon, $service, $itemStart);
+                }
 
-                if ($stylistId === null) {
+                if ($stylistId === null || $duration === null) {
                     throw ValidationException::withMessages([
                         'items' => __('No qualified stylist is free for :service at that time.', ['service' => $service->name]),
                     ]);
@@ -90,12 +97,16 @@ class CreateBooking
                 $resolved[] = [
                     'service' => $service,
                     'stylist_id' => $stylistId,
+                    // Visible block = client-facing (service) minutes; the buffer
+                    // is stored separately and occupies the stylist after it.
                     'starts_at' => $itemStart,
-                    'ends_at' => $itemStart->addMinutes($duration),
-                    'duration' => $duration,
+                    'ends_at' => $itemStart->addMinutes($duration->clientFacingMinutes()),
+                    'buffer_min' => $duration->bufferMinutes,
+                    'blocked' => $duration->blockedMinutes(),
                 ];
 
-                $cursor = $itemStart->addMinutes($duration);
+                // Next service starts after this one's service + buffer.
+                $cursor = $itemStart->addMinutes($duration->blockedMinutes());
             }
 
             $this->assertActorMayBook($actor, $salon, $resolved);
@@ -108,7 +119,7 @@ class CreateBooking
             }
 
             foreach ($resolved as $ri) {
-                if (! $this->engine->isAvailable($salon, $ri['stylist_id'], $ri['starts_at'], $ri['duration'])) {
+                if (! $this->engine->isAvailable($salon, $ri['stylist_id'], $ri['starts_at'], $ri['blocked'])) {
                     throw ValidationException::withMessages([
                         'start' => __('That time was just taken. Please choose another slot.'),
                     ]);
@@ -134,6 +145,7 @@ class CreateBooking
                     'stylist_id' => $ri['stylist_id'],
                     'starts_at' => $ri['starts_at'],
                     'ends_at' => $ri['ends_at'],
+                    'buffer_min' => $ri['buffer_min'],
                 ]);
             }
 
@@ -196,27 +208,37 @@ class CreateBooking
     }
 
     /**
-     * The least-busy qualified, active stylist who is free for the block.
+     * The least-busy qualified, active stylist who is free for the block, each
+     * evaluated with their OWN resolved blocked time. Returns [stylistId,
+     * ResolvedDuration] (tied together — the returned duration is the chosen
+     * stylist's), or [null, null] when none fit.
+     *
+     * @return array{0: int|null, 1: ResolvedDuration|null}
      */
-    private function leastBusyAvailable(Salon $salon, Service $service, CarbonImmutable $start, int $duration): ?int
+    private function leastBusyAvailable(Salon $salon, Service $service, CarbonImmutable $start): array
     {
         $activeStylistIds = $salon->stylistUsers()->pluck('users.id')->all();
 
         $candidates = $service->stylists()
             ->pluck('users.id')
-            ->filter(fn ($id) => in_array($id, $activeStylistIds, true))
-            ->filter(fn ($id) => $this->engine->isAvailable($salon, (int) $id, $start, $duration))
+            ->map(fn ($id): int => (int) $id)
+            ->filter(fn (int $id) => in_array($id, $activeStylistIds, true))
+            ->filter(fn (int $id) => $this->engine->isAvailable(
+                $salon, $id, $start, $this->resolver->resolve($salon, $service, $id)->blockedMinutes()
+            ))
             ->values();
 
         if ($candidates->isEmpty()) {
-            return null;
+            return [null, null];
         }
 
         $day = $start->setTimezone($salon->timezone)->startOfDay();
 
-        return (int) $candidates
-            ->sortBy(fn ($id) => [$this->busyCountOnDay($salon, (int) $id, $day), $id])
+        $chosen = (int) $candidates
+            ->sortBy(fn (int $id) => [$this->busyCountOnDay($salon, $id, $day), $id])
             ->first();
+
+        return [$chosen, $this->resolver->resolve($salon, $service, $chosen)];
     }
 
     private function busyCountOnDay(Salon $salon, int $stylistId, CarbonImmutable $day): int
@@ -235,7 +257,7 @@ class CreateBooking
      * Non-managers (stylists) may only create bookings whose every item is their
      * own. Managers/front desk may book any stylist.
      *
-     * @param  list<array{stylist_id: int, service: Service, starts_at: CarbonImmutable, ends_at: CarbonImmutable, duration: int}>  $resolved
+     * @param  list<array{stylist_id: int, service: Service, starts_at: CarbonImmutable, ends_at: CarbonImmutable, buffer_min: int, blocked: int}>  $resolved
      */
     private function assertActorMayBook(User $actor, Salon $salon, array $resolved): void
     {

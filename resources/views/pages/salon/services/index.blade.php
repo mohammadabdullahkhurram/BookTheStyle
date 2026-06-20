@@ -29,6 +29,13 @@ new #[Title('Services')] class extends Component {
 
     /** @var array<int, int> */
     public array $editStylistIds = [];
+
+    /** @var array<int, string> stylist id => duration override (blank = service default) */
+    public array $editDurations = [];
+
+    /** @var array<int, string> stylist id => buffer override (blank = none) */
+    public array $editBuffers = [];
+
     public bool $showEdit = false;
 
     public function mount(Salon $salon): void
@@ -47,6 +54,13 @@ new #[Title('Services')] class extends Component {
     public function stylists()
     {
         return $this->salon->stylistUsers()->orderBy('name')->get(['users.id', 'name']);
+    }
+
+    /** Per-stylist cleanup buffers are hidden until the salon enables the flag. */
+    #[Computed]
+    public function buffersEnabled(): bool
+    {
+        return $this->salon->hasFeature(\App\Services\Booking\DurationResolver::BUFFER_FLAG);
     }
 
     public function create(CreateService $action): void
@@ -78,7 +92,19 @@ new #[Title('Services')] class extends Component {
         $this->editDuration = $service->duration_min;
         $this->editColor = $service->color;
         $this->editActive = $service->active;
-        $this->editStylistIds = $service->stylists()->pluck('users.id')->all();
+
+        // Assigned stylists + their per-stylist overrides.
+        $this->editStylistIds = [];
+        $this->editDurations = [];
+        $this->editBuffers = [];
+        foreach ($service->stylists()->get() as $stylist) {
+            $this->editStylistIds[] = $stylist->id;
+            $this->editDurations[$stylist->id] = $stylist->pivot->duration_override !== null
+                ? (string) $stylist->pivot->duration_override : '';
+            $this->editBuffers[$stylist->id] = $stylist->pivot->buffer_override !== null
+                ? (string) $stylist->pivot->buffer_override : '';
+        }
+
         $this->showEdit = true;
     }
 
@@ -103,7 +129,20 @@ new #[Title('Services')] class extends Component {
             'color' => $data['editColor'],
             'active' => $data['editActive'],
         ]);
-        $sync->handle($this->salon, $service, $this->editStylistIds);
+
+        // Assigned stylists → their (optional, clamped) overrides. Blank = use
+        // the service default / no buffer; buffers ignored unless the flag is on.
+        $stylists = [];
+        foreach ($this->editStylistIds as $id) {
+            $id = (int) $id;
+            $dur = (string) ($this->editDurations[$id] ?? '');
+            $buf = (string) ($this->editBuffers[$id] ?? '');
+            $stylists[$id] = [
+                'duration_override' => $dur === '' ? null : max(5, min(600, (int) $dur)),
+                'buffer_override' => (! $this->buffersEnabled() || $buf === '') ? null : max(0, min(120, (int) $buf)),
+            ];
+        }
+        $sync->handle($this->salon, $service, $stylists);
 
         $this->showEdit = false;
         $this->editingId = null;
@@ -199,22 +238,38 @@ new #[Title('Services')] class extends Component {
         </x-ui.card>
     </div>
 
-    <flux:modal wire:model="showEdit" class="max-w-md">
+    <flux:modal wire:model="showEdit" class="max-w-lg">
         <form wire:submit="saveEdit" class="flex flex-col gap-5">
             <h2 class="bts-card-title">{{ __('Edit service') }}</h2>
             <flux:input wire:model="editName" :label="__('Name')" required />
             <div class="grid grid-cols-2 gap-4">
-                <flux:input type="number" wire:model="editDuration" :label="__('Duration (min)')" min="5" max="600" step="5" />
+                <flux:input type="number" wire:model.live="editDuration" :label="__('Default duration (min)')" min="5" max="600" step="5" />
                 <flux:input type="color" wire:model="editColor" :label="__('Color')" />
             </div>
             <flux:checkbox wire:model="editActive" :label="__('Active')" />
 
             <div>
                 <flux:label>{{ __('Qualified stylists') }}</flux:label>
-                <flux:text class="mb-2 text-sm text-secondary">{{ __('Who can perform this service.') }}</flux:text>
-                <div class="flex flex-col gap-2">
+                <flux:text class="mb-2 text-sm text-secondary">
+                    {{ $this->buffersEnabled
+                        ? __('Who can perform this service, plus their own time and cleanup buffer. Leave time blank to use the service default.')
+                        : __('Who can perform this service, and how long they take. Leave time blank to use the service default.') }}
+                </flux:text>
+                <div class="flex flex-col gap-2.5">
                     @forelse ($this->stylists as $stylist)
-                        <flux:checkbox wire:model="editStylistIds" value="{{ $stylist->id }}" :label="$stylist->name" />
+                        <div class="flex items-center gap-3">
+                            <div class="min-w-0 flex-1">
+                                <flux:checkbox wire:model="editStylistIds" value="{{ $stylist->id }}" :label="$stylist->name" />
+                            </div>
+                            <div class="w-24 shrink-0">
+                                <flux:input type="number" wire:model="editDurations.{{ $stylist->id }}" :placeholder="$editDuration . ' min'" min="5" max="600" step="5" />
+                            </div>
+                            @if ($this->buffersEnabled)
+                                <div class="w-24 shrink-0">
+                                    <flux:input type="number" wire:model="editBuffers.{{ $stylist->id }}" :placeholder="__('buffer')" min="0" max="120" step="5" />
+                                </div>
+                            @endif
+                        </div>
                     @empty
                         <flux:text class="text-sm text-secondary">{{ __('No stylists in this salon yet. Add stylists on the Staff page.') }}</flux:text>
                     @endforelse

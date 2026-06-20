@@ -63,8 +63,9 @@ class CalendarData
                 $maxEnd = $maxEnd === null ? $e : max($maxEnd, $e);
             }
             foreach ($bookings as $b) {
+                $blockEnd = (int) $b['endMin'] + (int) ($b['bufferMin'] ?? 0);
                 $minStart = $minStart === null ? $b['startMin'] : min($minStart, $b['startMin']);
-                $maxEnd = $maxEnd === null ? $b['endMin'] : max($maxEnd, $b['endMin']);
+                $maxEnd = $maxEnd === null ? $blockEnd : max($maxEnd, $blockEnd);
             }
 
             $columns[] = [
@@ -220,10 +221,15 @@ class CalendarData
                     $endMin = min(1440, $startMin + 15);
                 }
 
+                // Cleanup buffer (minutes) occupies the stylist after the visible
+                // service block — a muted, non-bookable tail on the calendar.
+                $bufferMin = max(0, min((int) $item->buffer_min, 1440 - $endMin));
+
                 $out[$item->stylist_id][] = [
                     'bookingId' => $booking->id,
                     'startMin' => $startMin,
                     'endMin' => $endMin,
+                    'bufferMin' => $bufferMin,
                     'startLabel' => $startLocal->format('g:i'),
                     'endLabel' => $endLocal->format('g:i A'),
                     'client' => $booking->client->name,

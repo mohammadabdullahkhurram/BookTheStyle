@@ -21,6 +21,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $stylist_id
  * @property CarbonImmutable $starts_at
  * @property CarbonImmutable $ends_at
+ * @property int $buffer_min
  */
 class BookingItem extends Model
 {
@@ -34,7 +35,18 @@ class BookingItem extends Model
         'stylist_id',
         'starts_at',
         'ends_at',
+        'buffer_min',
     ];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'buffer_min' => 'integer',
+        ];
+    }
 
     /**
      * @return Attribute<CarbonImmutable|null, mixed>

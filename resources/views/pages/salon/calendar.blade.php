@@ -295,6 +295,12 @@ new #[Title('Calendar')] class extends Component {
                                     <div class="truncate text-[13px] font-semibold leading-tight">{{ $b['client'] }}</div>
                                     <div class="truncate text-[12px] leading-tight opacity-85">{{ $b['service'] }}</div>
                                 </button>
+                                {{-- Cleanup buffer: muted, non-bookable tail. --}}
+                                @if (($b['bufferMin'] ?? 0) > 0)
+                                    <div class="pointer-events-none absolute inset-x-1 rounded-b-[8px] border border-t-0 border-divider bg-muted/70"
+                                         style="top: {{ ($b['endMin'] - $startMin) * $ppm }}px; height: {{ max(4, $b['bufferMin'] * $ppm) }}px;"
+                                         aria-hidden="true"></div>
+                                @endif
                             @endforeach
                         </div>
                     </div>

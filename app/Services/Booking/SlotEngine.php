@@ -16,9 +16,14 @@ use Illuminate\Support\Facades\DB;
  * salon's timezone), it returns the bookable start instants by combining the
  * stylist's weekly work windows, minus breaks, minus one-off time off, minus
  * their existing (non-cancelled) bookings, constrained by the salon's booking
- * policy. The full duration must fit in one continuous free stretch inside a
- * work window. Default granularity is 15 minutes, anchored at each window's
- * start. No state — it reads availability/time-off/bookings each call.
+ * policy. The full *blocked* duration must fit in one continuous free stretch
+ * inside a work window. Default granularity is 15 minutes, anchored at each
+ * window's start. No state — it reads availability/time-off/bookings each call.
+ *
+ * "Blocked" minutes = service + cleanup buffer (resolved per stylist by
+ * DurationResolver). The engine is duration-agnostic: callers pass resolved
+ * blocked minutes, and existing bookings already occupy their own service +
+ * stored buffer (bookingIntervals extends each item by booking_items.buffer_min).
  *
  * Internally it works with absolute instants (CarbonImmutable). Work-window
  * minutes-from-midnight are turned into wall-clock instants via setTime (so the
@@ -35,7 +40,7 @@ class SlotEngine
     /**
      * @return list<CarbonImmutable> bookable start instants, ascending
      */
-    public function slotsFor(Salon $salon, int $stylistUserId, int $durationMinutes, CarbonImmutable|Carbon|string $date): array
+    public function slotsFor(Salon $salon, int $stylistUserId, int $blockedMinutes, CarbonImmutable|Carbon|string $date): array
     {
         $day = $this->resolveDay($salon, $date);
         $weekday = $day->dayOfWeekIso - 1;
@@ -58,10 +63,10 @@ class SlotEngine
 
             for (
                 $start = $windowStart;
-                $start->addMinutes($durationMinutes)->lte($windowEnd);
+                $start->addMinutes($blockedMinutes)->lte($windowEnd);
                 $start = $start->addMinutes($this->granularityMinutes)
             ) {
-                $end = $start->addMinutes($durationMinutes);
+                $end = $start->addMinutes($blockedMinutes);
 
                 if (! $this->fitsInFree($start, $end, $free)) {
                     continue;
@@ -85,10 +90,10 @@ class SlotEngine
      * for the stylist: fully inside one work window, clear of breaks, time off,
      * and existing bookings. Ignores temporal policy (checked separately).
      */
-    public function isAvailable(Salon $salon, int $stylistUserId, CarbonImmutable $start, int $durationMinutes): bool
+    public function isAvailable(Salon $salon, int $stylistUserId, CarbonImmutable $start, int $blockedMinutes): bool
     {
         $start = $start->setTimezone($salon->timezone);
-        $end = $start->addMinutes($durationMinutes);
+        $end = $start->addMinutes($blockedMinutes);
         $day = $start->startOfDay();
         $weekday = $day->dayOfWeekIso - 1;
 
@@ -175,8 +180,10 @@ class SlotEngine
     }
 
     /**
-     * Existing non-cancelled booking blocks for the stylist on this day. Uses a
-     * raw join so it is independent of the active-salon global scope.
+     * Existing non-cancelled booking blocks for the stylist on this day. Each
+     * block occupies its service time PLUS its stored cleanup buffer
+     * (booking_items.buffer_min), so the next appointment can't start during the
+     * buffer. Uses a raw join so it is independent of the active-salon scope.
      *
      * @return list<array{0: CarbonImmutable, 1: CarbonImmutable}>
      */
@@ -188,14 +195,17 @@ class SlotEngine
             ->where('booking_items.stylist_id', $stylistUserId)
             ->where('bookings.status', '!=', BookingStatus::Cancelled->value)
             ->where('booking_items.starts_at', '<', $day->addDay()->utc())
+            // The buffer can run past ends_at, so widen the day overlap window
+            // by it too (a booking whose service ends before the day but whose
+            // buffer reaches into it still blocks).
             ->where('booking_items.ends_at', '>', $day->utc())
-            ->get(['booking_items.starts_at as s', 'booking_items.ends_at as e']);
+            ->get(['booking_items.starts_at as s', 'booking_items.ends_at as e', 'booking_items.buffer_min as b']);
 
         return array_values(
             $rows
                 ->map(fn ($r): array => [
                     CarbonImmutable::parse($r->s, 'UTC'),
-                    CarbonImmutable::parse($r->e, 'UTC'),
+                    CarbonImmutable::parse($r->e, 'UTC')->addMinutes((int) $r->b),
                 ])
                 ->all()
         );

@@ -17,5 +17,6 @@ return [
     'online_booking' => 'Public online booking',
     'voice_ai' => 'Voice AI booking',
     'chat_widget' => 'Chat widget booking',
+    'stylist_buffers' => 'Per-stylist cleanup buffers',
 
 ];
