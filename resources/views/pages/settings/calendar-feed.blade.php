@@ -52,6 +52,57 @@ new class extends Component {
         </p>
     </div>
 
+    {{-- Watch-how popup: the video plays beside your link + the written steps, so
+         you can follow along while copying the link without closing it. --}}
+    <div>
+        <x-ui.help-trigger doc="calendar-sync" :label="__('Watch: how to connect your calendar')">
+            @if ($subscribeUrl)
+                <div class="flex flex-col gap-3" x-data="{ copiedInModal: false }">
+                    <flux:input :label="__('Your subscribe link')" readonly value="{{ $subscribeUrl }}" />
+                    <div class="flex flex-wrap gap-2">
+                        <x-ui.button type="button" variant="secondary"
+                            x-on:click="navigator.clipboard.writeText(@js($subscribeUrl)); copiedInModal = true; setTimeout(() => copiedInModal = false, 1500)">
+                            <span x-text="copiedInModal ? @js(__('Copied')) : @js(__('Copy'))">{{ __('Copy') }}</span>
+                        </x-ui.button>
+                        <x-ui.button :href="$webcalUrl">{{ __('Subscribe on this device') }}</x-ui.button>
+                    </div>
+                </div>
+            @else
+                <p class="text-[14px] text-secondary">
+                    {{ __('Generate your calendar link below first — it will then appear here to copy alongside the steps.') }}
+                </p>
+            @endif
+
+            <div class="mt-5 flex flex-col gap-4">
+                <h3 class="text-[14px] font-semibold text-ink">{{ __('Step by step') }}</h3>
+
+                <div>
+                    <p class="text-[13px] font-semibold text-body">{{ __('Apple / iPhone') }}</p>
+                    <p class="mt-0.5 text-[13px] leading-relaxed text-secondary">
+                        {{ __('Tap the subscribe button above, then tap Subscribe and Add.') }}
+                    </p>
+                </div>
+
+                <div>
+                    <p class="text-[13px] font-semibold text-body">{{ __('Google') }}</p>
+                    <p class="mt-0.5 text-[13px] leading-relaxed text-secondary">
+                        {{ __('Go to calendar.google.com, then Other calendars +, then From URL, paste the link, and Add. It then syncs to your phone automatically.') }}
+                    </p>
+                    <p class="mt-1 text-[12.5px] font-medium text-warning">
+                        {{ __('Heads up: Google only lets you add a subscription on a computer, not the phone app.') }}
+                    </p>
+                </div>
+
+                <div>
+                    <p class="text-[13px] font-semibold text-body">{{ __('Outlook') }}</p>
+                    <p class="mt-0.5 text-[13px] leading-relaxed text-secondary">
+                        {{ __('Add calendar, then Subscribe from web, paste the link, and Subscribe.') }}
+                    </p>
+                </div>
+            </div>
+        </x-ui.help-trigger>
+    </div>
+
     @if ($subscribeUrl)
         <div class="flex flex-col gap-4" x-data="{ copied: false }">
             <div class="flex items-end gap-2">
@@ -69,11 +120,6 @@ new class extends Component {
                     class="bts-btn bts-btn-sm border border-input-border bg-card text-secondary hover:text-ink">
                     {{ __('Regenerate') }}
                 </button>
-            </div>
-
-            <div class="rounded-[12px] bg-muted px-4 py-3 text-[13px] leading-relaxed text-secondary">
-                <p class="font-medium text-body">{{ __('How to subscribe') }}</p>
-                <p class="mt-1">{{ __('Google: Settings → Add calendar → From URL. Apple: File → New Calendar Subscription. Outlook: Add calendar → Subscribe from web.') }}</p>
             </div>
 
             <p class="text-[13px] text-faint">{{ __('Treat this link like a password — anyone with it can see your bookings. Regenerate to revoke a leaked link.') }}</p>

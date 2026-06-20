@@ -26,4 +26,11 @@ yarn-error.log
 # Claude Code: keep shared project settings, ignore machine-local ones
 /.claude/settings.local.json
 
+# How-to documentation: keep the folder structure + posters, ignore heavy media.
+# Videos are placed here locally for dev and uploaded to the same path on the
+# server for prod — never committed.
+/public/how-to-documentation/**/*.mp4
+/public/how-to-documentation/**/*.mov
+/public/how-to-documentation/**/*.webm
+
 .DS_Store
