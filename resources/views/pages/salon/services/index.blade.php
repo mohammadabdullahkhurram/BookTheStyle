@@ -238,9 +238,8 @@ new #[Title('Services')] class extends Component {
         </x-ui.card>
     </div>
 
-    <flux:modal wire:model="showEdit" class="max-w-lg">
+    <x-ui.modal wire:model="showEdit" class="max-w-lg" :heading="__('Edit service')">
         <form wire:submit="saveEdit" class="flex flex-col gap-5">
-            <h2 class="bts-card-title">{{ __('Edit service') }}</h2>
             <flux:input wire:model="editName" :label="__('Name')" required />
             <div class="grid grid-cols-2 gap-4">
                 <flux:input type="number" wire:model.live="editDuration" :label="__('Default duration (min)')" min="5" max="600" step="5" />
@@ -281,5 +280,5 @@ new #[Title('Services')] class extends Component {
                 <x-ui.button type="submit">{{ __('Save') }}</x-ui.button>
             </div>
         </form>
-    </flux:modal>
+    </x-ui.modal>
 </div>

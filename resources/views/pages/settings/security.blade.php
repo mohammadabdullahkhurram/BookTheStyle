@@ -296,24 +296,22 @@ new #[Title('Security settings')] class extends Component {
         @endif
     </x-pages::settings.layout>
 
-    <flux:modal
+    <x-ui.modal
         name="delete-passkey-modal"
         class="max-w-md md:min-w-md"
         @close="closeDeleteModal"
         wire:model="showDeleteModal"
+        :heading="__('Remove passkey')"
     >
         <div class="space-y-6">
-            <div class="space-y-2">
-                <h2 class="bts-card-title">{{ __('Remove passkey') }}</h2>
-                <flux:text>
-                    {{ __('Are you sure you want to remove the passkey ":name"? You will no longer be able to use it to sign in.', ['name' => $deletingPasskeyName]) }}
-                </flux:text>
-            </div>
+            <flux:text>
+                {{ __('Are you sure you want to remove the passkey ":name"? You will no longer be able to use it to sign in.', ['name' => $deletingPasskeyName]) }}
+            </flux:text>
 
             <div class="flex justify-end gap-3">
                 <x-ui.button variant="secondary" wire:click="closeDeleteModal">{{ __('Cancel') }}</x-ui.button>
                 <x-ui.button variant="danger" wire:click="deletePasskey">{{ __('Remove passkey') }}</x-ui.button>
             </div>
         </div>
-    </flux:modal>
+    </x-ui.modal>
 </section>

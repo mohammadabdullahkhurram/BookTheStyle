@@ -164,9 +164,8 @@ new #[Title('Clients')] class extends Component {
         </x-ui.card>
     </div>
 
-    <flux:modal wire:model="showEdit" class="max-w-md">
+    <x-ui.modal wire:model="showEdit" class="max-w-md" :heading="__('Edit client')">
         <form wire:submit="saveEdit" class="flex flex-col gap-5">
-            <h2 class="bts-card-title">{{ __('Edit client') }}</h2>
             <flux:input wire:model="editName" :label="__('Name')" required />
             <flux:input wire:model="editPhone" :label="__('Phone')" />
             <flux:input wire:model="editEmail" type="email" :label="__('Email')" />
@@ -175,5 +174,5 @@ new #[Title('Clients')] class extends Component {
                 <x-ui.button type="submit">{{ __('Save') }}</x-ui.button>
             </div>
         </form>
-    </flux:modal>
+    </x-ui.modal>
 </div>

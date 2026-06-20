@@ -314,25 +314,19 @@ new #[Title('Calendar')] class extends Component {
     </div>
 
     {{-- Booking detail panel --}}
-    <flux:modal wire:model="showDetail" class="max-w-lg">
+    <x-ui.modal wire:model="showDetail" class="max-w-lg"
+        :heading="$this->detail?->client->name"
+        :subheading="$this->detail?->items->min('starts_at')?->setTimezone($salon->timezone)->format('l, M j · g:i A')">
         @if ($this->detail)
             @php($booking = $this->detail)
             @php($start = $booking->items->min('starts_at'))
+            {{-- Status pills sit in the shared header's pill slot, so they stay
+                 clear of the modal's close × at any status length. --}}
+            <x-slot:pill>
+                <x-ui.status-pill :status="$booking->status" />
+                @if ($booking->is_walkin)<span class="bts-pill" style="background-color:#F0EEEA;color:#9C9890;">{{ __('Walk-in') }}</span>@endif
+            </x-slot:pill>
             <div class="flex flex-col gap-5">
-                {{-- Header: title + time on the left (with room kept for the modal's
-                     close × in the top-right), status pills below and left-aligned
-                     so they never collide with the × at any name/status length. --}}
-                <div class="flex flex-col gap-2.5">
-                    <div class="pr-9">
-                        <h2 class="font-display text-[20px] font-bold text-ink">{{ $booking->client->name }}</h2>
-                        <p class="text-[14px] text-secondary">{{ $start?->setTimezone($salon->timezone)->format('l, M j · g:i A') }}</p>
-                    </div>
-                    <div class="flex flex-wrap items-center gap-2">
-                        <x-ui.status-pill :status="$booking->status" />
-                        @if ($booking->is_walkin)<span class="bts-pill" style="background-color:#F0EEEA;color:#9C9890;">{{ __('Walk-in') }}</span>@endif
-                    </div>
-                </div>
-
                 <div class="flex flex-col gap-2 rounded-[11px] border border-border bg-paper p-4">
                     @foreach ($booking->items as $item)
                         <div class="flex items-center justify-between text-[14px]">
@@ -396,5 +390,5 @@ new #[Title('Calendar')] class extends Component {
                 </div>
             </div>
         @endif
-    </flux:modal>
+    </x-ui.modal>
 </div>

@@ -249,9 +249,8 @@ new #[Title('Staff')] class extends Component {
         </x-ui.card>
     </div>
 
-    <flux:modal wire:model="showEdit" class="max-w-md">
+    <x-ui.modal wire:model="showEdit" class="max-w-md" :heading="__('Edit staff member')">
         <form wire:submit="saveEdit" class="flex flex-col gap-5">
-            <h2 class="bts-card-title">{{ __('Edit staff member') }}</h2>
             <flux:select wire:model.live="editRole" :label="__('Role')">
                 @foreach ($this->assignableRoles as $r)
                     <flux:select.option value="{{ $r->value }}">{{ $r->label() }}</flux:select.option>
@@ -268,14 +267,15 @@ new #[Title('Staff')] class extends Component {
                 <x-ui.button type="submit">{{ __('Save') }}</x-ui.button>
             </div>
         </form>
-    </flux:modal>
+    </x-ui.modal>
 
-    <flux:modal wire:model="showTempPassword" class="max-w-md">
+    <x-ui.modal wire:model="showTempPassword" class="max-w-md"
+        :heading="$tempForName ? __('Temporary password for :name', ['name' => $tempForName]) : __('Temporary password')">
         @if ($temporaryPassword)
-            <x-temp-password-panel :name="$tempForName" :password="$temporaryPassword" />
+            <x-temp-password-panel :name="$tempForName" :password="$temporaryPassword" :show-heading="false" />
         @endif
-        <div class="mt-4 flex justify-end">
+        <div class="flex justify-end">
             <x-ui.button wire:click="$set('showTempPassword', false)">{{ __('Done') }}</x-ui.button>
         </div>
-    </flux:modal>
+    </x-ui.modal>
 </div>

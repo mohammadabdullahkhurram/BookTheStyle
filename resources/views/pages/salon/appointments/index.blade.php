@@ -166,9 +166,8 @@ new #[Title('Appointments')] class extends Component {
         </div>
     </div>
 
-    <flux:modal wire:model="showTimeline" class="max-w-md">
-        <h2 class="bts-card-title">{{ __('Status history') }}</h2>
-        <div class="mt-4 flex flex-col gap-3">
+    <x-ui.modal wire:model="showTimeline" class="max-w-md" :heading="__('Status history')">
+        <div class="flex flex-col gap-3">
             @forelse ($this->timeline as $event)
                 <div class="flex items-center justify-between gap-3 text-[14px]">
                     <x-ui.status-pill :status="$event->to_status" />
@@ -179,5 +178,5 @@ new #[Title('Appointments')] class extends Component {
                 <div class="text-[14px] text-secondary">{{ __('No history yet.') }}</div>
             @endforelse
         </div>
-    </flux:modal>
+    </x-ui.modal>
 </div>

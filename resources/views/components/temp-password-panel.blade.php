@@ -1,10 +1,12 @@
-@props(['name' => null, 'password'])
+@props(['name' => null, 'password', 'showHeading' => true])
 
 <div class="rounded-[16px] border border-accent/30 bg-accent-tint p-5">
-    <h3 class="bts-card-title text-[16px]">
-        {{ $name ? __('Temporary password for :name', ['name' => $name]) : __('Temporary password') }}
-    </h3>
-    <p class="mt-1 text-[14px] text-secondary">
+    @if ($showHeading)
+        <h3 class="bts-card-title text-[16px]">
+            {{ $name ? __('Temporary password for :name', ['name' => $name]) : __('Temporary password') }}
+        </h3>
+    @endif
+    <p class="@if ($showHeading) mt-1 @endif text-[14px] text-secondary">
         {{ __('Shown once. Copy it now and share it securely — it was also emailed. The user must change it on first login.') }}
     </p>
 

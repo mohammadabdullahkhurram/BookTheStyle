@@ -253,8 +253,9 @@ it('renders the booking-detail header cleanly at every status and a long name (c
 
         expect($html)->toContain($longName);          // title renders for a long name
         expect($html)->toContain($status->label());   // the status pill renders ("In service", "No-show"…)
-        // The title block reserves room for the corner ×; the status pill sits
-        // below it (left-aligned), so they cannot collide at any length.
-        expect($html)->toContain('pr-9');
+        // The shared x-ui.modal header reserves room for the corner × (pe-12,
+        // wider than Flux's close button), with the status pill on its own row
+        // below the title — so they cannot collide at any name/status length.
+        expect($html)->toContain('pe-12');
     }
 });
