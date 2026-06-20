@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\BookingStatus;
 use App\Models\Availability;
 use App\Models\TimeOff;
 use App\Models\User;
@@ -222,4 +223,38 @@ it('still rejects a conflicting slot even when the form was prefilled', function
         ->assertHasErrors('start');
 
     expect($salon->bookings()->count())->toBe(1);
+});
+
+it('renders the booking-detail header cleanly at every status and a long name (close × clear of the status pill)', function () {
+    $salon = bookingSalon();
+    $stylist = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
+    $owner = salonOwnerOf($salon);
+    $longName = 'Alexandra Featherstonehaugh-Worthington';
+    $booking = makeBooking($salon, $owner, $stylist, serviceFor($salon, $stylist, 60), '2026-06-22 10:00', $longName);
+
+    $statuses = [
+        BookingStatus::Booked,
+        BookingStatus::Confirmed,
+        BookingStatus::Arrived,
+        BookingStatus::InService,
+        BookingStatus::Completed,
+        BookingStatus::NoShow,
+        BookingStatus::Cancelled,
+    ];
+
+    foreach ($statuses as $status) {
+        $booking->update(['status' => $status]);
+
+        $html = Livewire::actingAs($owner)
+            ->test('pages::salon.calendar', ['salon' => $salon])
+            ->call('openBooking', $booking->id)
+            ->assertSet('showDetail', true)
+            ->html();
+
+        expect($html)->toContain($longName);          // title renders for a long name
+        expect($html)->toContain($status->label());   // the status pill renders ("In service", "No-show"…)
+        // The title block reserves room for the corner ×; the status pill sits
+        // below it (left-aligned), so they cannot collide at any length.
+        expect($html)->toContain('pr-9');
+    }
 });

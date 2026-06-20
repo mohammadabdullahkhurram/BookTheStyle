@@ -319,12 +319,15 @@ new #[Title('Calendar')] class extends Component {
             @php($booking = $this->detail)
             @php($start = $booking->items->min('starts_at'))
             <div class="flex flex-col gap-5">
-                <div class="flex items-start justify-between gap-4">
-                    <div>
+                {{-- Header: title + time on the left (with room kept for the modal's
+                     close × in the top-right), status pills below and left-aligned
+                     so they never collide with the × at any name/status length. --}}
+                <div class="flex flex-col gap-2.5">
+                    <div class="pr-9">
                         <h2 class="font-display text-[20px] font-bold text-ink">{{ $booking->client->name }}</h2>
                         <p class="text-[14px] text-secondary">{{ $start?->setTimezone($salon->timezone)->format('l, M j · g:i A') }}</p>
                     </div>
-                    <div class="flex flex-wrap justify-end gap-2">
+                    <div class="flex flex-wrap items-center gap-2">
                         <x-ui.status-pill :status="$booking->status" />
                         @if ($booking->is_walkin)<span class="bts-pill" style="background-color:#F0EEEA;color:#9C9890;">{{ __('Walk-in') }}</span>@endif
                     </div>
