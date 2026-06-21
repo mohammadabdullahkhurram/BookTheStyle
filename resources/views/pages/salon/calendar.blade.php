@@ -290,7 +290,7 @@ new #[Title('Calendar')] class extends Component {
                                 @php($dimmed = in_array($b['status'], ['completed', 'no_show', 'cancelled'], true))
                                 <button type="button" wire:click="openBooking({{ $b['bookingId'] }})"
                                         class="absolute inset-x-1 overflow-hidden rounded-[11px] border px-[11px] py-2 text-start transition hover:brightness-[.97] {{ $dimmed ? 'opacity-60' : '' }}"
-                                        style="top: {{ ($b['startMin'] - $startMin) * $ppm }}px; height: {{ max(28, ($b['endMin'] - $b['startMin']) * $ppm - 2) }}px; background-color: {{ $b['family']['bg'] }}; border-color: {{ $b['family']['border'] }}; color: {{ $b['family']['ink'] }};">
+                                        style="top: {{ ($b['startMin'] - $startMin) * $ppm }}px; height: {{ max(28, ($b['endMin'] - $b['startMin']) * $ppm - 2) }}px; background-color: {{ $b['color']['bg'] }}; border-color: {{ $b['color']['border'] }}; color: {{ $b['color']['ink'] }};">
                                     <div class="text-[11px] font-semibold opacity-80">{{ $b['startLabel'] }}–{{ $b['endLabel'] }}</div>
                                     <div class="truncate text-[13px] font-semibold leading-tight">{{ $b['client'] }}</div>
                                     <div class="truncate text-[12px] leading-tight opacity-85">{{ $b['service'] }}</div>
@@ -331,7 +331,7 @@ new #[Title('Calendar')] class extends Component {
                     @foreach ($booking->items as $item)
                         <div class="flex items-center justify-between text-[14px]">
                             <div class="flex items-center gap-2">
-                                <span class="size-2.5 rounded-full" style="background-color: {{ $item->service->color }}"></span>
+                                <span class="size-2.5 rounded-full" style="background-color: {{ $item->service->palette()['dot'] }}"></span>
                                 <span class="font-medium text-ink">{{ $item->service->name }}</span>
                                 <span class="text-secondary">· {{ $item->stylist->name }}</span>
                             </div>

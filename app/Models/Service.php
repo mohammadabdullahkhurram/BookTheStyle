@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToSalon;
+use App\Support\ServicePalette;
 use Database\Factories\ServiceFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -16,7 +17,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  * @property int $salon_id
  * @property string $name
  * @property int $duration_min
- * @property string $color
+ * @property string|null $color_key
  * @property bool $active
  */
 class Service extends Model
@@ -28,7 +29,7 @@ class Service extends Model
         'salon_id',
         'name',
         'duration_min',
-        'color',
+        'color_key',
         'active',
     ];
 
@@ -38,6 +39,17 @@ class Service extends Model
             'duration_min' => 'integer',
             'active' => 'boolean',
         ];
+    }
+
+    /**
+     * The service's curated colour triplet (bg/border/ink + solid dot), resolved
+     * from its stored palette key. Calendar blocks and swatches colour by this.
+     *
+     * @return array{key: string, bg: string, border: string, ink: string, dot: string}
+     */
+    public function palette(): array
+    {
+        return ServicePalette::get($this->color_key);
     }
 
     /**

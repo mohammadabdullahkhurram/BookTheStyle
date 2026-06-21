@@ -18,7 +18,6 @@ new #[Title('Services')] class extends Component {
     // Create form
     public string $name = '';
     public int $duration_min = 30;
-    public string $color = '#1F6F6B';
 
     /** @var array<int, int> */
     public array $stylistIds = [];
@@ -33,7 +32,6 @@ new #[Title('Services')] class extends Component {
     public ?int $editingId = null;
     public string $editName = '';
     public int $editDuration = 30;
-    public string $editColor = '#1F6F6B';
     public bool $editActive = true;
 
     /** @var array<int, int> */
@@ -79,24 +77,21 @@ new #[Title('Services')] class extends Component {
         $data = $this->validate([
             'name' => ['required', 'string', 'max:255'],
             'duration_min' => ['required', 'integer', 'min:5', 'max:600'],
-            'color' => ['required', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'stylistIds' => ['array'],
             'stylistIds.*' => ['integer'],
         ]);
 
-        // Single save: the service, then its qualified stylists + per-stylist
-        // overrides — the same two-step path the edit modal uses.
+        // Single save: the service (colour auto-assigned in the action), then its
+        // qualified stylists + per-stylist overrides — same path the edit uses.
         $service = $action->handle($this->salon, [
             'name' => $data['name'],
             'duration_min' => $data['duration_min'],
-            'color' => $data['color'],
         ]);
         $sync->handle($this->salon, $service, $this->stylistOverrides($this->stylistIds, $this->durations, $this->buffers));
 
         unset($this->services);
-        $this->reset(['name', 'duration_min', 'color', 'stylistIds', 'durations', 'buffers']);
+        $this->reset(['name', 'duration_min', 'stylistIds', 'durations', 'buffers']);
         $this->duration_min = 30;
-        $this->color = '#1F6F6B';
 
         Flux::toast(variant: 'success', text: __('Service created.'));
     }
@@ -135,7 +130,6 @@ new #[Title('Services')] class extends Component {
         $this->editingId = $service->id;
         $this->editName = $service->name;
         $this->editDuration = $service->duration_min;
-        $this->editColor = $service->color;
         $this->editActive = $service->active;
 
         // Assigned stylists + their per-stylist overrides.
@@ -162,7 +156,6 @@ new #[Title('Services')] class extends Component {
         $data = $this->validate([
             'editName' => ['required', 'string', 'max:255'],
             'editDuration' => ['required', 'integer', 'min:5', 'max:600'],
-            'editColor' => ['required', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'editActive' => ['boolean'],
             'editStylistIds' => ['array'],
             'editStylistIds.*' => ['integer'],
@@ -171,7 +164,6 @@ new #[Title('Services')] class extends Component {
         $update->handle($this->salon, $service, [
             'name' => $data['editName'],
             'duration_min' => $data['editDuration'],
-            'color' => $data['editColor'],
             'active' => $data['editActive'],
         ]);
 
@@ -214,10 +206,9 @@ new #[Title('Services')] class extends Component {
             <form wire:submit="create" class="flex flex-col gap-5">
                 {{-- Default duration first, so the per-stylist override placeholder
                      below reflects it and "blank = service default" reads true. --}}
-                <div class="grid items-end gap-4 sm:grid-cols-4">
+                <div class="grid items-end gap-4 sm:grid-cols-3">
                     <div class="sm:col-span-2"><flux:input wire:model="name" :label="__('Name')" required /></div>
                     <flux:input type="number" wire:model.live="duration_min" :label="__('Default duration (min)')" min="5" max="600" step="5" />
-                    <flux:input type="color" wire:model="color" :label="__('Color')" />
                 </div>
 
                 <x-ui.qualified-stylists
@@ -250,7 +241,7 @@ new #[Title('Services')] class extends Component {
                         <tr @class(['opacity-65' => ! $service->active])>
                             <td class="px-6 py-4">
                                 <div class="flex items-center gap-2.5">
-                                    <span class="size-3 rounded-full" style="background-color: {{ $service->color }}"></span>
+                                    <span class="size-3 rounded-full" style="background-color: {{ $service->palette()['dot'] }}"></span>
                                     <span class="text-[15px] font-medium text-ink">{{ $service->name }}</span>
                                 </div>
                             </td>
@@ -287,10 +278,7 @@ new #[Title('Services')] class extends Component {
     <x-ui.modal wire:model="showEdit" class="max-w-lg" :heading="__('Edit service')">
         <form wire:submit="saveEdit" class="flex flex-col gap-5">
             <flux:input wire:model="editName" :label="__('Name')" required />
-            <div class="grid grid-cols-2 gap-4">
-                <flux:input type="number" wire:model.live="editDuration" :label="__('Default duration (min)')" min="5" max="600" step="5" />
-                <flux:input type="color" wire:model="editColor" :label="__('Color')" />
-            </div>
+            <flux:input type="number" wire:model.live="editDuration" :label="__('Default duration (min)')" min="5" max="600" step="5" />
             <flux:checkbox wire:model="editActive" :label="__('Active')" />
 
             <x-ui.qualified-stylists

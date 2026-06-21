@@ -37,15 +37,37 @@ Authoritative design spec, extracted from the approved Claude Design style guide
 - Divider `#F0EEE9`
 - Row divider `#F4F2ED`
 
-## Stylist / service pastel families (calendar blocks & avatars)
-| Stylist (color) | Block bg | Block border | Ink | Avatar |
+## Stylist avatar pastel families (avatars & client avatars only)
+| Stylist (color) | bg | border | Ink | Avatar |
 |---|---|---|---|---|
 | Simone (green) | `#E7EFE4` | `#D5E4D0` | `#3E5C3A` | `#6E9968` |
 | Maya (pink) | `#FBE7EE` | `#F2D2DE` | `#8E3D5A` | `#C76A8C` |
 | Jonah (amber) | `#FBEFD6` | `#EEDDB6` | `#8A5A1E` | `#D49A4E` |
 | Elise (violet) | `#EAE6FB` | `#D8D1F2` | `#4B3F9E` | `#8C7FE0` |
 
-(These four are the rotating palette; assign in order as stylists are added.)
+(These four are the rotating stylist palette — `App\Support\PastelPalette`, keyed by stylist id. They identify **people**: avatars on calendar column headers, the booking detail, lists, the dashboard, and client avatars. They are **no longer used to colour calendar appointment blocks** — those colour by service, below.)
+
+## Service colour palette (calendar blocks, coloured by service)
+Twelve soft, on-brand pastels — each a `{ bg, border, ink }` triplet (same aesthetic as the stylist families, wider distinct set) plus a solid `dot` for small swatches. Source of truth: `App\Support\ServicePalette`. Order is hue-spaced so sequential picks land on visibly distinct neighbours.
+
+| Key | Block bg | Block border | Ink | Dot |
+|---|---|---|---|---|
+| green | `#E7EFE4` | `#D5E4D0` | `#3E5C3A` | `#6E9968` |
+| rose | `#FBE7EE` | `#F2D2DE` | `#8E3D5A` | `#C76A8C` |
+| sky | `#E1EDF6` | `#C8DFEF` | `#2F5D7C` | `#5B92BD` |
+| amber | `#FBEFD6` | `#EEDDB6` | `#8A5A1E` | `#D49A4E` |
+| violet | `#EAE6FB` | `#D8D1F2` | `#4B3F9E` | `#8C7FE0` |
+| teal | `#DDEEEA` | `#C2E0D9` | `#2C6E63` | `#4E9C8C` |
+| coral | `#FBE5E0` | `#F3CFC6` | `#A24433` | `#D87A66` |
+| blue | `#E4E8F7` | `#CDD4F0` | `#3A4A93` | `#6E80D6` |
+| peach | `#FBEBDB` | `#F2D8BF` | `#9A5A2A` | `#D98E55` |
+| pink | `#FAE6F3` | `#F0D0E7` | `#94407A` | `#C56FAC` |
+| sage | `#E8EDE3` | `#D6DECB` | `#4C5E43` | `#7E916C` |
+| lavender | `#ECE9F7` | `#DBD5EE` | `#5A4E92` | `#9A8DD6` |
+
+**Auto-assignment (per salon, tenant-isolated):** each service stores a stable `color_key`. On create, pick the palette colour not yet used by another active service in the salon; among unused, the one furthest (RGB distance on `dot`) from the colours already in use, ties broken by palette order — so it's never a duplicate or a near-identical colour while a distinct one is free. Beyond 12 services, reuse the least-used colour, ties broken by furthest from the other used colours (spread, not clustered). Colours are never reshuffled when other services are added/removed.
+
+**Calendar block colouring:** one block = one service item, coloured by that item's service triplet (block style: radius 11, padding 8/11). A multi-service visit appears as adjacent blocks, each in its own service colour; the booking-detail modal lists every service with its `dot`. The booking's primary colour (where a single representative is needed) is its first item's service.
 
 ## Type scale
 | Role | Font | Size | Weight | Notes |

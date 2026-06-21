@@ -15,12 +15,14 @@ it('lets an owner create a service scoped to the salon', function () {
     $salon = Salon::factory()->create();
 
     $service = app(CreateService::class)->handle($salon, [
-        'name' => 'Cut & Style', 'duration_min' => 45, 'color' => '#1F6F6B',
+        'name' => 'Cut & Style', 'duration_min' => 45,
     ]);
 
     expect($service->salon_id)->toBe($salon->id);
     expect($service->name)->toBe('Cut & Style');
     expect($service->active)->toBeTrue();
+    // Colour is auto-assigned from the palette (first colour for the first service).
+    expect($service->color_key)->toBe('green');
 });
 
 it('forbids front desk and stylists from the services screen', function () {
@@ -52,7 +54,7 @@ it('blocks cross-salon service edits (anti-IDOR)', function () {
     $serviceA = Service::factory()->create(['salon_id' => $salonA->id]);
 
     expect(fn () => app(UpdateService::class)->handle($salonB, $serviceA, [
-        'name' => 'x', 'duration_min' => 30, 'color' => '#1F6F6B',
+        'name' => 'x', 'duration_min' => 30,
     ]))->toThrow(AuthorizationException::class);
 
     expect(fn () => app(SetServiceActive::class)->handle($salonB, $serviceA, false))
@@ -80,7 +82,7 @@ it('creates + assigns through the services screen', function () {
     $this->actingAs(salonOwnerOf($salon));
 
     Livewire::test('pages::salon.services.index', ['salon' => $salon])
-        ->set('name', 'Blowout')->set('duration_min', 40)->set('color', '#2B6CB0')
+        ->set('name', 'Blowout')->set('duration_min', 40)
         ->call('create')->assertHasNoErrors();
 
     $service = $salon->services()->where('name', 'Blowout')->firstOrFail();
@@ -102,7 +104,6 @@ it('creates a service with stylists and per-stylist durations in one flow', func
     Livewire::test('pages::salon.services.index', ['salon' => $salon])
         ->set('name', 'Full colour')
         ->set('duration_min', 60)
-        ->set('color', '#1F6F6B')
         ->set('stylistIds', [$withOverride->id, $useDefault->id])
         ->set('durations', [$withOverride->id => '90', $useDefault->id => ''])
         ->call('create')->assertHasNoErrors();
@@ -122,7 +123,7 @@ it('creates a service with no stylists assigned', function () {
     $this->actingAs(salonOwnerOf($salon));
 
     Livewire::test('pages::salon.services.index', ['salon' => $salon])
-        ->set('name', 'Quick trim')->set('duration_min', 20)->set('color', '#1F6F6B')
+        ->set('name', 'Quick trim')->set('duration_min', 20)
         ->call('create')->assertHasNoErrors();
 
     $service = $salon->services()->where('name', 'Quick trim')->firstOrFail();
@@ -147,7 +148,7 @@ it('drops a foreign-salon stylist submitted to create (tenant scoping)', functio
     $this->actingAs(salonOwnerOf($salon));
 
     Livewire::test('pages::salon.services.index', ['salon' => $salon])
-        ->set('name', 'Treatment')->set('duration_min', 30)->set('color', '#1F6F6B')
+        ->set('name', 'Treatment')->set('duration_min', 30)
         ->set('stylistIds', [$foreign->id])
         ->call('create')->assertHasNoErrors();
 
@@ -160,12 +161,12 @@ it('validates service input', function () {
     $this->actingAs(salonOwnerOf($salon));
 
     Livewire::test('pages::salon.services.index', ['salon' => $salon])
-        ->set('name', 'X')->set('duration_min', 0)->set('color', '#1F6F6B')
+        ->set('name', 'X')->set('duration_min', 0)
         ->call('create')->assertHasErrors(['duration_min']);
 
     Livewire::test('pages::salon.services.index', ['salon' => $salon])
-        ->set('name', 'X')->set('duration_min', 30)->set('color', 'not-a-color')
-        ->call('create')->assertHasErrors(['color']);
+        ->set('name', '')->set('duration_min', 30)
+        ->call('create')->assertHasErrors(['name']);
 });
 
 it('keeps the service_stylist pivot salon-scoped with a matching salon_id', function () {

@@ -137,7 +137,7 @@ new #[Title('Appointments')] class extends Component {
                                 <div class="text-[14px] text-secondary">
                                     @foreach ($booking->items as $item)
                                         <span class="inline-flex items-center gap-1.5">
-                                            <span class="size-2 rounded-full" style="background-color: {{ $item->service->color }}"></span>
+                                            <span class="size-2 rounded-full" style="background-color: {{ $item->service->palette()['dot'] }}"></span>
                                             {{ $item->service->name }} · {{ $item->stylist->name }}@if (! $loop->last), @endif
                                         </span>
                                     @endforeach

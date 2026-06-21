@@ -116,11 +116,11 @@ class DatabaseSeeder extends Seeder
         // --- Demo salon catalog: services, assignments, availability --------
         $cut = Service::firstOrCreate(
             ['salon_id' => $salon->id, 'name' => 'Cut & Style'],
-            ['duration_min' => 45, 'color' => '#1F6F6B', 'active' => true],
+            ['duration_min' => 45, 'color_key' => 'green', 'active' => true],
         );
         $color = Service::firstOrCreate(
             ['salon_id' => $salon->id, 'name' => 'Color'],
-            ['duration_min' => 90, 'color' => '#B7791F', 'active' => true],
+            ['duration_min' => 90, 'color_key' => 'rose', 'active' => true],
         );
         $cut->stylists()->syncWithoutDetaching([$stylist->id => ['salon_id' => $salon->id]]);
         $color->stylists()->syncWithoutDetaching([$stylist->id => ['salon_id' => $salon->id]]);

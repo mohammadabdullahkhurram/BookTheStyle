@@ -8,6 +8,7 @@ use App\Models\Salon;
 use App\Models\TimeOff;
 use App\Models\User;
 use App\Support\PastelPalette;
+use App\Support\ServicePalette;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 
@@ -23,8 +24,10 @@ use Illuminate\Support\Collection;
  *
  * Positions are minutes-from-midnight in the salon's timezone (DST-safe wall
  * clock, same basis the slot engine uses); the view turns minutes into pixels.
- * Block colours come from the rotating pastel families (PastelPalette), keyed
- * by stylist id so a stylist's blocks match their avatar everywhere.
+ * Appointment blocks are coloured BY SERVICE (ServicePalette, from the item's
+ * service) so the calendar reads as "what work is happening". Stylists stay
+ * distinguishable by their avatar colour (PastelPalette, keyed by stylist id),
+ * used on column headers and elsewhere — not on the blocks.
  */
 class CalendarData
 {
@@ -198,7 +201,7 @@ class CalendarData
                 ->where('starts_at', '<', $dayEndUtc)
                 ->where('ends_at', '>', $dayStartUtc)
                 ->when($onlyStylistId !== null, fn ($w) => $w->where('stylist_id', $onlyStylistId))
-                ->with('service:id,name,color')])
+                ->with('service:id,name,color_key')])
             ->whereHas('items', fn ($q) => $q
                 ->where('starts_at', '<', $dayEndUtc)
                 ->where('ends_at', '>', $dayStartUtc)
@@ -237,7 +240,11 @@ class CalendarData
                     'status' => $booking->status->value,
                     'statusLabel' => $booking->status->label(),
                     'isWalkin' => $booking->is_walkin,
-                    'family' => PastelPalette::forSeed($item->stylist_id),
+                    // Blocks are coloured BY SERVICE (the work happening). One
+                    // block = one service item, so it carries exactly one colour;
+                    // a multi-service visit shows as adjacent blocks each in its
+                    // own service colour. Stylists stay distinct via their avatar.
+                    'color' => ServicePalette::get($item->service->color_key),
                 ];
             }
         }

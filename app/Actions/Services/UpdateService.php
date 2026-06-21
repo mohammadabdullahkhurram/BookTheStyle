@@ -12,7 +12,9 @@ use Illuminate\Auth\Access\AuthorizationException;
 class UpdateService
 {
     /**
-     * @param  array{name: string, duration_min: int, color: string, active?: bool}  $data
+     * Colour is auto-assigned at creation and stable, so it is not editable here.
+     *
+     * @param  array{name: string, duration_min: int, active?: bool}  $data
      */
     public function handle(Salon $salon, Service $service, array $data): Service
     {
@@ -23,7 +25,6 @@ class UpdateService
         $service->update([
             'name' => $data['name'],
             'duration_min' => $data['duration_min'],
-            'color' => $data['color'],
             'active' => $data['active'] ?? $service->active,
         ]);
 
