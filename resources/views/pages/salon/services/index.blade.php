@@ -20,6 +20,15 @@ new #[Title('Services')] class extends Component {
     public int $duration_min = 30;
     public string $color = '#1F6F6B';
 
+    /** @var array<int, int> */
+    public array $stylistIds = [];
+
+    /** @var array<int, string> stylist id => duration override (blank = service default) */
+    public array $durations = [];
+
+    /** @var array<int, string> stylist id => buffer override (blank = none) */
+    public array $buffers = [];
+
     // Edit modal
     public ?int $editingId = null;
     public string $editName = '';
@@ -63,7 +72,7 @@ new #[Title('Services')] class extends Component {
         return $this->salon->hasFeature(\App\Services\Booking\DurationResolver::BUFFER_FLAG);
     }
 
-    public function create(CreateService $action): void
+    public function create(CreateService $action, SyncServiceStylists $sync): void
     {
         $this->authorize('manageServices', $this->salon);
 
@@ -71,16 +80,52 @@ new #[Title('Services')] class extends Component {
             'name' => ['required', 'string', 'max:255'],
             'duration_min' => ['required', 'integer', 'min:5', 'max:600'],
             'color' => ['required', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'stylistIds' => ['array'],
+            'stylistIds.*' => ['integer'],
         ]);
 
-        $action->handle($this->salon, $data);
+        // Single save: the service, then its qualified stylists + per-stylist
+        // overrides — the same two-step path the edit modal uses.
+        $service = $action->handle($this->salon, [
+            'name' => $data['name'],
+            'duration_min' => $data['duration_min'],
+            'color' => $data['color'],
+        ]);
+        $sync->handle($this->salon, $service, $this->stylistOverrides($this->stylistIds, $this->durations, $this->buffers));
 
         unset($this->services);
-        $this->reset(['name', 'duration_min', 'color']);
+        $this->reset(['name', 'duration_min', 'color', 'stylistIds', 'durations', 'buffers']);
         $this->duration_min = 30;
         $this->color = '#1F6F6B';
 
         Flux::toast(variant: 'success', text: __('Service created.'));
+    }
+
+    /**
+     * Build the stylist => override map for SyncServiceStylists from the form
+     * arrays. Blank duration = use the service default; blank/disabled buffer =
+     * none. Shared by create and edit so both persist overrides identically.
+     *
+     * @param  array<int, int|string>  $ids
+     * @param  array<int, string>  $durations
+     * @param  array<int, string>  $buffers
+     * @return array<int, array{duration_override: int|null, buffer_override: int|null}>
+     */
+    private function stylistOverrides(array $ids, array $durations, array $buffers): array
+    {
+        $overrides = [];
+
+        foreach ($ids as $id) {
+            $id = (int) $id;
+            $dur = (string) ($durations[$id] ?? '');
+            $buf = (string) ($buffers[$id] ?? '');
+            $overrides[$id] = [
+                'duration_override' => $dur === '' ? null : max(5, min(600, (int) $dur)),
+                'buffer_override' => (! $this->buffersEnabled() || $buf === '') ? null : max(0, min(120, (int) $buf)),
+            ];
+        }
+
+        return $overrides;
     }
 
     public function startEdit(int $serviceId): void
@@ -132,17 +177,7 @@ new #[Title('Services')] class extends Component {
 
         // Assigned stylists → their (optional, clamped) overrides. Blank = use
         // the service default / no buffer; buffers ignored unless the flag is on.
-        $stylists = [];
-        foreach ($this->editStylistIds as $id) {
-            $id = (int) $id;
-            $dur = (string) ($this->editDurations[$id] ?? '');
-            $buf = (string) ($this->editBuffers[$id] ?? '');
-            $stylists[$id] = [
-                'duration_override' => $dur === '' ? null : max(5, min(600, (int) $dur)),
-                'buffer_override' => (! $this->buffersEnabled() || $buf === '') ? null : max(0, min(120, (int) $buf)),
-            ];
-        }
-        $sync->handle($this->salon, $service, $stylists);
+        $sync->handle($this->salon, $service, $this->stylistOverrides($this->editStylistIds, $this->editDurations, $this->editBuffers));
 
         $this->showEdit = false;
         $this->editingId = null;
@@ -176,12 +211,23 @@ new #[Title('Services')] class extends Component {
 
         <x-ui.card class="flex flex-col gap-4">
             <h2 class="bts-card-title">{{ __('Add a service') }}</h2>
-            <form wire:submit="create" class="flex flex-col gap-4">
+            <form wire:submit="create" class="flex flex-col gap-5">
+                {{-- Default duration first, so the per-stylist override placeholder
+                     below reflects it and "blank = service default" reads true. --}}
                 <div class="grid items-end gap-4 sm:grid-cols-4">
                     <div class="sm:col-span-2"><flux:input wire:model="name" :label="__('Name')" required /></div>
-                    <flux:input type="number" wire:model="duration_min" :label="__('Duration (min)')" min="5" max="600" step="5" />
+                    <flux:input type="number" wire:model.live="duration_min" :label="__('Default duration (min)')" min="5" max="600" step="5" />
                     <flux:input type="color" wire:model="color" :label="__('Color')" />
                 </div>
+
+                <x-ui.qualified-stylists
+                    :stylists="$this->stylists"
+                    ids-model="stylistIds"
+                    durations-model="durations"
+                    buffers-model="buffers"
+                    :placeholder-duration="$duration_min"
+                    :buffers-enabled="$this->buffersEnabled" />
+
                 <div>
                     <x-ui.button type="submit"><flux:icon.plus variant="micro" class="shrink-0" />{{ __('Add service') }}</x-ui.button>
                 </div>
@@ -247,33 +293,13 @@ new #[Title('Services')] class extends Component {
             </div>
             <flux:checkbox wire:model="editActive" :label="__('Active')" />
 
-            <div>
-                <flux:label>{{ __('Qualified stylists') }}</flux:label>
-                <flux:text class="mb-2 text-sm text-secondary">
-                    {{ $this->buffersEnabled
-                        ? __('Who can perform this service, plus their own time and cleanup buffer. Leave time blank to use the service default.')
-                        : __('Who can perform this service, and how long they take. Leave time blank to use the service default.') }}
-                </flux:text>
-                <div class="flex flex-col gap-2.5">
-                    @forelse ($this->stylists as $stylist)
-                        <div class="flex items-center gap-3">
-                            <div class="min-w-0 flex-1">
-                                <flux:checkbox wire:model="editStylistIds" value="{{ $stylist->id }}" :label="$stylist->name" />
-                            </div>
-                            <div class="w-24 shrink-0">
-                                <flux:input type="number" wire:model="editDurations.{{ $stylist->id }}" :placeholder="$editDuration . ' min'" min="5" max="600" step="5" />
-                            </div>
-                            @if ($this->buffersEnabled)
-                                <div class="w-24 shrink-0">
-                                    <flux:input type="number" wire:model="editBuffers.{{ $stylist->id }}" :placeholder="__('buffer')" min="0" max="120" step="5" />
-                                </div>
-                            @endif
-                        </div>
-                    @empty
-                        <flux:text class="text-sm text-secondary">{{ __('No stylists in this salon yet. Add stylists on the Staff page.') }}</flux:text>
-                    @endforelse
-                </div>
-            </div>
+            <x-ui.qualified-stylists
+                :stylists="$this->stylists"
+                ids-model="editStylistIds"
+                durations-model="editDurations"
+                buffers-model="editBuffers"
+                :placeholder-duration="$editDuration"
+                :buffers-enabled="$this->buffersEnabled" />
 
             <div class="flex justify-end gap-3">
                 <x-ui.button type="button" variant="secondary" wire:click="$set('showEdit', false)">{{ __('Cancel') }}</x-ui.button>

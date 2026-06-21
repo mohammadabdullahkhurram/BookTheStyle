@@ -93,6 +93,68 @@ it('creates + assigns through the services screen', function () {
     expect($service->fresh()->stylists()->pluck('users.id')->all())->toBe([$stylist->id]);
 });
 
+it('creates a service with stylists and per-stylist durations in one flow', function () {
+    $salon = Salon::factory()->create();
+    $withOverride = stylistOf($salon);
+    $useDefault = stylistOf($salon);
+    $this->actingAs(salonOwnerOf($salon));
+
+    Livewire::test('pages::salon.services.index', ['salon' => $salon])
+        ->set('name', 'Full colour')
+        ->set('duration_min', 60)
+        ->set('color', '#1F6F6B')
+        ->set('stylistIds', [$withOverride->id, $useDefault->id])
+        ->set('durations', [$withOverride->id => '90', $useDefault->id => ''])
+        ->call('create')->assertHasNoErrors();
+
+    $service = $salon->services()->where('name', 'Full colour')->firstOrFail();
+    expect($service->duration_min)->toBe(60);
+
+    // The override is stored; the blank one is null → resolves to the default.
+    $overridePivot = $service->stylists()->where('users.id', $withOverride->id)->firstOrFail()->pivot;
+    $defaultPivot = $service->stylists()->where('users.id', $useDefault->id)->firstOrFail()->pivot;
+    expect((int) $overridePivot->duration_override)->toBe(90);
+    expect($defaultPivot->duration_override)->toBeNull();
+});
+
+it('creates a service with no stylists assigned', function () {
+    $salon = Salon::factory()->create();
+    $this->actingAs(salonOwnerOf($salon));
+
+    Livewire::test('pages::salon.services.index', ['salon' => $salon])
+        ->set('name', 'Quick trim')->set('duration_min', 20)->set('color', '#1F6F6B')
+        ->call('create')->assertHasNoErrors();
+
+    $service = $salon->services()->where('name', 'Quick trim')->firstOrFail();
+    expect($service->stylists()->count())->toBe(0);
+});
+
+it('reflects the entered default duration in the per-stylist override placeholder on create', function () {
+    $salon = Salon::factory()->create();
+    stylistOf($salon);
+    $this->actingAs(salonOwnerOf($salon));
+
+    $html = Livewire::test('pages::salon.services.index', ['salon' => $salon])
+        ->set('duration_min', 45)
+        ->html();
+
+    expect($html)->toContain('placeholder="45 min"');
+});
+
+it('drops a foreign-salon stylist submitted to create (tenant scoping)', function () {
+    $salon = Salon::factory()->create();
+    $foreign = stylistOf(Salon::factory()->create());
+    $this->actingAs(salonOwnerOf($salon));
+
+    Livewire::test('pages::salon.services.index', ['salon' => $salon])
+        ->set('name', 'Treatment')->set('duration_min', 30)->set('color', '#1F6F6B')
+        ->set('stylistIds', [$foreign->id])
+        ->call('create')->assertHasNoErrors();
+
+    $service = $salon->services()->where('name', 'Treatment')->firstOrFail();
+    expect($service->stylists()->count())->toBe(0);
+});
+
 it('validates service input', function () {
     $salon = Salon::factory()->create();
     $this->actingAs(salonOwnerOf($salon));
