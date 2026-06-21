@@ -53,6 +53,8 @@ new #[Title('Profile settings')] class extends Component {
             </div>
         </form>
 
+        <livewire:pages::settings.stylist-bio />
+
         <livewire:pages::settings.calendar-feed />
 
         <livewire:pages::settings.delete-user-form />

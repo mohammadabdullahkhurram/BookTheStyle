@@ -4,10 +4,12 @@ use App\Actions\Staff\InviteStaff;
 use App\Actions\Staff\ResetStaffPassword;
 use App\Actions\Staff\SetMembershipActive;
 use App\Actions\Staff\UpdateStaffMembership;
+use App\Actions\Stylists\UpdateStylistProfile;
 use App\Enums\SalonRole;
 use App\Enums\StaffType;
 use App\Models\Salon;
 use App\Models\SalonMembership;
+use App\Models\StylistProfile;
 use App\Support\Permissions\SalonStaffRoles;
 use Flux\Flux;
 use Illuminate\Support\Facades\Auth;
@@ -27,6 +29,7 @@ new #[Title('Staff')] class extends Component {
     public ?int $editingId = null;
     public string $editRole = 'user';
     public string $editStaffType = 'stylist';
+    public string $editBio = '';
     public bool $showEdit = false;
 
     public ?string $temporaryPassword = null;
@@ -115,22 +118,32 @@ new #[Title('Staff')] class extends Component {
         $this->editingId = $membership->id;
         $this->editRole = $membership->salon_role->value;
         $this->editStaffType = $membership->staff_type?->value ?? 'stylist';
+        $this->editBio = (string) StylistProfile::query()
+            ->where('salon_id', $this->salon->id)
+            ->where('user_id', $membership->user_id)
+            ->value('bio');
         $this->showEdit = true;
     }
 
-    public function saveEdit(UpdateStaffMembership $action): void
+    public function saveEdit(UpdateStaffMembership $action, UpdateStylistProfile $profile): void
     {
         $membership = $this->membership((int) $this->editingId);
 
         $this->validate([
             'editRole' => ['required', Rule::in($this->roleValues())],
             'editStaffType' => ['nullable', Rule::in([StaffType::Stylist->value, StaffType::FrontDesk->value])],
+            'editBio' => ['nullable', 'string', 'max:2000'],
         ]);
 
         $action->handle(Auth::user(), $this->salon, $membership, [
             'salon_role' => $this->editRole,
             'staff_type' => $this->editStaffType,
         ]);
+
+        // Bio lives on StylistProfile per (user, salon); only stylists carry one.
+        if ($this->editRole === 'user' && $this->editStaffType === StaffType::Stylist->value) {
+            $profile->handle(Auth::user(), $this->salon, $membership->user_id, $this->editBio ?: null);
+        }
 
         $this->showEdit = false;
         $this->editingId = null;
@@ -257,10 +270,13 @@ new #[Title('Staff')] class extends Component {
                 @endforeach
             </flux:select>
             @if ($editRole === 'user')
-                <flux:select wire:model="editStaffType" :label="__('Staff type')">
+                <flux:select wire:model.live="editStaffType" :label="__('Staff type')">
                     <flux:select.option value="stylist">{{ __('Stylist') }}</flux:select.option>
                     <flux:select.option value="front_desk">{{ __('Front Desk') }}</flux:select.option>
                 </flux:select>
+            @endif
+            @if ($editRole === 'user' && $editStaffType === 'stylist')
+                <flux:textarea wire:model="editBio" :label="__('Bio')" rows="3" :placeholder="__('A short bio for this stylist.')" />
             @endif
             <div class="flex justify-end gap-3">
                 <x-ui.button type="button" variant="secondary" wire:click="$set('showEdit', false)">{{ __('Cancel') }}</x-ui.button>

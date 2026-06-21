@@ -6,6 +6,8 @@ use App\Actions\Availability\RemoveAvailabilityWindow;
 use App\Models\Availability;
 use App\Models\Salon;
 use App\Models\TimeOff;
+use App\Services\Booking\SlotEngine;
+use Carbon\CarbonImmutable;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
@@ -123,7 +125,7 @@ it('renders the availability screen for a stylist and a manager', function () {
     $this->actingAs(salonOwnerOf($salon))->get(route('salon.availability', $salon))->assertOk();
 });
 
-it('renders the weekly grid with windows formatted as times', function () {
+it('loads stored work windows into the weekly grid as toggled-on rows with times', function () {
     $salon = Salon::factory()->create();
     $stylist = stylistOf($salon);
     Availability::factory()->create([
@@ -135,6 +137,131 @@ it('renders the weekly grid with windows formatted as times', function () {
 
     Livewire::test('pages::salon.availability.index', ['salon' => $salon])
         ->set('selectedStylistId', $stylist->id)
-        ->assertSee('09:00')
-        ->assertSee('17:00');
+        ->assertSet('days.0.on', true)
+        ->assertSet('days.0.windows.0.start', '09:00')
+        ->assertSet('days.0.windows.0.end', '17:00')
+        ->assertSet('days.1.on', false); // a day with no window reads as off
+
+    // The data model is unchanged — still a work-kind Availability row.
+    expect(Availability::where('salon_id', $salon->id)->where('kind', 'work')->count())->toBe(1);
+});
+
+it('saves a day\'s hours entered in the grid as a single work window', function () {
+    $salon = Salon::factory()->create();
+    $stylist = stylistOf($salon);
+    $this->actingAs($stylist);
+
+    Livewire::test('pages::salon.availability.index', ['salon' => $salon])
+        ->set('days.0.on', true)
+        ->set('days.0.windows', [['start' => '09:00', 'end' => '17:00']])
+        ->call('saveHours');
+
+    $windows = Availability::where('salon_id', $salon->id)->where('user_id', $stylist->id)->where('kind', 'work')->get();
+    expect($windows)->toHaveCount(1);
+    expect($windows->first()->weekday)->toBe(0);
+    expect($windows->first()->start_minute)->toBe(540);
+    expect($windows->first()->end_minute)->toBe(1020);
+});
+
+it('removes a day\'s work windows when toggled off and saved', function () {
+    $salon = Salon::factory()->create();
+    $stylist = stylistOf($salon);
+    Availability::factory()->create([
+        'salon_id' => $salon->id, 'user_id' => $stylist->id,
+        'weekday' => 0, 'kind' => 'work', 'start_minute' => 540, 'end_minute' => 1020,
+    ]);
+    $this->actingAs($stylist);
+
+    Livewire::test('pages::salon.availability.index', ['salon' => $salon])
+        ->assertSet('days.0.on', true)
+        ->call('toggleDay', 0)
+        ->assertSet('days.0.on', false)
+        ->call('saveHours');
+
+    expect(Availability::where('salon_id', $salon->id)->where('user_id', $stylist->id)->where('kind', 'work')->count())->toBe(0);
+});
+
+it('saves a split shift as two work windows with a gap', function () {
+    $salon = Salon::factory()->create();
+    $stylist = stylistOf($salon);
+    $this->actingAs($stylist);
+
+    Livewire::test('pages::salon.availability.index', ['salon' => $salon])
+        ->set('days.1.on', true)
+        ->set('days.1.windows', [['start' => '09:00', 'end' => '12:00'], ['start' => '13:00', 'end' => '17:00']])
+        ->call('saveHours');
+
+    $windows = Availability::where('salon_id', $salon->id)->where('user_id', $stylist->id)
+        ->where('kind', 'work')->where('weekday', 1)->orderBy('start_minute')->get();
+
+    expect($windows)->toHaveCount(2);
+    expect([$windows[0]->start_minute, $windows[0]->end_minute])->toBe([540, 720]);
+    expect([$windows[1]->start_minute, $windows[1]->end_minute])->toBe([780, 1020]);
+});
+
+it('rejects overlapping windows within a day on save', function () {
+    $salon = Salon::factory()->create();
+    $stylist = stylistOf($salon);
+    $this->actingAs($stylist);
+
+    Livewire::test('pages::salon.availability.index', ['salon' => $salon])
+        ->set('days.0.on', true)
+        ->set('days.0.windows', [['start' => '09:00', 'end' => '13:00'], ['start' => '12:00', 'end' => '17:00']])
+        ->call('saveHours')
+        ->assertHasErrors('weekly');
+
+    expect(Availability::where('salon_id', $salon->id)->where('kind', 'work')->count())->toBe(0);
+});
+
+it('copies Monday hours to the weekdays only', function () {
+    $salon = Salon::factory()->create();
+    $stylist = stylistOf($salon);
+    $this->actingAs($stylist);
+
+    Livewire::test('pages::salon.availability.index', ['salon' => $salon])
+        ->set('days.0.on', true)
+        ->set('days.0.windows', [['start' => '09:00', 'end' => '17:00']])
+        ->call('copyToWeekdays')
+        ->assertSet('days.4.on', true)
+        ->assertSet('days.4.windows.0.start', '09:00')
+        ->assertSet('days.5.on', false) // Saturday untouched
+        ->call('saveHours');
+
+    // Mon–Fri (0–4) each get one window; Sat/Sun get none.
+    expect(Availability::where('salon_id', $salon->id)->where('kind', 'work')->count())->toBe(5);
+    expect(Availability::where('salon_id', $salon->id)->where('kind', 'work')->where('weekday', 5)->count())->toBe(0);
+});
+
+it('copies Monday hours to every day', function () {
+    $salon = Salon::factory()->create();
+    $stylist = stylistOf($salon);
+    $this->actingAs($stylist);
+
+    Livewire::test('pages::salon.availability.index', ['salon' => $salon])
+        ->set('days.0.on', true)
+        ->set('days.0.windows', [['start' => '10:00', 'end' => '16:00']])
+        ->call('copyToAll')
+        ->assertSet('days.6.on', true)
+        ->call('saveHours');
+
+    expect(Availability::where('salon_id', $salon->id)->where('kind', 'work')->count())->toBe(7);
+});
+
+it('lets the slot engine read hours entered through the grid (regression)', function () {
+    $salon = Salon::factory()->create();
+    $stylist = stylistOf($salon);
+    $this->actingAs($stylist);
+
+    Livewire::test('pages::salon.availability.index', ['salon' => $salon])
+        ->set('days.0.on', true)               // weekday 0 = Monday
+        ->set('days.0.windows', [['start' => '09:00', 'end' => '17:00']])
+        ->call('saveHours');
+
+    $engine = app(SlotEngine::class);
+    $monday = CarbonImmutable::parse('2026-06-22 09:00', $salon->timezone); // a Monday
+
+    // Inside the grid-entered window: bookable. Before it: not.
+    expect($engine->isAvailable($salon, $stylist->id, $monday, 60))->toBeTrue();
+    expect($engine->isAvailable($salon, $stylist->id, $monday->setTime(8, 0), 60))->toBeFalse();
+    expect($engine->slotsFor($salon, $stylist->id, 60, '2026-06-22'))->not->toBeEmpty();
 });
