@@ -13,8 +13,11 @@ use Illuminate\Validation\ValidationException;
  * Move a booking through its lifecycle (booked → arrived → in_service →
  * completed, plus cancelled / no_show). Transitions are enforced server-side
  * against BookingStatus's allowed map, the booking must belong to the active
- * salon (anti-IDOR), and the actor must be allowed to manage it (front-desk
- * level, or a stylist on one of its items).
+ * salon (anti-IDOR), and the actor must be allowed to manage it.
+ *
+ * Check-in / status management is a front-desk-level capability: salon
+ * owner, salon admin, and front-desk staff only. Stylists do NOT change
+ * appointment status — even on their own bookings.
  */
 class TransitionBookingStatus
 {
@@ -24,7 +27,9 @@ class TransitionBookingStatus
             throw new AuthorizationException('That booking is not in this salon.');
         }
 
-        if (! $this->mayManage($actor, $salon, $booking)) {
+        // Front-desk level only (owner / admin / front desk). Stylists are
+        // excluded — they never change appointment status, own or otherwise.
+        if (! $actor->can('manageBookings', $salon)) {
             throw new AuthorizationException('You may not manage that booking.');
         }
 
@@ -49,16 +54,5 @@ class TransitionBookingStatus
         ]);
 
         return $booking;
-    }
-
-    private function mayManage(User $actor, Salon $salon, Booking $booking): bool
-    {
-        if ($actor->can('manageBookings', $salon)) {
-            return true;
-        }
-
-        // A stylist may manage a booking they are assigned to.
-        return $actor->stylistMembershipFor($salon) !== null
-            && $booking->items()->where('stylist_id', $actor->id)->exists();
     }
 }

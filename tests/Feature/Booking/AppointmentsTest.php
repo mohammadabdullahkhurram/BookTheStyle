@@ -50,20 +50,29 @@ it('forbids transitioning a booking from another salon', function () {
         ->toThrow(AuthorizationException::class);
 });
 
-it('lets a stylist manage their own booking but not another stylist\'s', function () {
+it('denies a stylist any booking-status change, even on their own booking', function () {
     $salon = bookingSalon();
-    $stylistA = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
-    $stylistB = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
-    $serviceA = serviceFor($salon, $stylistA, 60);
-    $booking = makeBooking($salon, salonOwnerOf($salon), $stylistA, $serviceA);
+    $stylist = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
+    $service = serviceFor($salon, $stylist, 60);
+    $booking = makeBooking($salon, salonOwnerOf($salon), $stylist, $service);
 
-    // Stylist A (assigned) can.
-    app(TransitionBookingStatus::class)->handle($stylistA, $salon, $booking, BookingStatus::Arrived);
-    expect($booking->fresh()->status)->toBe(BookingStatus::Arrived);
-
-    // Stylist B (not assigned) cannot.
-    expect(fn () => app(TransitionBookingStatus::class)->handle($stylistB, $salon, $booking, BookingStatus::InService))
+    // Check-in / status management is front-desk level — a stylist assigned to
+    // the booking still may not move it through its lifecycle.
+    expect(fn () => app(TransitionBookingStatus::class)->handle($stylist, $salon, $booking, BookingStatus::Arrived))
         ->toThrow(AuthorizationException::class);
+
+    expect($booking->fresh()->status)->toBe(BookingStatus::Booked);
+});
+
+it('lets front desk change booking status', function () {
+    $salon = bookingSalon();
+    $stylist = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
+    $service = serviceFor($salon, $stylist, 60);
+    $booking = makeBooking($salon, salonOwnerOf($salon), $stylist, $service);
+
+    app(TransitionBookingStatus::class)->handle(frontDeskOf($salon), $salon, $booking, BookingStatus::Arrived);
+
+    expect($booking->fresh()->status)->toBe(BookingStatus::Arrived);
 });
 
 it('marks a booking arrived through the appointments screen', function () {
@@ -80,7 +89,7 @@ it('marks a booking arrived through the appointments screen', function () {
     expect($booking->fresh()->status)->toBe(BookingStatus::Arrived);
 });
 
-it('shows a stylist only their own appointments', function () {
+it('lets owner and front desk reach the check-in screen but forbids a stylist', function () {
     $salon = bookingSalon();
     $stylistA = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
     $stylistB = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
@@ -91,15 +100,16 @@ it('shows a stylist only their own appointments', function () {
     makeBooking($salon, $owner, $stylistA, $serviceA, '2026-06-22 10:00', 'Alice Anderson');
     makeBooking($salon, $owner, $stylistB, $serviceB, '2026-06-22 11:00', 'Bob Brown');
 
-    // Manager sees both.
-    $this->actingAs($owner);
+    // Owner (manager) sees the whole salon's day.
+    $this->actingAs($owner)->get(route('salon.appointments', $salon))->assertOk();
     Livewire::test('pages::salon.appointments.index', ['salon' => $salon])
         ->assertSee('Alice Anderson')->assertSee('Bob Brown');
 
-    // Stylist A sees only their own.
-    $this->actingAs($stylistA);
-    Livewire::test('pages::salon.appointments.index', ['salon' => $salon])
-        ->assertSee('Alice Anderson')->assertDontSee('Bob Brown');
+    // Front desk reaches the check-in screen too.
+    $this->actingAs(frontDeskOf($salon))->get(route('salon.appointments', $salon))->assertOk();
+
+    // A stylist is denied the check-in screen outright (no status edits).
+    $this->actingAs($stylistA)->get(route('salon.appointments', $salon))->assertForbidden();
 });
 
 it('forbids front-deskless access (no membership) to appointments', function () {

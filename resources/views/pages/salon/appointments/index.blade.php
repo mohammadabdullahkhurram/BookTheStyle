@@ -21,7 +21,9 @@ new #[Title('Appointments')] class extends Component {
 
     public function mount(Salon $salon): void
     {
-        $this->authorize('accessBookings', $salon);
+        // Check-in / status management is owner / admin / front-desk only.
+        // Stylists are denied the appointments screen outright (no status edits).
+        $this->authorize('manageBookings', $salon);
         $this->salon = $salon;
         $this->date = CarbonImmutable::now($salon->timezone)->format('Y-m-d');
     }

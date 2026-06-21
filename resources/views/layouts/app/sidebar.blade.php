@@ -53,12 +53,18 @@
                             <flux:icon.squares-2x2 variant="micro" class="shrink-0" />
                             <span x-show="!collapsed" x-cloak>{{ __('Today') }}</span>
                         </a>
+                        {{-- Calendar: managers/front-desk get the master view, a
+                             stylist their own column. --}}
                         @can('accessBookings', $salon)
                             <a href="{{ route('salon.calendar', $salon) }}" wire:navigate
                                class="bts-nav-item {{ request()->routeIs('salon.calendar') ? 'bts-nav-item-active' : '' }}">
                                 <flux:icon.calendar variant="micro" class="shrink-0" />
                                 <span x-show="!collapsed" x-cloak>{{ __('Calendar') }}</span>
                             </a>
+                        @endcan
+                        {{-- Check-in: front-desk level only (owner/admin/front-desk).
+                             Hidden from stylists, who cannot change booking status. --}}
+                        @can('manageBookings', $salon)
                             <a href="{{ route('salon.appointments', $salon) }}" wire:navigate
                                class="bts-nav-item {{ request()->routeIs('salon.appointments') || request()->routeIs('salon.bookings.create') ? 'bts-nav-item-active' : '' }}">
                                 <flux:icon.clipboard-document-check variant="micro" class="shrink-0" />

@@ -360,20 +360,24 @@ new #[Title('Calendar')] class extends Component {
                     </div>
                 @endif
 
-                {{-- Status actions (reuses the Phase 3 transition flow) --}}
-                @if ($booking->status->allowedTransitions() !== [])
-                    <div class="flex flex-wrap gap-2 border-t border-divider pt-4">
-                        @foreach ($booking->status->allowedTransitions() as $next)
-                            @if ($next === \App\Enums\BookingStatus::Arrived)
-                                <x-ui.button size="sm" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')">{{ __('Mark arrived') }}</x-ui.button>
-                            @elseif ($next === \App\Enums\BookingStatus::Cancelled)
-                                <button type="button" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')" class="bts-btn bts-btn-sm border border-input-border bg-card text-danger hover:border-danger">{{ $next->label() }}</button>
-                            @else
-                                <x-ui.button size="sm" variant="secondary" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')">{{ $next->label() }}</x-ui.button>
-                            @endif
-                        @endforeach
-                    </div>
-                @endif
+                {{-- Status actions (reuses the Phase 3 transition flow). Check-in
+                     is front-desk level — owner/admin/front-desk only; stylists
+                     never see these (the server rejects them regardless). --}}
+                @can('manageBookings', $salon)
+                    @if ($booking->status->allowedTransitions() !== [])
+                        <div class="flex flex-wrap gap-2 border-t border-divider pt-4">
+                            @foreach ($booking->status->allowedTransitions() as $next)
+                                @if ($next === \App\Enums\BookingStatus::Arrived)
+                                    <x-ui.button size="sm" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')">{{ __('Mark arrived') }}</x-ui.button>
+                                @elseif ($next === \App\Enums\BookingStatus::Cancelled)
+                                    <button type="button" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')" class="bts-btn bts-btn-sm border border-input-border bg-card text-danger hover:border-danger">{{ $next->label() }}</button>
+                                @else
+                                    <x-ui.button size="sm" variant="secondary" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')">{{ $next->label() }}</x-ui.button>
+                                @endif
+                            @endforeach
+                        </div>
+                    @endif
+                @endcan
 
                 {{-- History --}}
                 <div class="border-t border-divider pt-4">
