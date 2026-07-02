@@ -1,3 +1,7 @@
+# PHPStan cannot raise its own memory limit from this file (2.x rejects a
+# memoryLimit parameter). Run it as `composer types:check`, which passes
+# --memory-limit=1G; a bare `vendor/bin/phpstan analyse` crashes at the
+# default 128M php.ini limit.
 includes:
     - vendor/larastan/larastan/extension.neon
     - vendor/nesbot/carbon/extension.neon

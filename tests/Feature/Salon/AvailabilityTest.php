@@ -258,10 +258,12 @@ it('lets the slot engine read hours entered through the grid (regression)', func
         ->call('saveHours');
 
     $engine = app(SlotEngine::class);
-    $monday = CarbonImmutable::parse('2026-06-22 09:00', $salon->timezone); // a Monday
+    // The upcoming Monday, so the asserted slots are always in the future and
+    // never rejected by the booking policy as past.
+    $monday = CarbonImmutable::now($salon->timezone)->next(CarbonImmutable::MONDAY)->setTime(9, 0);
 
     // Inside the grid-entered window: bookable. Before it: not.
     expect($engine->isAvailable($salon, $stylist->id, $monday, 60))->toBeTrue();
     expect($engine->isAvailable($salon, $stylist->id, $monday->setTime(8, 0), 60))->toBeFalse();
-    expect($engine->slotsFor($salon, $stylist->id, 60, '2026-06-22'))->not->toBeEmpty();
+    expect($engine->slotsFor($salon, $stylist->id, 60, $monday->toDateString()))->not->toBeEmpty();
 });

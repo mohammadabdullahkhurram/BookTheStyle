@@ -118,6 +118,11 @@ function serviceFor(Salon $salon, User $stylist, int $duration = 60): Service
 }
 
 /**
+ * The default start (Mon 2026-06-22 10:00) is "later today" only under the
+ * booking suites' frozen clock (Carbon::setTestNow, Mon 2026-06-22 12:00 UTC).
+ * A test that does not freeze time must pass its own future start, or the
+ * booking policy will reject the past date.
+ *
  * @param  array<string, mixed>  $overrides
  * @return array<string, mixed>
  */
