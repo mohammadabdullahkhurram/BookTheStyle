@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Bookings\CreateBooking;
+use App\Enums\SalonRole;
 use App\Models\Availability;
 use App\Models\Booking;
 use App\Models\Salon;
@@ -48,6 +49,19 @@ function frontDeskOf(Salon $salon): User
 {
     $user = User::factory()->create();
     SalonMembership::factory()->for($user)->for($salon)->frontDesk()->create();
+
+    return $user;
+}
+
+/**
+ * A member with the manager staff type (no operational function). Pass a role
+ * for the office-manager combos, e.g. managerOf($salon, SalonRole::Admin).
+ */
+function managerOf(Salon $salon, SalonRole $role = SalonRole::User): User
+{
+    $user = User::factory()->create();
+    SalonMembership::factory()->for($user)->for($salon)->manager()
+        ->state(['salon_role' => $role])->create();
 
     return $user;
 }

@@ -59,6 +59,14 @@ class SalonMembershipFactory extends Factory
         ]);
     }
 
+    public function manager(): static
+    {
+        return $this->state(fn () => [
+            'salon_role' => SalonRole::User,
+            'staff_type' => StaffType::Manager,
+        ]);
+    }
+
     public function inactive(): static
     {
         return $this->state(fn () => ['active' => false]);

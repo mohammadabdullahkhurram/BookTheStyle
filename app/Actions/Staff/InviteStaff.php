@@ -40,7 +40,10 @@ class InviteStaff
             throw new AuthorizationException('You may not grant that role.');
         }
 
-        $staffType = $role === SalonRole::User && ! empty($data['staff_type'])
+        // Staff type is orthogonal to role: it records the member's operational
+        // function (stylist / front desk / manager) and grants no permissions
+        // itself; empty = no staff function (typical for owners/admins).
+        $staffType = ! empty($data['staff_type'])
             ? StaffType::from($data['staff_type'])
             : null;
 
