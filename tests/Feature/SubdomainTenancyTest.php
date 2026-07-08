@@ -100,14 +100,12 @@ it('would NOT share a *.localhost session cookie (the bug this guards against)',
     expect(browserSharesCookie('.lvh.me', 'lvh.me', 'demo.lvh.me'))->toBeTrue();
 });
 
-it('lets the seeded demo-salon owner load the demo subdomain dashboard (not the landing page)', function () {
-    // Runs the real DatabaseSeeder: the bounce report was about owner@demo-salon
-    // .test on demo.<domain>, so assert the seeded membership slug matches the
-    // 'demo' subdomain and that resolution/authorization lands on the dashboard.
-    $this->seed();
-
-    $owner = User::where('email', 'owner@demo-salon.test')->firstOrFail();
-    $demo = Salon::where('slug', 'demo')->firstOrFail();
+it('lets a demo-salon owner load the demo subdomain dashboard (not the landing page)', function () {
+    // Regression for a bounce report: an owner opening demo.<domain> must land
+    // on the salon dashboard, never on the marketing landing page. Built with
+    // factories — the seeder is a clean agency-only slate and creates no salon.
+    $demo = Salon::factory()->create(['slug' => 'demo', 'name' => 'Demo Salon'])->refresh();
+    $owner = salonOwnerOf($demo);
 
     expect($demo->active)->toBeTrue();
     expect($owner->belongsToSalon($demo))->toBeTrue();
