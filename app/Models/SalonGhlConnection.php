@@ -24,6 +24,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $private_integration_token
  * @property string|null $calendar_id
  * @property CarbonImmutable|null $connected_at
+ * @property CarbonImmutable|null $last_verified_at
  */
 class SalonGhlConnection extends Model
 {
@@ -58,6 +59,7 @@ class SalonGhlConnection extends Model
             // Ciphertext in the DB; decrypted transparently when read server-side.
             'private_integration_token' => 'encrypted',
             'connected_at' => 'datetime',
+            'last_verified_at' => 'datetime',
         ];
     }
 

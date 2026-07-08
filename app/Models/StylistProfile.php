@@ -9,13 +9,15 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Lightweight per-(user, salon) stylist record. Phase 5 adds ics_feed_token,
- * Phase 6 adds ghl_calendar_id.
+ * Lightweight per-(user, salon) stylist record: bio, plus the GHL team-member
+ * (user) id this stylist maps to on the salon's master GHL calendar (Phase 6a;
+ * 6b routes appointment pushes with it).
  *
  * @property int $id
  * @property int $salon_id
  * @property int $user_id
  * @property string|null $bio
+ * @property string|null $ghl_user_id
  */
 class StylistProfile extends Model
 {
@@ -26,6 +28,7 @@ class StylistProfile extends Model
         'salon_id',
         'user_id',
         'bio',
+        'ghl_user_id',
     ];
 
     /**

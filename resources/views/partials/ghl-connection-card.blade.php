@@ -1,9 +1,10 @@
 {{-- Shared "GoHighLevel connection" card for the agency salon-edit and salon
      settings screens. The host Livewire component must provide: $salon, the
      string props $ghlLocationId / $ghlCalendarId / $ghlToken, the display state
-     $ghlStatus + $tokenIsSet, and a saveGhlConnection() method. The token field
-     is write-only — $ghlToken is never seeded with the stored token, so the
-     secret is never echoed back into the page. --}}
+     $ghlStatus + $tokenIsSet + $ghlLastVerified, and the methods
+     saveGhlConnection() / testGhlConnection() / disconnectGhl(). The token
+     field is write-only — $ghlToken is never seeded with the stored token, so
+     the secret is never echoed back into the page. --}}
 @php
     [$pillBg, $pillFg, $pillLabel] = match ($ghlStatus) {
         'connected' => ['#E7EFE4', '#3E5C3A', __('Connected')],
@@ -45,6 +46,22 @@
                 autocomplete="off" />
         @endif
 
-        <div><x-ui.button type="submit">{{ __('Save connection') }}</x-ui.button></div>
+        <div class="flex flex-wrap items-center gap-3">
+            <x-ui.button type="submit">{{ __('Save connection') }}</x-ui.button>
+            @if ($tokenIsSet)
+                <x-ui.button type="button" variant="secondary" wire:click="testGhlConnection" wire:loading.attr="disabled">
+                    <span wire:loading.remove wire:target="testGhlConnection">{{ __('Test connection') }}</span>
+                    <span wire:loading wire:target="testGhlConnection">{{ __('Testing…') }}</span>
+                </x-ui.button>
+                <x-ui.button type="button" variant="secondary" wire:click="disconnectGhl"
+                    wire:confirm="{{ __('Disconnect GoHighLevel? The stored token will be deleted. Stylist mappings are kept.') }}">
+                    {{ __('Disconnect') }}
+                </x-ui.button>
+            @endif
+        </div>
+
+        @if ($ghlLastVerified)
+            <p class="text-[13px] text-faint">{{ __('Last verified :time', ['time' => $ghlLastVerified]) }}</p>
+        @endif
     </form>
 </x-ui.card>

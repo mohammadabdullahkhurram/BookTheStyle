@@ -1,6 +1,8 @@
 <?php
 
+use App\Actions\Salons\DisconnectGhl;
 use App\Actions\Salons\SetSalonActive;
+use App\Actions\Salons\TestGhlConnection;
 use App\Actions\Salons\UpdateGhlConnection;
 use App\Actions\Salons\UpdateSalon;
 use App\Models\Salon;
@@ -68,6 +70,8 @@ new #[Title('Edit salon')] class extends Component {
     public string $ghlStatus = 'not_connected';
 
     public bool $tokenIsSet = false;
+
+    public ?string $ghlLastVerified = null;
 
     /**
      * @return array<string, mixed>
@@ -138,6 +142,7 @@ new #[Title('Edit salon')] class extends Component {
         $this->ghlCalendarId = $connection?->calendar_id ?? '';
         $this->tokenIsSet = (bool) $connection?->hasToken();
         $this->ghlStatus = $connection?->status() ?? 'not_connected';
+        $this->ghlLastVerified = $connection?->last_verified_at?->diffForHumans();
     }
 
     /**
@@ -192,6 +197,30 @@ new #[Title('Edit salon')] class extends Component {
         $this->refreshGhlState();
 
         Flux::toast(variant: 'success', text: __('GoHighLevel connection saved.'));
+    }
+
+    /**
+     * Verify the stored credentials against the GHL API (server-side read
+     * call); stamps last-verified on success.
+     */
+    public function testGhlConnection(TestGhlConnection $action): void
+    {
+        $this->authorize('manageGhlConnection', $this->salon);
+
+        $check = $action->handle($this->salon);
+        $this->refreshGhlState();
+
+        Flux::toast(variant: $check->ok ? 'success' : 'danger', text: $check->message);
+    }
+
+    public function disconnectGhl(DisconnectGhl $action): void
+    {
+        $this->authorize('manageGhlConnection', $this->salon);
+
+        $action->handle($this->salon);
+        $this->refreshGhlState();
+
+        Flux::toast(variant: 'success', text: __('GoHighLevel disconnected. Stylist mappings were kept.'));
     }
 }; ?>
 
