@@ -142,3 +142,55 @@ it('creates a salon with GHL fields from the console create screen', function ()
     expect($salon->ghlConnection->location_id)->toBe('loc_new');
     expect($salon->ghlConnection->private_integration_token)->toBe('pit-new');
 });
+
+/*
+| Required-scopes guidance: wherever a token is entered or rotated, the card
+| lists the GHL scopes to grant, rendered from the single config source.
+*/
+
+it('lists the required GHL scopes on the salon-settings connection card', function () {
+    $salon = Salon::factory()->create();
+    // Token already set (rotation state) — the scopes must still show.
+    SalonGhlConnection::factory()->for($salon)->create([
+        'private_integration_token' => 'pit-existing',
+    ]);
+
+    $response = $this->actingAs(salonOwnerOf($salon))
+        ->get(route('salon.settings', $salon))
+        ->assertOk()
+        ->assertSee('Required scopes')
+        ->assertSee('grant these scopes');
+
+    foreach (config('ghl.required_scopes') as $scope) {
+        $response->assertSee($scope);
+    }
+});
+
+it('lists the required GHL scopes on the agency salon-edit connection card', function () {
+    $agency = Agency::factory()->create();
+    $salon = Salon::factory()->for($agency)->create(); // no token yet (entry state)
+    $admin = User::factory()->create(['agency_id' => $agency->id, 'agency_role' => AgencyRole::Admin]);
+
+    $response = $this->actingAs($admin)
+        ->get(route('agency.salons.edit', $salon))
+        ->assertOk()
+        ->assertSee('Required scopes')
+        ->assertSee('copy it immediately');
+
+    foreach (config('ghl.required_scopes') as $scope) {
+        $response->assertSee($scope);
+    }
+});
+
+it('defines the required scopes once, in config/ghl.php', function () {
+    expect(config('ghl.required_scopes'))->toBe([
+        'calendars.readonly',
+        'calendars.write',
+        'calendars/events.readonly',
+        'calendars/events.write',
+        'calendars/groups.readonly',
+        'contacts.readonly',
+        'contacts.write',
+        'users.readonly',
+    ]);
+});
