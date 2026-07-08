@@ -74,6 +74,14 @@ new #[Title('Edit salon')] class extends Component {
     public ?string $ghlLastVerified = null;
 
     /**
+     * Users think in subdomains; "slug" is internal naming. Keeps validation
+     * messages (format, reserved, taken) speaking their language.
+     *
+     * @var array<string, string>
+     */
+    protected array $validationAttributes = ['slug' => 'subdomain'];
+
+    /**
      * @return array<string, mixed>
      */
     public function rules(): array
@@ -241,11 +249,17 @@ new #[Title('Edit salon')] class extends Component {
         <form wire:submit="save" class="flex flex-col gap-6">
             @include('partials.salon-profile-fields')
 
-            <flux:separator :text="__('Subdomain & preferences')" />
+            <flux:separator :text="__('Subdomain and preferences')" />
 
-            <flux:input wire:model="slug" :label="__('Subdomain slug')"
-                :description="__('Reached at {slug}.bookthestyle.com. Changing it changes the salon\'s URL.')"
-                required />
+            <div class="flex flex-col gap-2">
+                <flux:input wire:model.live="slug" :label="__('Subdomain')"
+                    :description="__('This is the salon\'s web address — changing it changes the URL. Lowercase letters, numbers, and hyphens only.')"
+                    required />
+                <p class="text-[13px] text-faint">
+                    {{ __('Web address:') }}
+                    <span class="font-mono text-body">{{ ($slug !== '' ? $slug : __('yoursalon')).'.'.config('app.domain') }}</span>
+                </p>
+            </div>
 
             <flux:select wire:model="timezone" :label="__('Timezone')">
                 @foreach ($this->timezones as $tz)

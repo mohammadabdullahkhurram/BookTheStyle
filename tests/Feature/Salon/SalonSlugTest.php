@@ -102,3 +102,63 @@ it('lets a salon keep its own slug on edit but blocks taking another', function 
         ->call('save')
         ->assertHasErrors('slug');
 });
+
+/*
+| User-facing copy: the field is labelled "Subdomain" (slug stays internal),
+| a live preview shows the resulting web address, and validation messages
+| speak in "subdomain".
+*/
+
+it('labels the field subdomain and previews the web address as typed on create', function () {
+    $agency = Agency::factory()->create();
+
+    Livewire::actingAs(agencyOwnerFor($agency))
+        ->test('pages::agency.salons.create')
+        ->assertSee('Subdomain')
+        ->assertDontSee('Subdomain slug')
+        ->assertSee('This becomes the salon\'s web address. Lowercase letters, numbers, and hyphens only.')
+        ->assertSee('yoursalon.'.config('app.domain'))
+        ->set('slug', 'glow-bar')
+        ->assertSee('glow-bar.'.config('app.domain'));
+});
+
+it('labels the field subdomain and previews the web address on edit', function () {
+    $agency = Agency::factory()->create();
+    $salon = Salon::factory()->for($agency)->create(['slug' => 'mine']);
+
+    Livewire::actingAs(agencyOwnerFor($agency))
+        ->test('pages::agency.salons.edit', ['salon' => $salon])
+        ->assertSee('Subdomain')
+        ->assertDontSee('Subdomain slug')
+        ->assertSee('mine.'.config('app.domain'))
+        ->set('slug', 'renamed')
+        ->assertSee('renamed.'.config('app.domain'));
+});
+
+it('describes a reserved choice as a subdomain problem', function () {
+    $agency = Agency::factory()->create();
+
+    Livewire::actingAs(agencyOwnerFor($agency))
+        ->test('pages::agency.salons.create')
+        ->set(salonProfileInput(['name' => 'Reserved Co']))
+        ->set('slug', 'app')
+        ->set('timezone', 'America/New_York')
+        ->call('save')
+        ->assertHasErrors('slug')
+        ->assertSee('The subdomain')
+        ->assertSee('is reserved');
+});
+
+it('describes a taken choice as a subdomain problem', function () {
+    $agency = Agency::factory()->create();
+    Salon::factory()->create(['slug' => 'taken']);
+
+    Livewire::actingAs(agencyOwnerFor($agency))
+        ->test('pages::agency.salons.create')
+        ->set(salonProfileInput(['name' => 'Another Salon']))
+        ->set('slug', 'taken')
+        ->set('timezone', 'America/New_York')
+        ->call('save')
+        ->assertHasErrors('slug')
+        ->assertSee('The subdomain has already been taken');
+});
