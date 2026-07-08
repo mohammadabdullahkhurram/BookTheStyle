@@ -58,8 +58,10 @@
                     {{ __('When creating your Private Integration in GoHighLevel (sub-account → Settings → Private Integrations), grant these scopes:') }}
                 </p>
                 <ul class="flex flex-col gap-1.5">
-                    @foreach (config('ghl.required_scopes') as $scope)
-                        <li class="font-mono text-[13px] leading-[1.5] text-body">{{ $scope }}</li>
+                    @foreach (config('ghl.required_scopes') as $scope => $label)
+                        <li class="text-[13px] leading-[1.5] text-body">
+                            {{ $label }} — <span class="font-mono text-secondary">{{ $scope }}</span>
+                        </li>
                     @endforeach
                 </ul>
                 <p class="text-[13px] text-faint">

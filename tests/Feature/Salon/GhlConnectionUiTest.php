@@ -159,10 +159,15 @@ it('lists the required GHL scopes on the salon-settings connection card', functi
         ->get(route('salon.settings', $salon))
         ->assertOk()
         ->assertSee('Required scopes')
-        ->assertSee('grant these scopes');
+        ->assertSee('grant these scopes')
+        // Exact strings, including the slash forms, plus their labels.
+        ->assertSee('calendars/events.write')
+        ->assertSee('calendars/groups.readonly')
+        ->assertSee('Edit calendar events (create/update/cancel appointments)');
 
-    foreach (config('ghl.required_scopes') as $scope) {
+    foreach (config('ghl.required_scopes') as $scope => $label) {
         $response->assertSee($scope);
+        $response->assertSee($label);
     }
 });
 
@@ -175,15 +180,21 @@ it('lists the required GHL scopes on the agency salon-edit connection card', fun
         ->get(route('agency.salons.edit', $salon))
         ->assertOk()
         ->assertSee('Required scopes')
-        ->assertSee('copy it immediately');
+        ->assertSee('copy it immediately')
+        ->assertSee('calendars/events.write')
+        ->assertSee('View users (team members)');
 
-    foreach (config('ghl.required_scopes') as $scope) {
+    foreach (config('ghl.required_scopes') as $scope => $label) {
         $response->assertSee($scope);
+        $response->assertSee($label);
     }
 });
 
-it('defines the required scopes once, in config/ghl.php', function () {
-    expect(config('ghl.required_scopes'))->toBe([
+it('defines exactly the eight required scopes with labels in config/ghl.php', function () {
+    $scopes = config('ghl.required_scopes');
+
+    // Exactly these scope strings (slash forms included) — no more, no less.
+    expect(array_keys($scopes))->toBe([
         'calendars.readonly',
         'calendars.write',
         'calendars/events.readonly',
@@ -193,4 +204,12 @@ it('defines the required scopes once, in config/ghl.php', function () {
         'contacts.write',
         'users.readonly',
     ]);
+
+    // The sensitive, unused write scope must never sneak in.
+    expect($scopes)->not->toHaveKey('users.write');
+
+    // Every scope carries a human label for the GHL scope picker.
+    foreach ($scopes as $label) {
+        expect($label)->toBeString()->not->toBe('');
+    }
 });
