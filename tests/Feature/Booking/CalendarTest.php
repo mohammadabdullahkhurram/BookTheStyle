@@ -199,7 +199,7 @@ it('opens the prefilled booking form on click-to-book', function () {
         ->assertRedirect(route('salon.bookings.create', ['salon' => $salon, 'date' => '2026-06-22', 'time' => '14:00', 'stylist' => $stylist->id]));
 });
 
-it('still rejects a conflicting slot even when the form was prefilled', function () {
+it('clears a prefilled time that is already taken, and still rejects a genuine race server-side', function () {
     $salon = bookingSalon();
     $stylist = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
     $service = serviceFor($salon, $stylist, 60);
@@ -210,19 +210,28 @@ it('still rejects a conflicting slot even when the form was prefilled', function
     $component = Livewire::actingAs($owner)
         ->withQueryParams(['date' => '2026-06-22', 'time' => '10:00', 'stylist' => (string) $stylist->id])
         ->test('pages::salon.bookings.create', ['salon' => $salon])
-        ->assertSet('startTime', '10:00')
+        ->assertSet('items.0.time', '10:00')
+        ->assertSet('items.0.stylist_id', (string) $stylist->id)
         ->assertSet('date', '2026-06-22');
 
-    // Server re-validates and rejects the conflict — no second booking is made.
+    // Completing the line clears the stale time — 10:00 is not a real slot,
+    // so the UI never lets it be submitted blindly.
+    $component->set('items.0.service_id', (string) $service->id)
+        ->assertSet('items.0.time', '');
+
+    // Pick a genuinely free slot… then lose the race to another booker.
     $component
         ->set('clientMode', 'existing')
         ->set('clientId', $client->id)
-        ->set('items.0.service_id', (string) $service->id)
-        ->set('items.0.stylist_id', (string) $stylist->id)
-        ->call('save')
-        ->assertHasErrors('start');
+        ->call('pickTime', 0, '11:00')
+        ->assertSet('items.0.time', '11:00');
 
-    expect($salon->bookings()->count())->toBe(1);
+    makeBooking($salon, $owner, $stylist, $service, '2026-06-22 11:00', 'Race Winner');
+
+    // The slot engine (source of truth) rejects the conflict on save.
+    $component->call('save')->assertHasErrors('start');
+
+    expect($salon->bookings()->count())->toBe(2); // first client + race winner only
 });
 
 it('renders the booking-detail header cleanly at every status and a long name (close × clear of the status pill)', function () {

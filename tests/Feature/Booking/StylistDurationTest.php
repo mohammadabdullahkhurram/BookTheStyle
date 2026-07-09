@@ -102,26 +102,23 @@ it('gives two stylists different slot sets and end times for the same service', 
     expect($bB->items()->first()->ends_at->setTimezone('America/New_York')->format('H:i'))->toBe('13:45');
 });
 
-// --- Any available -----------------------------------------------------------
+// --- Explicit stylists only ---------------------------------------------------
 
-it('evaluates each "any available" candidate with their own duration and binds the chosen stylist', function () {
+it('books each explicitly chosen stylist with their own resolved duration', function () {
     $salon = bookingSalon();
     $a = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
     $b = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
     $service = serviceWith($salon, 30, [$a->id => ['duration' => 30], $b->id => ['duration' => 45]]);
     $owner = salonOwnerOf($salon);
 
-    // A is busy at 10:00, so "any available" must pick B for that slot.
-    app(CreateBooking::class)->handle($owner, $salon, bookingData(['items' => [['service_id' => $service->id, 'stylist_id' => $a->id]], 'start' => '2026-06-22 10:00']));
+    $bookingA = app(CreateBooking::class)->handle($owner, $salon, bookingData(['items' => [['service_id' => $service->id, 'stylist_id' => $a->id]], 'start' => '2026-06-22 10:00']));
+    $bookingB = app(CreateBooking::class)->handle($owner, $salon, bookingData(['items' => [['service_id' => $service->id, 'stylist_id' => $b->id]], 'start' => '2026-06-22 10:00']));
 
-    $booking = app(CreateBooking::class)->handle($owner, $salon, bookingData(['items' => [['service_id' => $service->id, 'stylist_id' => null]], 'start' => '2026-06-22 10:00']));
-    $item = $booking->items()->first();
-
-    expect($item->stylist_id)->toBe($b->id);                                              // bound to the free candidate
-    expect($item->ends_at->setTimezone('America/New_York')->format('H:i'))->toBe('10:45'); // B's 45-min duration
+    expect($bookingA->items()->first()->ends_at->setTimezone('America/New_York')->format('H:i'))->toBe('10:30'); // A's 30 min
+    expect($bookingB->items()->first()->ends_at->setTimezone('America/New_York')->format('H:i'))->toBe('10:45'); // B's 45 min
 });
 
-it('labels any-available slots with the stylist and their client-facing minutes, and binds on pick', function () {
+it('labels each qualified stylist with their client-facing minutes, and picking a slot sets the line time', function () {
     $salon = bookingSalon();
     $a = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
     $a->update(['name' => 'Maya']);
@@ -130,15 +127,16 @@ it('labels any-available slots with the stylist and their client-facing minutes,
 
     $component = Livewire::test('pages::salon.bookings.create', ['salon' => $salon])
         ->set('items.0.service_id', (string) $service->id)
+        ->set('items.0.stylist_id', (string) $a->id)
         ->set('date', '2026-06-22');
 
-    // Client-facing minutes (excludes buffer) + the stylist's name.
+    // The dropdown shows the stylist's OWN duration for this service
+    // (client-facing minutes — the buffer is excluded while the flag is off).
     expect($component->html())->toContain('Maya · 45 min');
 
-    // Picking binds that stylist so the booking validates against them.
-    $component->call('pickSlot', '10:00', $a->id)
-        ->assertSet('startTime', '10:00')
-        ->assertSet('items.0.stylist_id', (string) $a->id);
+    // Clicking a slot pill sets that line's time.
+    $component->call('pickTime', 0, '10:00')
+        ->assertSet('items.0.time', '10:00');
 });
 
 // --- Buffer blocks the stylist's time ---------------------------------------

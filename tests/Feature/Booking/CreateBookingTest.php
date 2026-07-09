@@ -61,25 +61,18 @@ it('captures booked_by from the actor role', function () {
     }
 });
 
-it('resolves "any available" to a free qualified stylist', function () {
+it('rejects an item without a stylist — "any available" is gone', function () {
     $salon = bookingSalon();
-    $busy = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
-    $free = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
-    $service = Service::factory()->create(['salon_id' => $salon->id, 'duration_min' => 60]);
-    $service->stylists()->attach([$busy->id => ['salon_id' => $salon->id], $free->id => ['salon_id' => $salon->id]]);
+    $stylist = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
+    $service = serviceFor($salon, $stylist, 60);
     $owner = salonOwnerOf($salon);
 
-    // Occupy $busy at 10:00.
-    app(CreateBooking::class)->handle($owner, $salon, bookingData([
-        'items' => [['service_id' => $service->id, 'stylist_id' => $busy->id]],
-    ]));
-
-    // "Any available" at 10:00 must land on $free.
-    $booking = app(CreateBooking::class)->handle($owner, $salon, bookingData([
+    // Staff choose the stylist deliberately; nothing is auto-assigned.
+    expect(fn () => app(CreateBooking::class)->handle($owner, $salon, bookingData([
         'items' => [['service_id' => $service->id, 'stylist_id' => null]],
-    ]));
+    ])))->toThrow(ValidationException::class);
 
-    expect($booking->items()->first()->stylist_id)->toBe($free->id);
+    expect($salon->bookings()->count())->toBe(0);
 });
 
 it('rejects a conflicting (concurrent) booking for the same slot', function () {

@@ -132,7 +132,7 @@ it('creates a booking through the new-booking screen', function () {
         ->set('items.0.service_id', (string) $service->id)
         ->set('items.0.stylist_id', (string) $stylist->id)
         ->set('date', '2026-06-22')
-        ->set('startTime', '13:00')
+        ->set('items.0.time', '13:00')
         ->call('save')
         ->assertHasNoErrors()
         ->assertRedirect(route('salon.appointments', $salon));

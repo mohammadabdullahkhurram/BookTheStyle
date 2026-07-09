@@ -14,7 +14,6 @@ use App\Models\Service;
 use App\Models\User;
 use App\Services\Booking\BookingPolicy;
 use App\Services\Booking\DurationResolver;
-use App\Services\Booking\ResolvedDuration;
 use App\Services\Booking\SlotEngine;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -22,15 +21,18 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Create a multi-service booking. The flow: resolve/create the client, lay each
- * service item sequentially back-to-back from the chosen start (each in its own
- * stylist's block), resolving "any available" per item to the least-busy
- * qualified free stylist.
+ * Create a multi-service booking. Every item names its stylist explicitly
+ * (staff book deliberately — there is no "any available" resolution), and an
+ * item may carry its own start time: same-time, back-to-back and
+ * different-time layouts across stylists are all expressed per item. Items
+ * without an explicit start lay sequentially after the previous one (and
+ * walk-ins always start now, sequentially).
  *
  * Client-submitted times are never trusted: inside a transaction we lock the
  * involved stylists' rows and re-validate every item against availability and
- * existing bookings, rejecting with a clear conflict error if anything was just
- * taken. Booking policy is enforced authoritatively here too.
+ * existing bookings — plus overlap among the submission's own same-stylist
+ * items — rejecting with a clear conflict error if anything was just taken.
+ * Booking policy is enforced authoritatively here too.
  */
 class CreateBooking
 {
@@ -44,7 +46,7 @@ class CreateBooking
     /**
      * @param  array{
      *     client: array{id?: int, name?: string, phone?: string|null, email?: string|null},
-     *     items: list<array{service_id: int, stylist_id: int|null}>,
+     *     items: list<array{service_id: int, stylist_id: int|null, start?: string|null}>,
      *     start?: string|null,
      *     is_walkin?: bool,
      *     notes?: string|null,
@@ -64,7 +66,7 @@ class CreateBooking
     /**
      * @param  array{
      *     client: array{id?: int, name?: string, phone?: string|null, email?: string|null},
-     *     items: list<array{service_id: int, stylist_id: int|null}>,
+     *     items: list<array{service_id: int, stylist_id: int|null, start?: string|null}>,
      *     start?: string|null,
      *     is_walkin?: bool,
      *     notes?: string|null,
@@ -98,22 +100,25 @@ class CreateBooking
                     throw ValidationException::withMessages(['items' => __('That service is unavailable.')]);
                 }
 
-                $itemStart = $cursor;
-
-                // Resolve the stylist + their duration. For "any available" each
-                // candidate is evaluated with their OWN resolved blocked time.
-                if ($item['stylist_id'] !== null) {
-                    $stylistId = $this->assertQualified($service, (int) $item['stylist_id']);
-                    $duration = $this->resolver->resolve($salon, $service, $stylistId);
-                } else {
-                    [$stylistId, $duration] = $this->leastBusyAvailable($salon, $service, $itemStart);
-                }
-
-                if ($stylistId === null || $duration === null) {
+                // Staff always choose the stylist deliberately — an item
+                // without one is invalid, never auto-assigned.
+                if (($item['stylist_id'] ?? null) === null) {
                     throw ValidationException::withMessages([
-                        'items' => __('No qualified stylist is free for :service at that time.', ['service' => $service->name]),
+                        'items' => __('Choose a stylist for every service.'),
                     ]);
                 }
+
+                // An item may carry its own start (multi-stylist layouts);
+                // otherwise it lays sequentially after the previous item.
+                // Walk-ins always run from now.
+                $itemStart = $cursor;
+                if (! $isWalkin && filled($item['start'] ?? null)) {
+                    $itemStart = CarbonImmutable::parse((string) $item['start'], $salon->timezone);
+                    $this->policy->assertCreatable($salon, $itemStart, false);
+                }
+
+                $stylistId = $this->assertQualified($service, (int) $item['stylist_id']);
+                $duration = $this->resolver->resolve($salon, $service, $stylistId);
 
                 $resolved[] = [
                     'service' => $service,
@@ -131,6 +136,7 @@ class CreateBooking
             }
 
             $this->assertActorMayBook($actor, $salon, $resolved);
+            $this->assertNoInternalOverlap($resolved);
 
             // Lock the involved stylists (ordered, to avoid deadlocks) then
             // re-validate against availability + existing bookings under lock.
@@ -229,49 +235,28 @@ class CreateBooking
     }
 
     /**
-     * The least-busy qualified, active stylist who is free for the block, each
-     * evaluated with their OWN resolved blocked time. Returns [stylistId,
-     * ResolvedDuration] (tied together — the returned duration is the chosen
-     * stylist's), or [null, null] when none fit.
+     * With per-item start times, two items for the SAME stylist inside one
+     * submission could overlap each other — something the slot engine cannot
+     * see (it only knows persisted bookings). Reject it here.
      *
-     * @return array{0: int|null, 1: ResolvedDuration|null}
+     * @param  list<array{stylist_id: int, service: Service, starts_at: CarbonImmutable, ends_at: CarbonImmutable, buffer_min: int, blocked: int}>  $resolved
      */
-    private function leastBusyAvailable(Salon $salon, Service $service, CarbonImmutable $start): array
+    private function assertNoInternalOverlap(array $resolved): void
     {
-        $activeStylistIds = $salon->stylistUsers()->pluck('users.id')->all();
+        foreach (collect($resolved)->groupBy('stylist_id') as $group) {
+            $sorted = $group->sortBy(fn (array $ri) => $ri['starts_at']->getTimestamp())->values();
 
-        $candidates = $service->stylists()
-            ->pluck('users.id')
-            ->map(fn ($id): int => (int) $id)
-            ->filter(fn (int $id) => in_array($id, $activeStylistIds, true))
-            ->filter(fn (int $id) => $this->engine->isAvailable(
-                $salon, $id, $start, $this->resolver->resolve($salon, $service, $id)->blockedMinutes()
-            ))
-            ->values();
+            for ($i = 1; $i < $sorted->count(); $i++) {
+                $previous = $sorted[$i - 1];
+                $blockedEnd = $previous['starts_at']->addMinutes($previous['blocked']);
 
-        if ($candidates->isEmpty()) {
-            return [null, null];
+                if ($sorted[$i]['starts_at']->lt($blockedEnd)) {
+                    throw ValidationException::withMessages([
+                        'start' => __('Two services for the same stylist overlap. Adjust the times.'),
+                    ]);
+                }
+            }
         }
-
-        $day = $start->setTimezone($salon->timezone)->startOfDay();
-
-        $chosen = (int) $candidates
-            ->sortBy(fn (int $id) => [$this->busyCountOnDay($salon, $id, $day), $id])
-            ->first();
-
-        return [$chosen, $this->resolver->resolve($salon, $service, $chosen)];
-    }
-
-    private function busyCountOnDay(Salon $salon, int $stylistId, CarbonImmutable $day): int
-    {
-        return DB::table('booking_items')
-            ->join('bookings', 'bookings.id', '=', 'booking_items.booking_id')
-            ->where('booking_items.salon_id', $salon->id)
-            ->where('booking_items.stylist_id', $stylistId)
-            ->where('bookings.status', '!=', BookingStatus::Cancelled->value)
-            ->where('booking_items.starts_at', '>=', $day->utc())
-            ->where('booking_items.starts_at', '<', $day->addDay()->utc())
-            ->count();
     }
 
     /**
