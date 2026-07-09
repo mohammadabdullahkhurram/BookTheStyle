@@ -44,10 +44,6 @@ class Booking extends Model
         'source',
         'is_walkin',
         'notes',
-        'ghl_appointment_id',
-        'ghl_sync_status',
-        'ghl_sync_error',
-        'last_synced_at',
     ];
 
     protected function casts(): array
@@ -57,7 +53,6 @@ class Booking extends Model
             'booked_by_type' => BookedByType::class,
             'source' => BookingSource::class,
             'is_walkin' => 'boolean',
-            'last_synced_at' => 'datetime',
         ];
     }
 
@@ -83,6 +78,17 @@ class Booking extends Model
     public function bookedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'booked_by_user_id');
+    }
+
+    /**
+     * Per-stylist GHL appointment mirrors (one row per distinct stylist on
+     * the booking).
+     *
+     * @return HasMany<BookingGhlAppointment, $this>
+     */
+    public function ghlAppointments(): HasMany
+    {
+        return $this->hasMany(BookingGhlAppointment::class);
     }
 
     /**

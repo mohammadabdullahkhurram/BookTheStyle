@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Booking;
+use App\Models\BookingGhlAppointment;
 use App\Services\Ghl\GhlBookingPusher;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -55,10 +56,15 @@ class SyncBookingToGhl implements ShouldQueue
 
     public function failed(?Throwable $exception): void
     {
-        Booking::query()->whereKey($this->bookingId)->update([
-            'ghl_sync_status' => GhlBookingPusher::STATUS_FAILED,
-            // GhlApiException messages are user-safe and token-free.
-            'ghl_sync_error' => mb_substr($exception?->getMessage() ?? __('Unknown error.'), 0, 500),
-        ]);
+        // Flag every stylist slice that never reached "synced" — the pusher
+        // already recorded per-slice errors; this covers pre-slice failures.
+        BookingGhlAppointment::query()
+            ->where('booking_id', $this->bookingId)
+            ->where(fn ($query) => $query->whereNull('sync_status')->orWhere('sync_status', '!=', GhlBookingPusher::STATUS_SYNCED))
+            ->update([
+                'sync_status' => GhlBookingPusher::STATUS_FAILED,
+                // GhlApiException messages are user-safe and token-free.
+                'sync_error' => mb_substr($exception?->getMessage() ?? __('Unknown error.'), 0, 500),
+            ]);
     }
 }
