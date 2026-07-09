@@ -10,13 +10,18 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Join of a user to a salon, carrying their role + staff type for that salon.
+ * Join of a user to a salon, carrying their role + staff type for that salon,
+ * plus the GHL LOCATION USER a non-stylist staff member links to for identity
+ * and attribution. Stylists' bookable-provider mapping lives separately on
+ * StylistProfile::$ghl_user_id (a calendar team member; routes 6b pushes) —
+ * this field never routes bookings.
  *
  * @property int $id
  * @property int $user_id
  * @property int $salon_id
  * @property SalonRole $salon_role
  * @property StaffType|null $staff_type
+ * @property string|null $ghl_location_user_id
  * @property bool $active
  */
 class SalonMembership extends Model
@@ -29,6 +34,7 @@ class SalonMembership extends Model
         'salon_id',
         'salon_role',
         'staff_type',
+        'ghl_location_user_id',
         'active',
     ];
 

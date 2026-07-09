@@ -6,7 +6,8 @@ use App\Actions\Salons\UpdateBookingPolicy;
 use App\Actions\Salons\UpdateBranding;
 use App\Actions\Salons\UpdateFeatureFlags;
 use App\Actions\Salons\UpdateGhlConnection;
-use App\Actions\Salons\UpdateGhlStylistMapping;
+use App\Actions\Salons\UpdateGhlStaffMapping;
+use App\Enums\StaffType;
 use App\Actions\Salons\UpdateSalonProfile;
 use App\Models\Salon;
 use App\Models\StylistProfile;
@@ -91,8 +92,14 @@ new #[Title('Salon settings')] class extends Component {
 
     public bool $ghlDirectoryLoaded = false;
 
-    /** @var array<int, string> stylist user id => GHL user id ('' = unmapped) */
-    public array $ghlMap = [];
+    /** @var array<int, string> stylist user id => GHL calendar-provider id ('' = unmapped) */
+    public array $ghlStylistMap = [];
+
+    /** @var array<int, string> non-stylist user id => GHL location-user id ('' = unmapped) */
+    public array $ghlStaffMap = [];
+
+    /** @var list<int> staff user ids pre-selected by email match (until saved) */
+    public array $ghlAutoMatched = [];
 
     public function mount(Salon $salon): void
     {
@@ -149,45 +156,94 @@ new #[Title('Salon settings')] class extends Component {
         $this->ghlStatus = $connection?->status() ?? 'not_connected';
         $this->ghlLastVerified = $connection?->last_verified_at?->diffForHumans();
 
-        // Current stylist ↔ GHL user mapping, one entry per active stylist so
-        // unmapped stylists show up (as '') rather than disappearing.
+        // Both mapping tiers, one entry per person so the unmapped show up
+        // (as '') rather than disappearing. Stylists carry the calendar-
+        // provider mapping (stylist_profiles); everyone else the location-
+        // user identity link (salon_memberships).
         $stored = StylistProfile::forSalon($this->salon)->pluck('ghl_user_id', 'user_id');
 
-        $this->ghlMap = [];
+        $this->ghlStylistMap = [];
         foreach ($this->salon->stylistUsers()->orderBy('name')->pluck('users.id') as $stylistId) {
-            $this->ghlMap[(int) $stylistId] = (string) ($stored[$stylistId] ?? '');
+            $this->ghlStylistMap[(int) $stylistId] = (string) ($stored[$stylistId] ?? '');
+        }
+
+        $this->ghlStaffMap = [];
+        foreach ($this->nonStylistMemberships() as $membership) {
+            $this->ghlStaffMap[(int) $membership->user_id] = (string) ($membership->ghl_location_user_id ?? '');
         }
     }
 
+    private function nonStylistMemberships()
+    {
+        return $this->salon->memberships()
+            ->where('active', true)
+            ->where(fn ($query) => $query->whereNull('staff_type')->orWhere('staff_type', '!=', StaffType::Stylist->value))
+            ->with('user:id,name,email')
+            ->get()
+            ->sortBy(fn ($membership) => mb_strtolower($membership->user->name))
+            ->values();
+    }
+
     /**
-     * Active stylists eligible for GHL mapping (id + name, ordered).
+     * Active stylists — the bookable-provider tier (id + name + email).
      */
     #[Computed]
     public function mappableStylists()
     {
-        return $this->salon->stylistUsers()->orderBy('name')->get(['users.id', 'name']);
+        return $this->salon->stylistUsers()->orderBy('name')->get(['users.id', 'name', 'email']);
     }
 
     /**
-     * GHL users offered in the mapping dropdowns: the chosen calendar's team
-     * members when known, otherwise every location user.
+     * Active non-stylist staff (front desk, managers, owners, admins) — the
+     * identity/attribution tier.
+     */
+    #[Computed]
+    public function mappableStaff()
+    {
+        return $this->nonStylistMemberships();
+    }
+
+    /**
+     * Provider options for the STYLIST tier: the master calendar's declared
+     * team members, resolved against the location users for names/emails.
+     * A member id the users endpoint does not return (e.g. an agency-level
+     * user) stays selectable under its raw id. Deliberately NO fallback to
+     * all location users — only calendar members are bookable providers; an
+     * empty list means stylists must be added to the calendar in GHL.
      *
      * @return list<array{id: string, name: string, email: string}>
      */
     #[Computed]
-    public function ghlUserOptions(): array
+    public function ghlProviderOptions(): array
     {
         $selected = collect($this->ghlCalendars)->firstWhere('id', $this->ghlCalendarId);
-        $memberIds = $selected['teamMemberIds'] ?? [];
+        $users = collect($this->ghlUsers)->keyBy('id');
 
-        if ($memberIds === []) {
-            return $this->ghlUsers;
+        $options = [];
+        foreach ($selected['teamMemberIds'] ?? [] as $memberId) {
+            $user = $users->get($memberId);
+            $options[] = [
+                'id' => $memberId,
+                'name' => $user['name'] ?? '',
+                'email' => $user['email'] ?? '',
+            ];
         }
 
-        return array_values(array_filter(
-            $this->ghlUsers,
-            fn (array $user): bool => in_array($user['id'], $memberIds, true),
-        ));
+        return $options;
+    }
+
+    /**
+     * Options for the NON-STYLIST tier: every location user, name-sorted.
+     *
+     * @return list<array{id: string, name: string, email: string}>
+     */
+    #[Computed]
+    public function ghlStaffOptions(): array
+    {
+        $users = $this->ghlUsers;
+        usort($users, fn (array $a, array $b): int => mb_strtolower($a['name']) <=> mb_strtolower($b['name']));
+
+        return $users;
     }
 
     /**
@@ -255,25 +311,84 @@ new #[Title('Salon settings')] class extends Component {
         ], $users);
 
         $this->ghlDirectoryLoaded = true;
+
+        $this->autoMatchByEmail();
     }
 
     /**
-     * Persist the chosen master calendar + stylist ↔ GHL user mapping.
+     * Choosing a (different) master calendar changes the provider pool, so
+     * re-run the email auto-match for anyone still unmapped.
      */
-    public function saveGhlMapping(UpdateGhlStylistMapping $action): void
+    public function updatedGhlCalendarId(): void
+    {
+        if ($this->ghlDirectoryLoaded) {
+            unset($this->ghlProviderOptions); // bust the computed cache for the new calendar
+            $this->autoMatchByEmail();
+        }
+    }
+
+    /**
+     * Pre-select GHL links by email (case-insensitive, trimmed) for everyone
+     * still unmapped — stylists against the master calendar's providers,
+     * other staff against all location users. Provisional until saved; every
+     * pre-selection can be overridden in its dropdown.
+     */
+    private function autoMatchByEmail(): void
+    {
+        $this->ghlAutoMatched = [];
+
+        $index = function (array $options): array {
+            $byEmail = [];
+            foreach ($options as $option) {
+                $email = mb_strtolower(trim($option['email']));
+                if ($email !== '' && ! isset($byEmail[$email])) {
+                    $byEmail[$email] = $option['id'];
+                }
+            }
+
+            return $byEmail;
+        };
+
+        $providersByEmail = $index($this->ghlProviderOptions);
+        foreach ($this->mappableStylists as $stylist) {
+            $email = mb_strtolower(trim((string) $stylist->email));
+            if (($this->ghlStylistMap[$stylist->id] ?? '') === '' && $email !== '' && isset($providersByEmail[$email])) {
+                $this->ghlStylistMap[$stylist->id] = $providersByEmail[$email];
+                $this->ghlAutoMatched[] = (int) $stylist->id;
+            }
+        }
+
+        $usersByEmail = $index($this->ghlStaffOptions);
+        foreach ($this->mappableStaff as $membership) {
+            $userId = (int) $membership->user_id;
+            $email = mb_strtolower(trim((string) $membership->user->email));
+            if (($this->ghlStaffMap[$userId] ?? '') === '' && $email !== '' && isset($usersByEmail[$email])) {
+                $this->ghlStaffMap[$userId] = $usersByEmail[$email];
+                $this->ghlAutoMatched[] = $userId;
+            }
+        }
+    }
+
+    /**
+     * Persist the chosen master calendar + both mapping tiers.
+     */
+    public function saveGhlMapping(UpdateGhlStaffMapping $action): void
     {
         $this->authorize('manageGhlConnection', $this->salon);
 
         $this->validate([
             'ghlCalendarId' => ['nullable', 'string', 'max:255'],
-            'ghlMap' => ['array'],
-            'ghlMap.*' => ['nullable', 'string', 'max:255'],
+            'ghlStylistMap' => ['array'],
+            'ghlStylistMap.*' => ['nullable', 'string', 'max:255'],
+            'ghlStaffMap' => ['array'],
+            'ghlStaffMap.*' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $action->handle($this->salon, $this->ghlCalendarId, $this->ghlMap);
+        $action->handle($this->salon, $this->ghlCalendarId, $this->ghlStylistMap, $this->ghlStaffMap);
+        $this->ghlAutoMatched = [];
         $this->refreshGhlState();
 
-        Flux::toast(variant: 'success', text: __('Master calendar and stylist mapping saved.'));
+        Flux::toast(variant: 'success', text: __('Master calendar and staff mapping saved.'));
     }
 
     /**
@@ -454,7 +569,7 @@ new #[Title('Salon settings')] class extends Component {
             @if ($tokenIsSet)
                 <x-ui.card class="flex flex-col gap-5">
                     <div class="flex items-center justify-between gap-4">
-                        <h2 class="bts-card-title">{{ __('Master calendar and stylist mapping') }}</h2>
+                        <h2 class="bts-card-title">{{ __('Master calendar and staff mapping') }}</h2>
                         <x-ui.button type="button" variant="secondary" wire:click="loadGhlDirectory" wire:loading.attr="disabled">
                             <span wire:loading.remove wire:target="loadGhlDirectory">{{ $ghlDirectoryLoaded ? __('Reload from GoHighLevel') : __('Load from GoHighLevel') }}</span>
                             <span wire:loading wire:target="loadGhlDirectory">{{ __('Loading…') }}</span>
@@ -462,7 +577,7 @@ new #[Title('Salon settings')] class extends Component {
                     </div>
 
                     <p class="text-[14px] text-secondary">
-                        {{ __('Pick the salon\'s master GoHighLevel calendar, then map each stylist to the matching team member. Bookings will be routed with this mapping.') }}
+                        {{ __('Pick the salon\'s master GoHighLevel calendar, then link your team. Stylist links route bookings to the right provider; other staff links are identity only.') }}
                     </p>
 
                     @error('ghl')
@@ -486,29 +601,41 @@ new #[Title('Salon settings')] class extends Component {
                             </div>
                         @endif
 
+                        @if ($ghlDirectoryLoaded && $ghlUsers === [])
+                            <p class="text-[13.5px] font-medium text-[#A23A3A]">
+                                {{ __('No users found in GoHighLevel. Add your team as users on the location (Settings → My Staff), then reload.') }}
+                            </p>
+                        @endif
+
+                        {{-- Tier 1: stylists → calendar team members (bookable providers). --}}
                         <div class="flex flex-col gap-1">
-                            <div class="bts-field-label">{{ __('Stylists') }}</div>
+                            <div class="bts-field-label">{{ __('Stylists — calendar providers') }}</div>
+                            <p class="text-[13px] text-secondary">
+                                {{ __('Each stylist maps to a team member of the master calendar. This is what routes bookings to the right provider.') }}
+                            </p>
                             <div class="flex flex-col divide-y divide-row rounded-[11px] border border-input-border">
                                 @forelse ($this->mappableStylists as $stylist)
-                                    @php($mapped = ($ghlMap[$stylist->id] ?? '') !== '')
+                                    @php($mapped = ($ghlStylistMap[$stylist->id] ?? '') !== '')
                                     <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                                         <div class="flex items-center gap-3">
                                             <x-ui.avatar :name="$stylist->name" :seed="$stylist->id" size="sm" />
                                             <span class="text-[14.5px] font-medium text-ink">{{ $stylist->name }}</span>
-                                            @unless ($mapped)
+                                            @if (in_array($stylist->id, $ghlAutoMatched, true))
+                                                <span class="bts-pill" style="background-color:#E3EDF6;color:#356088;">{{ __('Matched by email') }}</span>
+                                            @elseif (! $mapped)
                                                 <span class="bts-pill" style="background-color:#FBEFD6;color:#8A5A1E;">{{ __('Unmapped') }}</span>
-                                            @endunless
+                                            @endif
                                         </div>
                                         <div class="w-full sm:w-72">
-                                            @if ($ghlDirectoryLoaded)
-                                                <flux:select wire:model="ghlMap.{{ $stylist->id }}" aria-label="{{ __('GoHighLevel team member for :name', ['name' => $stylist->name]) }}">
+                                            @if ($ghlDirectoryLoaded && $this->ghlProviderOptions !== [])
+                                                <flux:select wire:model="ghlStylistMap.{{ $stylist->id }}" aria-label="{{ __('Calendar provider for :name', ['name' => $stylist->name]) }}">
                                                     <flux:select.option value="">{{ __('Not mapped') }}</flux:select.option>
-                                                    @foreach ($this->ghlUserOptions as $ghlUser)
-                                                        <flux:select.option value="{{ $ghlUser['id'] }}">{{ $ghlUser['name'] !== '' ? $ghlUser['name'] : $ghlUser['id'] }}{{ $ghlUser['email'] !== '' ? ' — '.$ghlUser['email'] : '' }}</flux:select.option>
+                                                    @foreach ($this->ghlProviderOptions as $provider)
+                                                        <flux:select.option value="{{ $provider['id'] }}">{{ $provider['name'] !== '' ? $provider['name'] : $provider['id'] }}{{ $provider['email'] !== '' ? ' — '.$provider['email'] : '' }}</flux:select.option>
                                                     @endforeach
                                                 </flux:select>
                                             @elseif ($mapped)
-                                                <p class="text-right font-mono text-[13px] text-secondary">{{ $ghlMap[$stylist->id] }}</p>
+                                                <p class="text-right font-mono text-[13px] text-secondary">{{ $ghlStylistMap[$stylist->id] }}</p>
                                             @endif
                                         </div>
                                     </div>
@@ -516,10 +643,63 @@ new #[Title('Salon settings')] class extends Component {
                                     <p class="px-4 py-4 text-[14px] text-faint">{{ __('No active stylists yet. Add stylists under Staff first.') }}</p>
                                 @endforelse
                             </div>
-                            @unless ($ghlDirectoryLoaded)
-                                <p class="text-[13px] text-faint">{{ __('Load from GoHighLevel to map stylists to team members by name.') }}</p>
-                            @endunless
+                            @if ($ghlDirectoryLoaded && $ghlCalendarId !== '' && $this->ghlProviderOptions === [])
+                                <p class="text-[13px] font-medium text-[#8A5A1E]">
+                                    {{ __('This calendar has no team members yet. In GoHighLevel, add your stylists to the calendar (edit calendar → team members), then reload.') }}
+                                </p>
+                            @elseif ($ghlDirectoryLoaded && $ghlCalendarId === '')
+                                <p class="text-[13px] text-faint">{{ __('Choose a master calendar to see its providers.') }}</p>
+                            @endif
+                            <p class="text-[13px] text-faint">
+                                {{ __('A stylist missing from the dropdown must be added to the master calendar in GoHighLevel before they can receive bookings.') }}
+                            </p>
                         </div>
+
+                        {{-- Tier 2: everyone else → location users (identity only). --}}
+                        <div class="flex flex-col gap-1">
+                            <div class="bts-field-label">{{ __('Other staff — team members') }}</div>
+                            <p class="text-[13px] text-secondary">
+                                {{ __('Front desk, managers and owners link to a GoHighLevel user for attribution only — this never makes them bookable.') }}
+                            </p>
+                            <div class="flex flex-col divide-y divide-row rounded-[11px] border border-input-border">
+                                @forelse ($this->mappableStaff as $membership)
+                                    @php($staff = $membership->user)
+                                    @php($mapped = ($ghlStaffMap[$staff->id] ?? '') !== '')
+                                    <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                                        <div class="flex items-center gap-3">
+                                            <x-ui.avatar :name="$staff->name" :seed="$staff->id" size="sm" />
+                                            <div class="flex flex-col">
+                                                <span class="text-[14.5px] font-medium text-ink">{{ $staff->name }}</span>
+                                                <span class="text-[12.5px] text-faint">{{ $membership->salon_role->label() }}{{ $membership->staff_type ? ' · '.$membership->staff_type->label() : '' }}</span>
+                                            </div>
+                                            @if (in_array($staff->id, $ghlAutoMatched, true))
+                                                <span class="bts-pill" style="background-color:#E3EDF6;color:#356088;">{{ __('Matched by email') }}</span>
+                                            @elseif (! $mapped)
+                                                <span class="bts-pill" style="background-color:#FBEFD6;color:#8A5A1E;">{{ __('Unmapped') }}</span>
+                                            @endif
+                                        </div>
+                                        <div class="w-full sm:w-72">
+                                            @if ($ghlDirectoryLoaded && $ghlUsers !== [])
+                                                <flux:select wire:model="ghlStaffMap.{{ $staff->id }}" aria-label="{{ __('GoHighLevel user for :name', ['name' => $staff->name]) }}">
+                                                    <flux:select.option value="">{{ __('Not mapped') }}</flux:select.option>
+                                                    @foreach ($this->ghlStaffOptions as $ghlUser)
+                                                        <flux:select.option value="{{ $ghlUser['id'] }}">{{ $ghlUser['name'] !== '' ? $ghlUser['name'] : $ghlUser['id'] }}{{ $ghlUser['email'] !== '' ? ' — '.$ghlUser['email'] : '' }}</flux:select.option>
+                                                    @endforeach
+                                                </flux:select>
+                                            @elseif ($mapped)
+                                                <p class="text-right font-mono text-[13px] text-secondary">{{ $ghlStaffMap[$staff->id] }}</p>
+                                            @endif
+                                        </div>
+                                    </div>
+                                @empty
+                                    <p class="px-4 py-4 text-[14px] text-faint">{{ __('No other active staff.') }}</p>
+                                @endforelse
+                            </div>
+                        </div>
+
+                        @unless ($ghlDirectoryLoaded)
+                            <p class="text-[13px] text-faint">{{ __('Load from GoHighLevel to link staff by name.') }}</p>
+                        @endunless
 
                         @if ($ghlDirectoryLoaded)
                             <div><x-ui.button type="submit">{{ __('Save mapping') }}</x-ui.button></div>

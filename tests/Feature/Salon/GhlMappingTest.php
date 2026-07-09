@@ -1,12 +1,14 @@
 <?php
 
 use App\Actions\Salons\TestGhlConnection;
-use App\Actions\Salons\UpdateGhlStylistMapping;
+use App\Actions\Salons\UpdateGhlStaffMapping;
 use App\Enums\AgencyRole;
 use App\Models\Salon;
 use App\Models\SalonGhlConnection;
 use App\Models\StylistProfile;
 use App\Models\User;
+use App\Services\Calendar\CalendarData;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
@@ -116,54 +118,142 @@ it('lets an owner test the connection from settings and shows last-verified', fu
 });
 
 // ---------------------------------------------------------------------------
-// Calendar selection + stylist mapping
+// ---------------------------------------------------------------------------
+// Two-tier mapping: stylists → calendar providers, other staff → location users
 // ---------------------------------------------------------------------------
 
-it('loads the GHL directory and saves the master calendar and stylist mapping', function () {
+/**
+ * Fake both GHL endpoints: one master calendar whose team members are
+ * ghl_u1/ghl_u2, and three location users (u1 Ana, u2 Ben, u3 Cara — Cara is
+ * NOT on the calendar).
+ */
+function fakeGhlDirectory(): void
+{
     Http::fake([
         'services.leadconnectorhq.com/calendars/*' => Http::response(ghlLocationCalendars()),
         'services.leadconnectorhq.com/users/*' => Http::response(['users' => [
             ['id' => 'ghl_u1', 'name' => 'Ana', 'email' => 'ana@example.com'],
             ['id' => 'ghl_u2', 'name' => 'Ben', 'email' => 'ben@example.com'],
+            ['id' => 'ghl_u3', 'name' => 'Cara', 'email' => 'cara@example.com'],
         ]]),
     ]);
+}
 
+it('offers only the master calendar\'s team members as stylist providers', function () {
+    fakeGhlDirectory();
     $salon = connectedSalon();
-    $stylistA = stylistOf($salon);
-    $stylistB = stylistOf($salon);
+    stylistOf($salon);
+
+    $component = Livewire::actingAs(salonOwnerOf($salon))
+        ->test('pages::salon.settings', ['salon' => $salon])
+        ->call('loadGhlDirectory')
+        ->set('ghlCalendarId', 'cal_1');
+
+    // Providers = calendar members only (Cara, a location user not on the
+    // calendar, is excluded); the staff tier still offers everyone.
+    expect(array_column($component->instance()->ghlProviderOptions, 'id'))->toBe(['ghl_u1', 'ghl_u2']);
+    expect(array_column($component->instance()->ghlStaffOptions, 'id'))->toBe(['ghl_u1', 'ghl_u2', 'ghl_u3']);
+});
+
+it('shows a clear hint instead of falling back when the calendar has no team members', function () {
+    Http::fake([
+        'services.leadconnectorhq.com/calendars/*' => Http::response(['calendars' => [[
+            'id' => 'cal_empty', 'name' => 'Empty calendar', 'locationId' => 'loc_1', 'teamMembers' => [],
+        ]]]),
+        'services.leadconnectorhq.com/users/*' => Http::response(['users' => [
+            ['id' => 'ghl_u1', 'name' => 'Ana', 'email' => 'ana@example.com'],
+        ]]),
+    ]);
+    $salon = connectedSalon();
+    stylistOf($salon);
+
+    $component = Livewire::actingAs(salonOwnerOf($salon))
+        ->test('pages::salon.settings', ['salon' => $salon])
+        ->call('loadGhlDirectory')
+        ->set('ghlCalendarId', 'cal_empty');
+
+    // The provider tier is NOT quietly filled with location users.
+    expect($component->instance()->ghlProviderOptions)->toBe([]);
+    $component->assertSee('This calendar has no team members yet');
+});
+
+it('reports an empty GHL user list instead of silent empty dropdowns', function () {
+    Http::fake([
+        'services.leadconnectorhq.com/calendars/*' => Http::response(ghlLocationCalendars()),
+        'services.leadconnectorhq.com/users/*' => Http::response(['users' => []]),
+    ]);
+    $salon = connectedSalon();
+    frontDeskOf($salon);
 
     Livewire::actingAs(salonOwnerOf($salon))
         ->test('pages::salon.settings', ['salon' => $salon])
         ->call('loadGhlDirectory')
-        ->assertSet('ghlDirectoryLoaded', true)
-        ->set('ghlCalendarId', 'cal_1')
-        ->set('ghlMap.'.$stylistA->id, 'ghl_u1')
-        ->call('saveGhlMapping')
-        ->assertHasNoErrors()
-        // B stays visibly unmapped rather than disappearing.
-        ->assertSet('ghlMap.'.$stylistB->id, '');
+        ->assertSee('No users found in GoHighLevel');
+});
 
+it('auto-matches both tiers by email, case-insensitively, and leaves non-matches unmapped', function () {
+    fakeGhlDirectory();
+    $salon = connectedSalon();
+
+    $stylist = stylistOf($salon, User::factory()->create(['email' => 'ANA@Example.com ']));
+    $frontDesk = frontDeskOf($salon);
+    $frontDesk->update(['email' => ' cara@EXAMPLE.com']);
+    $unmatched = stylistOf($salon); // random factory email, no GHL counterpart
+
+    $component = Livewire::actingAs(salonOwnerOf($salon))
+        ->test('pages::salon.settings', ['salon' => $salon])
+        ->set('ghlCalendarId', 'cal_1')
+        ->call('loadGhlDirectory');
+
+    $component
+        ->assertSet('ghlStylistMap.'.$stylist->id, 'ghl_u1')      // provider tier match
+        ->assertSet('ghlStaffMap.'.$frontDesk->id, 'ghl_u3')      // location-user tier match
+        ->assertSet('ghlStylistMap.'.$unmatched->id, '')          // no email match → unmapped
+        ->assertSee('Matched by email');
+});
+
+it('persists both tiers to their distinct fields, including overrides of auto-matches', function () {
+    fakeGhlDirectory();
+    $salon = connectedSalon();
+    $stylist = stylistOf($salon, User::factory()->create(['email' => 'ana@example.com']));
+    $frontDesk = frontDeskOf($salon);
+
+    Livewire::actingAs(salonOwnerOf($salon))
+        ->test('pages::salon.settings', ['salon' => $salon])
+        ->set('ghlCalendarId', 'cal_1')
+        ->call('loadGhlDirectory')                     // auto-matches stylist → ghl_u1
+        ->set('ghlStylistMap.'.$stylist->id, 'ghl_u2') // …but the owner overrides it
+        ->set('ghlStaffMap.'.$frontDesk->id, 'ghl_u3')
+        ->call('saveGhlMapping')
+        ->assertHasNoErrors();
+
+    // Stylist tier → stylist_profiles (feeds 6b booking routing).
+    expect(StylistProfile::forSalon($salon)->where('user_id', $stylist->id)->value('ghl_user_id'))->toBe('ghl_u2');
+    // Staff tier → salon_memberships (identity only).
+    expect($salon->memberships()->where('user_id', $frontDesk->id)->value('ghl_location_user_id'))->toBe('ghl_u3');
     expect($salon->ghlConnection()->first()->calendar_id)->toBe('cal_1');
-    expect(StylistProfile::forSalon($salon)->where('user_id', $stylistA->id)->value('ghl_user_id'))->toBe('ghl_u1');
-    expect(StylistProfile::forSalon($salon)->where('user_id', $stylistB->id)->value('ghl_user_id'))->toBeNull();
 });
 
 it('clears a mapping when set back to not mapped', function () {
     $salon = connectedSalon();
     $stylist = stylistOf($salon);
 
-    app(UpdateGhlStylistMapping::class)->handle($salon, 'cal_1', [$stylist->id => 'ghl_u1']);
+    app(UpdateGhlStaffMapping::class)->handle($salon, 'cal_1', [$stylist->id => 'ghl_u1']);
     expect(StylistProfile::forSalon($salon)->where('user_id', $stylist->id)->value('ghl_user_id'))->toBe('ghl_u1');
 
-    app(UpdateGhlStylistMapping::class)->handle($salon, null, [$stylist->id => '']);
+    app(UpdateGhlStaffMapping::class)->handle($salon, null, [$stylist->id => '']);
     expect(StylistProfile::forSalon($salon)->where('user_id', $stylist->id)->value('ghl_user_id'))->toBeNull();
 });
 
-it('rejects mapping a non-stylist member', function () {
+it('rejects a non-stylist in the provider tier and a stylist in the identity tier', function () {
     $salon = connectedSalon();
+    $stylist = stylistOf($salon);
     $frontDesk = frontDeskOf($salon);
 
-    expect(fn () => app(UpdateGhlStylistMapping::class)->handle($salon, null, [$frontDesk->id => 'ghl_u1']))
+    expect(fn () => app(UpdateGhlStaffMapping::class)->handle($salon, null, [$frontDesk->id => 'ghl_u1']))
+        ->toThrow(ValidationException::class);
+
+    expect(fn () => app(UpdateGhlStaffMapping::class)->handle($salon, null, [], [$stylist->id => 'ghl_u1']))
         ->toThrow(ValidationException::class);
 });
 
@@ -171,19 +261,39 @@ it('rejects mapping before a connection exists', function () {
     $salon = Salon::factory()->create();
     $stylist = stylistOf($salon);
 
-    expect(fn () => app(UpdateGhlStylistMapping::class)->handle($salon, null, [$stylist->id => 'ghl_u1']))
+    expect(fn () => app(UpdateGhlStaffMapping::class)->handle($salon, null, [$stylist->id => 'ghl_u1']))
         ->toThrow(ValidationException::class);
 });
 
-it('rejects a forged stylist id from another salon (tenant isolation)', function () {
+it('rejects forged ids from another salon in either tier (tenant isolation)', function () {
     $salonA = connectedSalon();
     $salonB = Salon::factory()->create();
     $stylistB = stylistOf($salonB);
+    $frontDeskB = frontDeskOf($salonB);
 
-    expect(fn () => app(UpdateGhlStylistMapping::class)->handle($salonA, null, [$stylistB->id => 'ghl_u1']))
+    expect(fn () => app(UpdateGhlStaffMapping::class)->handle($salonA, null, [$stylistB->id => 'ghl_u1']))
+        ->toThrow(ValidationException::class);
+    expect(fn () => app(UpdateGhlStaffMapping::class)->handle($salonA, null, [], [$frontDeskB->id => 'ghl_u1']))
         ->toThrow(ValidationException::class);
 
     expect(StylistProfile::forSalon($salonB)->where('user_id', $stylistB->id)->value('ghl_user_id'))->toBeNull();
+    expect($salonB->memberships()->where('user_id', $frontDeskB->id)->value('ghl_location_user_id'))->toBeNull();
+});
+
+it('never turns a mapped non-stylist into a booking target', function () {
+    $salon = connectedSalon();
+    $stylist = stylistOf($salon);
+    $frontDesk = frontDeskOf($salon);
+
+    app(UpdateGhlStaffMapping::class)->handle($salon, null, [], [$frontDesk->id => 'ghl_u3']);
+
+    // Booking surfaces still see only stylists: the roster and the calendar
+    // columns are unchanged by an identity mapping.
+    expect($salon->stylistUsers()->pluck('users.id')->all())->toBe([$stylist->id]);
+
+    $grid = app(CalendarData::class)
+        ->day($salon, CarbonImmutable::now($salon->timezone), null);
+    expect(array_column($grid['columns'], 'stylistId'))->not->toContain($frontDesk->id);
 });
 
 // ---------------------------------------------------------------------------
@@ -229,4 +339,17 @@ it('leaves existing salons disconnected and stylists unmapped by default', funct
     expect($salon->ghlConnection()->first())->toBeNull();
     expect($salon->ghlConnected())->toBeFalse();
     expect(StylistProfile::forSalon($salon)->where('user_id', $stylist->id)->value('ghl_user_id'))->toBeNull();
+});
+
+it('auto-matches stylists when the master calendar is picked after loading', function () {
+    fakeGhlDirectory();
+    $salon = connectedSalon();
+    $stylist = stylistOf($salon, User::factory()->create(['email' => 'ben@example.com']));
+
+    Livewire::actingAs(salonOwnerOf($salon))
+        ->test('pages::salon.settings', ['salon' => $salon])
+        ->call('loadGhlDirectory')                    // no calendar chosen yet
+        ->assertSet('ghlStylistMap.'.$stylist->id, '')
+        ->set('ghlCalendarId', 'cal_1')               // picking it re-runs the match
+        ->assertSet('ghlStylistMap.'.$stylist->id, 'ghl_u2');
 });
