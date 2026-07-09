@@ -1,28 +1,40 @@
 <?php
 
-use App\Actions\Bookings\TransitionBookingStatus;
 use App\Enums\BookingStatus;
 use App\Models\Booking;
+use App\Models\BookingItem;
 use App\Models\Salon;
 use Carbon\CarbonImmutable;
-use Flux\Flux;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Livewire\WithPagination;
 
-new #[Title('Check-in')] class extends Component {
+/*
+ * The "look anything up" view: EVERY appointment, past and upcoming, with
+ * client/phone search, a date range, and a status filter — distinct from the
+ * today-focused check-in. Read-only apart from the status-history modal:
+ * status changes stay on check-in. Managers and front desk browse the whole
+ * salon; a stylist sees only bookings they are assigned to.
+ */
+new #[Title('Appointments')] class extends Component {
+    use WithPagination;
+
     public Salon $salon;
     public string $search = '';
+    public string $from = '';
+    public string $to = '';
+    public string $status = '';
 
     public bool $showTimeline = false;
     public ?int $timelineId = null;
 
     public function mount(Salon $salon): void
     {
-        // Check-in / status management is owner / admin / front-desk only.
-        // Stylists are denied the appointments screen outright (no status edits).
-        $this->authorize('manageBookings', $salon);
+        // Browsing is open to everyone with a bookings surface (managers,
+        // front desk, stylists); scoping below narrows stylists to their own.
+        $this->authorize('accessBookings', $salon);
         $this->salon = $salon;
     }
 
@@ -32,43 +44,46 @@ new #[Title('Check-in')] class extends Component {
         return Auth::user()->can('manageBookings', $this->salon);
     }
 
+    public function updated(string $property): void
+    {
+        if (in_array($property, ['search', 'from', 'to', 'status'], true)) {
+            $this->resetPage();
+        }
+    }
+
     #[Computed]
     public function bookings()
     {
-        // Strictly TODAY — check-in is the live "who's in today" tool.
-        // Computed per request, so the view rolls over at midnight by itself.
-        $dayStart = CarbonImmutable::now($this->salon->timezone)->startOfDay();
-        $dayEnd = $dayStart->addDay();
+        $tz = $this->salon->timezone;
         $term = trim($this->search);
 
         return $this->salon->bookings()
             ->with(['client', 'items.service', 'items.stylist', 'bookedBy'])
-            ->whereHas('items', fn ($q) => $q
-                ->where('starts_at', '>=', $dayStart->utc())
-                ->where('starts_at', '<', $dayEnd->utc()))
             ->when(! $this->isManager, fn ($q) => $q
                 ->whereHas('items', fn ($w) => $w->where('stylist_id', Auth::id())))
             ->when($term !== '', fn ($q) => $q
                 ->whereHas('client', fn ($w) => $w
                     ->where('name', 'like', "%{$term}%")
                     ->orWhere('phone', 'like', "%{$term}%")))
-            ->get()
-            ->sortBy(fn (Booking $b) => $b->items->min('starts_at'))
-            ->values();
-    }
-
-    public function changeStatus(int $bookingId, string $to, TransitionBookingStatus $action): void
-    {
-        $booking = $this->booking($bookingId);
-        $action->handle(Auth::user(), $this->salon, $booking, BookingStatus::from($to));
-        unset($this->bookings);
-
-        Flux::toast(variant: 'success', text: __('Booking updated.'));
+            ->when($this->from !== '', fn ($q) => $q
+                ->whereHas('items', fn ($w) => $w
+                    ->where('starts_at', '>=', CarbonImmutable::parse($this->from, $tz)->startOfDay()->utc())))
+            ->when($this->to !== '', fn ($q) => $q
+                ->whereHas('items', fn ($w) => $w
+                    ->where('starts_at', '<', CarbonImmutable::parse($this->to, $tz)->startOfDay()->addDay()->utc())))
+            ->when($this->status !== '', fn ($q) => $q->where('status', $this->status))
+            ->orderByDesc(
+                BookingItem::select('starts_at')
+                    ->whereColumn('booking_id', 'bookings.id')
+                    ->orderBy('starts_at')
+                    ->limit(1)
+            )
+            ->paginate(25);
     }
 
     public function openTimeline(int $bookingId): void
     {
-        $this->booking($bookingId); // authorise scope
+        $this->booking($bookingId); // authorise scope (anti-IDOR)
         $this->timelineId = $bookingId;
         $this->showTimeline = true;
     }
@@ -90,7 +105,7 @@ new #[Title('Check-in')] class extends Component {
     {
         $booking = $this->salon->bookings()->whereKey($id)->firstOrFail();
 
-        // Stylists may only touch bookings they are assigned to.
+        // Stylists may only open bookings they are assigned to.
         abort_unless(
             $this->isManager || $booking->items()->where('stylist_id', Auth::id())->exists(),
             403,
@@ -102,7 +117,7 @@ new #[Title('Check-in')] class extends Component {
 
 <div>
     <div class="mx-auto flex w-full max-w-5xl flex-col gap-7 px-8 py-7">
-        <x-ui.page-header :overline="__('Today')" :title="__('Check-in')">
+        <x-ui.page-header :overline="__('All dates')" :title="__('Appointments')">
             <x-slot:actions>
                 @can('manageBookings', $salon)
                     <x-ui.button :href="route('salon.bookings.create', $salon)" wire:navigate>
@@ -113,7 +128,15 @@ new #[Title('Check-in')] class extends Component {
         </x-ui.page-header>
 
         <div class="flex flex-wrap items-end gap-3">
-            <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" :placeholder="__('Search today\'s clients')" :label="__('Search')" class="max-w-64" />
+            <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" :placeholder="__('Search client or phone')" :label="__('Search')" class="max-w-64" />
+            <flux:input type="date" wire:model.live="from" class="max-w-44" :label="__('From')" />
+            <flux:input type="date" wire:model.live="to" class="max-w-44" :label="__('To')" />
+            <flux:select wire:model.live="status" :label="__('Status')" class="max-w-44">
+                <flux:select.option value="">{{ __('All statuses') }}</flux:select.option>
+                @foreach (\App\Enums\BookingStatus::cases() as $case)
+                    <flux:select.option value="{{ $case->value }}">{{ $case->label() }}</flux:select.option>
+                @endforeach
+            </flux:select>
         </div>
 
         <div class="flex flex-col gap-3">
@@ -124,7 +147,10 @@ new #[Title('Check-in')] class extends Component {
                 <x-ui.card padding="p-5" class="{{ $dimmed ? 'opacity-65' : '' }}">
                     <div class="flex flex-wrap items-start justify-between gap-4">
                         <div class="flex items-start gap-4">
-                            <div class="w-16 shrink-0 pt-0.5 text-[14px] font-medium text-faint">{{ $start?->setTimezone($salon->timezone)->format('g:i A') }}</div>
+                            <div class="w-28 shrink-0 pt-0.5 text-[13.5px] font-medium leading-snug text-faint">
+                                {{ $start?->setTimezone($salon->timezone)->format('D, M j') }}<br>
+                                {{ $start?->setTimezone($salon->timezone)->format('g:i A') }}
+                            </div>
                             <x-ui.avatar :name="$booking->client->name" :seed="$seed" size="sm" class="mt-0.5" />
                             <div class="flex flex-col gap-1.5">
                                 <div class="flex flex-wrap items-center gap-2">
@@ -144,25 +170,16 @@ new #[Title('Check-in')] class extends Component {
                             </div>
                         </div>
 
-                        <div class="flex flex-col items-end gap-2">
-                            <div class="flex flex-wrap justify-end gap-2">
-                                @foreach ($booking->status->allowedTransitions() as $next)
-                                    @if ($next === \App\Enums\BookingStatus::Arrived)
-                                        <x-ui.button size="sm" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')">{{ __('Mark arrived') }}</x-ui.button>
-                                    @else
-                                        <x-ui.button size="sm" variant="secondary" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')">{{ $next->label() }}</x-ui.button>
-                                    @endif
-                                @endforeach
-                            </div>
-                            <button type="button" wire:click="openTimeline({{ $booking->id }})" class="text-[13px] font-medium text-secondary transition hover:text-accent">{{ __('History') }}</button>
-                        </div>
+                        <button type="button" wire:click="openTimeline({{ $booking->id }})" class="text-[13px] font-medium text-secondary transition hover:text-accent">{{ __('History') }}</button>
                     </div>
                 </x-ui.card>
             @empty
                 <x-ui.card padding="p-10" class="text-center text-[15px] text-faint">
-                    {{ __('No appointments today.') }}
+                    {{ __('No appointments match these filters.') }}
                 </x-ui.card>
             @endforelse
+
+            {{ $this->bookings->links() }}
         </div>
     </div>
 

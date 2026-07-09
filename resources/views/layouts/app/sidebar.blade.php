@@ -61,6 +61,13 @@
                                 <flux:icon.calendar variant="micro" class="shrink-0" />
                                 <span x-show="!collapsed" x-cloak>{{ __('Calendar') }}</span>
                             </a>
+                            {{-- The full, searchable list of every appointment
+                                 (stylists see their own; the page scopes it). --}}
+                            <a href="{{ route('salon.appointments.all', $salon) }}" wire:navigate
+                               class="bts-nav-item {{ request()->routeIs('salon.appointments.all') ? 'bts-nav-item-active' : '' }}">
+                                <flux:icon.list-bullet variant="micro" class="shrink-0" />
+                                <span x-show="!collapsed" x-cloak>{{ __('Appointments') }}</span>
+                            </a>
                         @endcan
                         {{-- Check-in: front-desk level only (owner/admin/front-desk).
                              Hidden from stylists, who cannot change booking status. --}}

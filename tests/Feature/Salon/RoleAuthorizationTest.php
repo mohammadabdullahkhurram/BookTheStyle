@@ -166,7 +166,9 @@ it('renders only the links each role may use', function () {
     stylistWithHours($salon, 0, 9 * 60, 17 * 60);
 
     $calendar = route('salon.calendar', $salon);
-    $checkin = route('salon.appointments', $salon);
+    // Anchored on the closing quote so /appointments does not match the
+    // stylist-visible /appointments/all link.
+    $checkin = route('salon.appointments', $salon).'"';
     $services = route('salon.services', $salon);
     $staff = route('salon.staff', $salon);
     $availability = route('salon.availability', $salon);
