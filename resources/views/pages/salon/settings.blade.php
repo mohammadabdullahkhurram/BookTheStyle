@@ -9,6 +9,7 @@ use App\Actions\Salons\UpdateGhlConnection;
 use App\Actions\Salons\UpdateGhlStaffMapping;
 use App\Enums\StaffType;
 use App\Actions\Salons\UpdateSalonProfile;
+use App\Actions\Salons\UpdateTimezone;
 use App\Models\Salon;
 use App\Models\StylistProfile;
 use App\Services\Ghl\GhlApiException;
@@ -40,6 +41,9 @@ new #[Title('Salon settings')] class extends Component {
 
     /** @var array<string, bool> */
     public array $flags = [];
+
+    // The salon's IANA timezone (General settings).
+    public string $timezone = '';
 
     // Business + contact profile (name = business / trading name).
     public string $name = '';
@@ -121,6 +125,7 @@ new #[Title('Salon settings')] class extends Component {
             $this->flags[$key] = $salon->hasFeature($key);
         }
 
+        $this->timezone = $salon->timezone;
         $this->loadProfile();
         $this->refreshGhlState();
     }
@@ -432,6 +437,32 @@ new #[Title('Salon settings')] class extends Component {
         return $features;
     }
 
+    /**
+     * @return list<string>
+     */
+    #[Computed]
+    public function timezones(): array
+    {
+        return timezone_identifiers_list();
+    }
+
+    /**
+     * Change the salon timezone. Booking instants are stored in UTC and do
+     * not move; every consumer reads the salon's current timezone live, so
+     * only displayed local times and weekly-window interpretation shift.
+     */
+    public function saveTimezone(UpdateTimezone $action): void
+    {
+        $this->authorize('manage', $this->salon);
+
+        $this->validate(['timezone' => ['required', 'timezone:all']]);
+
+        $action->handle($this->salon, $this->timezone);
+        $this->salon->refresh();
+
+        Flux::toast(variant: 'success', text: __('Timezone saved.'));
+    }
+
     public function savePolicy(UpdateBookingPolicy $action): void
     {
         $this->authorize('manage', $this->salon);
@@ -528,9 +559,34 @@ new #[Title('Salon settings')] class extends Component {
 }; ?>
 
 <div>
-    <div class="mx-auto flex w-full max-w-3xl flex-col gap-7 px-8 py-7">
+    <div class="mx-auto flex w-full max-w-5xl flex-col gap-7 px-8 py-7">
         <x-ui.page-header :overline="$salon->name" :title="__('Salon settings')" />
 
+        {{-- Category navigation + one panel per category. Panels are Alpine
+             show/hide (all content stays in the DOM), so every wire binding
+             and save method behaves exactly as on the old single page. --}}
+        <div x-data="{ tab: window.location.hash.slice(1) || 'general' }" class="flex items-start gap-8 max-md:flex-col">
+            <div class="w-full md:w-[210px] md:shrink-0">
+                <nav class="flex gap-1 overflow-x-auto md:flex-col" aria-label="{{ __('Salon settings') }}">
+                    <button type="button" x-on:click="tab = 'general'; window.location.hash = 'general'"
+                            class="bts-nav-item shrink-0 text-left" :class="tab === 'general' && 'bts-nav-item-active'">{{ __('General') }}</button>
+                    <button type="button" x-on:click="tab = 'policy'; window.location.hash = 'policy'"
+                            class="bts-nav-item shrink-0 text-left" :class="tab === 'policy' && 'bts-nav-item-active'">{{ __('Booking policy') }}</button>
+                    <button type="button" x-on:click="tab = 'features'; window.location.hash = 'features'"
+                            class="bts-nav-item shrink-0 text-left" :class="tab === 'features' && 'bts-nav-item-active'">{{ __('Features') }}</button>
+                    <button type="button" x-on:click="tab = 'branding'; window.location.hash = 'branding'"
+                            class="bts-nav-item shrink-0 text-left" :class="tab === 'branding' && 'bts-nav-item-active'">{{ __('Branding') }}</button>
+                    @can('manageGhlConnection', $salon)
+                        <button type="button" x-on:click="tab = 'integrations'; window.location.hash = 'integrations'"
+                                class="bts-nav-item shrink-0 text-left" :class="tab === 'integrations' && 'bts-nav-item-active'">{{ __('Integrations') }}</button>
+                    @endcan
+                </nav>
+            </div>
+
+            <div class="flex min-w-0 flex-1 flex-col">
+
+        {{-- General: business profile + timezone. --}}
+        <section x-show="tab === 'general'" x-cloak class="flex flex-col gap-6">
         @can('manageProfile', $salon)
             <x-ui.card class="flex flex-col gap-5">
                 <h2 class="bts-card-title">{{ __('Business profile') }}</h2>
@@ -541,6 +597,24 @@ new #[Title('Salon settings')] class extends Component {
             </x-ui.card>
         @endcan
 
+        <x-ui.card class="flex flex-col gap-4">
+            <h2 class="bts-card-title">{{ __('Timezone') }}</h2>
+            <form wire:submit="saveTimezone" class="flex flex-col gap-4">
+                <flux:select wire:model="timezone" :label="__('Salon timezone')">
+                    @foreach ($this->timezones as $tz)
+                        <flux:select.option value="{{ $tz }}">{{ $tz }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+                <p class="text-[13px] text-faint">
+                    {{ __('Changing the timezone changes how availability and bookings are shown. Existing bookings keep their exact moment in time — only the displayed local time follows the new timezone.') }}
+                </p>
+                <div><x-ui.button type="submit">{{ __('Save timezone') }}</x-ui.button></div>
+            </form>
+        </x-ui.card>
+        </section>
+
+        {{-- Booking policy. --}}
+        <section x-show="tab === 'policy'" x-cloak class="flex flex-col gap-6">
         <x-ui.card class="flex flex-col gap-5">
             <h2 class="bts-card-title">{{ __('Booking policy') }}</h2>
             <form wire:submit="savePolicy" class="flex flex-col gap-5">
@@ -556,6 +630,10 @@ new #[Title('Salon settings')] class extends Component {
             </form>
         </x-ui.card>
 
+        </section>
+
+        {{-- Branding. --}}
+        <section x-show="tab === 'branding'" x-cloak class="flex flex-col gap-6">
         <x-ui.card class="flex flex-col gap-5">
             <h2 class="bts-card-title">{{ __('Branding') }}</h2>
             <form wire:submit="saveBranding" class="flex flex-col gap-5">
@@ -579,6 +657,10 @@ new #[Title('Salon settings')] class extends Component {
             </form>
         </x-ui.card>
 
+        </section>
+
+        {{-- Features. --}}
+        <section x-show="tab === 'features'" x-cloak class="flex flex-col gap-6">
         <x-ui.card class="flex flex-col gap-5">
             <h2 class="bts-card-title">{{ __('Feature flags') }}</h2>
             <form wire:submit="saveFlags" class="flex flex-col gap-5">
@@ -592,6 +674,10 @@ new #[Title('Salon settings')] class extends Component {
             </form>
         </x-ui.card>
 
+        </section>
+
+        {{-- Integrations: GoHighLevel connection, mapping, inbound webhook. --}}
+        <section x-show="tab === 'integrations'" x-cloak class="flex flex-col gap-6">
         @can('manageGhlConnection', $salon)
             @include('partials.ghl-connection-card')
 
@@ -768,5 +854,9 @@ new #[Title('Salon settings')] class extends Component {
                 </x-ui.card>
             @endif
         @endcan
+        </section>
+
+            </div>
+        </div>
     </div>
 </div>
