@@ -3,6 +3,7 @@
 namespace App\Actions\Bookings;
 
 use App\Enums\BookingStatus;
+use App\Jobs\SyncBookingToGhl;
 use App\Models\Booking;
 use App\Models\Salon;
 use App\Models\User;
@@ -52,6 +53,12 @@ class TransitionBookingStatus
             'to_status' => $to,
             'actor_user_id' => $actor->id,
         ]);
+
+        // Mirror a cancellation to GHL in the background; other lifecycle
+        // moves (arrived/in-service/…) stay app-only for now.
+        if ($to === BookingStatus::Cancelled) {
+            SyncBookingToGhl::dispatch($booking->id)->afterCommit();
+        }
 
         return $booking;
     }

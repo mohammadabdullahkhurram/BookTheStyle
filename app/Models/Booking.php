@@ -6,6 +6,7 @@ use App\Enums\BookedByType;
 use App\Enums\BookingSource;
 use App\Enums\BookingStatus;
 use App\Models\Concerns\BelongsToSalon;
+use Carbon\CarbonImmutable;
 use Database\Factories\BookingFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -25,6 +26,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property bool $is_walkin
  * @property string|null $notes
  * @property string|null $ghl_appointment_id
+ * @property string|null $ghl_sync_status
+ * @property string|null $ghl_sync_error
+ * @property CarbonImmutable|null $last_synced_at
  */
 class Booking extends Model
 {
@@ -41,6 +45,9 @@ class Booking extends Model
         'is_walkin',
         'notes',
         'ghl_appointment_id',
+        'ghl_sync_status',
+        'ghl_sync_error',
+        'last_synced_at',
     ];
 
     protected function casts(): array
@@ -50,6 +57,7 @@ class Booking extends Model
             'booked_by_type' => BookedByType::class,
             'source' => BookingSource::class,
             'is_walkin' => 'boolean',
+            'last_synced_at' => 'datetime',
         ];
     }
 

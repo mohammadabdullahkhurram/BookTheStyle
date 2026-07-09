@@ -6,6 +6,7 @@ use App\Actions\Clients\CreateClient;
 use App\Enums\BookedByType;
 use App\Enums\BookingSource;
 use App\Enums\BookingStatus;
+use App\Jobs\SyncBookingToGhl;
 use App\Models\Booking;
 use App\Models\Client;
 use App\Models\Salon;
@@ -50,6 +51,26 @@ class CreateBooking
      * }  $data
      */
     public function handle(User $actor, Salon $salon, array $data): Booking
+    {
+        $booking = $this->create($actor, $salon, $data);
+
+        // Mirror to GHL in the background AFTER the booking committed — the
+        // app booking is the source of truth and never waits on GHL.
+        SyncBookingToGhl::dispatch($booking->id)->afterCommit();
+
+        return $booking;
+    }
+
+    /**
+     * @param  array{
+     *     client: array{id?: int, name?: string, phone?: string|null, email?: string|null},
+     *     items: list<array{service_id: int, stylist_id: int|null}>,
+     *     start?: string|null,
+     *     is_walkin?: bool,
+     *     notes?: string|null,
+     * }  $data
+     */
+    private function create(User $actor, Salon $salon, array $data): Booking
     {
         $isWalkin = (bool) ($data['is_walkin'] ?? false);
         $tz = $salon->timezone;

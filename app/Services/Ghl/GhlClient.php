@@ -12,14 +12,16 @@ use SensitiveParameter;
 use Throwable;
 
 /**
- * Minimal GoHighLevel v2 API client for the Phase 6a endpoints: list calendars,
- * fetch one calendar (team members), list location users.
+ * Minimal GoHighLevel v2 API client for Phase 6: list calendars, fetch one
+ * calendar (team members), list location users, upsert contacts, and
+ * create/update calendar appointments.
  *
  * Endpoint shapes verified against GHL's published OpenAPI specs
- * (github.com/GoHighLevel/highlevel-api-docs, apps/calendars.json +
- * apps/users.json): base https://services.leadconnectorhq.com, Bearer auth with
- * the salon's Private Integration Token, and a required Version header that
- * differs per API family — 2021-04-15 for /calendars, 2021-07-28 for /users.
+ * (github.com/GoHighLevel/highlevel-api-docs: apps/calendars.json,
+ * apps/users.json, apps/contacts.json): base
+ * https://services.leadconnectorhq.com, Bearer auth with the salon's Private
+ * Integration Token, and a required Version header that differs per API
+ * family — 2021-04-15 for /calendars, 2021-07-28 for /users and /contacts.
  *
  * Requests are throttled per location to stay under GHL's burst limit of 100
  * requests / 10 s per location, and retried with backoff on 429/5xx/network
@@ -32,6 +34,8 @@ class GhlClient
     public const CALENDARS_VERSION = '2021-04-15';
 
     public const USERS_VERSION = '2021-07-28';
+
+    public const CONTACTS_VERSION = '2021-07-28';
 
     /** Stay safely under GHL's 100 requests / 10 s per-location burst limit. */
     public const BURST_LIMIT = 90;
@@ -95,15 +99,78 @@ class GhlClient
     }
 
     /**
+     * Upsert a contact in the salon's location (matched server-side by
+     * email/phone when present). Returns the contact array incl. its id.
+     *
+     * @param  array<string, mixed>  $contact
+     * @return array<string, mixed>
+     */
+    public function upsertContact(array $contact): array
+    {
+        $data = $this->send('post', '/contacts/upsert', self::CONTACTS_VERSION, json: [
+            ...$contact,
+            'locationId' => $this->locationId,
+        ]);
+
+        $result = $data['contact'] ?? null;
+
+        return is_array($result) ? $result : [];
+    }
+
+    /**
+     * Create an appointment on a calendar in the salon's location. Returns
+     * the appointment array incl. its id.
+     *
+     * @param  array<string, mixed>  $appointment
+     * @return array<string, mixed>
+     */
+    public function createAppointment(array $appointment): array
+    {
+        return $this->send('post', '/calendars/events/appointments', self::CALENDARS_VERSION, json: [
+            ...$appointment,
+            'locationId' => $this->locationId,
+        ]);
+    }
+
+    /**
+     * Update an existing appointment (times, provider, title, or an
+     * appointmentStatus of "cancelled" to cancel it).
+     *
+     * @param  array<string, mixed>  $appointment
+     * @return array<string, mixed>
+     */
+    public function updateAppointment(string $eventId, array $appointment): array
+    {
+        return $this->send('put', '/calendars/events/appointments/'.$eventId, self::CALENDARS_VERSION, json: $appointment);
+    }
+
+    /**
      * @param  array<string, string>  $query
      * @return array<string, mixed>
      */
     private function get(string $path, string $version, array $query = []): array
     {
+        return $this->send('get', $path, $version, $query);
+    }
+
+    /**
+     * @param  array<string, string>  $query
+     * @param  array<string, mixed>|null  $json
+     * @return array<string, mixed>
+     */
+    private function send(string $method, string $path, string $version, array $query = [], ?array $json = null): array
+    {
         $this->throttle();
 
         try {
-            $response = $this->pending($version)->get($path, $query);
+            $pending = $this->pending($version);
+
+            $response = match ($method) {
+                'get' => $pending->get($path, $query),
+                'post' => $pending->post($path, $json ?? []),
+                'put' => $pending->put($path, $json ?? []),
+                default => throw new \InvalidArgumentException("Unsupported method [{$method}]."),
+            };
         } catch (ConnectionException) {
             throw GhlApiException::network();
         }
@@ -112,9 +179,9 @@ class GhlClient
             throw GhlApiException::fromStatus($response->status());
         }
 
-        $json = $response->json();
+        $data = $response->json();
 
-        return is_array($json) ? $json : [];
+        return is_array($data) ? $data : [];
     }
 
     private function pending(string $version): PendingRequest

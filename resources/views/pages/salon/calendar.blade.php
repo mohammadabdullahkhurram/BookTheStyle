@@ -325,6 +325,11 @@ new #[Title('Calendar')] class extends Component {
             <x-slot:pill>
                 <x-ui.status-pill :status="$booking->status" />
                 @if ($booking->is_walkin)<span class="bts-pill" style="background-color:#F0EEEA;color:#9C9890;">{{ __('Walk-in') }}</span>@endif
+                @if ($booking->ghl_sync_status === 'failed')
+                    @can('manage', $salon)
+                        <span class="bts-pill" style="background-color:#F8E3E3;color:#A23A3A;" title="{{ $booking->ghl_sync_error }}">{{ __('GoHighLevel sync failed') }}</span>
+                    @endcan
+                @endif
             </x-slot:pill>
             <div class="flex flex-col gap-5">
                 <div class="flex flex-col gap-2 rounded-[11px] border border-border bg-paper p-4">
