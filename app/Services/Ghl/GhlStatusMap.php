@@ -42,6 +42,9 @@ class GhlStatusMap
             'showed' => BookingStatus::Completed,
             'confirmed' => BookingStatus::Confirmed,
             'new' => BookingStatus::Booked,
+            // calendar.status fallback vocabulary (the live field is the
+            // misspelled appoinmentStatus; see GhlWebhookPayload).
+            'booked' => BookingStatus::Booked,
             default => null,
         };
     }

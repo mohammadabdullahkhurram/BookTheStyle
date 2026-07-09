@@ -16,6 +16,7 @@ use App\Services\Ghl\GhlInboundSync;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 /*
 | Phase 6c inbound: the /webhooks/ghl endpoint (secret verification, salon
@@ -379,4 +380,127 @@ it('never lets salon B\'s webhook touch salon A\'s booking', function () {
     // Salon A's booking is untouched; B's event resolved inside B only.
     expect($bookingA->fresh()->status)->toBe(BookingStatus::Booked);
     expect(WebhookEvent::latest('id')->first()->salon_id)->not->toBe($salonA->id);
+});
+
+// ---------------------------------------------------------------------------
+// Real GHL workflow payload shape (nested calendar.*, misspelled
+// appoinmentStatus, offset-less local times + selectedTimezone)
+// ---------------------------------------------------------------------------
+
+/**
+ * @return array<string, mixed>
+ */
+function realGhlPayload(array $calendar, array $extra = []): array
+{
+    return array_merge([
+        'locationId' => 'loc_1',
+        'contact_id' => 'ghl_c1',
+        'email' => 'casey@example.com',
+        'phone' => '+15550001111',
+        'user' => ['firstName' => 'Abdullah', 'lastName' => 'Stylist Two', 'email' => 'abdullah@bluejaypro.com'],
+        'calendar' => array_merge([
+            'appointmentId' => 'ghl_a1',
+            'id' => 'cal_master',              // the CALENDAR id — never the appointment
+            'calendarName' => 'Schedule an Appointment',
+            'selectedTimezone' => 'America/New_York',
+            'status' => 'booked',              // stale field — must NOT be used
+        ], $calendar),
+    ], $extra);
+}
+
+it('cancels the app booking from a real GHL payload, reading appoinmentStatus not status', function () {
+    $salon = whSalon();
+    $stylist = whStylist($salon);
+    $booking = whPushedBooking($salon, $stylist);
+
+    postWebhook(realGhlPayload([
+        'appoinmentStatus' => 'cancelled', // GHL's misspelling — the LIVE status
+        'startTime' => '2026-06-23T10:00:00', // local wall clock, no offset
+        'endTime' => '2026-06-23T10:45:00',
+    ]))->assertStatus(202);
+
+    // Had the handler read calendar.status ("booked"), nothing would change.
+    $booking->refresh();
+    expect($booking->status)->toBe(BookingStatus::Cancelled);
+    expect(WebhookEvent::latest('id')->value('status'))->toBe(WebhookEvent::STATUS_APPLIED);
+    Http::assertSentCount(1); // no outbound re-push of the inbound cancel
+});
+
+it('applies a real-shape reschedule DST-safely across timezones', function () {
+    $salon = whSalon(); // salon tz America/New_York
+    $stylist = whStylist($salon);
+    $booking = whPushedBooking($salon, $stylist);
+
+    // The GHL calendar reports Los Angeles wall-clock: 16:30 PT = 19:30 ET.
+    postWebhook(realGhlPayload([
+        'appoinmentStatus' => 'confirmed',
+        'startTime' => '2026-06-23T16:30:00',
+        'endTime' => '2026-06-23T17:00:00',
+        'selectedTimezone' => 'America/Los_Angeles',
+    ]))->assertStatus(202);
+
+    $item = $booking->items()->first();
+    expect($item->starts_at->utc()->toIso8601ZuluString())->toBe('2026-06-23T23:30:00Z'); // 16:30 PDT
+    expect($item->starts_at->setTimezone($salon->timezone)->format('H:i'))->toBe('19:30');
+    expect(WebhookEvent::latest('id')->value('status'))->toBe(WebhookEvent::STATUS_APPLIED);
+});
+
+it('treats a real-shape echo as an echo (status field noise ignored)', function () {
+    $salon = whSalon();
+    $stylist = whStylist($salon);
+    $booking = whPushedBooking($salon, $stylist);
+
+    postWebhook(realGhlPayload([
+        'appoinmentStatus' => 'confirmed', // = toGhl(Booked): our own push echoed
+        'startTime' => '2026-06-23T10:00:00',
+        'endTime' => '2026-06-23T10:45:00',
+    ]))->assertStatus(202);
+
+    expect(WebhookEvent::latest('id')->value('status'))->toBe(WebhookEvent::STATUS_IGNORED_ECHO);
+    expect($booking->fresh()->status)->toBe(BookingStatus::Booked);
+    Http::assertSentCount(1); // still only the original outbound create
+});
+
+it('falls back to contact + start-time matching when the appointment id is unknown', function () {
+    $salon = whSalon();
+    $stylist = whStylist($salon);
+
+    // A booking that never reached GHL (no appointment id stored).
+    $client = Client::factory()->for($salon)->create(['name' => 'Casey Client', 'ghl_contact_id' => 'ghl_c1']);
+    $booking = Booking::factory()->for($salon)->for($client)->create(['status' => BookingStatus::Booked]);
+    BookingItem::factory()->create([
+        'salon_id' => $salon->id,
+        'booking_id' => $booking->id,
+        'service_id' => Service::factory()->for($salon)->create()->id,
+        'stylist_id' => $stylist->id,
+        'starts_at' => CarbonImmutable::parse('2026-06-23 10:00', $salon->timezone),
+        'ends_at' => CarbonImmutable::parse('2026-06-23 10:45', $salon->timezone),
+    ]);
+
+    postWebhook(realGhlPayload([
+        'appointmentId' => 'ghl_from_ghl_side',
+        'appoinmentStatus' => 'cancelled',
+        'startTime' => '2026-06-23T10:00:00',
+        'endTime' => '2026-06-23T10:45:00',
+    ]))->assertStatus(202);
+
+    $booking->refresh();
+    expect($booking->status)->toBe(BookingStatus::Cancelled);
+    expect($booking->ghl_appointment_id)->toBe('ghl_from_ghl_side'); // adopted
+});
+
+it('logs a clear no-match when neither id nor contact resolves', function () {
+    Log::spy();
+    $salon = whSalon();
+
+    postWebhook(realGhlPayload([
+        'appointmentId' => 'ghl_total_stranger',
+        'appoinmentStatus' => 'confirmed',
+        'startTime' => '2026-06-23T10:00:00',
+    ], ['contact_id' => 'ghl_nobody', 'email' => 'nobody@example.com', 'phone' => '+10000000000']))
+        ->assertStatus(202);
+
+    Log::shouldHaveReceived('info')
+        ->withArgs(fn ($message) => $message === 'GHL inbound: no matching booking')
+        ->once();
 });

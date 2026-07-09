@@ -51,14 +51,20 @@ final readonly class GhlWebhookPayload
             return null;
         };
 
-        $time = function (array $paths) use ($pick): ?CarbonImmutable {
+        // Workflow payloads send LOCAL wall-clock times ("2026-07-27T16:30:00",
+        // no offset) qualified by calendar.selectedTimezone — parse offset-less
+        // strings in that zone (Carbon ignores the fallback zone whenever the
+        // string carries its own offset), DST-safe.
+        $fallbackTz = $pick(['calendar.selectedTimezone', 'appointment.selectedTimezone', 'selectedTimezone', 'timezone']);
+
+        $time = function (array $paths) use ($pick, $fallbackTz): ?CarbonImmutable {
             $raw = $pick($paths);
             if ($raw === null) {
                 return null;
             }
 
             try {
-                return CarbonImmutable::parse($raw);
+                return CarbonImmutable::parse($raw, $fallbackTz);
             } catch (Throwable) {
                 return null;
             }
@@ -66,13 +72,23 @@ final readonly class GhlWebhookPayload
 
         return new self(
             locationId: $pick(['locationId', 'location.id', 'location_id', 'customData.locationId']),
-            appointmentId: $pick(['appointment.id', 'appointmentId', 'calendar.appointmentId', 'calendar.id', 'customData.appointmentId']),
-            calendarId: $pick(['appointment.calendarId', 'calendar.calendarId', 'calendarId', 'customData.calendarId']),
+            // calendar.appointmentId is the appointment; calendar.id is the
+            // CALENDAR's id and must never be used as an appointment id.
+            appointmentId: $pick(['appointment.id', 'appointmentId', 'calendar.appointmentId', 'customData.appointmentId']),
+            calendarId: $pick(['appointment.calendarId', 'calendar.calendarId', 'calendar.id', 'calendarId', 'customData.calendarId']),
             assignedUserId: $pick(['appointment.assignedUserId', 'calendar.assignedUserId', 'assignedUserId', 'user.id', 'customData.assignedUserId']),
-            ghlStatus: $pick(['appointment.appointmentStatus', 'appointment.status', 'calendar.status', 'appointmentStatus', 'status', 'customData.appointmentStatus']),
+            // The LIVE status is "appoinmentStatus" (GHL's misspelling, one t);
+            // calendar.status ("booked") is a different, stale field — it is
+            // only a last-resort fallback.
+            ghlStatus: $pick([
+                'calendar.appoinmentStatus', 'calendar.appointmentStatus',
+                'appointment.appoinmentStatus', 'appointment.appointmentStatus',
+                'appoinmentStatus', 'appointmentStatus', 'customData.appointmentStatus',
+                'appointment.status', 'calendar.status', 'status',
+            ]),
             startsAt: $time(['appointment.startTime', 'calendar.startTime', 'startTime', 'customData.startTime']),
             endsAt: $time(['appointment.endTime', 'calendar.endTime', 'endTime', 'customData.endTime']),
-            changedAt: $time(['appointment.dateUpdated', 'appointment.dateAdded', 'dateUpdated', 'timestamp', 'customData.dateUpdated']),
+            changedAt: $time(['appointment.dateUpdated', 'appointment.dateAdded', 'calendar.dateUpdated', 'dateUpdated', 'timestamp', 'customData.dateUpdated']),
             contactId: $pick(['appointment.contactId', 'contact.id', 'contact_id', 'contactId', 'customData.contactId']),
             contactName: $pick(['contact.name', 'full_name', 'contact.fullName', 'customData.contactName']),
             contactEmail: $pick(['contact.email', 'email', 'customData.contactEmail']),

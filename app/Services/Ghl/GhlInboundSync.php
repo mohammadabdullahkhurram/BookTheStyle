@@ -16,6 +16,7 @@ use App\Models\StylistProfile;
 use App\Models\WebhookEvent;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Apply one verified inbound GHL webhook event — the other half of the
@@ -79,11 +80,29 @@ class GhlInboundSync
             ->where('ghl_appointment_id', $payload->appointmentId)
             ->first();
 
+        // Fallback: an appointment id we never stored can still belong to a
+        // local booking — match by contact + exact start instant (only among
+        // bookings with no GHL id, so another appointment's booking can never
+        // be hijacked) and adopt the id.
+        if ($booking === null) {
+            $booking = $this->matchByContactAndTime($salon, $payload);
+
+            if ($booking !== null) {
+                $booking->forceFill(['ghl_appointment_id' => $payload->appointmentId])->save();
+            }
+        }
+
         if ($booking !== null) {
             $this->applyToKnownAppointment($event, $salon, $connection, $payload, $booking);
 
             return;
         }
+
+        Log::info('GHL inbound: no matching booking', [
+            'webhook_event_id' => $event->id,
+            'salon_id' => $salon->id,
+            'appointment_id' => $payload->appointmentId,
+        ]);
 
         $this->createBookingFromGhl($event, $salon, $connection, $payload);
     }
@@ -132,6 +151,8 @@ class GhlInboundSync
             return;
         }
 
+        $fromStatus = $booking->status;
+
         // Apply the GHL-originated change. Direct model writes only — the
         // booking actions (which dispatch outbound pushes) are never called.
         if ((! $startMatches || ! $endMatches) && $payload->startsAt !== null && $currentStart !== null && $items->isNotEmpty()) {
@@ -165,7 +186,50 @@ class GhlInboundSync
 
         $this->refreshBookingSyncState($booking->fresh(), $connection, $payload);
 
+        Log::info('GHL inbound applied', [
+            'webhook_event_id' => $event->id,
+            'booking_id' => $booking->id,
+            'from_status' => $fromStatus->value,
+            'to_status' => ($incomingStatus ?? $fromStatus)->value,
+            'rescheduled' => ! $startMatches || ! $endMatches,
+        ]);
+
         $event->conclude(WebhookEvent::STATUS_APPLIED);
+    }
+
+    /**
+     * Contact + exact-start fallback used when the appointment id is unknown:
+     * the client resolves by ghl_contact_id / email / phone, and their
+     * un-mirrored booking starting at exactly the payload instant matches.
+     */
+    private function matchByContactAndTime(Salon $salon, GhlWebhookPayload $payload): ?Booking
+    {
+        if ($payload->startsAt === null) {
+            return null;
+        }
+
+        $clientQuery = Client::query()->where('salon_id', $salon->id);
+        $client = null;
+        if ($payload->contactId !== null) {
+            $client = (clone $clientQuery)->where('ghl_contact_id', $payload->contactId)->first();
+        }
+        if ($client === null && $payload->contactEmail !== null) {
+            $client = (clone $clientQuery)->where('email', $payload->contactEmail)->first();
+        }
+        if ($client === null && $payload->contactPhone !== null) {
+            $client = (clone $clientQuery)->where('phone', $payload->contactPhone)->first();
+        }
+        if ($client === null) {
+            return null;
+        }
+
+        return Booking::query()
+            ->where('salon_id', $salon->id)
+            ->where('client_id', $client->id)
+            ->whereNull('ghl_appointment_id')
+            ->whereHas('items', fn ($q) => $q->where('starts_at', $payload->startsAt->utc()))
+            ->orderByDesc('id')
+            ->first();
     }
 
     private function createBookingFromGhl(
