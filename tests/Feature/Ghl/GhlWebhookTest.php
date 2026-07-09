@@ -786,3 +786,102 @@ it('never downgrades a completed booking on an inbound showed', function () {
     expect(WebhookEvent::latest('id')->value('status'))->toBe(WebhookEvent::STATUS_IGNORED_ECHO);
     expect($booking->fresh()->status)->toBe(BookingStatus::Completed); // no downgrade to arrived
 });
+
+// ---------------------------------------------------------------------------
+// Echo-loop hardening: pushes record their state; stale timestamp-less
+// events can't stomp fresh statuses; tracking repairs to reality.
+// ---------------------------------------------------------------------------
+
+it('records what every outbound push sent as the last known GHL state', function () {
+    $salon = whSalon();
+    $stylist = whStylist($salon);
+    $booking = whPushedBooking($salon, $stylist);
+
+    expect($booking->ghl_last_pushed_status)->toBe('confirmed'); // creation push
+
+    $booking->update(['status' => BookingStatus::Arrived]);
+    app(GhlBookingPusher::class)->push($booking->fresh());
+    expect($booking->fresh()->ghl_last_pushed_status)->toBe('showed'); // check-in push
+
+    $booking->update(['status' => BookingStatus::Cancelled]);
+    app(GhlBookingPusher::class)->push($booking->fresh());
+    expect($booking->fresh()->ghl_last_pushed_status)->toBe('cancelled'); // cancel push
+});
+
+it('survives the full check-in loop: showed sticks, stale confirmed loses, one push each', function () {
+    $salon = whSalon();
+    $stylist = whStylist($salon);
+    $booking = whPushedBooking($salon, $stylist); // 1 POST (confirmed)
+
+    // Check-in: the app pushes showed (1 PUT).
+    $booking->update(['status' => BookingStatus::Arrived]);
+    app(GhlBookingPusher::class)->push($booking->fresh());
+
+    // GHL echoes our showed back — ignored, stays checked in.
+    postWebhook(realGhlPayload([
+        'appointmentId' => 'ghl_a1',
+        'appoinmentStatus' => 'showed',
+        'startTime' => '2026-06-23T10:00:00',
+        'endTime' => '2026-06-23T10:45:00',
+    ]))->assertStatus(202);
+    expect(WebhookEvent::latest('id')->value('status'))->toBe(WebhookEvent::STATUS_IGNORED_ECHO);
+
+    // A STALE, timestamp-less 'confirmed' (the delayed creation event) — the
+    // exact webhook that used to flip check-ins back. It must lose.
+    postWebhook(realGhlPayload([
+        'appointmentId' => 'ghl_a1',
+        'appoinmentStatus' => 'confirmed',
+        'startTime' => '2026-06-23T10:00:00',
+        'endTime' => '2026-06-23T10:45:00',
+    ]))->assertStatus(202);
+
+    expect(WebhookEvent::latest('id')->value('status'))->toBe(WebhookEvent::STATUS_IGNORED_STALE);
+    expect($booking->fresh()->status)->toBe(BookingStatus::Arrived); // check-in STUCK
+
+    // Exactly one create + one status push ever left the app. No ping-pong.
+    Http::assertSentCount(2);
+});
+
+it('still applies a genuine timestamp-less forward change exactly once, no bounce', function () {
+    $salon = whSalon();
+    $stylist = whStylist($salon);
+    $booking = whPushedBooking($salon, $stylist); // booked, pushed confirmed
+
+    // Cancelled inside GHL, workflow sends no timestamp: forward change,
+    // differs from current AND from what we last pushed → applies.
+    postWebhook(realGhlPayload([
+        'appointmentId' => 'ghl_a1',
+        'appoinmentStatus' => 'cancelled',
+        'startTime' => '2026-06-23T10:00:00',
+        'endTime' => '2026-06-23T10:45:00',
+    ]))->assertStatus(202);
+
+    expect($booking->fresh()->status)->toBe(BookingStatus::Cancelled);
+    expect(WebhookEvent::latest('id')->value('status'))->toBe(WebhookEvent::STATUS_APPLIED);
+    Http::assertSentCount(1); // the original create only — inbound never re-pushes
+});
+
+it('repairs corrupted sync tracking to match reality, idempotently', function () {
+    $salon = whSalon();
+    $stylist = whStylist($salon);
+    $booking = whPushedBooking($salon, $stylist);
+
+    // Corrupt the tracking the way the loop did: booking checked in, but the
+    // tracking claims something else entirely.
+    $booking->update(['status' => BookingStatus::Arrived]);
+    $booking->forceFill(['ghl_last_pushed_status' => 'cancelled', 'ghl_sync_status' => 'failed', 'ghl_sync_error' => 'loop'])->save();
+
+    $this->artisan('ghl:repair-sync-state')
+        ->expectsOutputToContain('Repaired 1 booking(s).')
+        ->assertSuccessful();
+
+    $booking->refresh();
+    expect($booking->ghl_last_pushed_status)->toBe('showed'); // tracking == reality
+    expect($booking->ghl_sync_status)->toBe('synced');
+    expect($booking->ghl_sync_error)->toBeNull();
+
+    // Second run: nothing left to repair.
+    $this->artisan('ghl:repair-sync-state')
+        ->expectsOutputToContain('Repaired 0 booking(s).')
+        ->assertSuccessful();
+});

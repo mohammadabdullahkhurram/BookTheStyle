@@ -34,6 +34,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $ghl_sync_status
  * @property string|null $ghl_sync_error
  * @property string|null $ghl_payload_hash
+ * @property string|null $ghl_last_pushed_status
  * @property CarbonImmutable|null $last_synced_at
  */
 class Booking extends Model
@@ -55,6 +56,7 @@ class Booking extends Model
         'ghl_sync_status',
         'ghl_sync_error',
         'ghl_payload_hash',
+        'ghl_last_pushed_status',
         'last_synced_at',
     ];
 

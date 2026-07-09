@@ -139,14 +139,18 @@ class GhlInboundSync
 
         // One structured decision line per event (ids + statuses only — the
         // exact evidence needed when "202 but nothing changed" strikes).
-        $decision = function (string $outcome, string $reason) use ($event, $payload, $booking, $currentGhlStatus, $startMatches, $endMatches, $statusMatches): void {
+        // current_status is captured BEFORE any mutation, so the line always
+        // shows the state the decision was made against.
+        $statusOnArrival = $booking->status->value;
+        $decision = function (string $outcome, string $reason) use ($event, $payload, $booking, $currentGhlStatus, $startMatches, $endMatches, $statusMatches, $statusOnArrival): void {
             Log::info('GHL inbound decision', [
                 'webhook_event_id' => $event->id,
                 'appointment_id' => $payload->appointmentId,
                 'booking_id' => $booking->id,
                 'incoming_status' => $payload->ghlStatus,
-                'current_status' => $booking->status->value,
+                'current_status' => $statusOnArrival,
                 'current_as_ghl' => $currentGhlStatus,
+                'last_pushed_status' => $booking->ghl_last_pushed_status,
                 'start_matches' => $startMatches,
                 'end_matches' => $endMatches,
                 'status_matches' => $statusMatches,
@@ -212,7 +216,39 @@ class GhlInboundSync
             ]);
         }
 
-        if (! $statusMatches && $incomingStatus !== null && $incomingStatus !== $booking->status) {
+        $applyStatus = ! $statusMatches && $incomingStatus !== null && $incomingStatus !== $booking->status;
+
+        // GHL workflow events often carry NO change timestamp. Such an event
+        // cannot prove it is newer than our own pushes, so two guards keep
+        // stale in-flight events from stomping fresh state (the check-in
+        // flip-back loop):
+        //  (a) its status equals what we LAST pushed → an old echo of our
+        //      own change still in flight → ignore the status.
+        //  (b) it carries a pre-arrival status while the booking has already
+        //      progressed → the delayed creation/confirmation event → stale.
+        // Timestamped events keep full last-change-wins semantics above.
+        if ($applyStatus && $payload->changedAt === null) {
+            $normalizedIncoming = mb_strtolower(trim((string) $payload->ghlStatus));
+
+            if ($booking->ghl_last_pushed_status !== null && $normalizedIncoming === $booking->ghl_last_pushed_status) {
+                $decision('ignored_echo', 'timestamp-less status equals the last state we pushed');
+                $event->conclude(WebhookEvent::STATUS_IGNORED_ECHO, __('Echo of a previously pushed status.'));
+
+                return;
+            }
+
+            $regressive = in_array($incomingStatus, [BookingStatus::Booked, BookingStatus::Confirmed], true)
+                && ! in_array($booking->status, [BookingStatus::Booked, BookingStatus::Confirmed], true);
+
+            if ($regressive) {
+                $decision('ignored_stale', 'timestamp-less lifecycle regression — delayed pre-arrival event');
+                $event->conclude(WebhookEvent::STATUS_IGNORED_STALE, __('Stale pre-arrival event arrived after the booking progressed.'));
+
+                return;
+            }
+        }
+
+        if ($applyStatus) {
             $from = $booking->status;
             $booking->update(['status' => $incomingStatus]);
             $booking->statusEvents()->create([
@@ -377,6 +413,9 @@ class GhlInboundSync
             'ghl_sync_status' => GhlBookingPusher::STATUS_SYNCED,
             'ghl_sync_error' => null,
             'ghl_payload_hash' => $hash,
+            // After an inbound apply, GHL and the app agree — record that
+            // agreed state as the last known GHL state.
+            'ghl_last_pushed_status' => GhlStatusMap::toGhl($booking->status),
             'last_synced_at' => now(),
         ])->save();
     }

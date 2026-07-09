@@ -64,6 +64,8 @@ class GhlBookingPusher
                 'appointmentStatus' => 'cancelled',
             ]);
 
+            // Record what GHL now holds, so the echo is recognisably ours.
+            $booking->ghl_last_pushed_status = 'cancelled';
             $this->mark($booking, self::STATUS_SYNCED, null, touchSyncedAt: true);
 
             return;
@@ -131,6 +133,9 @@ class GhlBookingPusher
         }
 
         $booking->ghl_payload_hash = $hash;
+        // Record exactly what we sent as the new last-known GHL state — the
+        // echoing webhook (and any stale in-flight one) is judged against it.
+        $booking->ghl_last_pushed_status = (string) $payload['appointmentStatus'];
         $this->mark($booking, self::STATUS_SYNCED, null, touchSyncedAt: true);
     }
 

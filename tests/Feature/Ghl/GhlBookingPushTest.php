@@ -416,10 +416,15 @@ it('splits a legacy multi-stylist booking into per-stylist bookings with their s
     $ben = stylistOf($salon);
     $owner = salonOwnerOf($salon);
 
-    // Build the LEGACY shape: roll back through the per-stylist split
-    // migration (the steps also unwind the later data-only per-service split
-    // and the status-event note), restoring the slice table + 1:1 columns…
-    $this->artisan('migrate:rollback', ['--step' => 3])->assertSuccessful();
+    // Build the LEGACY shape: roll back through 2026_07_09_000005 (whose
+    // down() restores the per-stylist slice table + old 1:1 columns),
+    // unwinding every migration on top of it. Counted from the files so new
+    // migrations never silently break this.
+    $steps = collect(glob(database_path('migrations/*.php')))
+        ->map(fn (string $file): string => basename($file))
+        ->filter(fn (string $file): bool => $file >= '2026_07_09_000005')
+        ->count();
+    $this->artisan('migrate:rollback', ['--step' => $steps])->assertSuccessful();
 
     $client = DB::table('clients')->insertGetId([
         'salon_id' => $salon->id, 'name' => 'Legacy Client', 'created_at' => now(), 'updated_at' => now(),
