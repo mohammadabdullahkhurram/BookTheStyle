@@ -7,6 +7,7 @@ use App\Jobs\SyncBookingToGhl;
 use App\Models\Booking;
 use App\Models\Salon;
 use App\Models\User;
+use App\Services\Ghl\GhlStatusMap;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Validation\ValidationException;
 
@@ -54,9 +55,10 @@ class TransitionBookingStatus
             'actor_user_id' => $actor->id,
         ]);
 
-        // Mirror a cancellation to GHL in the background; other lifecycle
-        // moves (arrived/in-service/…) stay app-only for now.
-        if ($to === BookingStatus::Cancelled) {
+        // Mirror to GHL whenever the mapped appointment status actually
+        // changes (cancelled / no-show / completed); app-only lifecycle moves
+        // (arrived, in service) map to the same GHL status and stay local.
+        if (GhlStatusMap::toGhl($to) !== GhlStatusMap::toGhl($from)) {
             SyncBookingToGhl::dispatch($booking->id)->afterCommit();
         }
 

@@ -417,9 +417,9 @@ it('splits a legacy multi-stylist booking into per-stylist bookings with their s
     $owner = salonOwnerOf($salon);
 
     // Build the LEGACY shape: roll back through the per-stylist split
-    // migration (step 2 also unwinds the data-only per-service split that
-    // sits after it), restoring the slice table + dropping the 1:1 columns…
-    $this->artisan('migrate:rollback', ['--step' => 2])->assertSuccessful();
+    // migration (the steps also unwind the later data-only per-service split
+    // and the status-event note), restoring the slice table + 1:1 columns…
+    $this->artisan('migrate:rollback', ['--step' => 3])->assertSuccessful();
 
     $client = DB::table('clients')->insertGetId([
         'salon_id' => $salon->id, 'name' => 'Legacy Client', 'created_at' => now(), 'updated_at' => now(),

@@ -5,6 +5,7 @@ use App\Models\Booking;
 use App\Models\BookingItem;
 use App\Models\Salon;
 use Carbon\CarbonImmutable;
+use Flux\Flux;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
@@ -101,6 +102,80 @@ new #[Title('Appointments')] class extends Component {
             ->with('actor:id,name')->orderBy('created_at')->get() ?? collect();
     }
 
+
+    public function changeStatus(int $bookingId, string $to, \App\Actions\Bookings\TransitionBookingStatus $action): void
+    {
+        $booking = $this->booking($bookingId);
+        $action->handle(Auth::user(), $this->salon, $booking, BookingStatus::from($to));
+        unset($this->bookings);
+
+        Flux::toast(variant: 'success', text: __('Booking updated.'));
+    }
+
+    // --- Reschedule (front-desk level; same stylist + services) -----------
+
+    public bool $showReschedule = false;
+
+    public ?int $rescheduleId = null;
+
+    public string $rescheduleDate = '';
+
+    public function openReschedule(int $bookingId): void
+    {
+        abort_unless(Auth::user()->can('manageBookings', $this->salon), 403);
+        $booking = $this->booking($bookingId);
+
+        $this->resetErrorBag('start');
+        $this->rescheduleId = $booking->id;
+        $this->rescheduleDate = $booking->items()->orderBy('starts_at')->first()
+            ?->starts_at->setTimezone($this->salon->timezone)->format('Y-m-d')
+            ?? CarbonImmutable::now($this->salon->timezone)->format('Y-m-d');
+        $this->showReschedule = true;
+    }
+
+    /**
+     * Real slot-engine start times for the booking's stylist on the picked
+     * date, with the booking's own current slot excluded from conflicts (so
+     * nearby times stay offered).
+     *
+     * @return list<string>
+     */
+    #[Computed]
+    public function rescheduleSlots(): array
+    {
+        if ($this->rescheduleId === null || $this->rescheduleDate === '') {
+            return [];
+        }
+
+        $booking = $this->salon->bookings()->with('items')->whereKey($this->rescheduleId)->first();
+        $item = $booking?->items->sortBy('starts_at')->first();
+        if ($item === null) {
+            return [];
+        }
+
+        $blocked = (int) round($item->starts_at->diffInMinutes($item->ends_at)) + (int) $item->buffer_min;
+        $tz = $this->salon->timezone;
+
+        return array_map(
+            fn ($slot): string => $slot->setTimezone($tz)->format('H:i'),
+            app(\App\Services\Booking\SlotEngine::class)
+                ->slotsFor($this->salon, (int) $item->stylist_id, $blocked, $this->rescheduleDate, $booking->id),
+        );
+    }
+
+    public function reschedule(string $time, \App\Actions\Bookings\RescheduleBooking $action): void
+    {
+        $booking = $this->booking((int) $this->rescheduleId);
+
+        $action->handle(Auth::user(), $this->salon, $booking, "{$this->rescheduleDate} {$time}");
+
+        $this->showReschedule = false;
+        $this->rescheduleId = null;
+        unset($this->bookings);
+
+        Flux::toast(variant: 'success', text: __('Booking rescheduled.'));
+    }
+
     private function booking(int $id): Booking
     {
         $booking = $this->salon->bookings()->whereKey($id)->firstOrFail();
@@ -170,7 +245,25 @@ new #[Title('Appointments')] class extends Component {
                             </div>
                         </div>
 
-                        <button type="button" wire:click="openTimeline({{ $booking->id }})" class="text-[13px] font-medium text-secondary transition hover:text-accent">{{ __('History') }}</button>
+                        <div class="flex flex-col items-end gap-2">
+                            @if ($this->isManager)
+                                <div class="flex flex-wrap justify-end gap-2">
+                                    @foreach ($booking->status->allowedTransitions() as $next)
+                                        @if ($next === \App\Enums\BookingStatus::Arrived)
+                                            <x-ui.button size="sm" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')">{{ __('Mark arrived') }}</x-ui.button>
+                                        @else
+                                            <x-ui.button size="sm" variant="secondary" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')">{{ $next->label() }}</x-ui.button>
+                                        @endif
+                                    @endforeach
+                                </div>
+                            @endif
+                            <div class="flex items-center gap-3">
+                                @if ($this->isManager)
+                                    <button type="button" wire:click="openReschedule({{ $booking->id }})" class="text-[13px] font-medium text-secondary transition hover:text-accent">{{ __('Reschedule') }}</button>
+                                @endif
+                                <button type="button" wire:click="openTimeline({{ $booking->id }})" class="text-[13px] font-medium text-secondary transition hover:text-accent">{{ __('History') }}</button>
+                            </div>
+                        </div>
                     </div>
                 </x-ui.card>
             @empty
@@ -183,13 +276,22 @@ new #[Title('Appointments')] class extends Component {
         </div>
     </div>
 
+    @can('manageBookings', $salon)
+        @include('partials.booking-reschedule-modal')
+    @endcan
+
     <x-ui.modal wire:model="showTimeline" class="max-w-md" :heading="__('Status history')">
         <div class="flex flex-col gap-3">
             @forelse ($this->timeline as $event)
-                <div class="flex items-center justify-between gap-3 text-[14px]">
-                    <x-ui.status-pill :status="$event->to_status" />
-                    <span class="flex-1 truncate text-secondary">{{ $event->actor?->name }}</span>
-                    <span class="text-[12.5px] text-faint">{{ $event->created_at?->setTimezone($salon->timezone)->format('M j, g:i A') }}</span>
+                <div class="flex flex-col gap-1">
+                    <div class="flex items-center justify-between gap-3 text-[14px]">
+                        <x-ui.status-pill :status="$event->to_status" />
+                        <span class="flex-1 truncate text-secondary">{{ $event->actor?->name }}</span>
+                        <span class="text-[12.5px] text-faint">{{ $event->created_at?->setTimezone($salon->timezone)->format('M j, g:i A') }}</span>
+                    </div>
+                    @if ($event->note)
+                        <p class="text-[13px] text-secondary">{{ $event->note }}</p>
+                    @endif
                 </div>
             @empty
                 <div class="text-[14px] text-secondary">{{ __('No history yet.') }}</div>

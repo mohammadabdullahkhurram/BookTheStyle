@@ -100,7 +100,7 @@ it('scopes the appointments list: stylists see only their own, front desk sees a
         ->assertSee('Other Client');
 });
 
-it('still lets check-in change status while the appointments list stays read-only', function () {
+it('offers status controls on both tabs for managers, none for stylists', function () {
     $salon = bookingSalon();
     $owner = salonOwnerOf($salon);
     $stylist = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
@@ -113,11 +113,20 @@ it('still lets check-in change status while the appointments list stays read-onl
         ->assertHasNoErrors();
     expect($booking->fresh()->status)->toBe(BookingStatus::Arrived);
 
-    // …and the list page offers history, not status buttons.
+    // …and the appointments list now offers the same controls to managers…
     Livewire::actingAs($owner)
         ->test('pages::salon.appointments.all', ['salon' => $salon])
         ->assertSee('History')
-        ->assertDontSee('Mark arrived');
+        ->assertSee('Reschedule')
+        ->assertSeeHtml('wire:click="changeStatus'); // transition buttons rendered
+
+    // …while a stylist gets neither status buttons nor reschedule (the
+    // status FILTER select stays available to everyone).
+    Livewire::actingAs($stylist)
+        ->test('pages::salon.appointments.all', ['salon' => $salon])
+        ->assertSee('History')
+        ->assertDontSee('Reschedule')
+        ->assertDontSeeHtml('wire:click="changeStatus');
 });
 
 it('keeps a stylist out of check-in but not out of the appointments list', function () {

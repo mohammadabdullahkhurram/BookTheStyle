@@ -40,7 +40,7 @@ class SlotEngine
     /**
      * @return list<CarbonImmutable> bookable start instants, ascending
      */
-    public function slotsFor(Salon $salon, int $stylistUserId, int $blockedMinutes, CarbonImmutable|Carbon|string $date): array
+    public function slotsFor(Salon $salon, int $stylistUserId, int $blockedMinutes, CarbonImmutable|Carbon|string $date, ?int $ignoreBookingId = null): array
     {
         $day = $this->resolveDay($salon, $date);
         $weekday = $day->dayOfWeekIso - 1;
@@ -53,7 +53,7 @@ class SlotEngine
         $busy = array_merge(
             $this->windows($salon, $stylistUserId, $weekday, AvailabilityKind::Break, $day),
             $this->timeOffIntervals($salon, $stylistUserId, $day),
-            $this->bookingIntervals($salon, $stylistUserId, $day),
+            $this->bookingIntervals($salon, $stylistUserId, $day, $ignoreBookingId),
         );
 
         $slots = [];
@@ -90,7 +90,7 @@ class SlotEngine
      * for the stylist: fully inside one work window, clear of breaks, time off,
      * and existing bookings. Ignores temporal policy (checked separately).
      */
-    public function isAvailable(Salon $salon, int $stylistUserId, CarbonImmutable $start, int $blockedMinutes): bool
+    public function isAvailable(Salon $salon, int $stylistUserId, CarbonImmutable $start, int $blockedMinutes, ?int $ignoreBookingId = null): bool
     {
         $start = $start->setTimezone($salon->timezone);
         $end = $start->addMinutes($blockedMinutes);
@@ -114,7 +114,7 @@ class SlotEngine
         $busy = array_merge(
             $this->windows($salon, $stylistUserId, $weekday, AvailabilityKind::Break, $day),
             $this->timeOffIntervals($salon, $stylistUserId, $day),
-            $this->bookingIntervals($salon, $stylistUserId, $day),
+            $this->bookingIntervals($salon, $stylistUserId, $day, $ignoreBookingId),
         );
 
         foreach ($busy as [$bs, $be]) {
@@ -187,12 +187,14 @@ class SlotEngine
      *
      * @return list<array{0: CarbonImmutable, 1: CarbonImmutable}>
      */
-    private function bookingIntervals(Salon $salon, int $stylistUserId, CarbonImmutable $day): array
+    private function bookingIntervals(Salon $salon, int $stylistUserId, CarbonImmutable $day, ?int $ignoreBookingId = null): array
     {
         $rows = DB::table('booking_items')
             ->join('bookings', 'bookings.id', '=', 'booking_items.booking_id')
             ->where('booking_items.salon_id', $salon->id)
             ->where('booking_items.stylist_id', $stylistUserId)
+            // A reschedule must not collide with the booking being moved.
+            ->when($ignoreBookingId !== null, fn ($q) => $q->where('booking_items.booking_id', '!=', $ignoreBookingId))
             ->where('bookings.status', '!=', BookingStatus::Cancelled->value)
             ->where('booking_items.starts_at', '<', $day->addDay()->utc())
             // The buffer can run past ends_at, so widen the day overlap window

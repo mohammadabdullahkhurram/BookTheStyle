@@ -18,6 +18,7 @@ use Illuminate\Support\Carbon;
  * @property int $booking_id
  * @property BookingStatus|null $from_status
  * @property BookingStatus $to_status
+ * @property string|null $note
  * @property int|null $actor_user_id
  * @property Carbon|null $created_at
  */
@@ -33,6 +34,7 @@ class BookingStatusEvent extends Model
         'booking_id',
         'from_status',
         'to_status',
+        'note',
         'actor_user_id',
     ];
 
