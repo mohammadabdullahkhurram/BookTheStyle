@@ -3,7 +3,6 @@
 use App\Enums\BookingSource;
 use App\Enums\BookingStatus;
 use App\Models\Booking;
-use App\Models\BookingGhlAppointment;
 use App\Models\BookingItem;
 use App\Models\Client;
 use App\Models\Salon;
@@ -172,7 +171,7 @@ it('ignores the echo of our own push — no state flip, no re-push', function ()
     $booking->refresh();
     expect($booking->status)->toBe(BookingStatus::Booked);
     expect($booking->updated_at->getTimestamp())->toBe($updatedAtBefore->getTimestamp());
-    expect(BookingGhlAppointment::where('booking_id', $booking->id)->count())->toBe(1);
+    expect(Booking::where('salon_id', $salon->id)->count())->toBe(1); // no duplicate booking either
 
     // Only the original outbound push ever hit the API — the echo triggered
     // nothing outbound (a full app → GHL → echo round trip, one appointment).
@@ -312,9 +311,8 @@ it('creates an app booking from a new GHL appointment, fully mapped', function (
     expect($booking->items()->first()->service->name)->toBe('Cut & Style'); // matched from title
     expect($booking->items()->first()->starts_at->setTimezone($salon->timezone)->format('H:i'))->toBe('15:00');
 
-    $slice = BookingGhlAppointment::where('booking_id', $booking->id)->first();
-    expect($slice->ghl_appointment_id)->toBe('ghl_new1');
-    expect($slice->stylist_id)->toBe($stylist->id);
+    expect($booking->ghl_appointment_id)->toBe('ghl_new1');
+    expect($booking->ghl_sync_status)->toBe('synced');
     expect(WebhookEvent::latest('id')->value('status'))->toBe(WebhookEvent::STATUS_CREATED_BOOKING);
 });
 

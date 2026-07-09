@@ -141,7 +141,7 @@ new #[Title('Calendar')] class extends Component {
         }
 
         return $this->salon->bookings()
-            ->with(['client', 'items.service', 'items.stylist', 'bookedBy', 'statusEvents.actor:id,name', 'ghlAppointments'])
+            ->with(['client', 'items.service', 'items.stylist', 'bookedBy', 'statusEvents.actor:id,name'])
             ->whereKey($this->detailId)
             ->first();
     }
@@ -325,10 +325,9 @@ new #[Title('Calendar')] class extends Component {
             <x-slot:pill>
                 <x-ui.status-pill :status="$booking->status" />
                 @if ($booking->is_walkin)<span class="bts-pill" style="background-color:#F0EEEA;color:#9C9890;">{{ __('Walk-in') }}</span>@endif
-                @php($failedSlice = $booking->ghlAppointments->firstWhere('sync_status', 'failed'))
-                @if ($failedSlice)
+                @if ($booking->ghl_sync_status === 'failed')
                     @can('manage', $salon)
-                        <span class="bts-pill" style="background-color:#F8E3E3;color:#A23A3A;" title="{{ $failedSlice->sync_error }}">{{ __('GoHighLevel sync failed') }}</span>
+                        <span class="bts-pill" style="background-color:#F8E3E3;color:#A23A3A;" title="{{ $booking->ghl_sync_error }}">{{ __('GoHighLevel sync failed') }}</span>
                     @endcan
                 @endif
             </x-slot:pill>

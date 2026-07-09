@@ -1,10 +1,10 @@
 <?php
 
+use App\Actions\Bookings\CreateBooking;
 use App\Actions\Bookings\TransitionBookingStatus;
 use App\Enums\BookingStatus;
 use App\Jobs\SyncBookingToGhl;
 use App\Models\Booking;
-use App\Models\BookingGhlAppointment;
 use App\Models\BookingItem;
 use App\Models\Client;
 use App\Models\Salon;
@@ -21,11 +21,12 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 
 /*
-| Phase 6b: queued push of app bookings to GHL — one appointment PER DISTINCT
-| STYLIST on that stylist's mapped provider, at that stylist's own item
-| times. The booking is the source of truth and always succeeds; the mirror
-| happens after commit via the queue (sync driver in tests, so dispatches
-| run inline unless faked). All GHL HTTP is faked.
+| Phase 6b (one-booking-per-stylist shape): each booking is ONE stylist's
+| visit and mirrors to exactly ONE GHL appointment — that booking's own
+| times, that booking's own services in the title, on that stylist's mapped
+| provider. The booking is the source of truth and always succeeds; the
+| mirror runs after commit via the queue (sync driver in tests, so
+| dispatches run inline unless faked). All GHL HTTP is faked.
 */
 
 beforeEach(function () {
@@ -55,7 +56,7 @@ function mapProvider(Salon $salon, User $stylist, string $providerId = 'prov_1')
     );
 }
 
-/** A factory-built booking (skips the create action) with no items yet. */
+/** A factory-built single-stylist booking (skips the create action), no items yet. */
 function bareBooking(Salon $salon, array $attrs = []): Booking
 {
     $client = Client::factory()->for($salon)->create(['name' => 'Casey Client', 'email' => 'casey@example.com']);
@@ -75,14 +76,6 @@ function addItem(Booking $booking, User $stylist, CarbonImmutable $start, int $m
         'starts_at' => $start,
         'ends_at' => $start->addMinutes($minutes),
     ]);
-}
-
-function sliceFor(Booking $booking, User $stylist): ?BookingGhlAppointment
-{
-    return BookingGhlAppointment::query()
-        ->where('booking_id', $booking->id)
-        ->where('stylist_id', $stylist->id)
-        ->first();
 }
 
 function fakeContactAndAppointments(array $appointmentIds): void
@@ -118,67 +111,80 @@ it('queues a sync job on creation and again on cancellation', function () {
     Queue::assertPushed(SyncBookingToGhl::class, 2);
 });
 
+it('queues one sync job per stylist booking when a visit is composed across stylists', function () {
+    Queue::fake();
+    $salon = ghlBookingSalon();
+    $owner = salonOwnerOf($salon);
+    $anna = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
+    $ben = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
+
+    app(CreateBooking::class)->handle($owner, $salon, bookingData([
+        'items' => [
+            ['service_id' => serviceFor($salon, $anna, 45)->id, 'stylist_id' => $anna->id, 'start' => '2026-06-22 11:30'],
+            ['service_id' => serviceFor($salon, $ben, 45)->id, 'stylist_id' => $ben->id, 'start' => '2026-06-22 12:15'],
+        ],
+        'start' => '2026-06-22 11:30',
+    ]));
+
+    expect($salon->bookings()->count())->toBe(2);
+    Queue::assertPushed(SyncBookingToGhl::class, 2);
+});
+
 // ---------------------------------------------------------------------------
-// Per-stylist appointments
+// The 1:1 mirror — correct per-booking time and title
 // ---------------------------------------------------------------------------
 
-it('creates one appointment per stylist, back-to-back, on the right providers', function () {
+it('pushes each stylist booking at ITS OWN time with ITS OWN service in the title', function () {
     fakeContactAndAppointments(['ghl_a1', 'ghl_a2']);
     $salon = ghlBookingSalon(); // America/New_York
-    $anna = stylistOf($salon);
-    $ben = stylistOf($salon);
+    $owner = salonOwnerOf($salon);
+    $anna = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
+    $ben = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
     mapProvider($salon, $anna, 'prov_anna');
     mapProvider($salon, $ben, 'prov_ben');
+    $dying = Service::factory()->for($salon)->create(['name' => 'Dying', 'duration_min' => 45]);
+    $nails = Service::factory()->for($salon)->create(['name' => 'Nails', 'duration_min' => 45]);
+    $dying->stylists()->attach($anna->id, ['salon_id' => $salon->id]);
+    $nails->stylists()->attach($ben->id, ['salon_id' => $salon->id]);
 
-    $booking = bareBooking($salon);
-    addItem($booking, $anna, CarbonImmutable::parse('2026-06-23 11:30', $salon->timezone), 45, 'Dying');
-    addItem($booking, $ben, CarbonImmutable::parse('2026-06-23 12:15', $salon->timezone), 45, 'Nails');
+    // One composed visit: Anna dyes 11:30–12:15, Ben does nails 12:15–13:00.
+    // Sync queue: both bookings push inline right here.
+    app(CreateBooking::class)->handle($owner, $salon, [
+        'client' => ['name' => 'Casey Client'],
+        'items' => [
+            ['service_id' => $dying->id, 'stylist_id' => $anna->id, 'start' => '2026-06-22 11:30'],
+            ['service_id' => $nails->id, 'stylist_id' => $ben->id, 'start' => '2026-06-22 12:15'],
+        ],
+        'start' => '2026-06-22 11:30',
+        'is_walkin' => false,
+        'notes' => null,
+    ]);
 
-    app(GhlBookingPusher::class)->push($booking);
-
-    expect(sliceFor($booking, $anna)->ghl_appointment_id)->toBe('ghl_a1');
-    expect(sliceFor($booking, $ben)->ghl_appointment_id)->toBe('ghl_a2');
-    expect(sliceFor($booking, $anna)->sync_status)->toBe(GhlBookingPusher::STATUS_SYNCED);
-    expect(sliceFor($booking, $ben)->sync_status)->toBe(GhlBookingPusher::STATUS_SYNCED);
-
+    // Anna's appointment: HER time, HER service only.
     Http::assertSent(fn ($r): bool => $r->method() === 'POST'
         && str_contains($r->url(), '/calendars/events/appointments')
         && $r['assignedUserId'] === 'prov_anna'
-        && $r['startTime'] === '2026-06-23T11:30:00-04:00'
-        && $r['endTime'] === '2026-06-23T12:15:00-04:00');
+        && $r['startTime'] === '2026-06-22T11:30:00-04:00'
+        && $r['endTime'] === '2026-06-22T12:15:00-04:00'
+        && $r['title'] === 'Casey Client — Dying');
+
+    // Ben's appointment: HIS time, HIS service only — no cross-contamination.
     Http::assertSent(fn ($r): bool => $r->method() === 'POST'
         && str_contains($r->url(), '/calendars/events/appointments')
         && $r['assignedUserId'] === 'prov_ben'
-        && $r['startTime'] === '2026-06-23T12:15:00-04:00'
-        && $r['endTime'] === '2026-06-23T13:00:00-04:00');
+        && $r['startTime'] === '2026-06-22T12:15:00-04:00'
+        && $r['endTime'] === '2026-06-22T13:00:00-04:00'
+        && $r['title'] === 'Casey Client — Nails');
 
-    // The contact is upserted once and shared by both appointments.
+    Http::assertNotSent(fn ($r): bool => str_contains($r->url(), 'appointments')
+        && is_string($r['title'] ?? null) && str_contains($r['title'], 'Dying') && str_contains($r['title'], 'Nails'));
+
+    // Each booking carries its own single appointment id.
+    $ids = $salon->bookings()->orderBy('id')->pluck('ghl_appointment_id');
+    expect($ids->all())->toBe(['ghl_a1', 'ghl_a2']);
+
+    // The contact was upserted once and shared.
     Http::assertSentCount(3);
-});
-
-it('creates same-time appointments for different stylists', function () {
-    fakeContactAndAppointments(['ghl_a1', 'ghl_a2']);
-    $salon = ghlBookingSalon();
-    $anna = stylistOf($salon);
-    $ben = stylistOf($salon);
-    mapProvider($salon, $anna, 'prov_anna');
-    mapProvider($salon, $ben, 'prov_ben');
-
-    $booking = bareBooking($salon);
-    $start = CarbonImmutable::parse('2026-06-23 10:00', $salon->timezone);
-    addItem($booking, $anna, $start, 60, 'Color');
-    addItem($booking, $ben, $start, 60, 'Manicure');
-
-    app(GhlBookingPusher::class)->push($booking);
-
-    foreach (['prov_anna', 'prov_ben'] as $provider) {
-        Http::assertSent(fn ($r): bool => $r->method() === 'POST'
-            && str_contains($r->url(), '/calendars/events/appointments')
-            && $r['assignedUserId'] === $provider
-            && $r['startTime'] === '2026-06-23T10:00:00-04:00');
-    }
-
-    expect(BookingGhlAppointment::where('booking_id', $booking->id)->count())->toBe(2);
 });
 
 it('keeps one spanning appointment for two services by the same stylist', function () {
@@ -200,129 +206,66 @@ it('keeps one spanning appointment for two services by the same stylist', functi
         && str_contains($r['title'], 'Color')
         && str_contains($r['title'], 'Blow-dry'));
     Http::assertSentCount(2); // one upsert + ONE appointment
-    expect(BookingGhlAppointment::where('booking_id', $booking->id)->count())->toBe(1);
-});
-
-it('skips an unmapped stylist slice without touching the mapped one', function () {
-    fakeContactAndAppointments(['ghl_a1']);
-    $salon = ghlBookingSalon();
-    $anna = stylistOf($salon);
-    $ben = stylistOf($salon); // never mapped
-    mapProvider($salon, $anna, 'prov_anna');
-
-    $booking = bareBooking($salon);
-    addItem($booking, $anna, CarbonImmutable::parse('2026-06-23 10:00', $salon->timezone));
-    addItem($booking, $ben, CarbonImmutable::parse('2026-06-23 11:00', $salon->timezone));
-
-    app(GhlBookingPusher::class)->push($booking);
-
-    expect(sliceFor($booking, $anna)->sync_status)->toBe(GhlBookingPusher::STATUS_SYNCED);
-    expect(sliceFor($booking, $anna)->ghl_appointment_id)->toBe('ghl_a1');
-    expect(sliceFor($booking, $ben)->sync_status)->toBe(GhlBookingPusher::STATUS_SKIPPED);
-    expect(sliceFor($booking, $ben)->ghl_appointment_id)->toBeNull();
-    expect($booking->fresh()->status)->toBe(BookingStatus::Booked);
+    expect($booking->fresh()->ghl_appointment_id)->toBe('ghl_a1');
 });
 
 // ---------------------------------------------------------------------------
-// Reschedule / edit diffs per stylist
+// Reschedule / cancel — one appointment each
 // ---------------------------------------------------------------------------
 
-it('updates only the changed stylist on reschedule, never duplicating', function () {
-    fakeContactAndAppointments(['ghl_a1', 'ghl_a2', 'updated']);
+it('updates the same appointment on re-push and skips when nothing changed', function () {
+    fakeContactAndAppointments(['ghl_a1', 'updated']);
     $salon = ghlBookingSalon();
     $anna = stylistOf($salon);
-    $ben = stylistOf($salon);
     mapProvider($salon, $anna, 'prov_anna');
-    mapProvider($salon, $ben, 'prov_ben');
 
     $booking = bareBooking($salon);
-    addItem($booking, $anna, CarbonImmutable::parse('2026-06-23 10:00', $salon->timezone));
-    $benItem = addItem($booking, $ben, CarbonImmutable::parse('2026-06-23 11:00', $salon->timezone));
+    $item = addItem($booking, $anna, CarbonImmutable::parse('2026-06-23 10:00', $salon->timezone));
 
     $pusher = app(GhlBookingPusher::class);
-    $pusher->push($booking); // upsert + 2 creates = 3 requests
+    $pusher->push($booking);           // upsert + create = 2 requests
+    $pusher->push($booking->fresh());  // unchanged — hash short-circuits, no request
 
-    // Reschedule only Ben's service an hour later, then re-push.
-    $benItem->update([
-        'starts_at' => $benItem->starts_at->addHour(),
-        'ends_at' => $benItem->ends_at->addHour(),
-    ]);
+    Http::assertSentCount(2);
+
+    // Reschedule: same appointment updated, never duplicated.
+    $item->update(['starts_at' => $item->starts_at->addHour(), 'ends_at' => $item->ends_at->addHour()]);
     $pusher->push($booking->fresh());
 
-    // Exactly ONE extra request: a PUT to Ben's appointment. Anna untouched.
-    Http::assertSentCount(4);
+    Http::assertSentCount(3);
     Http::assertSent(fn ($r): bool => $r->method() === 'PUT'
-        && str_ends_with($r->url(), '/calendars/events/appointments/ghl_a2')
-        && $r['startTime'] === '2026-06-23T12:00:00-04:00');
-    expect(sliceFor($booking, $anna)->ghl_appointment_id)->toBe('ghl_a1');
-    expect(sliceFor($booking, $ben)->ghl_appointment_id)->toBe('ghl_a2');
-    expect(BookingGhlAppointment::where('booking_id', $booking->id)->count())->toBe(2);
+        && str_ends_with($r->url(), '/calendars/events/appointments/ghl_a1')
+        && $r['startTime'] === '2026-06-23T11:00:00-04:00');
+    expect($booking->fresh()->ghl_appointment_id)->toBe('ghl_a1');
 });
 
-it('cancels only the removed stylist\'s appointment and adds a new stylist\'s', function () {
-    // Sequence: create a1, create a2, the cancel PUT's response, create a3.
-    fakeContactAndAppointments(['ghl_a1', 'ghl_a2', 'ghl_a2', 'ghl_a3']);
+it('cancels only that booking\'s GHL appointment', function () {
+    fakeContactAndAppointments(['ghl_a1', 'ghl_a2', 'cancel-ok']);
     $salon = ghlBookingSalon();
-    $anna = stylistOf($salon);
-    $ben = stylistOf($salon);
-    $cara = stylistOf($salon);
+    $owner = salonOwnerOf($salon);
+    $anna = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
+    $ben = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
     mapProvider($salon, $anna, 'prov_anna');
     mapProvider($salon, $ben, 'prov_ben');
-    mapProvider($salon, $cara, 'prov_cara');
 
-    $booking = bareBooking($salon);
-    addItem($booking, $anna, CarbonImmutable::parse('2026-06-23 10:00', $salon->timezone));
-    $benItem = addItem($booking, $ben, CarbonImmutable::parse('2026-06-23 11:00', $salon->timezone));
+    app(CreateBooking::class)->handle($owner, $salon, bookingData([
+        'items' => [
+            ['service_id' => serviceFor($salon, $anna, 45)->id, 'stylist_id' => $anna->id, 'start' => '2026-06-22 11:30'],
+            ['service_id' => serviceFor($salon, $ben, 45)->id, 'stylist_id' => $ben->id, 'start' => '2026-06-22 12:15'],
+        ],
+        'start' => '2026-06-22 11:30',
+    ]));
 
-    $pusher = app(GhlBookingPusher::class);
-    $pusher->push($booking); // 3 requests
+    $annaBooking = $salon->bookings()->whereHas('items', fn ($q) => $q->where('stylist_id', $anna->id))->firstOrFail();
 
-    // Ben is swapped out for Cara at the same time.
-    $benItem->delete();
-    addItem($booking, $cara, CarbonImmutable::parse('2026-06-23 11:00', $salon->timezone));
-    $pusher->push($booking->fresh());
+    // Cancel just Anna's booking: only ghl_a1 is cancelled in GHL.
+    app(TransitionBookingStatus::class)->handle($owner, $salon, $annaBooking, BookingStatus::Cancelled);
 
-    // + cancel PUT on ghl_a2 and a POST for Cara — Anna untouched by hash.
-    Http::assertSentCount(5);
     Http::assertSent(fn ($r): bool => $r->method() === 'PUT'
-        && str_ends_with($r->url(), '/calendars/events/appointments/ghl_a2')
+        && str_ends_with($r->url(), '/calendars/events/appointments/ghl_a1')
         && $r['appointmentStatus'] === 'cancelled');
-    Http::assertSent(fn ($r): bool => $r->method() === 'POST'
-        && str_contains($r->url(), '/calendars/events/appointments')
-        && $r['assignedUserId'] === 'prov_cara');
-
-    expect(sliceFor($booking, $ben))->toBeNull();          // row dropped
-    expect(sliceFor($booking, $cara)->ghl_appointment_id)->toBe('ghl_a3');
-    expect(sliceFor($booking, $anna)->ghl_appointment_id)->toBe('ghl_a1');
-});
-
-// ---------------------------------------------------------------------------
-// Cancel
-// ---------------------------------------------------------------------------
-
-it('cancels every stylist\'s GHL appointment when the booking is cancelled', function () {
-    fakeContactAndAppointments(['ghl_a1', 'ghl_a2', 'x', 'y']);
-    $salon = ghlBookingSalon();
-    $anna = stylistOf($salon);
-    $ben = stylistOf($salon);
-    mapProvider($salon, $anna, 'prov_anna');
-    mapProvider($salon, $ben, 'prov_ben');
-
-    $booking = bareBooking($salon);
-    addItem($booking, $anna, CarbonImmutable::parse('2026-06-23 10:00', $salon->timezone));
-    addItem($booking, $ben, CarbonImmutable::parse('2026-06-23 11:00', $salon->timezone));
-
-    $pusher = app(GhlBookingPusher::class);
-    $pusher->push($booking);
-
-    $booking->update(['status' => BookingStatus::Cancelled]);
-    $pusher->push($booking->fresh());
-
-    foreach (['ghl_a1', 'ghl_a2'] as $id) {
-        Http::assertSent(fn ($r): bool => $r->method() === 'PUT'
-            && str_ends_with($r->url(), '/calendars/events/appointments/'.$id)
-            && $r['appointmentStatus'] === 'cancelled');
-    }
+    Http::assertNotSent(fn ($r): bool => $r->method() === 'PUT'
+        && str_ends_with($r->url(), '/calendars/events/appointments/ghl_a2'));
 });
 
 it('does nothing remote when a never-pushed booking is cancelled', function () {
@@ -336,6 +279,7 @@ it('does nothing remote when a never-pushed booking is cancelled', function () {
     app(GhlBookingPusher::class)->push($booking);
 
     Http::assertNothingSent();
+    expect($booking->fresh()->ghl_sync_status)->toBe(GhlBookingPusher::STATUS_SKIPPED);
 });
 
 // ---------------------------------------------------------------------------
@@ -346,11 +290,21 @@ it('books successfully with no push when the salon is not connected', function (
     $salon = bookingSalon(); // no GHL connection at all
     $stylist = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
 
-    // Sync driver runs the job inline; preventStrayRequests proves no HTTP.
     $booking = makeBooking($salon, salonOwnerOf($salon), $stylist, serviceFor($salon, $stylist, 60));
 
-    expect(sliceFor($booking, $stylist)->sync_status)->toBe(GhlBookingPusher::STATUS_SKIPPED);
+    expect($booking->fresh()->ghl_sync_status)->toBe(GhlBookingPusher::STATUS_SKIPPED);
     expect($booking->fresh()->status)->toBe(BookingStatus::Booked);
+    Http::assertNothingSent();
+});
+
+it('books successfully with no push when the stylist is unmapped', function () {
+    $salon = ghlBookingSalon(); // connected, but nobody mapped
+    $stylist = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
+
+    $booking = makeBooking($salon, salonOwnerOf($salon), $stylist, serviceFor($salon, $stylist, 60));
+
+    expect($booking->fresh()->ghl_sync_status)->toBe(GhlBookingPusher::STATUS_SKIPPED);
+    expect($booking->fresh()->ghl_appointment_id)->toBeNull();
     Http::assertNothingSent();
 });
 
@@ -422,11 +376,11 @@ it('retries through a 429 and still syncs', function () {
 
     app(GhlBookingPusher::class)->push($booking);
 
-    expect(sliceFor($booking, $anna)->sync_status)->toBe(GhlBookingPusher::STATUS_SYNCED);
+    expect($booking->fresh()->ghl_sync_status)->toBe(GhlBookingPusher::STATUS_SYNCED);
     Http::assertSentCount(3); // 429 + retried upsert + appointment
 });
 
-it('records a per-slice error after exhausted retries, booking intact', function () {
+it('records a visible sync error after exhausted retries, booking intact', function () {
     Http::fake(['services.leadconnectorhq.com/*' => Http::response(['message' => 'no'], 401)]);
     $salon = ghlBookingSalon();
     $anna = stylistOf($salon);
@@ -444,41 +398,65 @@ it('records a per-slice error after exhausted retries, booking intact', function
         $job->failed($exception); // what the queue does after the final attempt
     }
 
-    $slice = sliceFor($booking, $anna);
-    expect($slice->sync_status)->toBe(GhlBookingPusher::STATUS_FAILED);
-    expect($slice->sync_error)->toContain('GoHighLevel');
-    expect($slice->sync_error)->not->toContain('pit-secret');
-    expect($booking->fresh()->status)->toBe(BookingStatus::Booked); // untouched
-    expect($slice->ghl_appointment_id)->toBeNull();
+    $booking->refresh();
+    expect($booking->ghl_sync_status)->toBe(GhlBookingPusher::STATUS_FAILED);
+    expect($booking->ghl_sync_error)->toContain('GoHighLevel');
+    expect($booking->ghl_sync_error)->not->toContain('pit-secret');
+    expect($booking->status)->toBe(BookingStatus::Booked); // untouched
+    expect($booking->ghl_appointment_id)->toBeNull();
 });
 
 // ---------------------------------------------------------------------------
-// Backfill migration
+// Split migration
 // ---------------------------------------------------------------------------
 
-it('backfills a legacy single appointment id onto the first stylist', function () {
+it('splits a legacy multi-stylist booking into per-stylist bookings with their slice ids', function () {
     $salon = ghlBookingSalon();
     $anna = stylistOf($salon);
     $ben = stylistOf($salon);
+    $owner = salonOwnerOf($salon);
 
-    $booking = bareBooking($salon);
-    addItem($booking, $ben, CarbonImmutable::parse('2026-06-23 11:00', $salon->timezone));  // later
-    addItem($booking, $anna, CarbonImmutable::parse('2026-06-23 10:00', $salon->timezone)); // FIRST by time
+    // Build the LEGACY shape: roll back the split migration (restores the
+    // per-stylist slice table and drops the 1:1 columns)…
+    $this->artisan('migrate:rollback', ['--step' => 1])->assertSuccessful();
 
-    // Rewind through the per-stylist migration (step 2 also unwinds the 6c
-    // webhook migration that sits after it), restoring the legacy shape…
-    $this->artisan('migrate:rollback', ['--step' => 2])->assertSuccessful();
-    DB::table('bookings')->where('id', $booking->id)->update([
-        'ghl_appointment_id' => 'legacy_a1',
-        'ghl_sync_status' => 'synced',
+    $client = DB::table('clients')->insertGetId([
+        'salon_id' => $salon->id, 'name' => 'Legacy Client', 'created_at' => now(), 'updated_at' => now(),
+    ]);
+    $bookingId = DB::table('bookings')->insertGetId([
+        'salon_id' => $salon->id, 'client_id' => $client, 'status' => 'booked',
+        'booked_by_type' => 'salon_owner', 'booked_by_user_id' => $owner->id,
+        'source' => 'in_app', 'is_walkin' => false, 'created_at' => now(), 'updated_at' => now(),
+    ]);
+    $serviceA = DB::table('services')->insertGetId(['salon_id' => $salon->id, 'name' => 'Dying', 'duration_min' => 45, 'active' => true, 'created_at' => now(), 'updated_at' => now()]);
+    $serviceB = DB::table('services')->insertGetId(['salon_id' => $salon->id, 'name' => 'Nails', 'duration_min' => 45, 'active' => true, 'created_at' => now(), 'updated_at' => now()]);
+    DB::table('booking_items')->insert([
+        ['salon_id' => $salon->id, 'booking_id' => $bookingId, 'service_id' => $serviceA, 'stylist_id' => $anna->id, 'starts_at' => '2026-06-22 15:30:00', 'ends_at' => '2026-06-22 16:15:00', 'buffer_min' => 0, 'created_at' => now(), 'updated_at' => now()],
+        ['salon_id' => $salon->id, 'booking_id' => $bookingId, 'service_id' => $serviceB, 'stylist_id' => $ben->id, 'starts_at' => '2026-06-22 16:15:00', 'ends_at' => '2026-06-22 17:00:00', 'buffer_min' => 0, 'created_at' => now(), 'updated_at' => now()],
+    ]);
+    DB::table('booking_status_events')->insert([
+        'salon_id' => $salon->id, 'booking_id' => $bookingId, 'from_status' => null, 'to_status' => 'booked', 'actor_user_id' => $owner->id, 'created_at' => now(),
+    ]);
+    DB::table('booking_ghl_appointments')->insert([
+        ['salon_id' => $salon->id, 'booking_id' => $bookingId, 'stylist_id' => $anna->id, 'ghl_appointment_id' => 'legacy_a1', 'sync_status' => 'synced', 'created_at' => now(), 'updated_at' => now()],
+        ['salon_id' => $salon->id, 'booking_id' => $bookingId, 'stylist_id' => $ben->id, 'ghl_appointment_id' => 'legacy_a2', 'sync_status' => 'synced', 'created_at' => now(), 'updated_at' => now()],
     ]);
 
-    // …then re-run it and confirm the backfill.
+    // …then run the split.
     $this->artisan('migrate')->assertSuccessful();
 
-    $slice = sliceFor($booking, $anna);
-    expect($slice)->not->toBeNull();
-    expect($slice->ghl_appointment_id)->toBe('legacy_a1');
-    expect($slice->sync_status)->toBe('synced');
-    expect(sliceFor($booking, $ben))->toBeNull();
+    $bookings = Booking::where('salon_id', $salon->id)->orderBy('id')->get();
+    expect($bookings)->toHaveCount(2);
+
+    // Linked as one visit, but separate bookings — one per stylist, each
+    // carrying only their items and their own GHL appointment id.
+    expect($bookings[0]->visit_group_id)->not->toBeNull();
+    expect($bookings[0]->visit_group_id)->toBe($bookings[1]->visit_group_id);
+    expect($bookings[0]->items()->pluck('stylist_id')->all())->toBe([$anna->id]);
+    expect($bookings[1]->items()->pluck('stylist_id')->all())->toBe([$ben->id]);
+    expect($bookings[0]->ghl_appointment_id)->toBe('legacy_a1');
+    expect($bookings[1]->ghl_appointment_id)->toBe('legacy_a2');
+
+    // Status history carried onto the split booking too.
+    expect($bookings[1]->statusEvents()->count())->toBe(1);
 });

@@ -18,10 +18,12 @@ use App\Services\Booking\SlotEngine;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Create a multi-service booking. Every item names its stylist explicitly
+ * Create the bookings for one composed visit. Every item names its stylist
+ * explicitly
  * (staff book deliberately — there is no "any available" resolution), and an
  * item may carry its own start time: same-time, back-to-back and
  * different-time layouts across stylists are all expressed per item. Items
@@ -54,13 +56,16 @@ class CreateBooking
      */
     public function handle(User $actor, Salon $salon, array $data): Booking
     {
-        $booking = $this->create($actor, $salon, $data);
+        $bookings = $this->create($actor, $salon, $data);
 
-        // Mirror to GHL in the background AFTER the booking committed — the
-        // app booking is the source of truth and never waits on GHL.
-        SyncBookingToGhl::dispatch($booking->id)->afterCommit();
+        // Mirror to GHL in the background AFTER the bookings committed — the
+        // app bookings are the source of truth and never wait on GHL. Each
+        // booking is one stylist, so each becomes one GHL appointment.
+        foreach ($bookings as $booking) {
+            SyncBookingToGhl::dispatch($booking->id)->afterCommit();
+        }
 
-        return $booking;
+        return $bookings[0];
     }
 
     /**
@@ -71,8 +76,9 @@ class CreateBooking
      *     is_walkin?: bool,
      *     notes?: string|null,
      * }  $data
+     * @return list<Booking> one booking per distinct stylist, earliest first
      */
-    private function create(User $actor, Salon $salon, array $data): Booking
+    private function create(User $actor, Salon $salon, array $data): array
     {
         $isWalkin = (bool) ($data['is_walkin'] ?? false);
         $tz = $salon->timezone;
@@ -87,7 +93,7 @@ class CreateBooking
 
         $this->policy->assertCreatable($salon, $start, $isWalkin);
 
-        return DB::transaction(function () use ($actor, $salon, $data, $start, $isWalkin): Booking {
+        return DB::transaction(function () use ($actor, $salon, $data, $start, $isWalkin): array {
             $client = $this->resolveClient($salon, $data['client']);
 
             // Lay items sequentially and resolve each stylist.
@@ -155,46 +161,64 @@ class CreateBooking
 
             $status = $isWalkin ? BookingStatus::Arrived : BookingStatus::Booked;
 
-            $booking = $salon->bookings()->create([
-                'client_id' => $client->id,
-                'status' => $status,
-                'booked_by_type' => BookedByType::fromActor($actor, $salon),
-                'booked_by_user_id' => $actor->id,
-                'source' => BookingSource::InApp,
-                'is_walkin' => $isWalkin,
-                'notes' => $data['notes'] ?? null,
-            ]);
+            // ONE BOOKING PER STYLIST: a visit composed across N stylists
+            // persists as N bookings — each holding only that stylist's
+            // items at their own times — linked by a shared visit group so
+            // they can be recognised as booked together without being one
+            // booking. Single-stylist visits stay one booking, no group.
+            $groups = collect($resolved)
+                ->groupBy('stylist_id')
+                ->sortBy(fn ($group) => $group->min(fn (array $ri) => $ri['starts_at']->getTimestamp()))
+                ->values();
 
-            foreach ($resolved as $ri) {
-                $booking->items()->create([
-                    'salon_id' => $salon->id,
-                    'service_id' => $ri['service']->id,
-                    'stylist_id' => $ri['stylist_id'],
-                    'starts_at' => $ri['starts_at'],
-                    'ends_at' => $ri['ends_at'],
-                    'buffer_min' => $ri['buffer_min'],
+            $visitGroupId = $groups->count() > 1 ? (string) Str::uuid() : null;
+            $bookings = [];
+
+            foreach ($groups as $group) {
+                $booking = $salon->bookings()->create([
+                    'client_id' => $client->id,
+                    'status' => $status,
+                    'booked_by_type' => BookedByType::fromActor($actor, $salon),
+                    'booked_by_user_id' => $actor->id,
+                    'source' => BookingSource::InApp,
+                    'is_walkin' => $isWalkin,
+                    'notes' => $data['notes'] ?? null,
+                    'visit_group_id' => $visitGroupId,
                 ]);
-            }
 
-            // Status timeline: created (→ booked), and immediately arrived for
-            // walk-ins (checked in in one step).
-            $booking->statusEvents()->create([
-                'salon_id' => $salon->id,
-                'from_status' => null,
-                'to_status' => BookingStatus::Booked,
-                'actor_user_id' => $actor->id,
-            ]);
+                foreach ($group as $ri) {
+                    $booking->items()->create([
+                        'salon_id' => $salon->id,
+                        'service_id' => $ri['service']->id,
+                        'stylist_id' => $ri['stylist_id'],
+                        'starts_at' => $ri['starts_at'],
+                        'ends_at' => $ri['ends_at'],
+                        'buffer_min' => $ri['buffer_min'],
+                    ]);
+                }
 
-            if ($isWalkin) {
+                // Status timeline: created (→ booked), and immediately
+                // arrived for walk-ins (checked in in one step).
                 $booking->statusEvents()->create([
                     'salon_id' => $salon->id,
-                    'from_status' => BookingStatus::Booked,
-                    'to_status' => BookingStatus::Arrived,
+                    'from_status' => null,
+                    'to_status' => BookingStatus::Booked,
                     'actor_user_id' => $actor->id,
                 ]);
+
+                if ($isWalkin) {
+                    $booking->statusEvents()->create([
+                        'salon_id' => $salon->id,
+                        'from_status' => BookingStatus::Booked,
+                        'to_status' => BookingStatus::Arrived,
+                        'actor_user_id' => $actor->id,
+                    ]);
+                }
+
+                $bookings[] = $booking;
             }
 
-            return $booking;
+            return $bookings;
         });
     }
 

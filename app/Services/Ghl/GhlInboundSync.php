@@ -7,7 +7,6 @@ use App\Enums\BookingSource;
 use App\Enums\BookingStatus;
 use App\Jobs\SyncBookingToGhl;
 use App\Models\Booking;
-use App\Models\BookingGhlAppointment;
 use App\Models\BookingItem;
 use App\Models\Client;
 use App\Models\Salon;
@@ -24,7 +23,7 @@ use Illuminate\Database\Eloquent\Collection;
  * a webhook for salon A can never touch salon B.
  *
  * ECHO SUPPRESSION (the critical part): an appointment id the app already
- * knows is compared against the app's CURRENT state for that stylist slice
+ * knows is compared against the app's CURRENT state for that booking
  * (start, end, and the GHL-mapped status). If the incoming values equal the
  * current state, the event is the echo of our own outbound push (or a
  * duplicate) and is IGNORED — no state flip, no re-push, no loop. Only a
@@ -33,19 +32,18 @@ use Illuminate\Database\Eloquent\Collection;
  * LAST-CHANGE-WINS: the payload's change timestamp (appointment.dateUpdated,
  * falling back to receipt time) is compared with the booking's updated_at.
  * Older-than-app inbound changes lose: the app re-pushes its state to
- * correct GHL. Newer inbound changes are applied: reschedules shift that
- * stylist's items to the new start (single-item slices also take a new
- * duration), status changes map through GhlStatusMap and cancel the whole
- * booking when any slice is cancelled (documented simplification — GHL
- * bookings are single-appointment visits). Near-simultaneous edits resolve
- * by whichever side is processed last.
+ * correct GHL. Newer inbound changes are applied: reschedules shift the
+ * booking's items to the new start (single-item bookings also take a new
+ * duration), status changes map through GhlStatusMap. A booking is one
+ * stylist (multi-stylist visits are separate bookings sharing a
+ * visit_group_id), so a GHL cancel of one appointment cancels exactly that
+ * stylist's booking and nothing else. Near-simultaneous edits resolve by
+ * whichever side is processed last.
  *
  * Applying an inbound change updates models directly (never through the
- * booking actions), so nothing dispatches an outbound push — and the slice
- * hash is refreshed to the new state so a later push diff sees "unchanged".
- * The one deliberate exception: cancelling a multi-stylist booking also
- * cancels the SIBLING slices' GHL appointments (a different change than the
- * one received, so no loop: their echoes match state and are ignored).
+ * booking actions), so nothing dispatches an outbound push — and the
+ * booking's payload hash is refreshed to the new state so a later push diff
+ * sees "unchanged".
  *
  * Appointments the app has never seen become new app bookings (voice AI,
  * chat widget, manual GHL): provider → stylist via the reverse mapping,
@@ -76,13 +74,13 @@ class GhlInboundSync
             return;
         }
 
-        $slice = BookingGhlAppointment::query()
+        $booking = Booking::query()
             ->where('salon_id', $salon->id)
             ->where('ghl_appointment_id', $payload->appointmentId)
             ->first();
 
-        if ($slice !== null) {
-            $this->applyToKnownAppointment($event, $salon, $connection, $payload, $slice);
+        if ($booking !== null) {
+            $this->applyToKnownAppointment($event, $salon, $connection, $payload, $booking);
 
             return;
         }
@@ -95,22 +93,13 @@ class GhlInboundSync
         Salon $salon,
         SalonGhlConnection $connection,
         GhlWebhookPayload $payload,
-        BookingGhlAppointment $slice,
+        Booking $booking,
     ): void {
-        $booking = Booking::query()->whereKey($slice->booking_id)->first();
-
-        if ($booking === null) {
-            $event->conclude(WebhookEvent::STATUS_REVIEW, __('The booking behind this appointment no longer exists.'));
-
-            return;
-        }
-
         $items = $booking->items()
-            ->where('stylist_id', $slice->stylist_id)
             ->orderBy('starts_at')
             ->get();
 
-        // Current app state for this slice, in GHL terms.
+        // Current app state for this booking, in GHL terms.
         $currentStart = $items->min('starts_at');
         $currentEnd = $items->max('ends_at');
         $currentGhlStatus = GhlStatusMap::toGhl($booking->status);
@@ -135,7 +124,7 @@ class GhlInboundSync
         $incomingAt = $payload->changedAt ?? CarbonImmutable::now();
 
         if ($booking->updated_at !== null && $incomingAt->lt($booking->updated_at)) {
-            $slice->forceFill(['payload_hash' => null])->save(); // force the re-push through the diff
+            $booking->forceFill(['ghl_payload_hash' => null])->save(); // force the re-push through the diff
             SyncBookingToGhl::dispatch($booking->id);
 
             $event->conclude(WebhookEvent::STATUS_IGNORED_STALE, __('The app changed more recently — re-pushed the app state.'));
@@ -172,16 +161,9 @@ class GhlInboundSync
                 'to_status' => $incomingStatus,
                 'actor_user_id' => null, // GHL-originated
             ]);
-
-            // A cancel anywhere cancels the visit: take the sibling slices'
-            // GHL appointments down too (their echoes will match state and
-            // be ignored — no loop).
-            if ($incomingStatus === BookingStatus::Cancelled) {
-                $this->cancelSiblingSlices($booking, $connection, $slice);
-            }
         }
 
-        $this->refreshSliceState($booking->fresh(), $connection, $slice, $payload);
+        $this->refreshBookingSyncState($booking->fresh(), $connection, $payload);
 
         $event->conclude(WebhookEvent::STATUS_APPLIED);
     }
@@ -250,69 +232,40 @@ class GhlInboundSync
             'actor_user_id' => null, // GHL-originated
         ]);
 
-        $slice = BookingGhlAppointment::create([
-            'salon_id' => $salon->id,
-            'booking_id' => $booking->id,
-            'stylist_id' => $stylistId,
-            'ghl_appointment_id' => $payload->appointmentId,
-        ]);
+        $booking->forceFill(['ghl_appointment_id' => $payload->appointmentId])->save();
 
-        $this->refreshSliceState($booking, $connection, $slice, $payload);
+        $this->refreshBookingSyncState($booking, $connection, $payload);
 
         $event->conclude(WebhookEvent::STATUS_CREATED_BOOKING, __('Created booking #:id.', ['id' => $booking->id]));
     }
 
     /**
-     * Cancel the OTHER stylists' GHL appointments of a booking that was just
-     * cancelled from GHL via one slice.
-     */
-    private function cancelSiblingSlices(Booking $booking, SalonGhlConnection $connection, BookingGhlAppointment $inbound): void
-    {
-        $siblings = $booking->ghlAppointments()
-            ->whereKeyNot($inbound->id)
-            ->whereNotNull('ghl_appointment_id')
-            ->get();
-
-        if ($siblings->isEmpty() || ! $connection->isConnected()) {
-            return;
-        }
-
-        $client = GhlClient::fromConnection($connection);
-
-        foreach ($siblings as $sibling) {
-            $client->updateAppointment($sibling->ghl_appointment_id, ['appointmentStatus' => 'cancelled']);
-            $sibling->forceFill(['sync_status' => GhlBookingPusher::STATUS_SYNCED, 'last_synced_at' => now()])->save();
-        }
-    }
-
-    /**
      * After applying an inbound change (or importing a booking), align the
-     * slice's hash with the NEW state so echo detection and the outbound
+     * booking's hash with the NEW state so echo detection and the outbound
      * diff both read this state as already in GHL.
      */
-    private function refreshSliceState(Booking $booking, SalonGhlConnection $connection, BookingGhlAppointment $slice, GhlWebhookPayload $payload): void
+    private function refreshBookingSyncState(Booking $booking, SalonGhlConnection $connection, GhlWebhookPayload $payload): void
     {
         /** @var Collection<int, BookingItem> $items */
         $items = $booking->items()
             ->with('service:id,name')
-            ->where('stylist_id', $slice->stylist_id)
             ->orderBy('starts_at')
             ->get();
 
-        $providerId = StylistProfile::forSalon($booking->salon)
-            ->where('user_id', $slice->stylist_id)
-            ->value('ghl_user_id') ?? (string) $payload->assignedUserId;
+        $providerId = ($items->isEmpty() ? null : StylistProfile::forSalon($booking->salon)
+            ->where('user_id', $items->first()->stylist_id)
+            ->value('ghl_user_id')) ?? (string) $payload->assignedUserId;
 
         $hash = null;
         if ($items->isNotEmpty() && filled($providerId)) {
-            $slicePayload = GhlBookingPusher::slicePayload($booking, $items, (string) $providerId, (string) $connection->calendar_id);
-            $hash = GhlBookingPusher::sliceHash($slicePayload, (string) ($booking->client->ghl_contact_id ?? $payload->contactId ?? ''));
+            $appointment = GhlBookingPusher::appointmentPayload($booking, $items, (string) $providerId, (string) $connection->calendar_id);
+            $hash = GhlBookingPusher::payloadHash($appointment, (string) ($booking->client->ghl_contact_id ?? $payload->contactId ?? ''));
         }
 
-        $slice->forceFill([
-            'sync_status' => GhlBookingPusher::STATUS_SYNCED,
-            'sync_error' => null,
-            'payload_hash' => $hash,
+        $booking->forceFill([
+            'ghl_sync_status' => GhlBookingPusher::STATUS_SYNCED,
+            'ghl_sync_error' => null,
+            'ghl_payload_hash' => $hash,
             'last_synced_at' => now(),
         ])->save();
     }

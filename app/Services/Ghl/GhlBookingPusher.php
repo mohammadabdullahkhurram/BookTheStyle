@@ -4,40 +4,29 @@ namespace App\Services\Ghl;
 
 use App\Enums\BookingStatus;
 use App\Models\Booking;
-use App\Models\BookingGhlAppointment;
 use App\Models\BookingItem;
-use App\Models\SalonGhlConnection;
 use App\Models\StylistProfile;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Collection as SupportCollection;
-use Throwable;
 
 /**
  * Push one booking's CURRENT state to GoHighLevel — the state-driven core
  * behind the queued SyncBookingToGhl job. The in-app booking is the source
  * of truth: this runs after the fact and never blocks or fails a booking.
  *
- * A booking's services can be performed by DIFFERENT stylists, so it mirrors
- * as ONE GHL APPOINTMENT PER DISTINCT STYLIST, each on that stylist's mapped
- * provider slot with that stylist's own item times (same-time, back-to-back
- * and different-time layouts all land correctly; without this the second
- * stylist looks free in GHL and voice/chat can double-book them). Multiple
- * services for the SAME stylist stay one appointment spanning their combined
- * time. Every stylist slice tracks its own ghl_appointment_id + sync state
- * on booking_ghl_appointments — the ids 6c's echo-loop dedupe keys on.
+ * A booking is ONE stylist's visit (multi-stylist visits persist as separate
+ * bookings linked by visit_group_id), so the mirror is a clean 1:1: one
+ * booking → one GHL appointment on THAT booking's stylist's mapped provider,
+ * at THAT booking's own item times, titled with only THAT booking's
+ * service(s). The appointment id, sync status/error, payload hash and
+ * last-synced time live directly on the booking.
  *
- * Re-pushes diff by stylist via a payload hash: unchanged slices are left
- * alone, changed ones update their existing appointment (never duplicate),
- * a newly added stylist gets a fresh appointment, and a removed stylist's
- * appointment is cancelled remotely and their row dropped. Cancelling the
- * booking cancels every slice. Unmapped stylists' slices are skipped and
- * flagged without failing the rest.
- *
- * Times are ISO-8601 with the salon's wall-clock offset (DST-safe); slots
- * are pushed with ignoreFreeSlotValidation — the app's engine already
- * validated them and is authoritative. One slice's API failure is recorded
- * on that slice and rethrown so the job retries; already-synced slices are
- * skipped by hash on the retry.
+ * Re-pushes diff by the payload hash: an unchanged booking makes no API
+ * call, a changed one updates its existing appointment (never duplicates),
+ * and a cancelled booking cancels it (kept in GHL as a cancelled record).
+ * Unconnected salons and unmapped stylists skip silently with a flag. Times
+ * are ISO-8601 with the salon's wall-clock offset (DST-safe); slots are
+ * pushed with ignoreFreeSlotValidation — the app's engine already validated
+ * them and is authoritative.
  */
 class GhlBookingPusher
 {
@@ -49,204 +38,113 @@ class GhlBookingPusher
 
     /**
      * @throws GhlApiException on API failure (the queued job retries, then
-     *                         records the failure per stylist slice)
+     *                         records the failure on the booking)
      */
     public function push(Booking $booking): void
     {
         $salon = $booking->salon;
         $connection = $salon->ghlConnection()->first();
-        $rows = $booking->ghlAppointments()->get()->keyBy('stylist_id');
-
-        // Cancelled: cancel every slice that ever reached GHL.
-        if ($booking->status === BookingStatus::Cancelled) {
-            $this->cancelAll($booking, $connection, $rows);
-
-            return;
-        }
-
-        $groups = $this->itemsByStylist($booking);
 
         if ($connection === null || ! $connection->isConnected()) {
-            foreach ($groups as $stylistId => $group) {
-                $this->row($booking, $rows, (int) $stylistId)
-                    ->forceFill(['sync_status' => self::STATUS_SKIPPED, 'sync_error' => __('GoHighLevel is not connected.')])
-                    ->save();
-            }
+            $this->mark($booking, self::STATUS_SKIPPED, __('GoHighLevel is not connected.'));
 
             return;
         }
 
-        if ($groups->isEmpty()) {
+        // Cancelled: only reaches GHL if the booking ever did.
+        if ($booking->status === BookingStatus::Cancelled) {
+            if ($booking->ghl_appointment_id === null) {
+                $this->mark($booking, self::STATUS_SKIPPED, __('Cancelled before it was pushed to GoHighLevel.'));
+
+                return;
+            }
+
+            GhlClient::fromConnection($connection)->updateAppointment($booking->ghl_appointment_id, [
+                'appointmentStatus' => 'cancelled',
+            ]);
+
+            $this->mark($booking, self::STATUS_SYNCED, null, touchSyncedAt: true);
+
+            return;
+        }
+
+        $items = $booking->items()->with('service:id,name')->orderBy('starts_at')->get();
+
+        if ($items->isEmpty()) {
+            $this->mark($booking, self::STATUS_SKIPPED, __('The booking has no service items.'));
+
+            return;
+        }
+
+        // One booking = one stylist; their calendar-provider mapping routes it.
+        $providerId = StylistProfile::forSalon($salon)
+            ->where('user_id', $items->first()->stylist_id)
+            ->value('ghl_user_id');
+
+        if (blank($providerId)) {
+            $this->mark($booking, self::STATUS_SKIPPED, __('The stylist is not mapped to a GoHighLevel calendar provider.'));
+
             return;
         }
 
         $client = GhlClient::fromConnection($connection);
+        $contactId = $this->ensureContact($client, $booking);
 
-        // A stylist removed from the booking loses their GHL appointment.
-        foreach ($rows as $stylistId => $row) {
-            if ($groups->has($stylistId)) {
-                continue;
-            }
+        $payload = self::appointmentPayload($booking, $items, (string) $providerId, (string) $connection->calendar_id);
+        $hash = self::payloadHash($payload, $contactId);
 
-            if ($row->ghl_appointment_id !== null) {
-                $client->updateAppointment($row->ghl_appointment_id, ['appointmentStatus' => 'cancelled']);
-            }
-
-            $row->delete();
-            $rows->forget($stylistId);
+        if ($booking->ghl_appointment_id !== null && $booking->ghl_payload_hash === $hash && $booking->ghl_sync_status === self::STATUS_SYNCED) {
+            return; // unchanged — leave the appointment alone
         }
 
-        $providers = StylistProfile::forSalon($salon)
-            ->whereIn('user_id', $groups->keys()->all())
-            ->pluck('ghl_user_id', 'user_id');
-
-        $contactId = null;
-        $firstFailure = null;
-
-        foreach ($groups as $stylistId => $items) {
-            $row = $this->row($booking, $rows, (int) $stylistId);
-            $providerId = $providers[$stylistId] ?? null;
-
-            if (blank($providerId)) {
-                $row->forceFill([
-                    'sync_status' => self::STATUS_SKIPPED,
-                    'sync_error' => __('The stylist is not mapped to a GoHighLevel calendar provider.'),
-                ])->save();
-
-                continue;
-            }
-
-            try {
-                $contactId ??= $this->ensureContact($client, $booking);
-
-                $this->pushSlice($client, $connection->calendar_id, $booking, $row, (string) $providerId, $items, $contactId);
-            } catch (Throwable $e) {
-                $row->forceFill([
-                    'sync_status' => self::STATUS_FAILED,
-                    'sync_error' => mb_substr($e->getMessage(), 0, 500),
-                ])->save();
-
-                $firstFailure ??= $e;
-            }
-        }
-
-        // Let the queue retry; hash-unchanged slices are no-ops next time.
-        if ($firstFailure !== null) {
-            throw $firstFailure;
-        }
-    }
-
-    /**
-     * Create or update one stylist's appointment, skipping the API entirely
-     * when nothing about their slice changed since the last successful push.
-     *
-     * @param  Collection<int, BookingItem>  $items
-     */
-    private function pushSlice(
-        GhlClient $client,
-        string $calendarId,
-        Booking $booking,
-        BookingGhlAppointment $row,
-        string $providerId,
-        Collection $items,
-        string $contactId,
-    ): void {
-        $payload = self::slicePayload($booking, $items, $providerId, $calendarId);
-        $hash = self::sliceHash($payload, $contactId);
-
-        if ($row->ghl_appointment_id !== null && $row->payload_hash === $hash && $row->sync_status === self::STATUS_SYNCED) {
-            return; // unchanged slice — leave the appointment alone
-        }
-
-        if ($row->ghl_appointment_id !== null) {
-            $client->updateAppointment($row->ghl_appointment_id, $payload);
+        if ($booking->ghl_appointment_id !== null) {
+            $client->updateAppointment($booking->ghl_appointment_id, $payload);
         } else {
             $appointment = $client->createAppointment([...$payload, 'contactId' => $contactId]);
 
             $id = $appointment['id'] ?? null;
             if (is_string($id) && $id !== '') {
-                $row->ghl_appointment_id = $id;
+                $booking->ghl_appointment_id = $id;
             }
         }
 
-        $row->forceFill([
-            'sync_status' => self::STATUS_SYNCED,
-            'sync_error' => null,
-            'payload_hash' => $hash,
-            'last_synced_at' => now(),
-        ])->save();
+        $booking->ghl_payload_hash = $hash;
+        $this->mark($booking, self::STATUS_SYNCED, null, touchSyncedAt: true);
     }
 
     /**
-     * Booking items grouped per stylist, ordered by each stylist's first
-     * item start (stable, deterministic push order).
+     * The exact appointment body this booking pushes: ITS OWN times (first
+     * item start → last item client-facing end) and ITS OWN services in the
+     * title — never another stylist's. Shared with the inbound sync so an
+     * applied GHL change can refresh the hash to the new state.
      *
-     * @return SupportCollection<int|string, Collection<int, BookingItem>>
+     * @param  Collection<int, BookingItem>  $items
+     * @return array<string, mixed>
      */
-    private function itemsByStylist(Booking $booking): SupportCollection
+    public static function appointmentPayload(Booking $booking, Collection $items, string $providerId, string $calendarId): array
     {
-        return $booking->items()
-            ->with('service:id,name')
-            ->orderBy('starts_at')
-            ->orderBy('id')
-            ->get()
-            ->groupBy('stylist_id')
-            ->toBase();
+        $tz = $booking->salon->timezone;
+        $services = $items->pluck('service.name')->filter()->implode(', ');
+
+        return [
+            'title' => trim($booking->client->name.($services !== '' ? ' — '.$services : '')),
+            'appointmentStatus' => GhlStatusMap::toGhl($booking->status),
+            'assignedUserId' => $providerId,
+            'calendarId' => $calendarId,
+            'startTime' => $items->min('starts_at')->setTimezone($tz)->format('Y-m-d\TH:i:sP'),
+            'endTime' => $items->max('ends_at')->setTimezone($tz)->format('Y-m-d\TH:i:sP'),
+            // The app's slot engine already validated this slot and is the
+            // source of truth; GHL must not reject it against its own hours.
+            'ignoreFreeSlotValidation' => true,
+        ];
     }
 
     /**
-     * @param  Collection<int|string, BookingGhlAppointment>  $rows
+     * @param  array<string, mixed>  $payload
      */
-    private function row(Booking $booking, Collection $rows, int $stylistId): BookingGhlAppointment
+    public static function payloadHash(array $payload, string $contactId): string
     {
-        $existing = $rows->get($stylistId);
-
-        if ($existing instanceof BookingGhlAppointment) {
-            return $existing;
-        }
-
-        $row = BookingGhlAppointment::create([
-            'salon_id' => $booking->salon_id,
-            'booking_id' => $booking->id,
-            'stylist_id' => $stylistId,
-        ]);
-
-        $rows->put($stylistId, $row);
-
-        return $row;
-    }
-
-    /**
-     * @param  Collection<int|string, BookingGhlAppointment>  $rows
-     */
-    private function cancelAll(Booking $booking, ?SalonGhlConnection $connection, Collection $rows): void
-    {
-        $pushed = $rows->filter(fn (BookingGhlAppointment $row): bool => $row->ghl_appointment_id !== null);
-
-        if ($pushed->isEmpty() || $connection === null || ! $connection->isConnected()) {
-            foreach ($rows as $row) {
-                if ($row->ghl_appointment_id === null) {
-                    $row->forceFill([
-                        'sync_status' => self::STATUS_SKIPPED,
-                        'sync_error' => __('Cancelled before it was pushed to GoHighLevel.'),
-                    ])->save();
-                }
-            }
-
-            return;
-        }
-
-        $client = GhlClient::fromConnection($connection);
-
-        foreach ($pushed as $row) {
-            $client->updateAppointment($row->ghl_appointment_id, ['appointmentStatus' => 'cancelled']);
-
-            $row->forceFill([
-                'sync_status' => self::STATUS_SYNCED,
-                'sync_error' => null,
-                'last_synced_at' => now(),
-            ])->save();
-        }
+        return hash('sha256', json_encode([$payload, $contactId]) ?: '');
     }
 
     /**
@@ -282,37 +180,12 @@ class GhlBookingPusher
         return $id;
     }
 
-    /**
-     * The exact appointment body one stylist's slice pushes to GHL — shared
-     * with the inbound sync so an applied GHL change can refresh the slice
-     * hash to the new state (keeping echo detection and diffing coherent).
-     *
-     * @param  Collection<int, BookingItem>  $items
-     * @return array<string, mixed>
-     */
-    public static function slicePayload(Booking $booking, Collection $items, string $providerId, string $calendarId): array
+    private function mark(Booking $booking, string $status, ?string $error, bool $touchSyncedAt = false): void
     {
-        $tz = $booking->salon->timezone;
-        $services = $items->pluck('service.name')->filter()->implode(', ');
-
-        return [
-            'title' => trim($booking->client->name.($services !== '' ? ' — '.$services : '')),
-            'appointmentStatus' => GhlStatusMap::toGhl($booking->status),
-            'assignedUserId' => $providerId,
-            'calendarId' => $calendarId,
-            'startTime' => $items->min('starts_at')->setTimezone($tz)->format('Y-m-d\TH:i:sP'),
-            'endTime' => $items->max('ends_at')->setTimezone($tz)->format('Y-m-d\TH:i:sP'),
-            // The app's slot engine already validated this slot and is the
-            // source of truth; GHL must not reject it against its own hours.
-            'ignoreFreeSlotValidation' => true,
-        ];
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    public static function sliceHash(array $payload, string $contactId): string
-    {
-        return hash('sha256', json_encode([$payload, $contactId]) ?: '');
+        $booking->forceFill([
+            'ghl_sync_status' => $status,
+            'ghl_sync_error' => $error,
+            ...($touchSyncedAt ? ['last_synced_at' => now()] : []),
+        ])->save();
     }
 }

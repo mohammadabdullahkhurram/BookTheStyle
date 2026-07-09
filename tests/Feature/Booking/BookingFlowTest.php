@@ -108,12 +108,15 @@ it('books two stylists at the same time as two lines, pushing per-stylist GHL ap
         ->call('save')
         ->assertHasNoErrors();
 
-    $booking = $salon->bookings()->latest('id')->first();
-    $items = $booking->items()->orderBy('id')->get();
-    expect($items)->toHaveCount(2);
-    expect($items[0]->stylist_id)->toBe($anna->id);
-    expect($items[1]->stylist_id)->toBe($ben->id);
-    expect($items[0]->starts_at->getTimestamp())->toBe($items[1]->starts_at->getTimestamp());
+    // One booking PER STYLIST, linked as one visit.
+    $bookings = $salon->bookings()->orderBy('id')->get();
+    expect($bookings)->toHaveCount(2);
+    expect($bookings[0]->visit_group_id)->not->toBeNull();
+    expect($bookings[0]->visit_group_id)->toBe($bookings[1]->visit_group_id);
+    expect($bookings[0]->items()->pluck('stylist_id')->all())->toBe([$anna->id]);
+    expect($bookings[1]->items()->pluck('stylist_id')->all())->toBe([$ben->id]);
+    expect($bookings[0]->items()->first()->starts_at->getTimestamp())
+        ->toBe($bookings[1]->items()->first()->starts_at->getTimestamp());
 
     // Outbound 6b intact: one appointment per stylist on their provider.
     Http::assertSent(fn ($r): bool => $r->method() === 'POST'
@@ -218,4 +221,30 @@ it('still books a walk-in that starts now', function () {
     $booking = $salon->bookings()->first();
     expect($booking->is_walkin)->toBeTrue();
     expect($booking->status)->toBe(BookingStatus::Arrived);
+});
+
+it('keeps a single-stylist multi-service visit as ONE booking with no visit group', function () {
+    $salon = bookingSalon();
+    $stylist = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
+    $cut = serviceFor($salon, $stylist, 60);
+    $dry = serviceFor($salon, $stylist, 30);
+
+    Livewire::actingAs(salonOwnerOf($salon))
+        ->test('pages::salon.bookings.create', ['salon' => $salon])
+        ->set('clientMode', 'new')
+        ->set('newName', 'Solo Client')
+        ->set('date', '2026-06-22')
+        ->set('items.0.service_id', (string) $cut->id)
+        ->set('items.0.stylist_id', (string) $stylist->id)
+        ->call('addItem')
+        ->set('items.1.service_id', (string) $dry->id)
+        ->set('items.1.stylist_id', (string) $stylist->id)
+        ->call('pickTime', 0, '10:00')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $bookings = $salon->bookings()->get();
+    expect($bookings)->toHaveCount(1);
+    expect($bookings[0]->visit_group_id)->toBeNull();
+    expect($bookings[0]->items()->count())->toBe(2);
 });

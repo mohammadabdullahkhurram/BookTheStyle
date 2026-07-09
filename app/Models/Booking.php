@@ -29,6 +29,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $ghl_sync_status
  * @property string|null $ghl_sync_error
  * @property CarbonImmutable|null $last_synced_at
+ * @property string|null $visit_group_id
+ * @property string|null $ghl_appointment_id
+ * @property string|null $ghl_sync_status
+ * @property string|null $ghl_sync_error
+ * @property string|null $ghl_payload_hash
+ * @property CarbonImmutable|null $last_synced_at
  */
 class Booking extends Model
 {
@@ -44,6 +50,12 @@ class Booking extends Model
         'source',
         'is_walkin',
         'notes',
+        'visit_group_id',
+        'ghl_appointment_id',
+        'ghl_sync_status',
+        'ghl_sync_error',
+        'ghl_payload_hash',
+        'last_synced_at',
     ];
 
     protected function casts(): array
@@ -53,6 +65,7 @@ class Booking extends Model
             'booked_by_type' => BookedByType::class,
             'source' => BookingSource::class,
             'is_walkin' => 'boolean',
+            'last_synced_at' => 'datetime',
         ];
     }
 
@@ -78,17 +91,6 @@ class Booking extends Model
     public function bookedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'booked_by_user_id');
-    }
-
-    /**
-     * Per-stylist GHL appointment mirrors (one row per distinct stylist on
-     * the booking).
-     *
-     * @return HasMany<BookingGhlAppointment, $this>
-     */
-    public function ghlAppointments(): HasMany
-    {
-        return $this->hasMany(BookingGhlAppointment::class);
     }
 
     /**
