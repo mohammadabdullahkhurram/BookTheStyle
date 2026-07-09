@@ -504,3 +504,132 @@ it('logs a clear no-match when neither id nor contact resolves', function () {
         ->withArgs(fn ($message) => $message === 'GHL inbound: no matching booking')
         ->once();
 });
+
+// ---------------------------------------------------------------------------
+// Appointment-id matching: calendar.appointmentId is unique; calendar.id is
+// the SHARED calendar ref (identical across appointments) and must never be
+// the match key.
+// ---------------------------------------------------------------------------
+
+it('cancels the correct bookings when two appointments share calendar.id but differ in appointmentId', function () {
+    $salon = whSalon();
+    $stylist = whStylist($salon);
+
+    // Two pushed bookings, storing the two REAL unique appointment ids.
+    $client = Client::factory()->for($salon)->create(['name' => 'Casey Client', 'ghl_contact_id' => 'ghl_c1']);
+    $make = function (string $ghlId, string $time) use ($salon, $stylist, $client) {
+        $booking = Booking::factory()->for($salon)->for($client)->create([
+            'status' => BookingStatus::Booked, 'ghl_appointment_id' => $ghlId,
+        ]);
+        BookingItem::factory()->create([
+            'salon_id' => $salon->id, 'booking_id' => $booking->id,
+            'service_id' => Service::factory()->for($salon)->create()->id,
+            'stylist_id' => $stylist->id,
+            'starts_at' => CarbonImmutable::parse($time, $salon->timezone),
+            'ends_at' => CarbonImmutable::parse($time, $salon->timezone)->addMinutes(45),
+        ]);
+
+        return $booking;
+    };
+    $dying = $make('pffmwYRLztkTHfoTIX89', '2026-06-23 10:00');
+    $extensions = $make('DQULILDja18MLO3mwNdP', '2026-06-23 14:00');
+
+    // Cancel appt A — same shared calendar.id on both payloads.
+    postWebhook(realGhlPayload([
+        'appointmentId' => 'pffmwYRLztkTHfoTIX89',
+        'id' => 'yxNfNassZfX6qtUPUgug',
+        'appoinmentStatus' => 'cancelled',
+        'startTime' => '2026-06-23T10:00:00',
+    ]))->assertStatus(202);
+
+    expect($dying->fresh()->status)->toBe(BookingStatus::Cancelled);
+    expect($extensions->fresh()->status)->toBe(BookingStatus::Booked); // untouched
+
+    // Cancel appt B.
+    postWebhook(realGhlPayload([
+        'appointmentId' => 'DQULILDja18MLO3mwNdP',
+        'id' => 'yxNfNassZfX6qtUPUgug',
+        'appoinmentStatus' => 'cancelled',
+        'startTime' => '2026-06-23T14:00:00',
+    ]))->assertStatus(202);
+
+    expect($extensions->fresh()->status)->toBe(BookingStatus::Cancelled);
+});
+
+it('stores an id on outbound create that the webhook appointmentId then matches (round trip)', function () {
+    $salon = whSalon();
+    $stylist = whStylist($salon);
+    $booking = whPushedBooking($salon, $stylist); // create response id => 'ghl_a1'
+
+    // Outbound stored exactly the id the webhook sends as appointmentId.
+    expect($booking->ghl_appointment_id)->toBe('ghl_a1');
+
+    postWebhook(realGhlPayload([
+        'appointmentId' => 'ghl_a1',
+        'id' => 'yxNfNassZfX6qtUPUgug',
+        'appoinmentStatus' => 'cancelled',
+        'startTime' => '2026-06-23T10:00:00',
+        'endTime' => '2026-06-23T10:45:00',
+    ]))->assertStatus(202);
+
+    expect($booking->fresh()->status)->toBe(BookingStatus::Cancelled);
+    Http::assertSentCount(1); // inbound apply never re-pushes
+});
+
+it('heals a booking poisoned with the shared calendar id via contact + time, correcting the id', function () {
+    $salon = whSalon();
+    $stylist = whStylist($salon);
+
+    // The historical bug stored calendar.id as the appointment id.
+    $client = Client::factory()->for($salon)->create(['name' => 'Casey Client', 'ghl_contact_id' => 'ghl_c1']);
+    $booking = Booking::factory()->for($salon)->for($client)->create([
+        'status' => BookingStatus::Booked,
+        'ghl_appointment_id' => 'yxNfNassZfX6qtUPUgug', // the SHARED calendar id
+    ]);
+    BookingItem::factory()->create([
+        'salon_id' => $salon->id, 'booking_id' => $booking->id,
+        'service_id' => Service::factory()->for($salon)->create()->id,
+        'stylist_id' => $stylist->id,
+        'starts_at' => CarbonImmutable::parse('2026-06-23 10:00', $salon->timezone),
+        'ends_at' => CarbonImmutable::parse('2026-06-23 10:45', $salon->timezone),
+    ]);
+
+    postWebhook(realGhlPayload([
+        'appointmentId' => 'pffmwYRLztkTHfoTIX89',
+        'id' => 'yxNfNassZfX6qtUPUgug',
+        'appoinmentStatus' => 'cancelled',
+        'startTime' => '2026-06-23T10:00:00',
+    ]))->assertStatus(202);
+
+    $booking->refresh();
+    expect($booking->status)->toBe(BookingStatus::Cancelled);
+    expect($booking->ghl_appointment_id)->toBe('pffmwYRLztkTHfoTIX89'); // corrected
+});
+
+it('never stores the calendar id from an outbound create response, and warns instead', function () {
+    Log::spy();
+    Http::fake([
+        'services.leadconnectorhq.com/contacts/upsert' => Http::response(['contact' => ['id' => 'ghl_c1']]),
+        // A degenerate response: only the calendar id, no appointment id.
+        'services.leadconnectorhq.com/calendars/events/appointments*' => Http::response(['id' => 'cal_master']),
+    ]);
+    $salon = whSalon();
+    $stylist = whStylist($salon);
+
+    $client = Client::factory()->for($salon)->create(['name' => 'Casey Client']);
+    $booking = Booking::factory()->for($salon)->for($client)->create(['status' => BookingStatus::Booked]);
+    BookingItem::factory()->create([
+        'salon_id' => $salon->id, 'booking_id' => $booking->id,
+        'service_id' => Service::factory()->for($salon)->create()->id,
+        'stylist_id' => $stylist->id,
+        'starts_at' => CarbonImmutable::parse('2026-06-23 10:00', $salon->timezone),
+        'ends_at' => CarbonImmutable::parse('2026-06-23 10:45', $salon->timezone),
+    ]);
+
+    app(GhlBookingPusher::class)->push($booking);
+
+    expect($booking->fresh()->ghl_appointment_id)->toBeNull(); // calendar id refused
+    Log::shouldHaveReceived('warning')
+        ->withArgs(fn ($message) => $message === 'GHL create returned no usable appointment id')
+        ->once();
+});

@@ -88,7 +88,14 @@ class GhlInboundSync
             $booking = $this->matchByContactAndTime($salon, $payload);
 
             if ($booking !== null) {
+                // Adopt (or correct) the unique appointment id.
                 $booking->forceFill(['ghl_appointment_id' => $payload->appointmentId])->save();
+
+                Log::info('GHL inbound: matched by contact + time', [
+                    'webhook_event_id' => $event->id,
+                    'booking_id' => $booking->id,
+                    'adopted_appointment_id' => $payload->appointmentId,
+                ]);
             }
         }
 
@@ -226,7 +233,16 @@ class GhlInboundSync
         return Booking::query()
             ->where('salon_id', $salon->id)
             ->where('client_id', $client->id)
-            ->whereNull('ghl_appointment_id')
+            // Un-mirrored bookings, plus rows poisoned by the historical bug
+            // that stored the SHARED calendar id as the appointment id —
+            // both get the webhook's unique appointmentId adopted onto them.
+            ->where(function ($q) use ($payload) {
+                $q->whereNull('ghl_appointment_id');
+
+                if ($payload->calendarId !== null) {
+                    $q->orWhere('ghl_appointment_id', $payload->calendarId);
+                }
+            })
             ->whereHas('items', fn ($q) => $q->where('starts_at', $payload->startsAt->utc()))
             ->orderByDesc('id')
             ->first();

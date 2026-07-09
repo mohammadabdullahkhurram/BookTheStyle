@@ -7,6 +7,7 @@ use App\Models\Booking;
 use App\Models\BookingItem;
 use App\Models\StylistProfile;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Push one booking's CURRENT state to GoHighLevel — the state-driven core
@@ -102,9 +103,30 @@ class GhlBookingPusher
         } else {
             $appointment = $client->createAppointment([...$payload, 'contactId' => $contactId]);
 
-            $id = $appointment['id'] ?? null;
-            if (is_string($id) && $id !== '') {
+            // The create response's appointment id is what every future
+            // webhook sends as calendar.appointmentId — extract it
+            // defensively across response shapes, and never accept the
+            // CALENDAR id (a shared ref identical across appointments).
+            $id = $appointment['id']
+                ?? $appointment['appointmentId']
+                ?? data_get($appointment, 'appointment.id')
+                ?? data_get($appointment, 'event.id');
+
+            if (is_string($id) && $id !== '' && $id !== (string) $connection->calendar_id) {
                 $booking->ghl_appointment_id = $id;
+
+                Log::info('GHL appointment created', [
+                    'booking_id' => $booking->id,
+                    'ghl_appointment_id' => $id,
+                ]);
+            } else {
+                // Without the id, inbound matching falls back to contact +
+                // start time — flag it loudly so the response shape gets
+                // investigated instead of failing silently.
+                Log::warning('GHL create returned no usable appointment id', [
+                    'booking_id' => $booking->id,
+                    'response_keys' => array_keys($appointment),
+                ]);
             }
         }
 
