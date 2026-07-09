@@ -28,7 +28,7 @@ it('reserves close-button space in the calendar booking-detail header at a long 
 
     // Push to a wide status label ("In service") to stress the header row.
     app(TransitionBookingStatus::class)->handle($owner, $salon, $booking, BookingStatus::Arrived);
-    app(TransitionBookingStatus::class)->handle($owner, $salon, $booking, BookingStatus::InService);
+    $booking->update(['status' => BookingStatus::InService]); // legacy wide label, set directly
 
     $this->actingAs($owner);
 

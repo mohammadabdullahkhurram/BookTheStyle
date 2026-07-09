@@ -17,3 +17,10 @@ Artisan::command('inspire', function () {
 Schedule::command('queue:work --stop-when-empty')
     ->everyMinute()
     ->withoutOverlapping();
+
+// Elapsed, still-booked bookings become no-shows (and mirror to GHL via the
+// queue above). Same cron drives it in production; locally use
+// `php artisan schedule:work` or run bookings:auto-no-show directly.
+Schedule::command('bookings:auto-no-show')
+    ->everyFiveMinutes()
+    ->withoutOverlapping();

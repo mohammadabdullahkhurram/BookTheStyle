@@ -89,7 +89,7 @@ it('hides status actions from a stylist and denies the change server-side', func
         ->test('pages::salon.calendar', ['salon' => $salon])
         ->call('openBooking', $booking->id)
         ->assertSee($booking->client->name)
-        ->assertDontSee('Mark arrived');
+        ->assertDontSee('Checked in'); // no status buttons for a stylist
 
     // Server truth: the transition action rejects the stylist outright.
     expect(fn () => app(TransitionBookingStatus::class)->handle($stylist, $salon, $booking, BookingStatus::Arrived))

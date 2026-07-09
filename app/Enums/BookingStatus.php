@@ -3,7 +3,14 @@
 namespace App\Enums;
 
 /**
- * Lifecycle of a client visit (SPEC §4).
+ * Lifecycle of a client visit (SPEC §4), shaped to the salon workflow:
+ * a booking is BOOKED (active — auto-confirmed in GHL on push), then either
+ * CHECKED IN (case Arrived, GHL "showed"), NO-SHOW (manual or automatic once
+ * the end time passes), or CANCELLED. Rescheduling is a time change, not a
+ * status. There is no user-facing "confirm" step.
+ *
+ * Confirmed / InService / Completed remain as legacy cases so historical
+ * bookings stay valid; they expose no forward buttons beyond the new model.
  */
 enum BookingStatus: string
 {
@@ -20,7 +27,7 @@ enum BookingStatus: string
         return match ($this) {
             self::Booked => 'Booked',
             self::Confirmed => 'Confirmed',
-            self::Arrived => 'Arrived',
+            self::Arrived => 'Checked in',
             self::InService => 'In service',
             self::Completed => 'Completed',
             self::Cancelled => 'Cancelled',
@@ -57,10 +64,14 @@ enum BookingStatus: string
     public function allowedTransitions(): array
     {
         return match ($this) {
-            self::Booked => [self::Confirmed, self::Arrived, self::Cancelled, self::NoShow],
-            self::Confirmed => [self::Arrived, self::Cancelled, self::NoShow],
-            self::Arrived => [self::InService, self::Completed, self::Cancelled],
-            self::InService => [self::Completed, self::Cancelled],
+            // The four salon actions: checked in / no show / cancel
+            // (+ reschedule, which is a time change, not a status).
+            self::Booked => [self::Arrived, self::NoShow, self::Cancelled],
+            // Legacy pre-arrival state behaves like Booked.
+            self::Confirmed => [self::Arrived, self::NoShow, self::Cancelled],
+            self::Arrived => [self::Cancelled],
+            // Legacy in-progress state can still be cancelled.
+            self::InService => [self::Cancelled],
             self::Completed, self::Cancelled, self::NoShow => [],
         };
     }

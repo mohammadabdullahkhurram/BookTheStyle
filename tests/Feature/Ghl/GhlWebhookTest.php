@@ -307,7 +307,7 @@ it('creates an app booking from a new GHL appointment, fully mapped', function (
     expect($booking)->not->toBeNull();
     expect($booking->client_id)->toBe($client->id);                       // matched by ghl_contact_id
     expect($booking->source)->toBe(BookingSource::VoiceAi);               // 6d source tagging hook
-    expect($booking->status)->toBe(BookingStatus::Confirmed);
+    expect($booking->status)->toBe(BookingStatus::Booked); // inbound 'confirmed' = the active state
     expect($booking->items()->first()->stylist_id)->toBe($stylist->id);   // reverse provider mapping
     expect($booking->items()->first()->service->name)->toBe('Cut & Style'); // matched from title
     expect($booking->items()->first()->starts_at->setTimezone($salon->timezone)->format('H:i'))->toBe('15:00');

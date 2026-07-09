@@ -373,7 +373,7 @@ new #[Title('Calendar')] class extends Component {
                         <div class="flex flex-wrap gap-2 border-t border-divider pt-4">
                             @foreach ($booking->status->allowedTransitions() as $next)
                                 @if ($next === \App\Enums\BookingStatus::Arrived)
-                                    <x-ui.button size="sm" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')">{{ __('Mark arrived') }}</x-ui.button>
+                                    <x-ui.button size="sm" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')">{{ __('Checked in') }}</x-ui.button>
                                 @elseif ($next === \App\Enums\BookingStatus::Cancelled)
                                     <button type="button" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')" class="bts-btn bts-btn-sm border border-input-border bg-card text-danger hover:border-danger">{{ $next->label() }}</button>
                                 @else

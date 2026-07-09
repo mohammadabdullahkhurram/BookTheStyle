@@ -213,7 +213,7 @@ new #[Title('Check-in')] class extends Component {
                             <div class="flex flex-wrap justify-end gap-2">
                                 @foreach ($booking->status->allowedTransitions() as $next)
                                     @if ($next === \App\Enums\BookingStatus::Arrived)
-                                        <x-ui.button size="sm" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')">{{ __('Mark arrived') }}</x-ui.button>
+                                        <x-ui.button size="sm" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')">{{ __('Checked in') }}</x-ui.button>
                                     @else
                                         <x-ui.button size="sm" variant="secondary" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')">{{ $next->label() }}</x-ui.button>
                                     @endif
