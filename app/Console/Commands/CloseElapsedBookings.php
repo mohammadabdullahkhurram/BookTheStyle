@@ -86,7 +86,7 @@ class CloseElapsedBookings extends Command
                     ]);
 
                     if ($pushToGhl) {
-                        SyncBookingToGhl::dispatch($booking->id)->afterCommit();
+                        SyncBookingToGhl::queueFor($booking);
                     }
 
                     $flipped++;

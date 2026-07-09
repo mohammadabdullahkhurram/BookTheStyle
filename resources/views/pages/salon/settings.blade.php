@@ -10,9 +10,11 @@ use App\Actions\Salons\UpdateGhlStaffMapping;
 use App\Enums\StaffType;
 use App\Actions\Salons\UpdateSalonProfile;
 use App\Actions\Salons\UpdateTimezone;
+use App\Jobs\SyncBookingToGhl;
 use App\Models\Salon;
 use App\Models\StylistProfile;
 use App\Services\Ghl\GhlApiException;
+use App\Services\Ghl\GhlBookingPusher;
 use App\Services\Ghl\GhlClient;
 use App\Support\SalonProfile;
 use Flux\Flux;
@@ -401,6 +403,40 @@ new #[Title('Salon settings')] class extends Component {
         $this->refreshGhlState();
 
         Flux::toast(variant: 'success', text: __('Webhook secret generated. Update the GoHighLevel workflow header.'));
+    }
+
+    /**
+     * Bookings whose GHL push failed for good (all retries exhausted, or the
+     * appointment vanished from GHL) — owner/admin visibility instead of a
+     * silent dead queue job. Salon-scoped by the relation.
+     *
+     * @return \Illuminate\Database\Eloquent\Collection<int, \App\Models\Booking>
+     */
+    #[Computed]
+    public function ghlSyncIssues()
+    {
+        return $this->salon->bookings()
+            ->where('ghl_sync_status', GhlBookingPusher::STATUS_FAILED)
+            ->with(['client:id,name', 'items.service:id,name', 'items.stylist:id,name'])
+            ->orderByDesc('id')
+            ->limit(25)
+            ->get();
+    }
+
+    /**
+     * Re-dispatch the push for one failed booking (the job pushes the
+     * booking's CURRENT state, so a retry is always safe).
+     */
+    public function retryGhlSync(int $bookingId): void
+    {
+        $this->authorize('manageGhlConnection', $this->salon);
+
+        $booking = $this->salon->bookings()->whereKey($bookingId)->firstOrFail();
+
+        SyncBookingToGhl::queueFor($booking);
+        unset($this->ghlSyncIssues);
+
+        Flux::toast(variant: 'success', text: __('Sync queued for :name.', ['name' => $booking->client->name]));
     }
 
     /**
@@ -851,6 +887,41 @@ new #[Title('Salon settings')] class extends Component {
                             </x-ui.button>
                         @endif
                     </div>
+                </x-ui.card>
+
+                <x-ui.card class="flex flex-col gap-4">
+                    <h2 class="bts-card-title">{{ __('Sync issues') }}</h2>
+                    <p class="text-[14px] text-secondary">
+                        {{ __('Bookings that could not be mirrored to GoHighLevel. Retry re-sends the booking\'s current state.') }}
+                    </p>
+                    @if ($this->ghlSyncIssues->isEmpty())
+                        <p class="text-[14px] text-faint">{{ __('No sync issues — everything is mirrored.') }}</p>
+                    @else
+                        <div class="divide-y divide-row rounded-[18px] border border-border">
+                            @foreach ($this->ghlSyncIssues as $issue)
+                                <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                                    <div class="flex min-w-0 flex-col">
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <span class="text-[14.5px] font-medium text-ink">{{ $issue->client->name }}</span>
+                                            <span class="text-[13px] text-secondary">
+                                                {{ $issue->items->min('starts_at')?->setTimezone($salon->timezone)->format('D, M j · g:i A') }}
+                                                @if ($issue->items->isNotEmpty())
+                                                    · {{ $issue->items->first()->service->name }} · {{ $issue->items->first()->stylist->name }}
+                                                @endif
+                                            </span>
+                                        </div>
+                                        <span class="text-[12.5px]" style="color:#A23A3A;">{{ $issue->ghl_sync_error }}</span>
+                                        @if ($issue->ghl_last_attempt_at)
+                                            <span class="text-[12px] text-faint">{{ __('Last attempt') }} {{ $issue->ghl_last_attempt_at->diffForHumans() }}</span>
+                                        @endif
+                                    </div>
+                                    <x-ui.button type="button" variant="secondary" wire:click="retryGhlSync({{ $issue->id }})">
+                                        {{ __('Retry sync') }}
+                                    </x-ui.button>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
                 </x-ui.card>
             @endif
         @endcan

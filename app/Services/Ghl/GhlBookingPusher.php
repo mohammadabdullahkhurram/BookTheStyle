@@ -33,6 +33,9 @@ class GhlBookingPusher
 {
     public const STATUS_SYNCED = 'synced';
 
+    /** Queued for push but not yet (successfully) pushed. */
+    public const STATUS_PENDING = 'pending';
+
     public const STATUS_SKIPPED = 'skipped';
 
     public const STATUS_FAILED = 'failed';
@@ -96,8 +99,16 @@ class GhlBookingPusher
         $payload = self::appointmentPayload($booking, $items, (string) $providerId, (string) $connection->calendar_id);
         $hash = self::payloadHash($payload, $contactId);
 
-        if ($booking->ghl_appointment_id !== null && $booking->ghl_payload_hash === $hash && $booking->ghl_sync_status === self::STATUS_SYNCED) {
-            return; // unchanged — leave the appointment alone
+        if ($booking->ghl_appointment_id !== null && $booking->ghl_payload_hash === $hash
+            && in_array($booking->ghl_sync_status, [self::STATUS_SYNCED, self::STATUS_PENDING], true)) {
+            // Unchanged — leave the appointment alone. A pending flag from
+            // the dispatch settles back to synced (no updated_at bump: this
+            // is bookkeeping, not a booking change).
+            if ($booking->ghl_sync_status === self::STATUS_PENDING) {
+                Booking::query()->whereKey($booking->id)->toBase()->update(['ghl_sync_status' => self::STATUS_SYNCED]);
+            }
+
+            return;
         }
 
         if ($booking->ghl_appointment_id !== null) {

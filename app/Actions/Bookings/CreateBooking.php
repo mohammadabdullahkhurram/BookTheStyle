@@ -63,7 +63,7 @@ class CreateBooking
         // app bookings are the source of truth and never wait on GHL. Each
         // booking is one stylist, so each becomes one GHL appointment.
         foreach ($bookings as $booking) {
-            SyncBookingToGhl::dispatch($booking->id)->afterCommit();
+            SyncBookingToGhl::queueFor($booking);
         }
 
         return $bookings[0];

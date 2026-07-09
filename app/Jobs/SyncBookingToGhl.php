@@ -33,6 +33,21 @@ class SyncBookingToGhl implements ShouldQueue
     public function __construct(public int $bookingId) {}
 
     /**
+     * The one way to request a push: flags the booking PENDING (visible sync
+     * state instead of a silent queue entry) and dispatches after commit.
+     * Bookkeeping writes go through the base query so updated_at — which the
+     * inbound conflict resolution compares against — never moves for them.
+     */
+    public static function queueFor(Booking $booking): void
+    {
+        Booking::query()->whereKey($booking->id)->toBase()->update([
+            'ghl_sync_status' => GhlBookingPusher::STATUS_PENDING,
+        ]);
+
+        self::dispatch($booking->id)->afterCommit();
+    }
+
+    /**
      * @return list<int> seconds before each retry
      */
     public function backoff(): array
@@ -50,12 +65,20 @@ class SyncBookingToGhl implements ShouldQueue
             return;
         }
 
+        // Every attempt is stamped (success or not) so a failed booking can
+        // say when the push last ran — again without touching updated_at.
+        Booking::query()->whereKey($booking->id)->toBase()->update([
+            'ghl_last_attempt_at' => now(),
+        ]);
+
         $pusher->push($booking);
     }
 
     public function failed(?Throwable $exception): void
     {
-        Booking::query()->whereKey($this->bookingId)->update([
+        // toBase: a failure record must not bump updated_at, or the retry
+        // window would make the app look "newer" to inbound conflict checks.
+        Booking::query()->whereKey($this->bookingId)->toBase()->update([
             'ghl_sync_status' => GhlBookingPusher::STATUS_FAILED,
             // GhlApiException messages are user-safe and token-free.
             'ghl_sync_error' => mb_substr($exception?->getMessage() ?? __('Unknown error.'), 0, 500),

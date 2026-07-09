@@ -25,3 +25,12 @@ Schedule::command('queue:work --stop-when-empty')
 Schedule::command('bookings:close-elapsed')
     ->everyFiveMinutes()
     ->withoutOverlapping();
+
+// Safety net for missed webhooks: hourly, pull each connected salon's GHL
+// appointments (±7 days) and repair any drift — apply missed changes, import
+// unknown appointments, flag vanished ones. One throttled API call per salon
+// per run; the same Phase-7 crontab line drives it in production. Run
+// `php artisan ghl:reconcile` any time for an on-demand pass.
+Schedule::command('ghl:reconcile')
+    ->hourly()
+    ->withoutOverlapping();

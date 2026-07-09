@@ -111,7 +111,7 @@ class RescheduleBooking
 
         // Mirror to GHL after commit: the stored appointment id makes this an
         // UPDATE of the existing appointment, never a new one.
-        SyncBookingToGhl::dispatch($booking->id)->afterCommit();
+        SyncBookingToGhl::queueFor($booking);
 
         return $booking->fresh();
     }

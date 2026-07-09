@@ -177,7 +177,7 @@ class GhlInboundSync
 
         if ($booking->updated_at !== null && $incomingAt->lt($booking->updated_at)) {
             $booking->forceFill(['ghl_payload_hash' => null])->save(); // force the re-push through the diff
-            SyncBookingToGhl::dispatch($booking->id);
+            SyncBookingToGhl::queueFor($booking);
 
             $decision('ignored_stale', 'app updated_at newer than incoming change — re-pushed app state');
             $event->conclude(WebhookEvent::STATUS_IGNORED_STALE, __('The app changed more recently — re-pushed the app state.'));
@@ -346,7 +346,7 @@ class GhlInboundSync
 
         $client = $this->resolveClient($salon, $payload);
         $service = $this->resolveService($salon, $payload);
-        $source = $this->source($payload->source);
+        $source = $payload->resolvedSource();
 
         $endsAt = $payload->endsAt ?? $payload->startsAt->addMinutes($service->duration_min);
 
@@ -478,14 +478,5 @@ class GhlInboundSync
             ['salon_id' => $salon->id, 'name' => self::IMPORT_SERVICE_NAME],
             ['duration_min' => $minutes, 'color_key' => 'sky', 'active' => false],
         );
-    }
-
-    private function source(?string $raw): BookingSource
-    {
-        return match (mb_strtolower(trim((string) $raw))) {
-            'voice_ai', 'voice-ai', 'voice' => BookingSource::VoiceAi,
-            'chat_widget', 'chat-widget', 'chat' => BookingSource::ChatWidget,
-            default => BookingSource::GhlManual,
-        };
     }
 }

@@ -59,7 +59,7 @@ class TransitionBookingStatus
         // changes (cancelled / no-show / completed); app-only lifecycle moves
         // (arrived, in service) map to the same GHL status and stay local.
         if (GhlStatusMap::toGhl($to) !== GhlStatusMap::toGhl($from)) {
-            SyncBookingToGhl::dispatch($booking->id)->afterCommit();
+            SyncBookingToGhl::queueFor($booking);
         }
 
         return $booking;

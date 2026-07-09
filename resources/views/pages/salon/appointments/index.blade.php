@@ -196,6 +196,11 @@ new #[Title('Check-in')] class extends Component {
                                     <span class="text-[15px] font-semibold text-ink">{{ $booking->client->name }}</span>
                                     <x-ui.status-pill :status="$booking->status" />
                                     @if ($booking->is_walkin)<span class="bts-pill" style="background-color:#F0EEEA;color:#9C9890;">{{ __('Walk-in') }}</span>@endif
+                                    @can('manage', $salon)
+                                        @if ($booking->ghl_sync_status === 'failed')
+                                            <span class="bts-pill" style="background-color:#F8E3E3;color:#A23A3A;" title="{{ $booking->ghl_sync_error }}">{{ __('Sync failed') }}</span>
+                                        @endif
+                                    @endcan
                                 </div>
                                 <div class="text-[14px] text-secondary">
                                     @foreach ($booking->items as $item)

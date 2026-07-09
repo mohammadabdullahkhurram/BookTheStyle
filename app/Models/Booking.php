@@ -25,16 +25,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property BookingSource $source
  * @property bool $is_walkin
  * @property string|null $notes
- * @property string|null $ghl_appointment_id
- * @property string|null $ghl_sync_status
- * @property string|null $ghl_sync_error
- * @property CarbonImmutable|null $last_synced_at
  * @property string|null $visit_group_id
  * @property string|null $ghl_appointment_id
  * @property string|null $ghl_sync_status
  * @property string|null $ghl_sync_error
  * @property string|null $ghl_payload_hash
  * @property string|null $ghl_last_pushed_status
+ * @property CarbonImmutable|null $ghl_last_attempt_at
  * @property CarbonImmutable|null $last_synced_at
  */
 class Booking extends Model
@@ -57,6 +54,7 @@ class Booking extends Model
         'ghl_sync_error',
         'ghl_payload_hash',
         'ghl_last_pushed_status',
+        'ghl_last_attempt_at',
         'last_synced_at',
     ];
 
@@ -67,6 +65,7 @@ class Booking extends Model
             'booked_by_type' => BookedByType::class,
             'source' => BookingSource::class,
             'is_walkin' => 'boolean',
+            'ghl_last_attempt_at' => 'datetime',
             'last_synced_at' => 'datetime',
         ];
     }

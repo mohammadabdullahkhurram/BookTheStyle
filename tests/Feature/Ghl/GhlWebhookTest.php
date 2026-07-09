@@ -333,7 +333,7 @@ it('falls back to the import service and a created client when nothing matches',
     ]))->assertStatus(202);
 
     $booking = Booking::where('salon_id', $salon->id)->latest('id')->first();
-    expect($booking->source)->toBe(BookingSource::GhlManual);
+    expect($booking->source)->toBe(BookingSource::GhlOther); // no source signal at all → GHL (other)
     expect($booking->client->name)->toBe('New Person');
     expect($booking->client->ghl_contact_id)->toBe('ghl_c88');
 

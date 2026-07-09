@@ -2,6 +2,7 @@
 
 namespace App\Services\Ghl;
 
+use App\Enums\BookingSource;
 use Carbon\CarbonImmutable;
 use Throwable;
 
@@ -30,7 +31,27 @@ final readonly class GhlWebhookPayload
         public ?string $contactPhone,
         public ?string $source,
         public ?string $title,
+        /** @var list<string> contact tags (voice/chat automations tag contacts) */
+        public array $tags = [],
+        public ?string $createdBySource = null,
+        public ?string $createdByChannel = null,
+        public ?string $updatedBySource = null,
+        public ?string $updatedByChannel = null,
     ) {}
+
+    /**
+     * Booking source derived from the strongest available signal — explicit
+     * customData.source, then tags, then created/updated-by metadata.
+     */
+    public function resolvedSource(): BookingSource
+    {
+        return GhlSourceResolver::resolve($this->source, $this->tags, [
+            $this->createdBySource,
+            $this->createdByChannel,
+            $this->updatedBySource,
+            $this->updatedByChannel,
+        ]);
+    }
 
     /**
      * @param  array<string, mixed>  $payload
@@ -95,6 +116,34 @@ final readonly class GhlWebhookPayload
             contactPhone: $pick(['contact.phone', 'phone', 'customData.contactPhone']),
             source: $pick(['customData.source', 'appointment.source', 'source']),
             title: $pick(['appointment.title', 'calendar.title', 'title', 'customData.title']),
+            tags: self::stringList(data_get($payload, 'contact.tags') ?? data_get($payload, 'tags') ?? data_get($payload, 'customData.tags')),
+            // Booked-by metadata: calendar.created_by_meta.* in workflow
+            // bodies, appointment.createdBy.* in the events API shape.
+            createdBySource: $pick(['calendar.created_by_meta.source', 'appointment.createdBy.source', 'created_by_meta.source', 'customData.createdBySource']),
+            createdByChannel: $pick(['calendar.created_by_meta.channel', 'appointment.createdBy.channel', 'created_by_meta.channel']),
+            updatedBySource: $pick(['calendar.last_updated_by_meta.source', 'appointment.lastUpdatedBy.source', 'last_updated_by_meta.source']),
+            updatedByChannel: $pick(['calendar.last_updated_by_meta.channel', 'appointment.lastUpdatedBy.channel', 'last_updated_by_meta.channel']),
         );
+    }
+
+    /**
+     * Tags arrive as an array of strings or one comma-separated string.
+     *
+     * @return list<string>
+     */
+    private static function stringList(mixed $value): array
+    {
+        if (is_string($value)) {
+            $value = explode(',', $value);
+        }
+
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            array_map(fn ($tag): string => is_string($tag) ? trim($tag) : '', $value),
+            fn (string $tag): bool => $tag !== '',
+        ));
     }
 }

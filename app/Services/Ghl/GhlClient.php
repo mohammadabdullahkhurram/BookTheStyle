@@ -3,6 +3,7 @@
 namespace App\Services\Ghl;
 
 use App\Models\SalonGhlConnection;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
@@ -96,6 +97,40 @@ class GhlClient
             fn (array $user): GhlUser => GhlUser::fromArray($user),
             array_values(array_filter((array) ($data['users'] ?? []), 'is_array')),
         );
+    }
+
+    /**
+     * All calendar events (appointments) on one calendar in a time window —
+     * the reconciliation feed. GET /calendars/events wants epoch-millisecond
+     * strings for the window bounds (per the published OpenAPI spec).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function calendarEvents(string $calendarId, CarbonImmutable $from, CarbonImmutable $to): array
+    {
+        $data = $this->get('/calendars/events', self::CALENDARS_VERSION, [
+            'locationId' => $this->locationId,
+            'calendarId' => $calendarId,
+            'startTime' => (string) $from->getTimestampMs(),
+            'endTime' => (string) $to->getTimestampMs(),
+        ]);
+
+        return array_values(array_filter((array) ($data['events'] ?? []), 'is_array'));
+    }
+
+    /**
+     * One contact by id — used to enrich reconciliation-imported bookings
+     * with a real name/email/phone (the events feed only carries contactId).
+     *
+     * @return array<string, mixed>
+     */
+    public function contact(string $contactId): array
+    {
+        $data = $this->get('/contacts/'.$contactId, self::CONTACTS_VERSION);
+
+        $contact = $data['contact'] ?? null;
+
+        return is_array($contact) ? $contact : [];
     }
 
     /**
