@@ -465,8 +465,9 @@ it('backfills a legacy single appointment id onto the first stylist', function (
     addItem($booking, $ben, CarbonImmutable::parse('2026-06-23 11:00', $salon->timezone));  // later
     addItem($booking, $anna, CarbonImmutable::parse('2026-06-23 10:00', $salon->timezone)); // FIRST by time
 
-    // Rewind just the per-stylist migration, restore the legacy shape…
-    $this->artisan('migrate:rollback', ['--step' => 1])->assertSuccessful();
+    // Rewind through the per-stylist migration (step 2 also unwinds the 6c
+    // webhook migration that sits after it), restoring the legacy shape…
+    $this->artisan('migrate:rollback', ['--step' => 2])->assertSuccessful();
     DB::table('bookings')->where('id', $booking->id)->update([
         'ghl_appointment_id' => 'legacy_a1',
         'ghl_sync_status' => 'synced',

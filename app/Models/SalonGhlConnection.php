@@ -22,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $salon_id
  * @property string|null $location_id
  * @property string|null $private_integration_token
+ * @property string|null $webhook_secret
  * @property string|null $calendar_id
  * @property CarbonImmutable|null $connected_at
  * @property CarbonImmutable|null $last_verified_at
@@ -48,6 +49,7 @@ class SalonGhlConnection extends Model
      */
     protected $hidden = [
         'private_integration_token',
+        'webhook_secret',
     ];
 
     /**
@@ -58,6 +60,7 @@ class SalonGhlConnection extends Model
         return [
             // Ciphertext in the DB; decrypted transparently when read server-side.
             'private_integration_token' => 'encrypted',
+            'webhook_secret' => 'encrypted',
             'connected_at' => 'datetime',
             'last_verified_at' => 'datetime',
         ];

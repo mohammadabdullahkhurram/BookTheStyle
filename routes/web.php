@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\PasswordChangeController;
 use App\Http\Controllers\CalendarFeedController;
+use App\Http\Controllers\GhlWebhookController;
 use Illuminate\Support\Facades\Route;
 
 $central = config('app.domain');     // apex, e.g. bookthestyle.com / lvh.me
@@ -83,6 +84,17 @@ Route::domain($app)->middleware('throttle:calendar-feed')->group(function () {
         ->where('token', '[A-Fa-f0-9]+')
         ->name('cal.feed');
 });
+
+/*
+| GHL inbound webhook (Phase 6c) — POST /webhooks/ghl on the application
+| host. Sessionless + CSRF-exempt (see bootstrap/app.php); authenticated by
+| the per-salon shared secret in X-Webhook-Secret, with the salon resolved
+| from the payload's location id. "webhooks" is a reserved slug, so no salon
+| can shadow it. Rate-limited per IP.
+*/
+Route::domain($app)->middleware('throttle:ghl-webhook')
+    ->post('webhooks/ghl', GhlWebhookController::class)
+    ->name('webhooks.ghl');
 
 // Account settings live on app.{domain} too. Required before the wildcard salon
 // group so app.{domain}/settings/* wins over a salon path.

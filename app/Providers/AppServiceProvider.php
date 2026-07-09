@@ -54,6 +54,7 @@ class AppServiceProvider extends ServiceProvider
     protected function configureRateLimiting(): void
     {
         RateLimiter::for('calendar-feed', fn (Request $request) => Limit::perMinute(60)->by($request->ip()));
+        RateLimiter::for('ghl-webhook', fn (Request $request) => Limit::perMinute(120)->by($request->ip()));
     }
 
     /**

@@ -22,6 +22,10 @@ return Application::configure(basePath: dirname(__DIR__))
             SecurityHeaders::class,
         ]);
 
+        // The GHL inbound webhook is a server-to-server POST authenticated by
+        // its own shared secret — no session, no CSRF token.
+        $middleware->validateCsrfTokens(except: ['webhooks/*']);
+
         // Resolves + authorises the active salon (tenant-isolation boundary).
         $middleware->alias([
             'resolve.salon' => ResolveSalon::class,

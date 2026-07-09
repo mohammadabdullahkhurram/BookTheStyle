@@ -151,22 +151,8 @@ class GhlBookingPusher
         Collection $items,
         string $contactId,
     ): void {
-        $tz = $booking->salon->timezone;
-        $services = $items->pluck('service.name')->filter()->implode(', ');
-
-        $payload = [
-            'title' => trim($booking->client->name.($services !== '' ? ' — '.$services : '')),
-            'appointmentStatus' => $this->appointmentStatus($booking->status),
-            'assignedUserId' => $providerId,
-            'calendarId' => $calendarId,
-            'startTime' => $items->min('starts_at')->setTimezone($tz)->format('Y-m-d\TH:i:sP'),
-            'endTime' => $items->max('ends_at')->setTimezone($tz)->format('Y-m-d\TH:i:sP'),
-            // The app's slot engine already validated this slot and is the
-            // source of truth; GHL must not reject it against its own hours.
-            'ignoreFreeSlotValidation' => true,
-        ];
-
-        $hash = hash('sha256', json_encode([$payload, $contactId]) ?: '');
+        $payload = self::slicePayload($booking, $items, $providerId, $calendarId);
+        $hash = self::sliceHash($payload, $contactId);
 
         if ($row->ghl_appointment_id !== null && $row->payload_hash === $hash && $row->sync_status === self::STATUS_SYNCED) {
             return; // unchanged slice — leave the appointment alone
@@ -296,13 +282,37 @@ class GhlBookingPusher
         return $id;
     }
 
-    private function appointmentStatus(BookingStatus $status): string
+    /**
+     * The exact appointment body one stylist's slice pushes to GHL — shared
+     * with the inbound sync so an applied GHL change can refresh the slice
+     * hash to the new state (keeping echo detection and diffing coherent).
+     *
+     * @param  Collection<int, BookingItem>  $items
+     * @return array<string, mixed>
+     */
+    public static function slicePayload(Booking $booking, Collection $items, string $providerId, string $calendarId): array
     {
-        return match ($status) {
-            BookingStatus::Cancelled => 'cancelled',
-            BookingStatus::NoShow => 'noshow',
-            BookingStatus::Completed => 'showed',
-            default => 'confirmed',
-        };
+        $tz = $booking->salon->timezone;
+        $services = $items->pluck('service.name')->filter()->implode(', ');
+
+        return [
+            'title' => trim($booking->client->name.($services !== '' ? ' — '.$services : '')),
+            'appointmentStatus' => GhlStatusMap::toGhl($booking->status),
+            'assignedUserId' => $providerId,
+            'calendarId' => $calendarId,
+            'startTime' => $items->min('starts_at')->setTimezone($tz)->format('Y-m-d\TH:i:sP'),
+            'endTime' => $items->max('ends_at')->setTimezone($tz)->format('Y-m-d\TH:i:sP'),
+            // The app's slot engine already validated this slot and is the
+            // source of truth; GHL must not reject it against its own hours.
+            'ignoreFreeSlotValidation' => true,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    public static function sliceHash(array $payload, string $contactId): string
+    {
+        return hash('sha256', json_encode([$payload, $contactId]) ?: '');
     }
 }

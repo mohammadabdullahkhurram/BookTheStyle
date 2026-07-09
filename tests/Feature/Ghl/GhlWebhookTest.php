@@ -1,0 +1,384 @@
+<?php
+
+use App\Enums\BookingSource;
+use App\Enums\BookingStatus;
+use App\Models\Booking;
+use App\Models\BookingGhlAppointment;
+use App\Models\BookingItem;
+use App\Models\Client;
+use App\Models\Salon;
+use App\Models\SalonGhlConnection;
+use App\Models\Service;
+use App\Models\StylistProfile;
+use App\Models\User;
+use App\Models\WebhookEvent;
+use App\Services\Ghl\GhlBookingPusher;
+use App\Services\Ghl\GhlInboundSync;
+use Carbon\CarbonImmutable;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Http;
+
+/*
+| Phase 6c inbound: the /webhooks/ghl endpoint (secret verification, salon
+| resolution, replay dedupe, fast ack + queued processing) and the inbound
+| sync itself — echo suppression, last-change-wins, GHL-originated bookings,
+| and tenant isolation. Sync queue driver: queued processing runs inline.
+*/
+
+beforeEach(function () {
+    Http::preventStrayRequests();
+    Carbon::setTestNow(CarbonImmutable::parse('2026-06-22 12:00:00', 'UTC')); // Mon 08:00 EDT
+});
+afterEach(fn () => Carbon::setTestNow());
+
+function whSalon(string $locationId = 'loc_1', string $secret = 'wh-secret-1'): Salon
+{
+    $salon = bookingSalon();
+    $connection = SalonGhlConnection::factory()->for($salon)->create([
+        'location_id' => $locationId,
+        'private_integration_token' => 'pit-secret',
+        'calendar_id' => 'cal_master',
+    ]);
+    $connection->webhook_secret = $secret;
+    $connection->save();
+
+    return $salon;
+}
+
+function whStylist(Salon $salon, string $providerId = 'prov_anna'): User
+{
+    $stylist = stylistOf($salon);
+    StylistProfile::updateOrCreate(
+        ['salon_id' => $salon->id, 'user_id' => $stylist->id],
+        ['ghl_user_id' => $providerId],
+    );
+
+    return $stylist;
+}
+
+/** A pushed one-item booking: slice ghl_a1, item 2026-06-23 10:00–10:45 ET. */
+function whPushedBooking(Salon $salon, User $stylist): Booking
+{
+    $client = Client::factory()->for($salon)->create([
+        'name' => 'Casey Client', 'email' => 'casey@example.com', 'ghl_contact_id' => 'ghl_c1',
+    ]);
+    $booking = Booking::factory()->for($salon)->for($client)->create(['status' => BookingStatus::Booked]);
+    BookingItem::factory()->create([
+        'salon_id' => $salon->id,
+        'booking_id' => $booking->id,
+        'service_id' => Service::factory()->for($salon)->create(['name' => 'Cut & Style'])->id,
+        'stylist_id' => $stylist->id,
+        'starts_at' => CarbonImmutable::parse('2026-06-23 10:00', $salon->timezone),
+        'ends_at' => CarbonImmutable::parse('2026-06-23 10:45', $salon->timezone),
+    ]);
+
+    Http::fake(['services.leadconnectorhq.com/calendars/events/appointments*' => Http::response(['id' => 'ghl_a1'])]);
+    app(GhlBookingPusher::class)->push($booking);
+
+    return $booking->fresh();
+}
+
+/**
+ * @param  array<string, mixed>  $appointment
+ * @return array<string, mixed>
+ */
+function whPayload(array $appointment, array $extra = []): array
+{
+    return array_merge([
+        'locationId' => 'loc_1',
+        'appointment' => $appointment,
+        'contact' => ['id' => 'ghl_c1', 'name' => 'Casey Client', 'email' => 'casey@example.com'],
+    ], $extra);
+}
+
+function postWebhook(array $payload, string $secret = 'wh-secret-1')
+{
+    return test()->postJson(route('webhooks.ghl'), $payload, ['X-Webhook-Secret' => $secret]);
+}
+
+// ---------------------------------------------------------------------------
+// Endpoint: verification + tenancy + replay
+// ---------------------------------------------------------------------------
+
+it('rejects a webhook with a missing or wrong secret', function () {
+    whSalon();
+
+    postWebhook(whPayload(['id' => 'x']), 'wrong-secret')->assertUnauthorized();
+    test()->postJson(route('webhooks.ghl'), whPayload(['id' => 'x']))->assertUnauthorized();
+
+    expect(WebhookEvent::count())->toBe(0);
+});
+
+it('rejects an unknown or missing location uniformly', function () {
+    whSalon();
+
+    postWebhook(whPayload(['id' => 'x'], ['locationId' => 'loc_nope']))->assertUnauthorized();
+    postWebhook(['appointment' => ['id' => 'x']])->assertUnauthorized();
+
+    expect(WebhookEvent::count())->toBe(0);
+});
+
+it('never lets one salon\'s secret authorize another salon\'s location', function () {
+    whSalon('loc_1', 'wh-secret-1');
+    whSalon('loc_2', 'wh-secret-2');
+
+    // Salon 2's secret against salon 1's location: refused.
+    postWebhook(whPayload(['id' => 'x']), 'wh-secret-2')->assertUnauthorized();
+    expect(WebhookEvent::count())->toBe(0);
+});
+
+it('acks fast, logs the event, and drops exact replays', function () {
+    $salon = whSalon();
+
+    $payload = whPayload(['id' => 'ghl_unknown', 'appointmentStatus' => 'cancelled']);
+
+    postWebhook($payload)->assertStatus(202);
+    postWebhook($payload)->assertStatus(202);
+
+    $events = WebhookEvent::where('salon_id', $salon->id)->orderBy('id')->get();
+    expect($events)->toHaveCount(2);
+    expect($events[1]->status)->toBe(WebhookEvent::STATUS_IGNORED_REPLAY);
+});
+
+it('flags an unparseable appointment payload for review instead of crashing', function () {
+    $salon = whSalon();
+
+    postWebhook(['locationId' => 'loc_1', 'unexpected' => ['shape' => true]])->assertStatus(202);
+
+    expect(WebhookEvent::where('salon_id', $salon->id)->value('status'))->toBe(WebhookEvent::STATUS_REVIEW);
+});
+
+// ---------------------------------------------------------------------------
+// Echo suppression (the critical part)
+// ---------------------------------------------------------------------------
+
+it('ignores the echo of our own push — no state flip, no re-push', function () {
+    $salon = whSalon();
+    $stylist = whStylist($salon);
+    $booking = whPushedBooking($salon, $stylist);
+    $updatedAtBefore = $booking->updated_at;
+
+    // GHL echoes back exactly what we pushed (its dateUpdated is later).
+    postWebhook(whPayload([
+        'id' => 'ghl_a1',
+        'appointmentStatus' => 'confirmed', // = toGhl(Booked)
+        'startTime' => '2026-06-23T10:00:00-04:00',
+        'endTime' => '2026-06-23T10:45:00-04:00',
+        'dateUpdated' => '2026-06-22T12:00:05Z',
+    ]))->assertStatus(202);
+
+    expect(WebhookEvent::latest('id')->value('status'))->toBe(WebhookEvent::STATUS_IGNORED_ECHO);
+
+    $booking->refresh();
+    expect($booking->status)->toBe(BookingStatus::Booked);
+    expect($booking->updated_at->getTimestamp())->toBe($updatedAtBefore->getTimestamp());
+    expect(BookingGhlAppointment::where('booking_id', $booking->id)->count())->toBe(1);
+
+    // Only the original outbound push ever hit the API — the echo triggered
+    // nothing outbound (a full app → GHL → echo round trip, one appointment).
+    Http::assertSentCount(1);
+});
+
+// ---------------------------------------------------------------------------
+// Genuine inbound changes
+// ---------------------------------------------------------------------------
+
+it('applies a genuine GHL cancellation to the app booking without re-pushing', function () {
+    $salon = whSalon();
+    $stylist = whStylist($salon);
+    $booking = whPushedBooking($salon, $stylist);
+
+    postWebhook(whPayload([
+        'id' => 'ghl_a1',
+        'appointmentStatus' => 'cancelled',
+        'startTime' => '2026-06-23T10:00:00-04:00',
+        'endTime' => '2026-06-23T10:45:00-04:00',
+        'dateUpdated' => '2026-06-22T12:05:00Z',
+    ]))->assertStatus(202);
+
+    $booking->refresh();
+    expect($booking->status)->toBe(BookingStatus::Cancelled);
+    expect($booking->statusEvents()->latest('id')->first()->actor_user_id)->toBeNull();
+    expect(WebhookEvent::latest('id')->value('status'))->toBe(WebhookEvent::STATUS_APPLIED);
+    Http::assertSentCount(1); // still only the original outbound create
+});
+
+it('applies a genuine GHL reschedule to the app item times', function () {
+    $salon = whSalon();
+    $stylist = whStylist($salon);
+    $booking = whPushedBooking($salon, $stylist);
+
+    postWebhook(whPayload([
+        'id' => 'ghl_a1',
+        'appointmentStatus' => 'confirmed',
+        'startTime' => '2026-06-23T14:00:00-04:00', // moved four hours later
+        'endTime' => '2026-06-23T14:45:00-04:00',
+        'dateUpdated' => '2026-06-22T12:05:00Z',
+    ]))->assertStatus(202);
+
+    $item = $booking->items()->first();
+    expect($item->starts_at->setTimezone($salon->timezone)->format('Y-m-d H:i'))->toBe('2026-06-23 14:00');
+    expect($item->ends_at->setTimezone($salon->timezone)->format('Y-m-d H:i'))->toBe('2026-06-23 14:45');
+    expect(WebhookEvent::latest('id')->value('status'))->toBe(WebhookEvent::STATUS_APPLIED);
+
+    // The follow-up echo of the applied change is recognised as our state.
+    postWebhook(whPayload([
+        'id' => 'ghl_a1',
+        'appointmentStatus' => 'confirmed',
+        'startTime' => '2026-06-23T14:00:00-04:00',
+        'endTime' => '2026-06-23T14:45:00-04:00',
+        'dateUpdated' => '2026-06-22T12:06:00Z',
+    ]))->assertStatus(202);
+    expect(WebhookEvent::latest('id')->value('status'))->toBe(WebhookEvent::STATUS_IGNORED_ECHO);
+});
+
+// ---------------------------------------------------------------------------
+// Last-change-wins
+// ---------------------------------------------------------------------------
+
+it('re-pushes the app state when the app changed more recently than the inbound event', function () {
+    $salon = whSalon();
+    $stylist = whStylist($salon);
+    $booking = whPushedBooking($salon, $stylist); // updated_at = frozen now
+
+    // A stale GHL change from an hour ago, different time than the app's.
+    postWebhook(whPayload([
+        'id' => 'ghl_a1',
+        'appointmentStatus' => 'confirmed',
+        'startTime' => '2026-06-23T09:00:00-04:00',
+        'endTime' => '2026-06-23T09:45:00-04:00',
+        'dateUpdated' => '2026-06-22T11:00:00Z', // OLDER than the booking
+    ]))->assertStatus(202);
+
+    expect(WebhookEvent::latest('id')->value('status'))->toBe(WebhookEvent::STATUS_IGNORED_STALE);
+
+    // The app's state was NOT changed…
+    $item = $booking->items()->first();
+    expect($item->starts_at->setTimezone($salon->timezone)->format('H:i'))->toBe('10:00');
+
+    // …and the app corrected GHL with a re-push of its own state.
+    Http::assertSent(fn ($r): bool => $r->method() === 'PUT'
+        && str_ends_with($r->url(), '/calendars/events/appointments/ghl_a1')
+        && $r['startTime'] === '2026-06-23T10:00:00-04:00');
+});
+
+it('applies the inbound change when GHL changed more recently', function () {
+    $salon = whSalon();
+    $stylist = whStylist($salon);
+    $booking = whPushedBooking($salon, $stylist);
+
+    postWebhook(whPayload([
+        'id' => 'ghl_a1',
+        'appointmentStatus' => 'noshow',
+        'startTime' => '2026-06-23T10:00:00-04:00',
+        'endTime' => '2026-06-23T10:45:00-04:00',
+        'dateUpdated' => '2026-06-22T12:30:00Z', // NEWER than the booking
+    ]))->assertStatus(202);
+
+    expect($booking->fresh()->status)->toBe(BookingStatus::NoShow);
+    expect(WebhookEvent::latest('id')->value('status'))->toBe(WebhookEvent::STATUS_APPLIED);
+});
+
+// ---------------------------------------------------------------------------
+// GHL-originated bookings
+// ---------------------------------------------------------------------------
+
+it('creates an app booking from a new GHL appointment, fully mapped', function () {
+    $salon = whSalon();
+    $stylist = whStylist($salon, 'prov_anna');
+    Service::factory()->for($salon)->create(['name' => 'Cut & Style', 'duration_min' => 45]);
+    $client = Client::factory()->for($salon)->create(['name' => 'Casey Client', 'ghl_contact_id' => 'ghl_c77']);
+
+    postWebhook(whPayload([
+        'id' => 'ghl_new1',
+        'calendarId' => 'cal_master',
+        'assignedUserId' => 'prov_anna',
+        'appointmentStatus' => 'confirmed',
+        'startTime' => '2026-06-23T15:00:00-04:00',
+        'endTime' => '2026-06-23T16:00:00-04:00',
+        'title' => 'Casey Client — Cut & Style',
+        'dateUpdated' => '2026-06-22T12:05:00Z',
+    ], [
+        'contact' => ['id' => 'ghl_c77', 'name' => 'Casey Client'],
+        'customData' => ['source' => 'voice_ai'],
+    ]))->assertStatus(202);
+
+    $booking = Booking::where('salon_id', $salon->id)->latest('id')->first();
+    expect($booking)->not->toBeNull();
+    expect($booking->client_id)->toBe($client->id);                       // matched by ghl_contact_id
+    expect($booking->source)->toBe(BookingSource::VoiceAi);               // 6d source tagging hook
+    expect($booking->status)->toBe(BookingStatus::Confirmed);
+    expect($booking->items()->first()->stylist_id)->toBe($stylist->id);   // reverse provider mapping
+    expect($booking->items()->first()->service->name)->toBe('Cut & Style'); // matched from title
+    expect($booking->items()->first()->starts_at->setTimezone($salon->timezone)->format('H:i'))->toBe('15:00');
+
+    $slice = BookingGhlAppointment::where('booking_id', $booking->id)->first();
+    expect($slice->ghl_appointment_id)->toBe('ghl_new1');
+    expect($slice->stylist_id)->toBe($stylist->id);
+    expect(WebhookEvent::latest('id')->value('status'))->toBe(WebhookEvent::STATUS_CREATED_BOOKING);
+});
+
+it('falls back to the import service and a created client when nothing matches', function () {
+    $salon = whSalon();
+    whStylist($salon, 'prov_anna');
+
+    postWebhook(whPayload([
+        'id' => 'ghl_new2',
+        'assignedUserId' => 'prov_anna',
+        'appointmentStatus' => 'new',
+        'startTime' => '2026-06-23T15:00:00-04:00',
+        'endTime' => '2026-06-23T15:30:00-04:00',
+        'title' => 'Something GHL made up',
+    ], [
+        'contact' => ['id' => 'ghl_c88', 'name' => 'New Person', 'email' => 'new@example.com'],
+    ]))->assertStatus(202);
+
+    $booking = Booking::where('salon_id', $salon->id)->latest('id')->first();
+    expect($booking->source)->toBe(BookingSource::GhlManual);
+    expect($booking->client->name)->toBe('New Person');
+    expect($booking->client->ghl_contact_id)->toBe('ghl_c88');
+
+    $service = $booking->items()->first()->service;
+    expect($service->name)->toBe(GhlInboundSync::IMPORT_SERVICE_NAME);
+    expect($service->active)->toBeFalse(); // never bookable in-app
+});
+
+it('flags an unmapped provider for review instead of dropping the booking', function () {
+    $salon = whSalon();
+
+    postWebhook(whPayload([
+        'id' => 'ghl_new3',
+        'assignedUserId' => 'prov_never_mapped',
+        'appointmentStatus' => 'confirmed',
+        'startTime' => '2026-06-23T15:00:00-04:00',
+    ]))->assertStatus(202);
+
+    expect(Booking::where('salon_id', $salon->id)->count())->toBe(0);
+    $event = WebhookEvent::latest('id')->first();
+    expect($event->status)->toBe(WebhookEvent::STATUS_REVIEW);
+    expect($event->note)->toContain('not mapped');
+});
+
+// ---------------------------------------------------------------------------
+// Tenant isolation
+// ---------------------------------------------------------------------------
+
+it('never lets salon B\'s webhook touch salon A\'s booking', function () {
+    $salonA = whSalon('loc_1', 'wh-secret-1');
+    $stylistA = whStylist($salonA);
+    $bookingA = whPushedBooking($salonA, $stylistA);
+
+    whSalon('loc_2', 'wh-secret-2');
+
+    // Salon B legitimately posts, referencing salon A's appointment id.
+    postWebhook(whPayload([
+        'id' => 'ghl_a1',
+        'appointmentStatus' => 'cancelled',
+        'startTime' => '2026-06-23T10:00:00-04:00',
+        'dateUpdated' => '2026-06-22T12:30:00Z',
+    ], ['locationId' => 'loc_2']), 'wh-secret-2')->assertStatus(202);
+
+    // Salon A's booking is untouched; B's event resolved inside B only.
+    expect($bookingA->fresh()->status)->toBe(BookingStatus::Booked);
+    expect(WebhookEvent::latest('id')->first()->salon_id)->not->toBe($salonA->id);
+});
