@@ -633,3 +633,98 @@ it('never stores the calendar id from an outbound create response, and warns ins
         ->withArgs(fn ($message) => $message === 'GHL create returned no usable appointment id')
         ->once();
 });
+
+// ---------------------------------------------------------------------------
+// Replay dedupe must never deadlock a legitimate re-delivery
+// ---------------------------------------------------------------------------
+
+it('processes an identical cancel body whose earlier twin failed — THE deadlock case', function () {
+    $salon = whSalon();
+    $stylist = whStylist($salon);
+    $booking = whPushedBooking($salon, $stylist); // stores ghl_a1, status booked
+
+    $cancel = realGhlPayload([
+        'appointmentId' => 'ghl_a1',
+        'appoinmentStatus' => 'cancelled',
+        'startTime' => '2026-06-23T10:00:00',
+        'endTime' => '2026-06-23T10:45:00',
+    ]);
+
+    // A past delivery of the SAME body that ended badly (processed under an
+    // old bug) — previously this hash poisoned all future deliveries.
+    WebhookEvent::create([
+        'salon_id' => $salon->id,
+        'event_type' => 'appointment',
+        'payload' => $cancel,
+        'payload_hash' => hash('sha256', json_encode($cancel) ?: ''),
+        'status' => WebhookEvent::STATUS_REVIEW,
+        'processed_at' => now()->subMinutes(30),
+    ]);
+
+    postWebhook($cancel)->assertStatus(202);
+
+    // The re-delivery is processed, not dropped as a replay.
+    $booking->refresh();
+    expect($booking->status)->toBe(BookingStatus::Cancelled);
+    expect(WebhookEvent::latest('id')->value('status'))->toBe(WebhookEvent::STATUS_APPLIED);
+    Http::assertSentCount(1); // and still no outbound re-push
+});
+
+it('still drops an identical body right after a successful processing', function () {
+    $salon = whSalon();
+    $stylist = whStylist($salon);
+    $booking = whPushedBooking($salon, $stylist);
+
+    $cancel = realGhlPayload([
+        'appointmentId' => 'ghl_a1',
+        'appoinmentStatus' => 'cancelled',
+        'startTime' => '2026-06-23T10:00:00',
+        'endTime' => '2026-06-23T10:45:00',
+    ]);
+
+    postWebhook($cancel)->assertStatus(202); // applied
+    postWebhook($cancel)->assertStatus(202); // immediate duplicate → replay
+
+    expect($booking->fresh()->status)->toBe(BookingStatus::Cancelled);
+    $statuses = WebhookEvent::where('salon_id', $salon->id)->orderBy('id')->pluck('status');
+    expect($statuses->last())->toBe(WebhookEvent::STATUS_IGNORED_REPLAY);
+});
+
+it('logs an unknown appointment status instead of silently no-opping', function () {
+    Log::spy();
+    $salon = whSalon();
+    $stylist = whStylist($salon);
+    $booking = whPushedBooking($salon, $stylist);
+
+    postWebhook(realGhlPayload([
+        'appointmentId' => 'ghl_a1',
+        'appoinmentStatus' => 'somethingweird',
+        'startTime' => '2026-06-23T10:00:00',
+        'endTime' => '2026-06-23T10:45:00',
+    ]))->assertStatus(202);
+
+    expect($booking->fresh()->status)->toBe(BookingStatus::Booked); // unchanged, but…
+    Log::shouldHaveReceived('warning')
+        ->withArgs(fn ($message) => $message === 'GHL inbound: unknown appointment status')
+        ->once();
+});
+
+it('emits a structured decision log for every known-appointment event', function () {
+    Log::spy();
+    $salon = whSalon();
+    $stylist = whStylist($salon);
+    whPushedBooking($salon, $stylist);
+
+    postWebhook(realGhlPayload([
+        'appointmentId' => 'ghl_a1',
+        'appoinmentStatus' => 'cancelled',
+        'startTime' => '2026-06-23T10:00:00',
+        'endTime' => '2026-06-23T10:45:00',
+    ]))->assertStatus(202);
+
+    Log::shouldHaveReceived('info')
+        ->withArgs(fn ($message, $context = []) => $message === 'GHL inbound decision'
+            && ($context['decision'] ?? null) === 'applied'
+            && ($context['appointment_id'] ?? null) === 'ghl_a1')
+        ->once();
+});

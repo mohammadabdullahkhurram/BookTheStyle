@@ -49,10 +49,23 @@ class GhlWebhookController extends Controller
 
         $hash = hash('sha256', $request->getContent());
 
-        // Replays (identical body for the same salon) are logged and dropped.
+        // Replay protection: GHL workflow bodies carry no nonce/timestamp, so
+        // the same cancel delivered twice is byte-identical. Only drop a body
+        // whose twin was SUCCESSFULLY processed recently — events that ended
+        // pending/review/error (or were themselves dropped) must never block
+        // reprocessing, or one bad run deadlocks that appointment forever.
+        // Re-processing an old echo later is harmless: state-equality
+        // concludes ignored_echo again.
         $replay = WebhookEvent::query()
             ->where('salon_id', $connection->salon_id)
             ->where('payload_hash', $hash)
+            ->whereIn('status', [
+                WebhookEvent::STATUS_APPLIED,
+                WebhookEvent::STATUS_CREATED_BOOKING,
+                WebhookEvent::STATUS_IGNORED_ECHO,
+                WebhookEvent::STATUS_IGNORED_STALE,
+            ])
+            ->where('created_at', '>=', now()->subHour())
             ->exists();
 
         $event = WebhookEvent::create([

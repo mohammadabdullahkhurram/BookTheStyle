@@ -137,9 +137,31 @@ class GhlInboundSync
         $statusMatches = $payload->ghlStatus === null
             || mb_strtolower(trim($payload->ghlStatus)) === $currentGhlStatus;
 
+        // One structured decision line per event (ids + statuses only — the
+        // exact evidence needed when "202 but nothing changed" strikes).
+        $decision = function (string $outcome, string $reason) use ($event, $payload, $booking, $currentGhlStatus, $startMatches, $endMatches, $statusMatches): void {
+            Log::info('GHL inbound decision', [
+                'webhook_event_id' => $event->id,
+                'appointment_id' => $payload->appointmentId,
+                'booking_id' => $booking->id,
+                'incoming_status' => $payload->ghlStatus,
+                'current_status' => $booking->status->value,
+                'current_as_ghl' => $currentGhlStatus,
+                'start_matches' => $startMatches,
+                'end_matches' => $endMatches,
+                'status_matches' => $statusMatches,
+                'incoming_changed_at' => $payload->changedAt?->toIso8601String(),
+                'booking_updated_at' => $booking->updated_at?->toIso8601String(),
+                'decision' => $outcome,
+                'reason' => $reason,
+            ]);
+        };
+
         // ECHO: the incoming state IS our state — our own push bouncing back
-        // (or a duplicate). Ignore: no change, no re-push, no loop.
+        // (or a duplicate). Ignore: no change, no re-push, no loop. A status
+        // that DIFFERS from the booking's current state can never be an echo.
         if ($startMatches && $endMatches && $statusMatches) {
+            $decision('ignored_echo', 'incoming state equals current app state');
             $event->conclude(WebhookEvent::STATUS_IGNORED_ECHO, __('Matches the app state — our own change echoed back.'));
 
             return;
@@ -153,6 +175,7 @@ class GhlInboundSync
             $booking->forceFill(['ghl_payload_hash' => null])->save(); // force the re-push through the diff
             SyncBookingToGhl::dispatch($booking->id);
 
+            $decision('ignored_stale', 'app updated_at newer than incoming change — re-pushed app state');
             $event->conclude(WebhookEvent::STATUS_IGNORED_STALE, __('The app changed more recently — re-pushed the app state.'));
 
             return;
@@ -180,6 +203,15 @@ class GhlInboundSync
 
         $incomingStatus = $payload->ghlStatus === null ? null : GhlStatusMap::toApp($payload->ghlStatus);
 
+        // An unmappable status must never silently no-op.
+        if ($payload->ghlStatus !== null && $incomingStatus === null) {
+            Log::warning('GHL inbound: unknown appointment status', [
+                'webhook_event_id' => $event->id,
+                'booking_id' => $booking->id,
+                'incoming_status' => $payload->ghlStatus,
+            ]);
+        }
+
         if (! $statusMatches && $incomingStatus !== null && $incomingStatus !== $booking->status) {
             $from = $booking->status;
             $booking->update(['status' => $incomingStatus]);
@@ -193,13 +225,12 @@ class GhlInboundSync
 
         $this->refreshBookingSyncState($booking->fresh(), $connection, $payload);
 
-        Log::info('GHL inbound applied', [
-            'webhook_event_id' => $event->id,
-            'booking_id' => $booking->id,
-            'from_status' => $fromStatus->value,
-            'to_status' => ($incomingStatus ?? $fromStatus)->value,
-            'rescheduled' => ! $startMatches || ! $endMatches,
-        ]);
+        $decision('applied', sprintf(
+            '%s -> %s%s',
+            $fromStatus->value,
+            ($incomingStatus ?? $fromStatus)->value,
+            (! $startMatches || ! $endMatches) ? ' + rescheduled' : '',
+        ));
 
         $event->conclude(WebhookEvent::STATUS_APPLIED);
     }
