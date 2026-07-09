@@ -728,3 +728,61 @@ it('emits a structured decision log for every known-appointment event', function
             && ($context['appointment_id'] ?? null) === 'ghl_a1')
         ->once();
 });
+
+// ---------------------------------------------------------------------------
+// "showed" semantics: checked in — never completed, never downgraded
+// ---------------------------------------------------------------------------
+
+it('applies a genuine inbound showed as CHECKED IN, not completed', function () {
+    $salon = whSalon();
+    $stylist = whStylist($salon);
+    $booking = whPushedBooking($salon, $stylist); // booked, in GHL as confirmed
+
+    postWebhook(realGhlPayload([
+        'appointmentId' => 'ghl_a1',
+        'appoinmentStatus' => 'showed', // marked showed inside GHL
+        'startTime' => '2026-06-23T10:00:00',
+        'endTime' => '2026-06-23T10:45:00',
+        'dateUpdated' => '2026-06-22T12:05:00Z',
+    ]))->assertStatus(202);
+
+    expect($booking->fresh()->status)->toBe(BookingStatus::Arrived); // checked in — THE fix
+    expect($booking->fresh()->status)->not->toBe(BookingStatus::Completed);
+});
+
+it('ignores the showed echo after check-in — arrived stays arrived', function () {
+    $salon = whSalon();
+    $stylist = whStylist($salon);
+    $booking = whPushedBooking($salon, $stylist);
+    $booking->update(['status' => BookingStatus::Arrived]); // checked in (pushed as showed)
+
+    postWebhook(realGhlPayload([
+        'appointmentId' => 'ghl_a1',
+        'appoinmentStatus' => 'showed', // our own push echoing back
+        'startTime' => '2026-06-23T10:00:00',
+        'endTime' => '2026-06-23T10:45:00',
+        'dateUpdated' => '2026-06-22T12:05:00Z',
+    ]))->assertStatus(202);
+
+    expect(WebhookEvent::latest('id')->value('status'))->toBe(WebhookEvent::STATUS_IGNORED_ECHO);
+    expect($booking->fresh()->status)->toBe(BookingStatus::Arrived); // not flipped to completed
+    Http::assertSentCount(1); // no re-push
+});
+
+it('never downgrades a completed booking on an inbound showed', function () {
+    $salon = whSalon();
+    $stylist = whStylist($salon);
+    $booking = whPushedBooking($salon, $stylist);
+    $booking->update(['status' => BookingStatus::Completed]); // auto-completed by the scheduler
+
+    postWebhook(realGhlPayload([
+        'appointmentId' => 'ghl_a1',
+        'appoinmentStatus' => 'showed', // GHL still says showed — same mapped state
+        'startTime' => '2026-06-23T10:00:00',
+        'endTime' => '2026-06-23T10:45:00',
+        'dateUpdated' => '2026-06-22T12:30:00Z',
+    ]))->assertStatus(202);
+
+    expect(WebhookEvent::latest('id')->value('status'))->toBe(WebhookEvent::STATUS_IGNORED_ECHO);
+    expect($booking->fresh()->status)->toBe(BookingStatus::Completed); // no downgrade to arrived
+});

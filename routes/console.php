@@ -18,9 +18,10 @@ Schedule::command('queue:work --stop-when-empty')
     ->everyMinute()
     ->withoutOverlapping();
 
-// Elapsed, still-booked bookings become no-shows (and mirror to GHL via the
-// queue above). Same cron drives it in production; locally use
-// `php artisan schedule:work` or run bookings:auto-no-show directly.
-Schedule::command('bookings:auto-no-show')
+// Close out elapsed bookings: still-booked → no-show (mirrored to GHL via
+// the queue above) and checked-in → completed (no GHL change — both map to
+// "showed"). Same cron drives it in production; locally use
+// `php artisan schedule:work` or run bookings:close-elapsed directly.
+Schedule::command('bookings:close-elapsed')
     ->everyFiveMinutes()
     ->withoutOverlapping();
