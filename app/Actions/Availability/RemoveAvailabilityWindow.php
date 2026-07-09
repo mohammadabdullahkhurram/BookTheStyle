@@ -2,6 +2,7 @@
 
 namespace App\Actions\Availability;
 
+use App\Jobs\SyncAvailabilityToGhl;
 use App\Models\Availability;
 use App\Models\Salon;
 use App\Models\User;
@@ -27,5 +28,8 @@ class RemoveAvailabilityWindow
         }
 
         $availability->delete();
+
+        // Mirror the change into GHL (re-opens the freed weekly time there).
+        SyncAvailabilityToGhl::queueForStylist($salon, $availability->user_id);
     }
 }

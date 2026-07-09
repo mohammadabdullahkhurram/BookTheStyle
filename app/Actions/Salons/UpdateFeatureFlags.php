@@ -2,6 +2,7 @@
 
 namespace App\Actions\Salons;
 
+use App\Jobs\SyncGhlCalendarSlotSettings;
 use App\Models\Salon;
 
 /**
@@ -21,6 +22,9 @@ class UpdateFeatureFlags
         }
 
         $salon->update(['feature_flags' => $clean === [] ? null : $clean]);
+
+        // The stylist_buffers flag feeds GHL's slot buffer — mirror it.
+        SyncGhlCalendarSlotSettings::queueFor($salon);
 
         return $salon;
     }

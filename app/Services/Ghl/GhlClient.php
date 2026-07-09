@@ -100,6 +100,57 @@ class GhlClient
     }
 
     /**
+     * Create a per-user availability schedule (weekly wday rules + date
+     * overrides, IANA timezone) — Phase 6e's availability mirror. Returns the
+     * created schedule (incl. its id).
+     *
+     * @param  array<string, mixed>  $schedule
+     * @return array<string, mixed>
+     */
+    public function createSchedule(array $schedule): array
+    {
+        $data = $this->send('post', '/calendars/schedules', self::CALENDARS_VERSION, json: [
+            ...$schedule,
+            'locationId' => $this->locationId,
+        ]);
+
+        $result = $data['schedule'] ?? null;
+
+        return is_array($result) ? $result : $data;
+    }
+
+    /**
+     * Replace an existing availability schedule's rules/timezone/name.
+     *
+     * @param  array<string, mixed>  $schedule
+     * @return array<string, mixed>
+     */
+    public function updateSchedule(string $scheduleId, array $schedule): array
+    {
+        return $this->send('put', '/calendars/schedules/'.$scheduleId, self::CALENDARS_VERSION, json: $schedule);
+    }
+
+    /**
+     * Apply an availability schedule to a calendar, so the calendar's slot
+     * search honours it for that user.
+     */
+    public function applyScheduleToCalendar(string $scheduleId, string $calendarId): void
+    {
+        $this->send('put', '/calendars/schedules/'.$scheduleId.'/associations/'.$calendarId, self::CALENDARS_VERSION, json: []);
+    }
+
+    /**
+     * Update a calendar's settings (slot duration/interval, buffers, …).
+     *
+     * @param  array<string, mixed>  $settings
+     * @return array<string, mixed>
+     */
+    public function updateCalendar(string $calendarId, array $settings): array
+    {
+        return $this->send('put', '/calendars/'.$calendarId, self::CALENDARS_VERSION, json: $settings);
+    }
+
+    /**
      * All calendar events (appointments) on one calendar in a time window —
      * the reconciliation feed. GET /calendars/events wants epoch-millisecond
      * strings for the window bounds (per the published OpenAPI spec).

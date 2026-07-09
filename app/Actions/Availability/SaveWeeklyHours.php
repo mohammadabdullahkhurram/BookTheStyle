@@ -3,6 +3,7 @@
 namespace App\Actions\Availability;
 
 use App\Enums\AvailabilityKind;
+use App\Jobs\SyncAvailabilityToGhl;
 use App\Models\Availability;
 use App\Models\Salon;
 use App\Models\User;
@@ -66,6 +67,10 @@ class SaveWeeklyHours
                 }
             }
         });
+
+        // Mirror the new week into GHL so its AI books within these hours
+        // (queued after commit; a no-op when unconnected or unmapped).
+        SyncAvailabilityToGhl::queueForStylist($salon, $stylistUserId);
     }
 
     /**

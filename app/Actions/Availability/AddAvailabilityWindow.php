@@ -3,6 +3,7 @@
 namespace App\Actions\Availability;
 
 use App\Enums\AvailabilityKind;
+use App\Jobs\SyncAvailabilityToGhl;
 use App\Models\Availability;
 use App\Models\Salon;
 use App\Models\User;
@@ -67,7 +68,7 @@ class AddAvailabilityWindow
             ]);
         }
 
-        return Availability::create([
+        $window = Availability::create([
             'salon_id' => $salon->id,
             'user_id' => $stylistUserId,
             'weekday' => $weekday,
@@ -75,5 +76,10 @@ class AddAvailabilityWindow
             'start_minute' => $start,
             'end_minute' => $end,
         ]);
+
+        // Mirror the change into GHL so its AI books within the new hours.
+        SyncAvailabilityToGhl::queueForStylist($salon, $stylistUserId);
+
+        return $window;
     }
 }

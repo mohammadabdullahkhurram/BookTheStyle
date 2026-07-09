@@ -2,6 +2,7 @@
 
 namespace App\Actions\Availability;
 
+use App\Jobs\SyncAvailabilityToGhl;
 use App\Models\Salon;
 use App\Models\TimeOff;
 use App\Models\User;
@@ -27,5 +28,8 @@ class RemoveTimeOff
         }
 
         $timeOff->delete();
+
+        // Mirror the change into GHL (the date-specific override goes away).
+        SyncAvailabilityToGhl::queueForStylist($salon, $timeOff->user_id);
     }
 }

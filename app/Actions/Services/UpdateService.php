@@ -2,6 +2,7 @@
 
 namespace App\Actions\Services;
 
+use App\Jobs\SyncGhlCalendarSlotSettings;
 use App\Models\Salon;
 use App\Models\Service;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -27,6 +28,9 @@ class UpdateService
             'duration_min' => $data['duration_min'],
             'active' => $data['active'] ?? $service->active,
         ]);
+
+        // Durations shape GHL's slot settings — mirror the master calendar.
+        SyncGhlCalendarSlotSettings::queueFor($salon);
 
         return $service;
     }

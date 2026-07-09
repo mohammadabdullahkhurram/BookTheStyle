@@ -10,10 +10,13 @@ use App\Actions\Salons\UpdateGhlStaffMapping;
 use App\Enums\StaffType;
 use App\Actions\Salons\UpdateSalonProfile;
 use App\Actions\Salons\UpdateTimezone;
+use App\Jobs\SyncAvailabilityToGhl;
 use App\Jobs\SyncBookingToGhl;
+use App\Jobs\SyncGhlCalendarSlotSettings;
 use App\Models\Salon;
 use App\Models\StylistProfile;
 use App\Services\Ghl\GhlApiException;
+use App\Services\Ghl\GhlAvailabilityPusher;
 use App\Services\Ghl\GhlBookingPusher;
 use App\Services\Ghl\GhlClient;
 use App\Support\SalonProfile;
@@ -437,6 +440,66 @@ new #[Title('Salon settings')] class extends Component {
         unset($this->ghlSyncIssues);
 
         Flux::toast(variant: 'success', text: __('Sync queued for :name.', ['name' => $booking->client->name]));
+    }
+
+    /**
+     * Mapped stylists with their availability-sync state (Phase 6e) —
+     * salon-scoped by construction.
+     *
+     * @return \Illuminate\Database\Eloquent\Collection<int, StylistProfile>
+     */
+    #[Computed]
+    public function ghlAvailabilityStates()
+    {
+        return StylistProfile::forSalon($this->salon)
+            ->whereNotNull('ghl_user_id')
+            ->with('user:id,name')
+            ->get()
+            ->sortBy(fn (StylistProfile $profile) => mb_strtolower((string) $profile->user?->name))
+            ->values();
+    }
+
+    /**
+     * Manual "sync availability to GoHighLevel": every mapped stylist's
+     * weekly hours + time off, plus the master calendar's slot settings.
+     * First-time setup and repair both land here.
+     */
+    public function syncGhlAvailability(): void
+    {
+        $this->authorize('manageGhlConnection', $this->salon);
+
+        if (! ($this->salon->ghlConnection()->first()?->isConnected() ?? false)) {
+            Flux::toast(variant: 'danger', text: __('Connect GoHighLevel (and choose a master calendar) first.'));
+
+            return;
+        }
+
+        $queued = SyncAvailabilityToGhl::queueForSalon($this->salon);
+        SyncGhlCalendarSlotSettings::queueFor($this->salon);
+
+        unset($this->ghlAvailabilityStates);
+
+        Flux::toast(
+            variant: $queued > 0 ? 'success' : 'danger',
+            text: $queued > 0
+                ? __('Queued availability sync for :count stylist(s).', ['count' => $queued])
+                : __('No stylists are mapped to GoHighLevel providers yet.'),
+        );
+    }
+
+    /**
+     * Re-push one stylist's availability (retry after a failure).
+     */
+    public function retryGhlAvailability(int $profileId): void
+    {
+        $this->authorize('manageGhlConnection', $this->salon);
+
+        $profile = StylistProfile::forSalon($this->salon)->whereKey($profileId)->firstOrFail();
+
+        SyncAvailabilityToGhl::queueFor($profile);
+        unset($this->ghlAvailabilityStates);
+
+        Flux::toast(variant: 'success', text: __('Availability sync queued for :name.', ['name' => $profile->user?->name ?? __('stylist')]));
     }
 
     /**
@@ -886,6 +949,53 @@ new #[Title('Salon settings')] class extends Component {
                                 {{ __('Generate secret') }}
                             </x-ui.button>
                         @endif
+                    </div>
+                </x-ui.card>
+
+                <x-ui.card class="flex flex-col gap-4">
+                    <h2 class="bts-card-title">{{ __('Availability sync') }}</h2>
+                    <p class="text-[14px] text-secondary">
+                        {{ __('Mirrors each mapped stylist\'s weekly hours and time off into GoHighLevel, so the voice AI, chat widget and booking pages only offer times the app would allow. The app remains the source of truth.') }}
+                    </p>
+                    @if ($this->ghlAvailabilityStates->isEmpty())
+                        <p class="text-[14px] text-faint">{{ __('Map stylists to GoHighLevel providers above, then sync.') }}</p>
+                    @else
+                        <div class="divide-y divide-row rounded-[18px] border border-border">
+                            @foreach ($this->ghlAvailabilityStates as $state)
+                                <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                                    <div class="flex min-w-0 items-center gap-3">
+                                        <x-ui.avatar :name="$state->user?->name ?? ''" :seed="$state->user_id" size="sm" />
+                                        <div class="flex flex-col">
+                                            <span class="text-[14.5px] font-medium text-ink">{{ $state->user?->name }}</span>
+                                            @if ($state->ghl_availability_status === 'failed')
+                                                <span class="text-[12.5px]" style="color:#A23A3A;">{{ $state->ghl_availability_error }}</span>
+                                            @elseif ($state->ghl_availability_status === 'skipped')
+                                                <span class="text-[12.5px] text-faint">{{ $state->ghl_availability_error }}</span>
+                                            @elseif ($state->ghl_availability_synced_at)
+                                                <span class="text-[12.5px] text-faint">{{ __('Synced') }} {{ $state->ghl_availability_synced_at->diffForHumans() }}</span>
+                                            @else
+                                                <span class="text-[12.5px] text-faint">{{ __('Never synced') }}</span>
+                                            @endif
+                                        </div>
+                                        @if ($state->ghl_availability_status === 'failed')
+                                            <span class="bts-pill" style="background-color:#F8E3E3;color:#A23A3A;">{{ __('Failed') }}</span>
+                                        @elseif ($state->ghl_availability_status === 'pending')
+                                            <span class="bts-pill" style="background-color:#FBEFD6;color:#8A5A1E;">{{ __('Pending') }}</span>
+                                        @elseif ($state->ghl_availability_status === 'synced')
+                                            <span class="bts-pill" style="background-color:#E7EFE4;color:#3E5C3A;">{{ __('Synced') }}</span>
+                                        @endif
+                                    </div>
+                                    <x-ui.button type="button" variant="secondary" wire:click="retryGhlAvailability({{ $state->id }})">
+                                        {{ $state->ghl_availability_status === 'failed' ? __('Retry sync') : __('Sync') }}
+                                    </x-ui.button>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+                    <div>
+                        <x-ui.button type="button" wire:click="syncGhlAvailability">
+                            {{ __('Sync availability to GoHighLevel') }}
+                        </x-ui.button>
                     </div>
                 </x-ui.card>
 

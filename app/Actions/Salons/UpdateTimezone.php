@@ -2,6 +2,7 @@
 
 namespace App\Actions\Salons;
 
+use App\Jobs\SyncAvailabilityToGhl;
 use App\Models\Salon;
 
 /**
@@ -17,6 +18,9 @@ class UpdateTimezone
     public function handle(Salon $salon, string $timezone): Salon
     {
         $salon->update(['timezone' => $timezone]);
+
+        // GHL availability schedules store the timezone — re-push them all.
+        SyncAvailabilityToGhl::queueForSalon($salon);
 
         return $salon;
     }

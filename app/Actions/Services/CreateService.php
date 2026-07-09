@@ -2,6 +2,7 @@
 
 namespace App\Actions\Services;
 
+use App\Jobs\SyncGhlCalendarSlotSettings;
 use App\Models\Salon;
 use App\Models\Service;
 use App\Support\ServicePalette;
@@ -21,12 +22,17 @@ class CreateService
      */
     public function handle(Salon $salon, array $data): Service
     {
-        return $salon->services()->create([
+        $service = $salon->services()->create([
             'name' => $data['name'],
             'duration_min' => $data['duration_min'],
             'color_key' => $this->assignColorKey($salon),
             'active' => $data['active'] ?? true,
         ]);
+
+        // Durations shape GHL's slot settings — mirror the master calendar.
+        SyncGhlCalendarSlotSettings::queueFor($salon);
+
+        return $service;
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace App\Actions\Availability;
 
 use App\Enums\TimeOffType;
+use App\Jobs\SyncAvailabilityToGhl;
 use App\Models\Salon;
 use App\Models\TimeOff;
 use App\Models\User;
@@ -44,7 +45,7 @@ class AddTimeOff
             ]);
         }
 
-        return TimeOff::create([
+        $timeOff = TimeOff::create([
             'salon_id' => $salon->id,
             'user_id' => $stylistUserId,
             'type' => $type,
@@ -52,5 +53,10 @@ class AddTimeOff
             'starts_at' => $start,
             'ends_at' => $end,
         ]);
+
+        // Mirror the change into GHL so its AI stops offering these times.
+        SyncAvailabilityToGhl::queueForStylist($salon, $stylistUserId);
+
+        return $timeOff;
     }
 }

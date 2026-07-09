@@ -3,6 +3,8 @@
 namespace App\Actions\Salons;
 
 use App\Enums\StaffType;
+use App\Jobs\SyncAvailabilityToGhl;
+use App\Jobs\SyncGhlCalendarSlotSettings;
 use App\Models\Salon;
 use App\Models\StylistProfile;
 use Illuminate\Validation\ValidationException;
@@ -88,5 +90,10 @@ class UpdateGhlStaffMapping
                 'ghl_location_user_id' => $ghlUserId === '' ? null : $ghlUserId,
             ]);
         }
+
+        // Mapping (or master calendar) changed: mirror every mapped
+        // stylist's availability + the calendar slot settings into GHL.
+        SyncAvailabilityToGhl::queueForSalon($salon);
+        SyncGhlCalendarSlotSettings::queueFor($salon);
     }
 }

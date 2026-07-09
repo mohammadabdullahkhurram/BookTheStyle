@@ -130,6 +130,10 @@ it('lets an owner test the connection from settings and shows last-verified', fu
 function fakeGhlDirectory(): void
 {
     Http::fake([
+        // Saving a mapping now mirrors availability into GHL (6e) — those
+        // schedule calls must not be swallowed by the calendars/* stub below.
+        'services.leadconnectorhq.com/calendars/schedules/*' => Http::response(['ok' => true]),
+        'services.leadconnectorhq.com/calendars/schedules' => Http::response(['schedule' => ['id' => 'sched_t1']], 201),
         'services.leadconnectorhq.com/calendars/*' => Http::response(ghlLocationCalendars()),
         'services.leadconnectorhq.com/users/*' => Http::response(['users' => [
             ['id' => 'ghl_u1', 'name' => 'Ana', 'email' => 'ana@example.com'],
@@ -235,6 +239,11 @@ it('persists both tiers to their distinct fields, including overrides of auto-ma
 });
 
 it('clears a mapping when set back to not mapped', function () {
+    // Mapping a stylist mirrors their availability into GHL (6e).
+    Http::fake([
+        'services.leadconnectorhq.com/calendars/schedules/*' => Http::response(['ok' => true]),
+        'services.leadconnectorhq.com/calendars/schedules' => Http::response(['schedule' => ['id' => 'sched_t1']], 201),
+    ]);
     $salon = connectedSalon();
     $stylist = stylistOf($salon);
 
