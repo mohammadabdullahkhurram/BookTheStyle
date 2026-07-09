@@ -223,7 +223,7 @@ it('still books a walk-in that starts now', function () {
     expect($booking->status)->toBe(BookingStatus::Arrived);
 });
 
-it('keeps a single-stylist multi-service visit as ONE booking with no visit group', function () {
+it('splits a single-stylist multi-service visit into per-service bookings, linked as one visit', function () {
     $salon = bookingSalon();
     $stylist = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
     $cut = serviceFor($salon, $stylist, 60);
@@ -243,8 +243,11 @@ it('keeps a single-stylist multi-service visit as ONE booking with no visit grou
         ->call('save')
         ->assertHasNoErrors();
 
-    $bookings = $salon->bookings()->get();
-    expect($bookings)->toHaveCount(1);
-    expect($bookings[0]->visit_group_id)->toBeNull();
-    expect($bookings[0]->items()->count())->toBe(2);
+    // One booking PER SERVICE, even for the same stylist.
+    $bookings = $salon->bookings()->orderBy('id')->get();
+    expect($bookings)->toHaveCount(2);
+    expect($bookings[0]->visit_group_id)->not->toBeNull();
+    expect($bookings[0]->visit_group_id)->toBe($bookings[1]->visit_group_id);
+    expect($bookings[0]->items()->count())->toBe(1);
+    expect($bookings[1]->items()->count())->toBe(1);
 });

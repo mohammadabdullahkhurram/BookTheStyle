@@ -13,12 +13,12 @@ use Illuminate\Database\Eloquent\Collection;
  * behind the queued SyncBookingToGhl job. The in-app booking is the source
  * of truth: this runs after the fact and never blocks or fails a booking.
  *
- * A booking is ONE stylist's visit (multi-stylist visits persist as separate
- * bookings linked by visit_group_id), so the mirror is a clean 1:1: one
- * booking → one GHL appointment on THAT booking's stylist's mapped provider,
- * at THAT booking's own item times, titled with only THAT booking's
- * service(s). The appointment id, sync status/error, payload hash and
- * last-synced time live directly on the booking.
+ * A booking is ONE SERVICE performed by one stylist (composed visits persist
+ * as separate per-service bookings linked by visit_group_id), so the mirror
+ * is a clean 1:1 with no grouping of any kind: one booking → one GHL
+ * appointment on that stylist's mapped provider, at that booking's own time,
+ * titled with that single service. The appointment id, sync status/error,
+ * payload hash and last-synced time live directly on the booking.
  *
  * Re-pushes diff by the payload hash: an unchanged booking makes no API
  * call, a changed one updates its existing appointment (never duplicates),

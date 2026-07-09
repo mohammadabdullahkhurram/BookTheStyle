@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Bookings\CreateBooking;
+use App\Models\BookingItem;
 use App\Models\Salon;
 use App\Models\Service;
 use App\Services\Booking\DurationResolver;
@@ -174,7 +175,7 @@ it('sums each chosen stylist\'s resolved durations back-to-back across a multi-s
     $s2 = serviceWith($salon, 60, [$stylist->id => ['duration' => 50]]);
     $owner = salonOwnerOf($salon);
 
-    $booking = app(CreateBooking::class)->handle($owner, $salon, bookingData([
+    app(CreateBooking::class)->handle($owner, $salon, bookingData([
         'items' => [
             ['service_id' => $s1->id, 'stylist_id' => $stylist->id],
             ['service_id' => $s2->id, 'stylist_id' => $stylist->id],
@@ -182,7 +183,9 @@ it('sums each chosen stylist\'s resolved durations back-to-back across a multi-s
         'start' => '2026-06-22 10:00',
     ]));
 
-    $items = $booking->items()->orderBy('starts_at')->get();
+    // One booking PER SERVICE (even same-stylist), laid back-to-back.
+    expect($salon->bookings()->count())->toBe(2);
+    $items = BookingItem::where('salon_id', $salon->id)->orderBy('starts_at')->get();
     expect($items[0]->ends_at->setTimezone('America/New_York')->format('H:i'))->toBe('10:20');   // 20 min
     expect($items[1]->starts_at->setTimezone('America/New_York')->format('H:i'))->toBe('10:20'); // back-to-back
     expect($items[1]->ends_at->setTimezone('America/New_York')->format('H:i'))->toBe('11:10');   // +50 min
@@ -195,7 +198,7 @@ it('places the buffer before the next service in a multi-service booking', funct
     $s2 = serviceWith($salon, 30, [$stylist->id => ['duration' => 30]]);
     $owner = salonOwnerOf($salon);
 
-    $booking = app(CreateBooking::class)->handle($owner, $salon, bookingData([
+    app(CreateBooking::class)->handle($owner, $salon, bookingData([
         'items' => [
             ['service_id' => $s1->id, 'stylist_id' => $stylist->id],
             ['service_id' => $s2->id, 'stylist_id' => $stylist->id],
@@ -203,7 +206,7 @@ it('places the buffer before the next service in a multi-service booking', funct
         'start' => '2026-06-22 10:00',
     ]));
 
-    $items = $booking->items()->orderBy('starts_at')->get();
+    $items = BookingItem::where('salon_id', $salon->id)->orderBy('starts_at')->get();
     expect($items[0]->ends_at->setTimezone('America/New_York')->format('H:i'))->toBe('10:30'); // service only
     expect($items[0]->buffer_min)->toBe(15);
     expect($items[1]->starts_at->setTimezone('America/New_York')->format('H:i'))->toBe('10:45'); // after service + buffer

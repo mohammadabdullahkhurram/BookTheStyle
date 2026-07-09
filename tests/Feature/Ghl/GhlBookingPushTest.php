@@ -416,9 +416,10 @@ it('splits a legacy multi-stylist booking into per-stylist bookings with their s
     $ben = stylistOf($salon);
     $owner = salonOwnerOf($salon);
 
-    // Build the LEGACY shape: roll back the split migration (restores the
-    // per-stylist slice table and drops the 1:1 columns)…
-    $this->artisan('migrate:rollback', ['--step' => 1])->assertSuccessful();
+    // Build the LEGACY shape: roll back through the per-stylist split
+    // migration (step 2 also unwinds the data-only per-service split that
+    // sits after it), restoring the slice table + dropping the 1:1 columns…
+    $this->artisan('migrate:rollback', ['--step' => 2])->assertSuccessful();
 
     $client = DB::table('clients')->insertGetId([
         'salon_id' => $salon->id, 'name' => 'Legacy Client', 'created_at' => now(), 'updated_at' => now(),
@@ -458,5 +459,126 @@ it('splits a legacy multi-stylist booking into per-stylist bookings with their s
     expect($bookings[1]->ghl_appointment_id)->toBe('legacy_a2');
 
     // Status history carried onto the split booking too.
+    expect($bookings[1]->statusEvents()->count())->toBe(1);
+});
+
+// ---------------------------------------------------------------------------
+// One booking per SERVICE — the corrected split
+// ---------------------------------------------------------------------------
+
+it('splits 3 services (2 sharing a stylist) into 3 bookings and 3 single-service appointments', function () {
+    fakeContactAndAppointments(['ghl_a1', 'ghl_a2', 'ghl_a3']);
+    $salon = ghlBookingSalon();
+    $owner = salonOwnerOf($salon);
+    $simone = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
+    $maya = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
+    mapProvider($salon, $simone, 'prov_simone');
+    mapProvider($salon, $maya, 'prov_maya');
+
+    $serviceA = Service::factory()->for($salon)->create(['name' => 'Cut', 'duration_min' => 30]);
+    $serviceB = Service::factory()->for($salon)->create(['name' => 'Color', 'duration_min' => 60]);
+    $serviceC = Service::factory()->for($salon)->create(['name' => 'Nails', 'duration_min' => 45]);
+    $serviceA->stylists()->attach($simone->id, ['salon_id' => $salon->id]);
+    $serviceB->stylists()->attach($simone->id, ['salon_id' => $salon->id]);
+    $serviceC->stylists()->attach($maya->id, ['salon_id' => $salon->id]);
+
+    // A + B with Simone (back-to-back), C with Maya at the same time as A.
+    app(CreateBooking::class)->handle($owner, $salon, [
+        'client' => ['name' => 'Casey Client'],
+        'items' => [
+            ['service_id' => $serviceA->id, 'stylist_id' => $simone->id, 'start' => '2026-06-22 10:00'],
+            ['service_id' => $serviceB->id, 'stylist_id' => $simone->id, 'start' => '2026-06-22 10:30'],
+            ['service_id' => $serviceC->id, 'stylist_id' => $maya->id, 'start' => '2026-06-22 10:00'],
+        ],
+        'start' => '2026-06-22 10:00',
+        'is_walkin' => false,
+        'notes' => null,
+    ]);
+
+    // 3 bookings — NOT 2 grouped by stylist — one service each, one visit.
+    $bookings = $salon->bookings()->orderBy('id')->get();
+    expect($bookings)->toHaveCount(3);
+    expect($bookings->pluck('visit_group_id')->unique())->toHaveCount(1);
+    expect($bookings->pluck('visit_group_id')->first())->not->toBeNull();
+    foreach ($bookings as $booking) {
+        expect($booking->items()->count())->toBe(1);
+        expect($booking->ghl_appointment_id)->not->toBeNull();
+    }
+
+    // 3 appointments, each titled with its single service at its own time.
+    Http::assertSent(fn ($r): bool => $r->method() === 'POST'
+        && str_contains($r->url(), '/calendars/events/appointments')
+        && $r['assignedUserId'] === 'prov_simone'
+        && $r['title'] === 'Casey Client — Cut'
+        && $r['startTime'] === '2026-06-22T10:00:00-04:00'
+        && $r['endTime'] === '2026-06-22T10:30:00-04:00');
+    Http::assertSent(fn ($r): bool => $r->method() === 'POST'
+        && str_contains($r->url(), '/calendars/events/appointments')
+        && $r['assignedUserId'] === 'prov_simone'
+        && $r['title'] === 'Casey Client — Color'
+        && $r['startTime'] === '2026-06-22T10:30:00-04:00'
+        && $r['endTime'] === '2026-06-22T11:30:00-04:00');
+    Http::assertSent(fn ($r): bool => $r->method() === 'POST'
+        && str_contains($r->url(), '/calendars/events/appointments')
+        && $r['assignedUserId'] === 'prov_maya'
+        && $r['title'] === 'Casey Client — Nails'
+        && $r['startTime'] === '2026-06-22T10:00:00-04:00');
+
+    // Never a combined title — no stylist-level grouping anywhere.
+    Http::assertNotSent(fn ($r): bool => str_contains($r->url(), 'appointments')
+        && is_string($r['title'] ?? null) && str_contains($r['title'], 'Cut') && str_contains($r['title'], 'Color'));
+
+    Http::assertSentCount(4); // one contact upsert + three appointments
+});
+
+it('pushes two separate appointments when the same stylist performs two services', function () {
+    fakeContactAndAppointments(['ghl_a1', 'ghl_a2']);
+    $salon = ghlBookingSalon();
+    $owner = salonOwnerOf($salon);
+    $simone = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
+    mapProvider($salon, $simone, 'prov_simone');
+
+    app(CreateBooking::class)->handle($owner, $salon, bookingData([
+        'items' => [
+            ['service_id' => serviceFor($salon, $simone, 30)->id, 'stylist_id' => $simone->id, 'start' => '2026-06-22 10:00'],
+            ['service_id' => serviceFor($salon, $simone, 30)->id, 'stylist_id' => $simone->id, 'start' => '2026-06-22 14:00'],
+        ],
+        'start' => '2026-06-22 10:00',
+    ]));
+
+    expect($salon->bookings()->count())->toBe(2);
+    Http::assertSent(fn ($r): bool => $r->method() === 'POST' && str_contains($r->url(), 'appointments')
+        && $r['startTime'] === '2026-06-22T10:00:00-04:00' && $r['endTime'] === '2026-06-22T10:30:00-04:00');
+    Http::assertSent(fn ($r): bool => $r->method() === 'POST' && str_contains($r->url(), 'appointments')
+        && $r['startTime'] === '2026-06-22T14:00:00-04:00' && $r['endTime'] === '2026-06-22T14:30:00-04:00');
+    Http::assertSentCount(3); // upsert + 2 appointments — no grouping
+});
+
+it('backfills grouped multi-item bookings into per-service bookings', function () {
+    $salon = ghlBookingSalon();
+    $anna = stylistOf($salon);
+
+    // A pre-correction booking: two items for one stylist, one appointment.
+    $booking = bareBooking($salon, ['ghl_appointment_id' => 'legacy_a1', 'ghl_payload_hash' => 'stale']);
+    addItem($booking, $anna, CarbonImmutable::parse('2026-06-23 10:00', $salon->timezone), 60, 'Color');
+    addItem($booking, $anna, CarbonImmutable::parse('2026-06-23 11:00', $salon->timezone), 30, 'Blow-dry');
+    $booking->statusEvents()->create(['salon_id' => $salon->id, 'from_status' => null, 'to_status' => 'booked', 'actor_user_id' => null]);
+
+    $migration = require database_path('migrations/2026_07_09_000006_split_bookings_per_service.php');
+    $migration->up();
+
+    $bookings = Booking::where('salon_id', $salon->id)->orderBy('id')->get();
+    expect($bookings)->toHaveCount(2);
+    expect($bookings[0]->visit_group_id)->not->toBeNull();
+    expect($bookings[0]->visit_group_id)->toBe($bookings[1]->visit_group_id);
+    expect($bookings[0]->items()->count())->toBe(1);
+    expect($bookings[1]->items()->count())->toBe(1);
+
+    // The kept booking retains the appointment id with a cleared hash (its
+    // next push shrinks the GHL appointment to this single service); the
+    // split-off booking will create its own appointment on first push.
+    expect($bookings[0]->ghl_appointment_id)->toBe('legacy_a1');
+    expect($bookings[0]->ghl_payload_hash)->toBeNull();
+    expect($bookings[1]->ghl_appointment_id)->toBeNull();
     expect($bookings[1]->statusEvents()->count())->toBe(1);
 });

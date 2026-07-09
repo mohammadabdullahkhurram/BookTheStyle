@@ -31,7 +31,14 @@ it('creates a multi-service booking with sequential back-to-back blocks', functi
         ],
     ]));
 
-    $items = $booking->items()->orderBy('starts_at')->get();
+    // One booking PER SERVICE — same stylist still means two bookings,
+    // linked as one visit, laid back-to-back.
+    $bookings = $salon->bookings()->orderBy('id')->get();
+    expect($bookings)->toHaveCount(2);
+    expect($bookings[0]->visit_group_id)->not->toBeNull();
+    expect($bookings[0]->visit_group_id)->toBe($bookings[1]->visit_group_id);
+
+    $items = BookingItem::where('salon_id', $salon->id)->orderBy('starts_at')->get();
     expect($items)->toHaveCount(2);
     expect($items[0]->starts_at->setTimezone('America/New_York')->format('H:i'))->toBe('10:00');
     expect($items[0]->ends_at->setTimezone('America/New_York')->format('H:i'))->toBe('11:00');

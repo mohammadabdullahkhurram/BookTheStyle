@@ -22,7 +22,8 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Create the bookings for one composed visit. Every item names its stylist
+ * Create the bookings for one composed visit — ONE BOOKING PER SERVICE
+ * line, regardless of stylist overlap. Every item names its stylist
  * explicitly
  * (staff book deliberately — there is no "any available" resolution), and an
  * item may carry its own start time: same-time, back-to-back and
@@ -161,20 +162,20 @@ class CreateBooking
 
             $status = $isWalkin ? BookingStatus::Arrived : BookingStatus::Booked;
 
-            // ONE BOOKING PER STYLIST: a visit composed across N stylists
-            // persists as N bookings — each holding only that stylist's
-            // items at their own times — linked by a shared visit group so
-            // they can be recognised as booked together without being one
-            // booking. Single-stylist visits stay one booking, no group.
-            $groups = collect($resolved)
-                ->groupBy('stylist_id')
-                ->sortBy(fn ($group) => $group->min(fn (array $ri) => $ri['starts_at']->getTimestamp()))
+            // ONE BOOKING PER SERVICE: every service line of a composed
+            // visit persists as its own booking — one service, its stylist,
+            // its own start/end — even when the same stylist performs
+            // several of them. Bookings made together share a visit group so
+            // they read as one visit without being one booking. A
+            // single-service visit stays one booking, no group.
+            $lines = collect($resolved)
+                ->sortBy(fn (array $ri) => [$ri['starts_at']->getTimestamp(), $ri['stylist_id']])
                 ->values();
 
-            $visitGroupId = $groups->count() > 1 ? (string) Str::uuid() : null;
+            $visitGroupId = $lines->count() > 1 ? (string) Str::uuid() : null;
             $bookings = [];
 
-            foreach ($groups as $group) {
+            foreach ($lines as $ri) {
                 $booking = $salon->bookings()->create([
                     'client_id' => $client->id,
                     'status' => $status,
@@ -186,16 +187,14 @@ class CreateBooking
                     'visit_group_id' => $visitGroupId,
                 ]);
 
-                foreach ($group as $ri) {
-                    $booking->items()->create([
-                        'salon_id' => $salon->id,
-                        'service_id' => $ri['service']->id,
-                        'stylist_id' => $ri['stylist_id'],
-                        'starts_at' => $ri['starts_at'],
-                        'ends_at' => $ri['ends_at'],
-                        'buffer_min' => $ri['buffer_min'],
-                    ]);
-                }
+                $booking->items()->create([
+                    'salon_id' => $salon->id,
+                    'service_id' => $ri['service']->id,
+                    'stylist_id' => $ri['stylist_id'],
+                    'starts_at' => $ri['starts_at'],
+                    'ends_at' => $ri['ends_at'],
+                    'buffer_min' => $ri['buffer_min'],
+                ]);
 
                 // Status timeline: created (→ booked), and immediately
                 // arrived for walk-ins (checked in in one step).
