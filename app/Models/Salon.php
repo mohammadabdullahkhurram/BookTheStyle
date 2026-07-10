@@ -36,6 +36,9 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property bool $allow_same_day
  * @property int $max_advance_days
  * @property int $min_notice_minutes
+ * @property bool $auto_no_show
+ * @property int $auto_no_show_grace_minutes
+ * @property bool $auto_complete
  * @property array<string, mixed>|null $feature_flags
  */
 class Salon extends Model
@@ -67,6 +70,9 @@ class Salon extends Model
         'allow_same_day',
         'max_advance_days',
         'min_notice_minutes',
+        'auto_no_show',
+        'auto_no_show_grace_minutes',
+        'auto_complete',
         'feature_flags',
     ];
 
@@ -80,6 +86,9 @@ class Salon extends Model
             'allow_same_day' => 'boolean',
             'max_advance_days' => 'integer',
             'min_notice_minutes' => 'integer',
+            'auto_no_show' => 'boolean',
+            'auto_no_show_grace_minutes' => 'integer',
+            'auto_complete' => 'boolean',
         ];
     }
 

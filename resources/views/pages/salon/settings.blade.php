@@ -41,6 +41,16 @@ new #[Title('Salon settings')] class extends Component {
     #[Validate('required|integer|min:0|max:10080')]
     public int $min_notice_minutes = 0;
 
+    // Booking automation (policy panel). Auto-no-show is opt-in by design.
+    #[Validate('boolean')]
+    public bool $auto_no_show = false;
+
+    #[Validate('required|integer|min:0|max:1440')]
+    public int $auto_no_show_grace_minutes = 15;
+
+    #[Validate('boolean')]
+    public bool $auto_complete = true;
+
     #[Validate('nullable|regex:/^#[0-9a-fA-F]{6}$/')]
     public string $accent = '';
 
@@ -123,6 +133,9 @@ new #[Title('Salon settings')] class extends Component {
         $this->allow_same_day = $salon->allow_same_day;
         $this->max_advance_days = $salon->max_advance_days;
         $this->min_notice_minutes = $salon->min_notice_minutes;
+        $this->auto_no_show = $salon->auto_no_show;
+        $this->auto_no_show_grace_minutes = $salon->auto_no_show_grace_minutes;
+        $this->auto_complete = $salon->auto_complete;
 
         $this->accent = $salon->accentColor() ?? '';
 
@@ -571,6 +584,9 @@ new #[Title('Salon settings')] class extends Component {
             'allow_same_day' => ['boolean'],
             'max_advance_days' => ['required', 'integer', 'min:1', 'max:365'],
             'min_notice_minutes' => ['required', 'integer', 'min:0', 'max:10080'],
+            'auto_no_show' => ['boolean'],
+            'auto_no_show_grace_minutes' => ['required', 'integer', 'min:0', 'max:1440'],
+            'auto_complete' => ['boolean'],
         ]);
 
         $action->handle($this->salon, [
@@ -578,6 +594,9 @@ new #[Title('Salon settings')] class extends Component {
             'allow_same_day' => $data['allow_same_day'],
             'max_advance_days' => $data['max_advance_days'],
             'min_notice_minutes' => $data['min_notice_minutes'],
+            'auto_no_show' => $data['auto_no_show'],
+            'auto_no_show_grace_minutes' => $data['auto_no_show_grace_minutes'],
+            'auto_complete' => $data['auto_complete'],
         ]);
 
         Flux::toast(variant: 'success', text: __('Booking policy saved.'));
@@ -725,6 +744,31 @@ new #[Title('Salon settings')] class extends Component {
                     <flux:input type="number" wire:model="max_advance_days" :label="__('Max advance (days)')" min="1" max="365" />
                     <flux:input type="number" wire:model="min_notice_minutes" :label="__('Min notice (minutes)')" min="0" max="10080" />
                 </div>
+
+                {{-- Booking automation: what the scheduler does to elapsed bookings. --}}
+                <div class="flex flex-col gap-3 border-t border-row pt-5">
+                    <h3 class="text-[13px] font-semibold uppercase tracking-wide text-secondary">{{ __('Booking automation') }}</h3>
+
+                    <div class="flex flex-col gap-1.5">
+                        <flux:checkbox wire:model.live="auto_no_show" :label="__('Auto-mark no-shows')" />
+                        <p class="text-[12.5px] leading-relaxed text-faint">{{ __('When on, appointments that are still "Booked" after they end are automatically marked as no-shows (and synced to GoHighLevel). Leave off if your front desk doesn\'t always check clients in — staff can mark no-shows manually either way.') }}</p>
+                    </div>
+
+                    @if ($auto_no_show)
+                        <div class="flex flex-col gap-1.5">
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <flux:input type="number" wire:model="auto_no_show_grace_minutes" :label="__('No-show grace period (minutes)')" min="0" max="1440" />
+                            </div>
+                            <p class="text-[12.5px] leading-relaxed text-faint">{{ __('How long after the end time to wait before auto-marking — covers a busy front desk checking someone in late.') }}</p>
+                        </div>
+                    @endif
+
+                    <div class="flex flex-col gap-1.5">
+                        <flux:checkbox wire:model="auto_complete" :label="__('Auto-complete checked-in appointments')" />
+                        <p class="text-[12.5px] leading-relaxed text-faint">{{ __('When on, checked-in appointments are marked completed once their end time passes.') }}</p>
+                    </div>
+                </div>
+
                 <div><x-ui.button type="submit">{{ __('Save policy') }}</x-ui.button></div>
             </form>
         </x-ui.card>

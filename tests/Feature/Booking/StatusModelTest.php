@@ -136,6 +136,8 @@ it('never lets a booked status transition to the removed confirmed action', func
 it('auto-flips only genuinely elapsed still-booked bookings, idempotently, and pushes noshow', function () {
     fakeGhlOnce();
     $salon = statusGhlSalon();
+    // Auto-no-show is opt-in (default OFF); this test exercises it enabled.
+    $salon->update(['auto_no_show' => true, 'auto_no_show_grace_minutes' => 0]);
     $owner = salonOwnerOf($salon);
     $stylist = stylistWithHours($salon, 0, 7 * 60, 23 * 60);
     StylistProfile::updateOrCreate(['salon_id' => $salon->id, 'user_id' => $stylist->id], ['ghl_user_id' => 'prov_1']);
@@ -239,7 +241,7 @@ it('maps outbound statuses exactly: showed for arrived AND completed, noshow, ca
 });
 
 it('never auto-no-shows a booking rescheduled to the future', function () {
-    $salon = bookingSalon();
+    $salon = bookingSalon(['auto_no_show' => true, 'auto_no_show_grace_minutes' => 0]);
     $owner = salonOwnerOf($salon);
     $stylist = stylistWithHours($salon, 0, 7 * 60, 23 * 60);
 

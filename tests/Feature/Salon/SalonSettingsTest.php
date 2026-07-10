@@ -29,6 +29,9 @@ it('persists the booking policy', function () {
         'allow_same_day' => false,
         'max_advance_days' => 30,
         'min_notice_minutes' => 45,
+        'auto_no_show' => true,
+        'auto_no_show_grace_minutes' => 20,
+        'auto_complete' => false,
     ]);
 
     $salon->refresh();
@@ -36,6 +39,9 @@ it('persists the booking policy', function () {
     expect($salon->allow_same_day)->toBeFalse();
     expect($salon->max_advance_days)->toBe(30);
     expect($salon->min_notice_minutes)->toBe(45);
+    expect($salon->auto_no_show)->toBeTrue();
+    expect($salon->auto_no_show_grace_minutes)->toBe(20);
+    expect($salon->auto_complete)->toBeFalse();
 });
 
 it('saves + validates the booking policy through the settings screen', function () {

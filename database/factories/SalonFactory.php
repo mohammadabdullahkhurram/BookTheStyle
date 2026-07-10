@@ -41,6 +41,10 @@ class SalonFactory extends Factory
             'allow_same_day' => true,
             'max_advance_days' => 90,
             'min_notice_minutes' => 0,
+            // Mirror the migration defaults (auto-no-show is opt-in).
+            'auto_no_show' => false,
+            'auto_no_show_grace_minutes' => 15,
+            'auto_complete' => true,
             'feature_flags' => null,
         ];
     }
