@@ -45,12 +45,15 @@ it('lets an owner edit any stylist\'s availability', function () {
     expect($window->user_id)->toBe($stylist->id);
 });
 
-it('forbids front desk from availability (screen + action)', function () {
+it('lets front desk VIEW the schedules read-only but never edit', function () {
     $salon = Salon::factory()->create();
+    stylistOf($salon);
     $frontDesk = frontDeskOf($salon);
 
-    $this->actingAs($frontDesk)->get(route('salon.availability', $salon))->assertForbidden();
+    // Cards are visible to every member of the salon…
+    $this->actingAs($frontDesk)->get(route('salon.availability', $salon))->assertOk();
 
+    // …but nothing is editable: not through the panel, not through actions.
     expect(fn () => app(AddAvailabilityWindow::class)->handle($frontDesk, $salon, $frontDesk->id, workWindow()))
         ->toThrow(AuthorizationException::class);
 });
@@ -104,18 +107,31 @@ it('forbids removing another salon\'s window (anti-IDOR)', function () {
         ->toThrow(AuthorizationException::class);
 });
 
-it('locks a stylist to their own availability on the screen', function () {
+it('lets a stylist VIEW a colleague but never edit them from the screen', function () {
     $salon = Salon::factory()->create();
     $a = stylistOf($salon);
     $b = stylistOf($salon);
 
     $this->actingAs($a);
 
+    // Viewing another stylist's card/panel is fine now…
+    $component = Livewire::test('pages::salon.availability.index', ['salon' => $salon])
+        ->assertSet('selectedStylistId', $a->id) // own schedule preloaded
+        ->call('openPanel', $b->id)
+        ->assertSet('selectedStylistId', $b->id)
+        ->assertSet('editing', false);
+
+    // …but edit mode is server-gated, and a forged save is rejected too
+    // (fresh instances: an aborted call ends that test component; Livewire
+    // renders the action's AuthorizationException as a 403 response).
     Livewire::test('pages::salon.availability.index', ['salon' => $salon])
-        ->assertSet('selectedStylistId', $a->id)
-        // Tampering the selected stylist is forced back to self.
-        ->set('selectedStylistId', $b->id)
-        ->assertSet('selectedStylistId', $a->id);
+        ->call('openPanel', $b->id)
+        ->set('days.0.on', true)
+        ->set('days.0.windows', [['start' => '09:00', 'end' => '17:00']])
+        ->call('saveHours')
+        ->assertForbidden();
+    $component->call('startEditing')->assertForbidden()->assertSet('editing', false);
+    expect(Availability::where('salon_id', $salon->id)->where('user_id', $b->id)->count())->toBe(0);
 });
 
 it('renders the availability screen for a stylist and a manager', function () {

@@ -4,6 +4,7 @@ use App\Actions\Availability\AddAvailabilityWindow;
 use App\Actions\Bookings\TransitionBookingStatus;
 use App\Enums\BookingStatus;
 use App\Models\Salon;
+use App\Support\Permissions\AvailabilityAccess;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Carbon;
@@ -124,10 +125,11 @@ it('lets front desk check in but not manage services, staff or availability', fu
     app(TransitionBookingStatus::class)->handle($frontDesk, $salon, $booking, BookingStatus::Arrived);
     expect($booking->fresh()->status)->toBe(BookingStatus::Arrived);
 
-    // Services / staff / availability: denied.
+    // Services / staff: denied. Availability: read-only view (no editing).
     $this->get(route('salon.services', $salon))->assertForbidden();
     $this->get(route('salon.staff', $salon))->assertForbidden();
-    $this->get(route('salon.availability', $salon))->assertForbidden();
+    $this->get(route('salon.availability', $salon))->assertOk();
+    expect((new AvailabilityAccess)->canManage($frontDesk, $salon, $stylist->id))->toBeFalse();
 });
 
 // ---------------------------------------------------------------------------
@@ -148,13 +150,15 @@ it('gives owner and admin full salon management', function () {
     }
 });
 
-it('shows the stylist picker on availability for a manager', function () {
+it('shows a manager the staff cards with a panel opener per stylist', function () {
     $salon = bookingSalon();
-    stylistWithHours($salon, 0, 9 * 60, 17 * 60);
+    $stylist = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
 
     $html = $this->actingAs(salonOwnerOf($salon))->get(route('salon.availability', $salon))->assertOk()->getContent();
 
-    expect($html)->toContain('wire:model.live="selectedStylistId"');
+    // The old dropdown picker is gone; every stylist is a clickable card.
+    expect($html)->not->toContain('wire:model.live="selectedStylistId"');
+    expect($html)->toContain('openPanel('.$stylist->id.')')->toContain($stylist->name);
 });
 
 // ---------------------------------------------------------------------------
@@ -178,10 +182,10 @@ it('renders only the links each role may use', function () {
     expect($stylistHtml)->toContain($calendar)->toContain($availability)
         ->not->toContain($checkin)->not->toContain($services)->not->toContain($staff);
 
-    // Front desk: calendar + check-in; no services/staff/availability.
+    // Front desk: calendar + check-in + read-only availability; no services/staff.
     $frontHtml = $this->actingAs(frontDeskOf($salon))->get(route('salon.show', $salon))->assertOk()->getContent();
-    expect($frontHtml)->toContain($calendar)->toContain($checkin)
-        ->not->toContain($services)->not->toContain($staff)->not->toContain($availability);
+    expect($frontHtml)->toContain($calendar)->toContain($checkin)->toContain($availability)
+        ->not->toContain($services)->not->toContain($staff);
 
     // Owner: the full management set.
     $ownerHtml = $this->actingAs(salonOwnerOf($salon))->get(route('salon.show', $salon))->assertOk()->getContent();

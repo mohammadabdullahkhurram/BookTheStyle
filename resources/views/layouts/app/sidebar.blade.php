@@ -95,13 +95,13 @@
                                 <span x-show="!collapsed" x-cloak>{{ __('Staff') }}</span>
                             </a>
                         @endcan
-                        @if ((new \App\Support\Permissions\AvailabilityAccess)->canManageAny($user, $salon))
-                            <a href="{{ route('salon.availability', $salon) }}" wire:navigate
-                               class="bts-nav-item {{ request()->routeIs('salon.availability') ? 'bts-nav-item-active' : '' }}">
-                                <flux:icon.clock variant="micro" class="shrink-0" />
-                                <span x-show="!collapsed" x-cloak>{{ __('Availability') }}</span>
-                            </a>
-                        @endif
+                        {{-- Every member may VIEW staff schedules; editing is
+                             gated per stylist inside the page. --}}
+                        <a href="{{ route('salon.availability', $salon) }}" wire:navigate
+                           class="bts-nav-item {{ request()->routeIs('salon.availability') ? 'bts-nav-item-active' : '' }}">
+                            <flux:icon.clock variant="micro" class="shrink-0" />
+                            <span x-show="!collapsed" x-cloak>{{ __('Availability') }}</span>
+                        </a>
                     @else
                         <a href="{{ route('dashboard') }}" wire:navigate
                            class="bts-nav-item {{ request()->routeIs('dashboard') ? 'bts-nav-item-active' : '' }}">

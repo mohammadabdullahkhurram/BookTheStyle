@@ -168,7 +168,10 @@ it('gives a member-manager minimal access: no check-ins, no calendars, no manage
     $this->get(route('salon.calendar', $salon))->assertForbidden();
     $this->get(route('salon.services', $salon))->assertForbidden();
     $this->get(route('salon.staff', $salon))->assertForbidden();
-    $this->get(route('salon.availability', $salon))->assertForbidden();
+    // Availability is a read-only staff-schedule view for every member now;
+    // editing stays gated by AvailabilityAccess (not a stylist, not a manager).
+    $this->get(route('salon.availability', $salon))->assertOk();
+    expect((new AvailabilityAccess)->canManage($manager, $salon, $manager->id))->toBeFalse();
 });
 
 it('gives an admin-manager full management per the admin role', function () {
