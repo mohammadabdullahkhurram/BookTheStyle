@@ -182,7 +182,65 @@ it('maps time off to date-specific overrides carrying only the REMAINING hours',
     expect($wednesday['intervals'])->toBe([]); // fully off — GHL offers nothing
 });
 
+it('pushes date-specific AVAILABLE hours as the date rule, replacing the weekly schedule', function () {
+    $salon = avSalon();
+    $stylist = avStylist($salon);
+    avWindows($salon, $stylist, 1, [[540, 1020]]); // Tue 09:00–17:00 weekly
+
+    // Tue 2026-06-23 overridden to 10:00–14:00; Sun 2026-06-28 (weekly OFF)
+    // gets hours 11:00–15:00 — both must land as date rules.
+    TimeOff::factory()->create([
+        'salon_id' => $salon->id, 'user_id' => $stylist->id,
+        'kind' => TimeOff::KIND_HOURS,
+        'starts_at' => CarbonImmutable::parse('2026-06-23 10:00', $salon->timezone),
+        'ends_at' => CarbonImmutable::parse('2026-06-23 14:00', $salon->timezone),
+    ]);
+    TimeOff::factory()->create([
+        'salon_id' => $salon->id, 'user_id' => $stylist->id,
+        'kind' => TimeOff::KIND_HOURS,
+        'starts_at' => CarbonImmutable::parse('2026-06-28 11:00', $salon->timezone),
+        'ends_at' => CarbonImmutable::parse('2026-06-28 15:00', $salon->timezone),
+    ]);
+
+    $rules = GhlAvailabilityPusher::rulesFor($salon, $stylist->id);
+
+    $tuesday = collect($rules)->firstWhere('date', '2026-06-23');
+    expect($tuesday['intervals'])->toBe([['from' => '10:00', 'to' => '14:00']]); // the override, not weekly
+
+    $sunday = collect($rules)->firstWhere('date', '2026-06-28');
+    expect($sunday['intervals'])->toBe([['from' => '11:00', 'to' => '15:00']]); // opens a weekly day off
+});
+
+it('carves time off out of a date-hours override and shrinks odd-second hours conservatively', function () {
+    $salon = avSalon();
+    $stylist = avStylist($salon);
+
+    // Hours override 10:00:30–15:59:30 shrinks inward to 10:01–15:59 …
+    TimeOff::factory()->create([
+        'salon_id' => $salon->id, 'user_id' => $stylist->id,
+        'kind' => TimeOff::KIND_HOURS,
+        'starts_at' => CarbonImmutable::parse('2026-06-23 10:00:30', $salon->timezone),
+        'ends_at' => CarbonImmutable::parse('2026-06-23 15:59:30', $salon->timezone),
+    ]);
+    // … and an OFF block 12:00–13:00 still carves out of it.
+    TimeOff::factory()->create([
+        'salon_id' => $salon->id, 'user_id' => $stylist->id,
+        'starts_at' => CarbonImmutable::parse('2026-06-23 12:00', $salon->timezone),
+        'ends_at' => CarbonImmutable::parse('2026-06-23 13:00', $salon->timezone),
+    ]);
+
+    $rules = GhlAvailabilityPusher::rulesFor($salon, $stylist->id);
+
+    $day = collect($rules)->firstWhere('date', '2026-06-23');
+    expect($day['intervals'])->toBe([
+        ['from' => '10:01', 'to' => '12:00'],
+        ['from' => '13:00', 'to' => '15:59'],
+    ]);
+});
+
 // ---------------------------------------------------------------------------
+// Conservative mapping — never over-offer
+// ---------------------------------------------------------------------------// ---------------------------------------------------------------------------
 // Conservative mapping — never over-offer
 // ---------------------------------------------------------------------------
 

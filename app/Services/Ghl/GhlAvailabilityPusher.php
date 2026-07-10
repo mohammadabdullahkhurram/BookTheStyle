@@ -268,10 +268,16 @@ class GhlAvailabilityPusher
     }
 
     /**
-     * One date rule per future date touched by time off: the weekly hours
-     * that REMAIN after the time off is carved out (empty = fully off).
-     * Boundaries are the salon's wall-clock — DST-safe — and widen to whole
-     * minutes so a partial minute can never re-open time.
+     * One date rule per future date with any date-specific entry:
+     *
+     * - HOURS entries are that date's schedule: they replace the weekly
+     *   windows entirely (exactly like the slot engine), even on a weekly
+     *   day off. Conservative rounding SHRINKS them to whole minutes.
+     * - OFF entries carve out of the base (the hours override when present,
+     *   else the weekly hours) — empty intervals = fully off. Conservative
+     *   rounding WIDENS them.
+     *
+     * Boundaries are the salon's wall-clock — DST-safe.
      *
      * @param  array<int, list<array{0: int, 1: int}>>  $weekly
      * @return list<array<string, mixed>>
@@ -287,16 +293,27 @@ class GhlAvailabilityPusher
             ->where('ends_at', '>', $today->utc())
             ->where('starts_at', '<', $horizon->utc())
             ->orderBy('starts_at')
-            ->get(['starts_at', 'ends_at']);
+            ->get(['kind', 'starts_at', 'ends_at']);
 
         /** @var array<string, list<array{0: int, 1: int}>> $offByDate */
         $offByDate = [];
+        /** @var array<string, list<array{0: int, 1: int}>> $hoursByDate */
+        $hoursByDate = [];
 
         foreach ($blocks as $block) {
-            // Conservative rounding: the OFF interval only ever grows.
-            $start = $block->starts_at->setTimezone($tz)->startOfMinute();
+            $isHours = $block->kind === TimeOff::KIND_HOURS;
+            $start = $block->starts_at->setTimezone($tz);
             $end = $block->ends_at->setTimezone($tz);
-            $end = ($end->second > 0 || $end->microsecond > 0) ? $end->addMinute()->startOfMinute() : $end;
+
+            if ($isHours) {
+                // Availability may only SHRINK to whole minutes.
+                $start = ($start->second > 0 || $start->microsecond > 0) ? $start->addMinute()->startOfMinute() : $start;
+                $end = $end->startOfMinute();
+            } else {
+                // Unavailability may only GROW to whole minutes.
+                $start = $start->startOfMinute();
+                $end = ($end->second > 0 || $end->microsecond > 0) ? $end->addMinute()->startOfMinute() : $end;
+            }
 
             for ($day = $start->startOfDay(); $day->lt($end) && $day->lte($horizon); $day = $day->addDay()) {
                 if ($day->lt($today)) {
@@ -307,27 +324,39 @@ class GhlAvailabilityPusher
                 $toMinute = $end->isSameDay($day) ? $end->hour * 60 + $end->minute : 1440;
 
                 if ($toMinute > $fromMinute) {
-                    $offByDate[$day->toDateString()][] = [$fromMinute, $toMinute];
+                    if ($isHours) {
+                        $hoursByDate[$day->toDateString()][] = [$fromMinute, $toMinute];
+                    } else {
+                        $offByDate[$day->toDateString()][] = [$fromMinute, $toMinute];
+                    }
                 }
             }
         }
 
-        ksort($offByDate);
+        $dates = array_unique([...array_keys($offByDate), ...array_keys($hoursByDate)]);
+        sort($dates);
 
         $rules = [];
 
-        foreach ($offByDate as $date => $offIntervals) {
-            $weekday = CarbonImmutable::parse($date, $tz)->dayOfWeekIso - 1;
-            $base = $weekly[$weekday] ?? [];
+        foreach ($dates as $date) {
+            if (isset($hoursByDate[$date])) {
+                // The override IS the day's schedule.
+                $sorted = $hoursByDate[$date];
+                usort($sorted, fn (array $a, array $b): int => $a[0] <=> $b[0]);
+                $base = self::mergeMinutes($sorted);
+            } else {
+                $weekday = CarbonImmutable::parse($date, $tz)->dayOfWeekIso - 1;
+                $base = $weekly[$weekday] ?? [];
 
-            if ($base === []) {
-                continue; // no weekly hours that day — nothing to override
+                if ($base === []) {
+                    continue; // time off on a weekly day off — nothing to carve
+                }
             }
 
             $rules[] = [
                 'type' => 'date',
                 'date' => $date,
-                'intervals' => self::formatIntervals(self::subtractMinutes($base, $offIntervals)),
+                'intervals' => self::formatIntervals(self::subtractMinutes($base, $offByDate[$date] ?? [])),
             ];
         }
 

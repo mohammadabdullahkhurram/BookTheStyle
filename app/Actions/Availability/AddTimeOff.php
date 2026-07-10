@@ -20,7 +20,7 @@ class AddTimeOff
     public function __construct(private AvailabilityAccess $access) {}
 
     /**
-     * @param  array{type: string, note?: string|null, starts_at: string, ends_at: string}  $data
+     * @param  array{type: string, kind?: string, note?: string|null, starts_at: string, ends_at: string}  $data
      */
     public function handle(User $actor, Salon $salon, int $stylistUserId, array $data): TimeOff
     {
@@ -35,6 +35,12 @@ class AddTimeOff
         }
 
         $type = TimeOffType::from($data['type']);
+        $kind = $data['kind'] ?? TimeOff::KIND_OFF;
+
+        if (! in_array($kind, [TimeOff::KIND_OFF, TimeOff::KIND_HOURS], true)) {
+            throw ValidationException::withMessages(['kind' => __('Invalid entry kind.')]);
+        }
+
         // Input is salon-local wall time; the model stores it as a UTC instant.
         $start = CarbonImmutable::parse($data['starts_at'], $salon->timezone);
         $end = CarbonImmutable::parse($data['ends_at'], $salon->timezone);
@@ -49,6 +55,7 @@ class AddTimeOff
             'salon_id' => $salon->id,
             'user_id' => $stylistUserId,
             'type' => $type,
+            'kind' => $kind,
             'note' => $data['note'] ?? null,
             'starts_at' => $start,
             'ends_at' => $end,

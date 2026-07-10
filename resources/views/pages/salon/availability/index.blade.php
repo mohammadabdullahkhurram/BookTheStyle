@@ -7,6 +7,7 @@ use App\Models\Availability;
 use App\Models\Salon;
 use App\Models\TimeOff;
 use App\Support\AvailabilitySummary;
+use App\Jobs\SyncAvailabilityToGhl;
 use App\Support\Permissions\AvailabilityAccess;
 use Carbon\CarbonImmutable;
 use Flux\Flux;
@@ -46,11 +47,8 @@ new #[Title('Availability')] class extends Component {
     public string $dsMonth = '';       // calendar month shown, 'Y-m'
     /** @var list<string> selected dates, 'Y-m-d' in the salon timezone */
     public array $dsDates = [];
-    public bool $dsAllDay = true;
-    /** @var list<array{start: string, end: string}> unavailable blocks (HH:MM) */
+    /** @var list<array{start: string, end: string}> AVAILABLE blocks (HH:MM); empty = unavailable that date */
     public array $dsBlocks = [['start' => '09:00', 'end' => '17:00']];
-    public string $dsType = 'blocked';
-    public string $dsNote = '';
 
     /** @var array<int, string> */
     public array $weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -390,10 +388,7 @@ new #[Title('Availability')] class extends Component {
         $this->resetValidation();
         $this->dsEditId = null;
         $this->dsDates = [];
-        $this->dsAllDay = true;
         $this->dsBlocks = [['start' => '09:00', 'end' => '17:00']];
-        $this->dsType = 'blocked';
-        $this->dsNote = '';
         $this->dsMonth = CarbonImmutable::now($this->salon->timezone)->format('Y-m');
         $this->dsModalOpen = true;
     }
@@ -415,13 +410,14 @@ new #[Title('Availability')] class extends Component {
         $this->resetValidation();
         $this->dsEditId = $off->id;
         $this->dsDates = [$start->toDateString()];
-        $this->dsAllDay = $this->isAllDay($off);
-        $this->dsBlocks = [[
-            'start' => $start->format('H:i'),
-            'end' => $start->isSameDay($end) ? $end->format('H:i') : '23:59',
-        ]];
-        $this->dsType = $off->type->value;
-        $this->dsNote = (string) $off->note;
+        // HOURS entries prefill their available range; OFF entries prefill
+        // with no blocks (= unavailable that date).
+        $this->dsBlocks = $off->kind === TimeOff::KIND_HOURS
+            ? [[
+                'start' => $start->format('H:i'),
+                'end' => $start->isSameDay($end) ? $end->format('H:i') : '23:59',
+            ]]
+            : [];
         $this->dsMonth = $start->format('Y-m');
         $this->dsModalOpen = true;
     }
@@ -476,8 +472,8 @@ new #[Title('Availability')] class extends Component {
 
     public function dsRemoveBlock(int $index): void
     {
-        if (isset($this->dsBlocks[$index]) && count($this->dsBlocks) > 1) {
-            array_splice($this->dsBlocks, $index, 1);
+        if (isset($this->dsBlocks[$index])) {
+            array_splice($this->dsBlocks, $index, 1); // no blocks left = unavailable that date
         }
     }
 
@@ -491,8 +487,6 @@ new #[Title('Availability')] class extends Component {
     {
         $this->validate([
             'dsDates' => ['required', 'array', 'min:1'],
-            'dsType' => ['required', 'in:vacation,sick,blocked'],
-            'dsNote' => ['nullable', 'string', 'max:255'],
         ], [], ['dsDates' => __('dates')]);
 
         if ($this->dsEditId !== null) {
@@ -504,9 +498,11 @@ new #[Title('Availability')] class extends Component {
         }
 
         foreach ($this->dsDates as $date) {
-            $blocks = $this->dsAllDay
-                ? [['start' => '00:00', 'end' => '24:00']]
-                : $this->dsBlocks;
+            // No blocks = unavailable that whole date; otherwise each block
+            // is part of that date's AVAILABLE hours (a schedule override).
+            $blocks = $this->dsBlocks === []
+                ? [['start' => '00:00', 'end' => '24:00', 'kind' => TimeOff::KIND_OFF]]
+                : array_map(fn (array $b): array => [...$b, 'kind' => TimeOff::KIND_HOURS], $this->dsBlocks);
 
             foreach ($blocks as $block) {
                 $end = $block['end'] === '24:00'
@@ -514,8 +510,8 @@ new #[Title('Availability')] class extends Component {
                     : $date.' '.$block['end'];
 
                 $add->handle(Auth::user(), $this->salon, $this->selectedStylistId, [
-                    'type' => $this->dsType,
-                    'note' => $this->dsNote ?: null,
+                    'type' => 'blocked',
+                    'kind' => $block['kind'],
                     'starts_at' => $date.' '.$block['start'],
                     'ends_at' => $end,
                 ]);
@@ -574,21 +570,31 @@ new #[Title('Availability')] class extends Component {
         return $start->format('H:i') === '00:00' && $end->format('H:i') === '00:00' && $end->gt($start);
     }
 
-    /** Row label: "Unavailable all day" or "Unavailable 10:00 AM – 12:00 PM". */
+    /** Row label: "8:00 AM – 5:00 PM" (hours), "Unavailable …" (time off). */
     public function dsRangeLabel(TimeOff $off): string
     {
-        if ($this->isAllDay($off)) {
-            return __('Unavailable all day');
-        }
-
         $tz = $this->salon->timezone;
         $start = $off->starts_at->setTimezone($tz);
         $end = $off->ends_at->setTimezone($tz);
+        $range = $start->format('g:i A').' – '.($start->isSameDay($end) ? $end->format('g:i A') : $end->format('M j, g:i A'));
 
-        return __('Unavailable :from – :to', [
-            'from' => $start->format('g:i A'),
-            'to' => $start->isSameDay($end) ? $end->format('g:i A') : $end->format('M j, g:i A'),
-        ]);
+        if ($off->kind === TimeOff::KIND_HOURS) {
+            return $range; // the date's available hours
+        }
+
+        return $this->isAllDay($off) ? __('Unavailable all day') : __('Unavailable :range', ['range' => $range]);
+    }
+
+    /** Drawer-level Save for the dates tab — commits + re-asserts the GHL sync. */
+    public function saveDateSpecific(): void
+    {
+        abort_unless($this->canEditSelected, 403);
+
+        SyncAvailabilityToGhl::queueForStylist($this->salon, $this->selectedStylistId);
+        $this->editing = false;
+        unset($this->timeOff);
+
+        Flux::toast(variant: 'success', text: __('Date-specific hours saved.'));
     }
 
     public function removeTimeOff(int $id, RemoveTimeOff $action): void
@@ -844,7 +850,9 @@ new #[Title('Availability')] class extends Component {
                                     <div class="flex flex-col px-5 py-3.5">
                                         <span class="text-[15px] font-medium text-ink">{{ $off->starts_at->setTimezone($salon->timezone)->format('F j, Y') }}</span>
                                         <span class="text-[14px] text-secondary">{{ $this->dsRangeLabel($off) }}</span>
-                                        <span class="text-[12.5px] text-faint">{{ $off->type->label() }}{{ $off->note ? ' · '.$off->note : '' }}</span>
+                                        @if ($off->kind !== \App\Models\TimeOff::KIND_HOURS)
+                                            <span class="text-[12.5px] text-faint">{{ $off->type->label() }}{{ $off->note ? ' · '.$off->note : '' }}</span>
+                                        @endif
                                     </div>
                                 @empty
                                     <div class="px-5 py-10 text-center text-[15px] text-faint">{{ __('No date-specific hours — the weekly schedule applies.') }}</div>
@@ -893,7 +901,12 @@ new #[Title('Availability')] class extends Component {
                             @endif
                         </div>
 
-                        {{-- Add/edit modal: month calendar + the unavailable hours. --}}
+                        <div class="flex justify-end gap-2 border-t border-divider pt-4">
+                            <x-ui.button variant="secondary" wire:click="cancelEditing">{{ __('Cancel') }}</x-ui.button>
+                            <x-ui.button wire:click="saveDateSpecific">{{ __('Save date-specific hours') }}</x-ui.button>
+                        </div>
+
+                        {{-- Add/edit modal: month calendar + that date's available hours. --}}
                         <x-ui.modal wire:model="dsModalOpen" class="max-w-md"
                             :heading="$dsEditId ? __('Edit date-specific hours') : __('Choose the date to set specific hours')">
                             <div class="flex flex-col gap-5">
@@ -933,21 +946,21 @@ new #[Title('Availability')] class extends Component {
 
                                 @if ($dsDates !== [])
                                     <div class="flex flex-col gap-3 border-t border-divider pt-4">
-                                        <div class="text-[14.5px] font-semibold text-ink">{{ __('When are you unavailable?') }}</div>
+                                        <div class="text-[14.5px] font-semibold text-ink">{{ __('When are you available?') }}</div>
 
-                                        <label class="flex w-fit cursor-pointer items-center gap-2.5">
-                                            <input type="checkbox" wire:model.live="dsAllDay"
-                                                   class="size-[17px] shrink-0 cursor-pointer rounded-[4px] border-input accent-accent" />
-                                            <span class="text-[14px] text-body">{{ __('Unavailable all day') }}</span>
-                                        </label>
-
-                                        @unless ($dsAllDay)
+                                        @if ($dsBlocks === [])
+                                            <p class="text-[14px] text-faint">{{ __('No hours — unavailable on the selected date(s).') }}</p>
+                                            <button type="button" wire:click="dsAddBlock"
+                                                    class="inline-flex w-fit items-center gap-1 text-[13px] font-semibold text-accent transition hover:text-accent-hover">
+                                                <flux:icon.plus variant="micro" class="shrink-0" />{{ __('Add hours') }}
+                                            </button>
+                                        @else
                                             <div class="flex flex-col gap-2">
                                                 @foreach ($dsBlocks as $i => $block)
                                                     <div class="flex items-center gap-2">
-                                                        <flux:input type="time" wire:model="dsBlocks.{{ $i }}.start" class="flex-1" aria-label="{{ __('Unavailable from') }}" />
+                                                        <flux:input type="time" wire:model="dsBlocks.{{ $i }}.start" class="flex-1" aria-label="{{ __('Available from') }}" />
                                                         <span class="text-[14px] text-secondary">{{ __('to') }}</span>
-                                                        <flux:input type="time" wire:model="dsBlocks.{{ $i }}.end" class="flex-1" aria-label="{{ __('Unavailable until') }}" />
+                                                        <flux:input type="time" wire:model="dsBlocks.{{ $i }}.end" class="flex-1" aria-label="{{ __('Available until') }}" />
                                                         <div class="flex w-[64px] shrink-0 items-center justify-end gap-0.5">
                                                             @if ($i === 0)
                                                                 <button type="button" wire:click="dsAddBlock" title="{{ __('Add a block') }}"
@@ -955,33 +968,22 @@ new #[Title('Availability')] class extends Component {
                                                                     <flux:icon.plus variant="micro" />
                                                                 </button>
                                                             @endif
-                                                            @if (count($dsBlocks) > 1)
-                                                                <button type="button" wire:click="dsRemoveBlock({{ $i }})" title="{{ __('Remove') }}"
-                                                                        class="rounded-[9px] p-1.5 text-fainter transition hover:bg-muted hover:text-danger" aria-label="{{ __('Remove this block') }}">
-                                                                    <flux:icon.trash variant="micro" />
-                                                                </button>
-                                                            @endif
+                                                            <button type="button" wire:click="dsRemoveBlock({{ $i }})" title="{{ __('Remove') }}"
+                                                                    class="rounded-[9px] p-1.5 text-fainter transition hover:bg-muted hover:text-danger" aria-label="{{ __('Remove this block') }}">
+                                                                <flux:icon.trash variant="micro" />
+                                                            </button>
                                                         </div>
                                                     </div>
                                                 @endforeach
                                             </div>
-                                        @endunless
-
-                                        <div class="grid gap-3 sm:grid-cols-2">
-                                            <flux:select wire:model="dsType" :label="__('Type')">
-                                                <flux:select.option value="blocked">{{ __('Blocked') }}</flux:select.option>
-                                                <flux:select.option value="vacation">{{ __('Vacation') }}</flux:select.option>
-                                                <flux:select.option value="sick">{{ __('Sick') }}</flux:select.option>
-                                            </flux:select>
-                                            <flux:input wire:model="dsNote" :label="__('Note (optional)')" />
-                                        </div>
+                                        @endif
                                         @error('ends_at') <div class="text-[14px] text-danger">{{ $message }}</div> @enderror
                                     </div>
                                 @endif
 
                                 <div class="flex justify-end gap-2 border-t border-divider pt-4">
                                     <x-ui.button variant="secondary" wire:click="closeDateSpecific">{{ __('Cancel') }}</x-ui.button>
-                                    <x-ui.button wire:click="dsSubmit">{{ $dsEditId ? __('Save changes') : __('Add') }}</x-ui.button>
+                                    <x-ui.button wire:click="dsSubmit">{{ __('Submit') }}</x-ui.button>
                                 </div>
                             </div>
                         </x-ui.modal>

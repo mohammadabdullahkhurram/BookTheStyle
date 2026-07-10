@@ -311,7 +311,6 @@ it('saves hours and time off from the panel and still queues the GHL availabilit
         ->call('startEditing')
         ->call('openDateSpecific')
         ->call('dsToggleDate', '2027-01-05')
-        ->set('dsAllDay', false)
         ->set('dsBlocks', [['start' => '10:00', 'end' => '12:00']])
         ->call('dsSubmit')
         ->assertSet('dsModalOpen', false);
@@ -367,10 +366,14 @@ it('adds date-specific hours for several dates at once through the calendar moda
     $component->call('dsPrevMonth');
     expect($component->get('dsMonth'))->toBe(now($salon->timezone)->format('Y-m'));
 
-    // Two future dates, one custom block — every selected date gets it.
+    // Two future dates, one AVAILABLE block — every selected date gets it.
+    // The simplified modal has no all-day checkbox, type, or note fields.
     $component->call('dsToggleDate', '2027-01-05')
         ->call('dsToggleDate', '2027-01-07')
-        ->set('dsAllDay', false)
+        ->assertSee('When are you available?')
+        ->assertDontSee('Unavailable all day')
+        ->assertDontSee('Note (optional)')
+        ->assertDontSeeHtml('wire:model="dsType"')
         ->set('dsBlocks', [['start' => '10:00', 'end' => '12:00']])
         ->call('dsSubmit')
         ->assertSet('dsModalOpen', false)
@@ -379,10 +382,27 @@ it('adds date-specific hours for several dates at once through the calendar moda
 
     $rows = TimeOff::where('salon_id', $salon->id)->where('user_id', $stylist->id)->orderBy('starts_at')->get();
     expect($rows)->toHaveCount(2);
+    expect($rows[0]->kind)->toBe(TimeOff::KIND_HOURS); // the date's AVAILABLE hours
     // 10:00 in January ET is 15:00 UTC — stored DST-safe in the salon zone.
     expect($rows[0]->starts_at->toIso8601String())->toBe('2027-01-05T15:00:00+00:00');
     expect($rows[0]->ends_at->toIso8601String())->toBe('2027-01-05T17:00:00+00:00');
     expect($rows[1]->starts_at->toDateString())->toBe('2027-01-07');
+
+    // Removing every block means "unavailable that date": a full-day OFF row.
+    Livewire::test('pages::salon.availability.index', ['salon' => $salon])
+        ->call('openPanel', $stylist->id)
+        ->call('startEditing')
+        ->set('panelTab', 'dates')
+        ->call('openDateSpecific')
+        ->call('dsToggleDate', '2027-02-01')
+        ->call('dsRemoveBlock', 0)
+        ->assertSee('No hours — unavailable on the selected date(s).')
+        ->call('dsSubmit');
+
+    $offRow = TimeOff::where('salon_id', $salon->id)->where('user_id', $stylist->id)->orderByDesc('starts_at')->first();
+    expect($offRow->kind)->toBe(TimeOff::KIND_OFF);
+    expect($offRow->starts_at->setTimezone($salon->timezone)->format('Y-m-d H:i'))->toBe('2027-02-01 00:00');
+    expect($offRow->ends_at->setTimezone($salon->timezone)->format('Y-m-d H:i'))->toBe('2027-02-02 00:00');
 });
 
 it('edits a date-specific entry through the pencil and deletes through the trash', function () {
@@ -390,6 +410,7 @@ it('edits a date-specific entry through the pencil and deletes through the trash
     $stylist = stylistOf($salon);
     $off = TimeOff::factory()->create([
         'salon_id' => $salon->id, 'user_id' => $stylist->id,
+        'kind' => TimeOff::KIND_HOURS,
         'starts_at' => CarbonImmutable::parse('2027-01-05 10:00', $salon->timezone),
         'ends_at' => CarbonImmutable::parse('2027-01-05 12:00', $salon->timezone),
     ]);
@@ -400,11 +421,10 @@ it('edits a date-specific entry through the pencil and deletes through the trash
         ->call('openPanel', $stylist->id)
         ->call('startEditing')
         ->set('panelTab', 'dates')
-        // Pencil prefills the modal from the entry.
+        // Pencil prefills the modal from the entry's available hours.
         ->call('editDateSpecific', $off->id)
         ->assertSet('dsModalOpen', true)
         ->assertSet('dsDates', ['2027-01-05'])
-        ->assertSet('dsAllDay', false)
         ->assertSet('dsBlocks.0.start', '10:00')
         // Change the hours and save: the entry is replaced, not duplicated.
         ->set('dsBlocks', [['start' => '14:00', 'end' => '16:00']])
@@ -413,11 +433,37 @@ it('edits a date-specific entry through the pencil and deletes through the trash
     $rows = TimeOff::where('salon_id', $salon->id)->where('user_id', $stylist->id)->get();
     expect($rows)->toHaveCount(1);
     expect($rows[0]->id)->not->toBe($off->id);
+    expect($rows[0]->kind)->toBe(TimeOff::KIND_HOURS);
     expect($rows[0]->starts_at->setTimezone($salon->timezone)->format('H:i'))->toBe('14:00');
 
     // Trash removes it.
     $component->call('removeTimeOff', $rows[0]->id);
     expect(TimeOff::where('salon_id', $salon->id)->count())->toBe(0);
+});
+
+it('saves the dates tab from the drawer button and queues the GHL sync, like weekly hours', function () {
+    $salon = Salon::factory()->create(['timezone' => 'America/New_York']);
+    SalonGhlConnection::factory()->for($salon)->create([
+        'location_id' => 'loc_ds', 'private_integration_token' => 'pit-secret', 'calendar_id' => 'cal_m',
+    ]);
+    $stylist = stylistOf($salon);
+    StylistProfile::updateOrCreate(
+        ['salon_id' => $salon->id, 'user_id' => $stylist->id],
+        ['ghl_user_id' => 'prov_ds'],
+    );
+
+    Bus::fake([SyncAvailabilityToGhl::class]);
+    test()->actingAs($stylist);
+
+    Livewire::test('pages::salon.availability.index', ['salon' => $salon])
+        ->call('openPanel', $stylist->id)
+        ->call('startEditing')
+        ->set('panelTab', 'dates')
+        ->assertSeeHtml('wire:click="saveDateSpecific"')
+        ->call('saveDateSpecific')
+        ->assertSet('editing', false);
+
+    Bus::assertDispatched(SyncAvailabilityToGhl::class, 1);
 });
 
 it('keeps the date-specific modal away from read-only viewers', function () {

@@ -229,6 +229,40 @@ it('rejects overlapping windows within a day on save', function () {
     expect(Availability::where('salon_id', $salon->id)->where('kind', 'work')->count())->toBe(0);
 });
 
+it('lets date-specific HOURS replace the weekly schedule in the slot engine', function () {
+    $salon = Salon::factory()->create();
+    $stylist = stylistOf($salon);
+    // Weekly: Monday 09:00–17:00 only.
+    Availability::factory()->create([
+        'salon_id' => $salon->id, 'user_id' => $stylist->id,
+        'weekday' => 0, 'kind' => 'work', 'start_minute' => 540, 'end_minute' => 1020,
+    ]);
+
+    $engine = app(SlotEngine::class);
+    $monday = CarbonImmutable::now($salon->timezone)->next(CarbonImmutable::MONDAY)->startOfDay();
+    $sunday = $monday->addDays(6);
+
+    // Override that Monday to 10:00–14:00: 10:00 bookable, 09:00 no longer.
+    TimeOff::factory()->create([
+        'salon_id' => $salon->id, 'user_id' => $stylist->id,
+        'kind' => TimeOff::KIND_HOURS,
+        'starts_at' => $monday->setTime(10, 0), 'ends_at' => $monday->setTime(14, 0),
+    ]);
+
+    expect($engine->isAvailable($salon, $stylist->id, $monday->setTime(10, 0), 60))->toBeTrue();
+    expect($engine->isAvailable($salon, $stylist->id, $monday->setTime(9, 0), 60))->toBeFalse();
+
+    // An override even opens a weekly day OFF (Sunday has no weekly hours).
+    TimeOff::factory()->create([
+        'salon_id' => $salon->id, 'user_id' => $stylist->id,
+        'kind' => TimeOff::KIND_HOURS,
+        'starts_at' => $sunday->setTime(11, 0), 'ends_at' => $sunday->setTime(15, 0),
+    ]);
+
+    expect($engine->isAvailable($salon, $stylist->id, $sunday->setTime(11, 0), 60))->toBeTrue();
+    expect($engine->slotsFor($salon, $stylist->id, 60, $sunday))->not->toBeEmpty();
+});
+
 it('copies Monday hours to the weekdays only through the popover', function () {
     $salon = Salon::factory()->create();
     $stylist = stylistOf($salon);

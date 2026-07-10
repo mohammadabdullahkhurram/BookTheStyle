@@ -45,13 +45,19 @@ class SlotEngine
         $day = $this->resolveDay($salon, $date);
         $weekday = $day->dayOfWeekIso - 1;
 
-        $work = $this->windows($salon, $stylistUserId, $weekday, AvailabilityKind::Work, $day);
+        // Date-specific HOURS entries replace the weekly schedule (work
+        // windows AND breaks) for that date — the day's own schedule.
+        $overrides = $this->dateHoursOverrides($salon, $stylistUserId, $day);
+
+        $work = $overrides !== []
+            ? $overrides
+            : $this->windows($salon, $stylistUserId, $weekday, AvailabilityKind::Work, $day);
         if ($work === []) {
             return [];
         }
 
         $busy = array_merge(
-            $this->windows($salon, $stylistUserId, $weekday, AvailabilityKind::Break, $day),
+            $overrides === [] ? $this->windows($salon, $stylistUserId, $weekday, AvailabilityKind::Break, $day) : [],
             $this->timeOffIntervals($salon, $stylistUserId, $day),
             $this->bookingIntervals($salon, $stylistUserId, $day, $ignoreBookingId),
         );
@@ -97,7 +103,11 @@ class SlotEngine
         $day = $start->startOfDay();
         $weekday = $day->dayOfWeekIso - 1;
 
-        $work = $this->windows($salon, $stylistUserId, $weekday, AvailabilityKind::Work, $day);
+        $overrides = $this->dateHoursOverrides($salon, $stylistUserId, $day);
+
+        $work = $overrides !== []
+            ? $overrides
+            : $this->windows($salon, $stylistUserId, $weekday, AvailabilityKind::Work, $day);
 
         $insideWork = false;
         foreach ($work as [$ws, $we]) {
@@ -112,7 +122,7 @@ class SlotEngine
         }
 
         $busy = array_merge(
-            $this->windows($salon, $stylistUserId, $weekday, AvailabilityKind::Break, $day),
+            $overrides === [] ? $this->windows($salon, $stylistUserId, $weekday, AvailabilityKind::Break, $day) : [],
             $this->timeOffIntervals($salon, $stylistUserId, $day),
             $this->bookingIntervals($salon, $stylistUserId, $day, $ignoreBookingId),
         );
@@ -168,6 +178,7 @@ class SlotEngine
         return array_values(
             TimeOff::forSalon($salon)
                 ->where('user_id', $stylistUserId)
+                ->where('kind', TimeOff::KIND_OFF)
                 ->where('starts_at', '<', $dayEnd)
                 ->where('ends_at', '>', $dayStart)
                 ->get(['starts_at', 'ends_at'])
@@ -175,6 +186,36 @@ class SlotEngine
                     CarbonImmutable::parse($t->starts_at),
                     CarbonImmutable::parse($t->ends_at),
                 ])
+                ->all()
+        );
+    }
+
+    /**
+     * Date-specific HOURS entries for this day (clamped to it): when any
+     * exist they ARE the stylist's schedule for the date, replacing the
+     * weekly windows — including on a weekly day off.
+     *
+     * @return list<array{0: CarbonImmutable, 1: CarbonImmutable}>
+     */
+    private function dateHoursOverrides(Salon $salon, int $stylistUserId, CarbonImmutable $day): array
+    {
+        $dayStart = $day;
+        $dayEnd = $day->addDay();
+
+        return array_values(
+            TimeOff::forSalon($salon)
+                ->where('user_id', $stylistUserId)
+                ->where('kind', TimeOff::KIND_HOURS)
+                ->where('starts_at', '<', $dayEnd)
+                ->where('ends_at', '>', $dayStart)
+                ->orderBy('starts_at')
+                ->get(['starts_at', 'ends_at'])
+                ->map(fn (TimeOff $t): array => [
+                    CarbonImmutable::parse($t->starts_at)->max($dayStart),
+                    CarbonImmutable::parse($t->ends_at)->min($dayEnd),
+                ])
+                ->filter(fn (array $i): bool => $i[0]->lt($i[1]))
+                ->values()
                 ->all()
         );
     }
