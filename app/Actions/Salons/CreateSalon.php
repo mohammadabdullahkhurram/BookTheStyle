@@ -2,9 +2,13 @@
 
 namespace App\Actions\Salons;
 
+use App\Enums\AgencyRole;
+use App\Mail\SalonAddedMail;
 use App\Models\Agency;
 use App\Models\Salon;
+use App\Models\User;
 use App\Support\SalonProfile;
+use Illuminate\Support\Facades\Mail;
 
 /**
  * Create a salon under an agency (agency console). Authorisation
@@ -57,6 +61,29 @@ class CreateSalon
             ]);
         }
 
+        $this->notifyAgencyManagers($agency, $salon);
+
         return $salon;
+    }
+
+    /**
+     * Tell the agency's owners/admins a salon appeared under their agency
+     * (queued, fail-safe — a mail hiccup never blocks salon creation).
+     */
+    private function notifyAgencyManagers(Agency $agency, Salon $salon): void
+    {
+        $managers = User::query()
+            ->where('agency_id', $agency->id)
+            ->whereIn('agency_role', [AgencyRole::Owner->value, AgencyRole::Admin->value])
+            ->get(['id', 'name', 'email']);
+
+        foreach ($managers as $manager) {
+            rescue(fn () => Mail::to($manager->email)->send(new SalonAddedMail(
+                $manager->name,
+                $salon->name,
+                $agency->name,
+                route('salon.show', $salon),
+            )));
+        }
     }
 }

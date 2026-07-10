@@ -4,30 +4,29 @@ namespace App\Actions\Staff;
 
 use App\Enums\SalonRole;
 use App\Enums\StaffType;
+use App\Mail\AccountCreatedMail;
+use App\Mail\StaffInviteMail;
 use App\Models\Salon;
 use App\Models\SalonMembership;
 use App\Models\User;
-use App\Support\Notifications\TemporaryPasswordChannel;
 use App\Support\Permissions\SalonStaffRoles;
 use App\Support\ProvisionedUser;
 use App\Support\TemporaryPassword;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 /**
  * Invite/create a staff member for a salon. Enforces the anti-escalation rule
  * (the actor may not grant a role they aren't allowed to) server-side, never
  * trusting the UI. New users get a cryptographically-random temporary password
  * + must_change_password; the plaintext is returned for one-time display and
- * also emailed. An existing user (matched by email) is simply added as an extra
+ * emailed in the branded staff-invite mail (alongside a welcome email). An existing user (matched by email) is simply added as an extra
  * membership — no new credentials.
  */
 class InviteStaff
 {
-    public function __construct(
-        private SalonStaffRoles $roles,
-        private TemporaryPasswordChannel $channel,
-    ) {}
+    public function __construct(private SalonStaffRoles $roles) {}
 
     /**
      * @param  array{name: string, email: string, salon_role: string, staff_type?: string|null}  $data
@@ -65,6 +64,11 @@ class InviteStaff
                 ['salon_role' => $role, 'staff_type' => $staffType, 'active' => true],
             );
 
+            // Existing login, new salon: an invite without credentials.
+            rescue(fn () => Mail::to($existing->email)->send(
+                new StaffInviteMail($existing->name, $salon->name, $role->label(), null, route('login')),
+            ));
+
             return new ProvisionedUser($existing, temporaryPassword: null, existing: true);
         }
 
@@ -89,7 +93,16 @@ class InviteStaff
             return $user;
         });
 
-        $this->channel->send($user, $temporaryPassword, 'invite');
+        // Welcome + invite (with the temp password) — queued, and fail-safe:
+        // rescue() means a broken mail transport only gets reported, while the
+        // plaintext still returns for one-time in-app display, so nobody is
+        // ever locked out. The password is never logged.
+        rescue(fn () => Mail::to($user->email)->send(
+            new AccountCreatedMail($user->name, $salon->name, route('login')),
+        ));
+        rescue(fn () => Mail::to($user->email)->send(
+            new StaffInviteMail($user->name, $salon->name, $role->label(), $temporaryPassword, route('login')),
+        ));
 
         return new ProvisionedUser($user, $temporaryPassword);
     }

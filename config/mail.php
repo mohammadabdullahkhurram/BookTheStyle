@@ -115,4 +115,24 @@ return [
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Markdown Mail Settings
+    |--------------------------------------------------------------------------
+    |
+    | Every transactional email renders through Laravel's markdown mailer
+    | (HTML + automatic plain-text alternative) using the BookTheStyle
+    | theme: warm paper surfaces, ink text, violet primary button, brand
+    | font stack with email-safe fallbacks (DESIGN-TOKENS.md).
+    |
+    */
+
+    'markdown' => [
+        'theme' => 'bookthestyle',
+
+        'paths' => [
+            resource_path('views/vendor/mail'),
+        ],
+    ],
+
 ];

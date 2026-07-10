@@ -17,8 +17,12 @@ class MailTemporaryPasswordChannel implements TemporaryPasswordChannel
 
     public function send(User $user, string $temporaryPassword, string $reason = 'invite'): void
     {
-        $this->mailer
+        // Fail-safe: the mailable is queued, and even a synchronous transport
+        // failure only gets reported — the caller still returns the plaintext
+        // for one-time in-app display, so a broken mailer never locks anyone
+        // out. The password itself is never logged.
+        rescue(fn () => $this->mailer
             ->to($user->email)
-            ->send(new TemporaryPasswordMail($user, $temporaryPassword, $reason));
+            ->send(new TemporaryPasswordMail($user, $temporaryPassword, $reason)));
     }
 }

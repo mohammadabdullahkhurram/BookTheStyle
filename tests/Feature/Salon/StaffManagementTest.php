@@ -3,7 +3,7 @@
 use App\Actions\Staff\InviteStaff;
 use App\Actions\Staff\UpdateStaffMembership;
 use App\Enums\SalonRole;
-use App\Mail\TemporaryPasswordMail;
+use App\Mail\StaffInviteMail;
 use App\Models\Agency;
 use App\Models\Salon;
 use App\Models\User;
@@ -93,7 +93,8 @@ it('issues a temp password + forces change for new staff, and emails it', functi
     expect($result->user->must_change_password)->toBeTrue();
     expect($result->user->salonMemberships()->where('salon_id', $salon->id)->exists())->toBeTrue();
 
-    Mail::assertSent(TemporaryPasswordMail::class, fn ($mail) => $mail->hasTo('new.stylist@example.com'));
+    Mail::assertQueued(StaffInviteMail::class, fn ($mail) => $mail->hasTo('new.stylist@example.com')
+        && $mail->temporaryPassword === $result->temporaryPassword);
 
     // Forced to change on first login.
     $this->actingAs($result->user->fresh())

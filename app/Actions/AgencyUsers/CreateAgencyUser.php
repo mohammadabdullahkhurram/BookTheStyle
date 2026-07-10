@@ -3,6 +3,7 @@
 namespace App\Actions\AgencyUsers;
 
 use App\Enums\AgencyRole;
+use App\Mail\AccountCreatedMail;
 use App\Models\Agency;
 use App\Models\User;
 use App\Support\Notifications\TemporaryPasswordChannel;
@@ -11,6 +12,7 @@ use App\Support\ProvisionedUser;
 use App\Support\TemporaryPassword;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 /**
  * Create an agency user. Only an agency_owner may create owners/admins; an
@@ -58,6 +60,11 @@ class CreateAgencyUser
             return $user;
         });
 
+        // Welcome email + the temporary password (separate email, queued,
+        // fail-safe — see MailTemporaryPasswordChannel).
+        rescue(fn () => Mail::to($user->email)->send(
+            new AccountCreatedMail($user->name, $agency->name, route('login')),
+        ));
         $this->channel->send($user, $temporaryPassword, 'invite');
 
         return new ProvisionedUser($user, $temporaryPassword);
