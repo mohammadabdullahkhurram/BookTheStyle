@@ -127,6 +127,7 @@ new #[Title('Availability')] class extends Component {
 
         $this->selectedStylistId = $stylistId;
         $this->editing = false;
+        $this->copySource = null;
         $this->panelTab = 'hours';
         $this->panelOpen = true;
         $this->resetValidation();
@@ -138,6 +139,7 @@ new #[Title('Availability')] class extends Component {
     {
         $this->panelOpen = false;
         $this->editing = false;
+        $this->copySource = null;
 
         // Send focus back to the card that opened the drawer (a11y).
         $this->dispatch('availability-panel-closed', stylistId: $this->selectedStylistId);
@@ -154,6 +156,7 @@ new #[Title('Availability')] class extends Component {
     public function cancelEditing(): void
     {
         $this->editing = false;
+        $this->copySource = null;
         $this->resetValidation();
         $this->loadWeek(); // discard unsaved grid edits
     }
@@ -237,22 +240,57 @@ new #[Title('Availability')] class extends Component {
         }
     }
 
-    public function copyToWeekdays(): void
-    {
-        $this->copyDay(0, range(0, 4));
-    }
+    // ── "Copy times to…" popover (per-row duplicate action) ──────────────
+    // copySource is the weekday whose times are being copied (null = closed);
+    // copyTargets maps weekday → checked. Applying copies ALL of the source
+    // day's blocks (split shifts included) onto every checked day.
 
-    public function copyToAll(): void
-    {
-        $this->copyDay(0, range(0, 6));
-    }
+    public ?int $copySource = null;
 
-    /** The per-row duplicate action: copy THIS day's blocks to every day. */
-    public function copyDayToAll(int $weekday): void
+    public bool $copyAll = false;
+
+    /** @var array<int, bool> */
+    public array $copyTargets = [];
+
+    public function openCopyPopover(int $weekday): void
     {
-        if (isset($this->days[$weekday])) {
-            $this->copyDay($weekday, range(0, 6));
+        if (! isset($this->days[$weekday])) {
+            return;
         }
+
+        $this->copySource = $weekday;
+        $this->copyAll = false;
+        $this->copyTargets = array_fill(0, 7, false);
+        $this->copyTargets[$weekday] = true; // the source is itself, shown checked + disabled
+    }
+
+    public function closeCopyPopover(): void
+    {
+        $this->copySource = null;
+    }
+
+    public function updatedCopyAll(): void
+    {
+        foreach (range(0, 6) as $weekday) {
+            $this->copyTargets[$weekday] = $this->copyAll || $weekday === $this->copySource;
+        }
+    }
+
+    public function updatedCopyTargets(): void
+    {
+        $this->copyAll = ! in_array(false, $this->copyTargets, true);
+    }
+
+    public function applyCopy(): void
+    {
+        if ($this->copySource === null || ! isset($this->days[$this->copySource])) {
+            return;
+        }
+
+        $targets = array_keys(array_filter($this->copyTargets, fn (bool $checked): bool => $checked));
+
+        $this->copyDay($this->copySource, array_values(array_diff($targets, [$this->copySource])));
+        $this->closeCopyPopover();
     }
 
     /**
@@ -296,6 +334,7 @@ new #[Title('Availability')] class extends Component {
 
         $this->loadWeek();
         $this->editing = false;
+        $this->copySource = null;
         unset($this->cards); // the card summary reflects the new hours
         Flux::toast(variant: 'success', text: __('Weekly hours saved.'));
     }
@@ -482,13 +521,8 @@ new #[Title('Availability')] class extends Component {
                              A split shift adds an aligned second row of fields. --}}
                         <div class="flex flex-col gap-1">
                             <div class="flex flex-col gap-1">
-                                <p class="text-[14px] text-secondary">{{ __('Check a day to set its hours. A second time block makes a split shift; the gap is unbookable.') }}</p>
+                                <p class="text-[14px] text-secondary">{{ __('Check a day to set its hours. A second time block makes a split shift; the gap is unbookable. Use a row\'s copy action to apply its times to other days.') }}</p>
                                 <p class="text-[12.5px] text-faint">{{ __('Times are in :timezone.', ['timezone' => $salon->timezone]) }}</p>
-                                <div class="mt-1 flex items-center gap-2">
-                                    <span class="text-[13px] text-secondary">{{ __('Copy Monday to') }}</span>
-                                    <x-ui.button size="sm" variant="secondary" wire:click="copyToWeekdays">{{ __('Weekdays') }}</x-ui.button>
-                                    <x-ui.button size="sm" variant="secondary" wire:click="copyToAll">{{ __('Every day') }}</x-ui.button>
-                                </div>
                             </div>
 
                             <div class="mt-2 flex flex-col divide-y divide-row">
@@ -529,10 +563,47 @@ new #[Title('Availability')] class extends Component {
                                                                             class="rounded-[9px] p-1.5 text-fainter transition hover:bg-muted hover:text-accent" aria-label="{{ __('Add a time block to :day', ['day' => $label]) }}">
                                                                         <flux:icon.plus variant="micro" />
                                                                     </button>
-                                                                    <button type="button" wire:click="copyDayToAll({{ $wd }})" title="{{ __('Copy to every day') }}"
-                                                                            class="rounded-[9px] p-1.5 text-fainter transition hover:bg-muted hover:text-accent" aria-label="{{ __('Copy :day to every day', ['day' => $label]) }}">
-                                                                        <flux:icon.document-duplicate variant="micro" />
-                                                                    </button>
+                                                                    <div class="relative">
+                                                                        <button type="button" wire:click="openCopyPopover({{ $wd }})" title="{{ __('Copy times to other days') }}"
+                                                                                aria-haspopup="dialog" aria-expanded="{{ $copySource === $wd ? 'true' : 'false' }}"
+                                                                                class="rounded-[9px] p-1.5 transition hover:bg-muted hover:text-accent {{ $copySource === $wd ? 'bg-muted text-accent' : 'text-fainter' }}"
+                                                                                aria-label="{{ __('Copy :day times to other days', ['day' => $label]) }}">
+                                                                            <flux:icon.document-duplicate variant="micro" />
+                                                                        </button>
+
+                                                                        {{-- "Copy times to…" popover: anchored to the icon,
+                                                                             opening left/below so it stays inside the drawer. --}}
+                                                                        @if ($copySource === $wd)
+                                                                            <div class="absolute right-0 top-full z-10 mt-1.5 w-60 rounded-[12px] border border-border bg-card p-4 shadow-lg"
+                                                                                 role="dialog" aria-label="{{ __('Copy times to…') }}"
+                                                                                 x-data x-trap="true"
+                                                                                 @keydown.escape.stop="$wire.closeCopyPopover()"
+                                                                                 @click.outside="$wire.closeCopyPopover()">
+                                                                                <div class="mb-3 text-[14px] font-semibold text-ink">{{ __('Copy times to…') }}</div>
+
+                                                                                <label class="flex cursor-pointer items-center gap-2.5 pb-2.5">
+                                                                                    <input type="checkbox" wire:model.live="copyAll"
+                                                                                           class="size-[17px] shrink-0 cursor-pointer rounded-[4px] border-input accent-accent" />
+                                                                                    <span class="text-[14px] font-medium text-ink">{{ __('Copy to all') }}</span>
+                                                                                </label>
+
+                                                                                <div class="flex flex-col gap-2 border-t border-divider pt-2.5">
+                                                                                    @foreach ([6, 0, 1, 2, 3, 4, 5] as $target) {{-- Sunday…Saturday, like the reference --}}
+                                                                                        <label class="flex items-center gap-2.5 {{ $target === $wd ? 'opacity-50' : 'cursor-pointer' }}">
+                                                                                            <input type="checkbox" wire:model.live="copyTargets.{{ $target }}"
+                                                                                                   @disabled($target === $wd)
+                                                                                                   class="size-[17px] shrink-0 rounded-[4px] border-input accent-accent {{ $target === $wd ? '' : 'cursor-pointer' }}" />
+                                                                                            <span class="text-[14px] text-body">{{ $weekdays[$target] }}</span>
+                                                                                        </label>
+                                                                                    @endforeach
+                                                                                </div>
+
+                                                                                <x-ui.button size="sm" class="mt-3.5 w-full justify-center" wire:click="applyCopy">
+                                                                                    {{ __('Apply') }}
+                                                                                </x-ui.button>
+                                                                            </div>
+                                                                        @endif
+                                                                    </div>
                                                                 @endif
                                                                 <button type="button" wire:click="removeWindow({{ $wd }}, {{ $i }})" title="{{ __('Remove') }}"
                                                                         class="rounded-[9px] p-1.5 text-fainter transition hover:bg-muted hover:text-danger" aria-label="{{ __('Remove this time block') }}">

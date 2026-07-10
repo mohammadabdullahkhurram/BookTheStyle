@@ -190,28 +190,78 @@ it('lays each edit-mode day out as one row: checkbox, side-by-side times, action
         ->assertSeeHtml('wire:model="days.0.windows.1.start"')
         // The per-row action icons: add block, duplicate to all days, remove.
         ->assertSeeHtml('wire:click="addWindow(0)"')
-        ->assertSeeHtml('wire:click="copyDayToAll(0)"')
+        ->assertSeeHtml('wire:click="openCopyPopover(0)"')
         ->assertSeeHtml('wire:click="removeWindow(0, 1)"')
         // An unchecked day reads "Unavailable" with no time fields.
         ->assertSee('Unavailable')
         ->assertDontSeeHtml('wire:model="days.6.windows.0.start"');
 });
 
-it('duplicates a day to every day from the row action and saves it', function () {
+it('opens the copy-times popover with per-day checkboxes, copy to all, and apply', function () {
+    $salon = Salon::factory()->create();
+    $stylist = stylistOf($salon);
+    apWindow($salon, $stylist->id, 0, 540, 1020);
+
+    test()->actingAs($stylist);
+
+    Livewire::test('pages::salon.availability.index', ['salon' => $salon])
+        ->call('openPanel', $stylist->id)
+        ->call('startEditing')
+        ->call('openCopyPopover', 0)
+        ->assertSet('copySource', 0)
+        ->assertSee('Copy times to')
+        ->assertSee('Copy to all')
+        ->assertSee('Apply')
+        // One checkbox per day (Sunday…Saturday) — the source is pre-checked.
+        ->assertSeeHtml('wire:model.live="copyTargets.6"')
+        ->assertSeeHtml('wire:model.live="copyTargets.3"')
+        ->assertSet('copyTargets.0', true)
+        // Escape/outside-click path.
+        ->call('closeCopyPopover')
+        ->assertSet('copySource', null);
+});
+
+it('copy to all checks every day, and apply copies the blocks (split shifts too) to checked days only', function () {
     $salon = Salon::factory()->create();
     $stylist = stylistOf($salon);
 
     test()->actingAs($stylist);
 
-    Livewire::test('pages::salon.availability.index', ['salon' => $salon])
-        ->set('days.2.on', true)
-        ->set('days.2.windows', [['start' => '10:00', 'end' => '16:00']])
-        ->call('copyDayToAll', 2)
-        ->assertSet('days.0.windows.0.start', '10:00')
-        ->assertSet('days.6.on', true)
+    $component = Livewire::test('pages::salon.availability.index', ['salon' => $salon])
+        // Source: Tuesday split shift. Thursday has its OWN hours already.
+        ->set('days.1.on', true)
+        ->set('days.1.windows', [['start' => '09:00', 'end' => '12:00'], ['start' => '14:00', 'end' => '18:00']])
+        ->set('days.3.on', true)
+        ->set('days.3.windows', [['start' => '08:00', 'end' => '13:00']])
+        ->call('openCopyPopover', 1);
+
+    // "Copy to all" selects every day.
+    $component->set('copyAll', true);
+    foreach (range(0, 6) as $weekday) {
+        $component->assertSet('copyTargets.'.$weekday, true);
+    }
+
+    // Narrow it down: copy only to Wednesday and Saturday.
+    $component->set('copyAll', false)
+        ->assertSet('copyTargets.2', false) // unchecking all clears the rest
+        ->set('copyTargets.2', true)
+        ->set('copyTargets.5', true)
+        ->call('applyCopy')
+        ->assertSet('copySource', null) // popover closed on apply
+        // Both blocks landed on the checked days (enabled + overwritten)…
+        ->assertSet('days.2.on', true)
+        ->assertSet('days.2.windows.0.start', '09:00')
+        ->assertSet('days.2.windows.1.start', '14:00')
+        ->assertSet('days.5.windows.1.end', '18:00')
+        // …the source kept its own times, and unchecked days are untouched.
+        ->assertSet('days.1.windows.0.start', '09:00')
+        ->assertSet('days.3.windows.0.start', '08:00')
+        ->assertSet('days.0.on', false)
         ->call('saveHours');
 
+    // Tue, Wed, Sat: two blocks each; Thu keeps its single block.
     expect(Availability::where('salon_id', $salon->id)->where('user_id', $stylist->id)->where('kind', 'work')->count())->toBe(7);
+    expect(Availability::where('salon_id', $salon->id)->where('user_id', $stylist->id)->where('weekday', 3)->count())->toBe(1);
 });
 
 it('removing a day\'s only time block turns the day off (trash on a single block)', function () {

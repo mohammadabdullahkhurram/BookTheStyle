@@ -229,7 +229,7 @@ it('rejects overlapping windows within a day on save', function () {
     expect(Availability::where('salon_id', $salon->id)->where('kind', 'work')->count())->toBe(0);
 });
 
-it('copies Monday hours to the weekdays only', function () {
+it('copies Monday hours to the weekdays only through the popover', function () {
     $salon = Salon::factory()->create();
     $stylist = stylistOf($salon);
     $this->actingAs($stylist);
@@ -237,7 +237,12 @@ it('copies Monday hours to the weekdays only', function () {
     Livewire::test('pages::salon.availability.index', ['salon' => $salon])
         ->set('days.0.on', true)
         ->set('days.0.windows', [['start' => '09:00', 'end' => '17:00']])
-        ->call('copyToWeekdays')
+        ->call('openCopyPopover', 0)
+        ->set('copyTargets.1', true)
+        ->set('copyTargets.2', true)
+        ->set('copyTargets.3', true)
+        ->set('copyTargets.4', true)
+        ->call('applyCopy')
         ->assertSet('days.4.on', true)
         ->assertSet('days.4.windows.0.start', '09:00')
         ->assertSet('days.5.on', false) // Saturday untouched
@@ -248,7 +253,7 @@ it('copies Monday hours to the weekdays only', function () {
     expect(Availability::where('salon_id', $salon->id)->where('kind', 'work')->where('weekday', 5)->count())->toBe(0);
 });
 
-it('copies Monday hours to every day', function () {
+it('copies Monday hours to every day through copy-to-all', function () {
     $salon = Salon::factory()->create();
     $stylist = stylistOf($salon);
     $this->actingAs($stylist);
@@ -256,7 +261,9 @@ it('copies Monday hours to every day', function () {
     Livewire::test('pages::salon.availability.index', ['salon' => $salon])
         ->set('days.0.on', true)
         ->set('days.0.windows', [['start' => '10:00', 'end' => '16:00']])
-        ->call('copyToAll')
+        ->call('openCopyPopover', 0)
+        ->set('copyAll', true)
+        ->call('applyCopy')
         ->assertSet('days.6.on', true)
         ->call('saveHours');
 
