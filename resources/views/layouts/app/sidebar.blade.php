@@ -95,6 +95,13 @@
                                 <span x-show="!collapsed" x-cloak>{{ __('Staff') }}</span>
                             </a>
                         @endcan
+                        @can('manage', $salon)
+                            <a href="{{ route('salon.reports', $salon) }}" wire:navigate
+                               class="bts-nav-item {{ request()->routeIs('salon.reports') ? 'bts-nav-item-active' : '' }}">
+                                <flux:icon.chart-bar variant="micro" class="shrink-0" />
+                                <span x-show="!collapsed" x-cloak>{{ __('Reports') }}</span>
+                            </a>
+                        @endcan
                         {{-- Every member may VIEW staff schedules; editing is
                              gated per stylist inside the page. --}}
                         <a href="{{ route('salon.availability', $salon) }}" wire:navigate

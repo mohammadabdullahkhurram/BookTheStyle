@@ -120,5 +120,6 @@ Route::domain('{salon}.'.$central)->middleware(['auth', 'resolve.salon'])->group
     Route::livewire('staff', 'pages::salon.staff.index')->name('salon.staff');
     Route::livewire('services', 'pages::salon.services.index')->name('salon.services');
     Route::livewire('availability', 'pages::salon.availability.index')->name('salon.availability');
+    Route::livewire('reports', 'pages::salon.reports')->name('salon.reports');
     Route::livewire('settings', 'pages::salon.settings')->name('salon.settings');
 });
