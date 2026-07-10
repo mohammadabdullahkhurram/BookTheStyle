@@ -412,7 +412,7 @@ it('queues the sync when weekly hours are saved or time off is added — mapped 
     Bus::assertDispatched(SyncAvailabilityToGhl::class, 1);
 
     app(AddTimeOff::class)->handle(salonOwnerOf($salon), $salon, $mapped->id, [
-        'type' => 'vacation', 'starts_at' => '2026-06-23 10:00', 'ends_at' => '2026-06-23 12:00',
+        'starts_at' => '2026-06-23 10:00', 'ends_at' => '2026-06-23 12:00',
     ]);
     Bus::assertDispatched(SyncAvailabilityToGhl::class, 2);
 

@@ -1,50 +1,50 @@
 # BookTheStyle — Status & Roadmap
 
-_A living checklist to work down. Reconcile "unconfirmed" items with the audit prompt below, then continue._
+_Updated 2026-07-18. Reflects `main` (Phases 0–6 complete, CI green). Deeper detail: `docs/AUDIT-REPORT.md` (code audit) and `docs/PRODUCT-RESEARCH-REPORT.md` (market/gap analysis)._
 
-## ✅ Done & confirmed (CI green)
-- Phase 0 — scaffold, multi-tenant schema, auth (no public reg), forced password change, design tokens
-- Phase 1 — agency console, staff invites/temp-password, salon settings, RBAC
-- Phase 2 — services, service-stylist pivot, stylist availability, time off
-- Phase 3 — slot engine, multi-service bookings, walk-ins, check-in, today dashboard, concurrency lock
-- Phase 3.5 / 3.7 — subdomain tenancy; domain split (marketing apex / app / register / salon)
-- Phase 5 — ICS personal calendar feeds (per-staff, token-secured, show-once)
-- Design rebuild Stages 1–4 — tokens/shell/dashboard, all app screens, per-stylist column calendar, public/auth pages
-- Text-contrast fix (dark-mode variant neutralized); logo rebuilt as theme-aware SVG
-- Per-stylist service durations (+ dormant buffer behind a flag)
-- Sidebar management links (Services / Staff / Availability)
+## ✅ Complete (Phases 0–6)
 
-## ❓ Ran recently — VERIFY status (reports not reviewed)
-Run the audit prompt to confirm each is on `main` and green:
-- [ ] Salon-picker card redesign (richer info, reads live from settings)
-- [ ] Salon creation + multi-salon membership permissions
-- [ ] Help-docs video system (reusable, calendar-sync popup)
-- [ ] Global modal close-button (×) overlap fix
-- [ ] Stylist permissions lockdown (own calendar + own availability; check-ins = owner/admin/front-desk)
-- [ ] Availability UX redesign (inline weekly grid; bio → profile; time off separated)
-- [ ] Service create-with-stylists (assign stylists during create)
-- [x] Service auto-color (color by service, stylists by avatar) — ran; needs local `php artisan migrate`
+- **Phase 0–1 — platform**: multi-tenant schema (agency → salons → memberships), Fortify auth (no public registration, 2FA + passkeys), forced password change, agency console, staff invites with temp passwords, salon settings + booking policy + feature flags, RBAC (agency roles × salon roles × staff types incl. Manager).
+- **Phase 2 — core data**: services (auto palette colors, stylist assignment at create), per-stylist duration/buffer overrides (buffers dormant behind `stylist_buffers` flag), availability + time off.
+- **Phase 3 — bookings**: pure slot engine (DST-safe, policy-gated), multi-service bookings split per service line (`visit_group_id`), walk-ins, check-in workflow, status timeline, reschedule, concurrency lock, today dashboard.
+- **Phase 3.5/3.7 — tenancy routing**: subdomain-per-salon, four-way host split (apex / app / register / {slug}), `lvh.me` local parity.
+- **Phase 4 — calendar**: custom master (column-per-stylist) + personal calendars, service-colored blocks, breaks/time-off hatching, 5s polling, detail modal.
+- **Phase 5 — ICS feeds**: per-user tokenized feeds (hashed, show-once, rotate/revoke), connect page with per-platform instructions.
+- **Phase 6 — GoHighLevel sync (all sub-phases)**:
+  - **6a — connection**: per-salon PIT (encrypted at rest, write-only UI), test-connection, two-tier staff mapping (stylists → calendar team members; other staff → location users).
+  - **6b — outbound push**: queued booking create/update/cancel to GHL, contact upsert, payload-hash idempotency, per-location throttling.
+  - **6c — inbound webhook**: per-salon shared secret, replay dedupe, hardened parsing against real payload shapes, **echo-loop protection** (state-equality + last-change-wins + timestamp-less gates, per-event decision log), GHL-originated bookings (voice AI / chat widget / manual) become app bookings.
+  - **6d — source tagging + reconciliation**: `bookings.source` throughout the UI; hourly `ghl:reconcile` drift repair; per-booking sync status + retry panels.
+  - **6e — availability push**: per-stylist GHL schedules (weekly rules + date overrides), calendar slot settings, change-triggered + manual sync. _Spec-verified only — needs a live-location smoke test (see Phase 7)._
+- **Availability redesign (July 2026)**: staff-card grid → docked drawer, weekly grid editor with split shifts + copy-times, date-specific hours/off entries (`time_off.kind`), read view for all members, editing gated by `AvailabilityAccess`.
+- **Transactional email**: five branded queued mailables (account created, temp password, reset, staff invite, salon added), app-direct by decision (never GHL), fail-safe if the transport is down.
+- **Design system**: tokens, shell, all app screens, public/auth pages, theme-aware logo.
 
-## ⏸ Parked (decided, not built)
-- [ ] Staff-type model: Role (Owner / Admin / Member) + Type (Stylist / Front desk / third type). Third-type name TBD (Manager / Office / Operations). Ties into the permissions work.
+## 🔜 Pre-launch gap fixes (from docs/PRODUCT-RESEARCH-REPORT.md)
 
-## 🔜 Major phases remaining
-- [ ] **Phase 6 — GoHighLevel bidirectional sync** (heaviest lift): per-salon connection; push app→GHL (store ghl_appointment_id); inbound GHL webhook → dedupe/echo-loop guard; per-stylist GHL calendars so voice/chat book valid slots; tag-based source tracking. Checkpoint: evaluate whether GHL's native Google/Outlook calendar sync covers the "connect my calendar" need before building own OAuth.
-- [ ] **Phase 7 — hardening + deploy**: audit log, backups, rate limiting, security pass; Hostinger deploy with wildcard DNS + SSL for subdomains; deploy script.
+- [ ] Make the auto-no-show transition configurable per salon (grace period / opt-out) — before it can mislabel served clients.
+- [ ] Display-only service prices (no payments — needed for GHL service menu, reporting, deposit messaging).
+- [ ] Client profiles: notes, preferences, visit history view.
+- [ ] Reporting v1: utilization, no-show rate, booking-source mix.
+
+## 🔜 Phase 7 — hardening + deploy (the launch gate)
+
+- [ ] Deploy foundation: deploy script + hPanel Git, wildcard DNS + TLS (`*.bookthestyle.com`), production `.env` (MySQL, cookies, `APP_DEBUG=false`), the one-line cron.
+- [ ] Real mail transport + SPF/DKIM; send-test all five mailables.
+- [ ] **Live GHL smoke test** on a real template location: connect → map staff → availability sync → both booking directions → check-in echo test → reconcile → voice/chat slot validity. Paste the register-page embed code.
+- [ ] Run migrations + full suite against MySQL once (suite is SQLite-only today).
+- [ ] Backups (nightly `mysqldump` + restore drill), HSTS, `webhook_events`/`failed_jobs` retention.
+- [ ] Audit log (SPEC §5.11) — build or consciously defer.
 
 ## 🧩 Smaller open items
-- [ ] GHL calendar embed code for the register page (slot + CSP already wired — paste when ready)
-- [ ] Record how-to videos, drop into `public/how-to-documentation/…` (system built)
-- [ ] Final design-review polish pass (walk every screen; batch fixes)
-- [ ] Decide: keep ICS feed "show-once" (hashed) or make re-viewable (encrypted)
 
-## Habit note
-Any prompt whose report mentions a new column/table/migration → run `php artisan migrate` locally (or relaunch the launcher, which migrates on start) before testing, or you'll hit "no such column" 500s.
+- [ ] GHL calendar embed code for the register page (slot + CSP wired; embed is a placeholder).
+- [ ] Record how-to videos (framework built, one topic registered, no media shipped).
+- [ ] Master ICS feed for owner/front-desk (feeds are per-stylist-own only).
+- [ ] Final design polish pass.
 
-## Suggested order from here
-1. `php artisan migrate` / relaunch → clear the current color_key error.
-2. Run the audit prompt → reconcile the "verify" list; re-run anything that didn't land.
-3. Finish the staff-type model (small, and it completes the permissions story).
-4. One consolidated design-review pass.
-5. Phase 6 (GHL) — the big one.
-6. Phase 7 (deploy) — go live.
+## Habit notes
+
+- New column/table in a report → run `php artisan migrate` locally before testing.
+- After pulling changes, restart any local `queue:listen` worker (stale code in memory).
+- Availability is edited in the app only — GHL-side edits are overwritten on the next push.

@@ -15,11 +15,9 @@ use Illuminate\Auth\Access\AuthorizationException;
  * password and force a change on next login. Returns the plaintext for one-time
  * display; it is also emailed.
  *
- * SPEC §5.1 routes ordinary password resets through GoHighLevel, but GHL isn't
- * wired until Phase 6. Until then we reuse the same temp-password mechanism.
- *
- * // TODO: GHL-routed reset (Phase 6) — rebind TemporaryPasswordChannel to a
- * //       GHL channel (AppServiceProvider) so this delivers via GHL workflows.
+ * Delivery is app-direct transactional mail by decision (supersedes SPEC §5.1's
+ * original GHL-routed plan): login-critical mail never depends on a salon's GHL
+ * connection. TemporaryPasswordChannel stays swappable if that ever changes.
  */
 class ResetStaffPassword
 {

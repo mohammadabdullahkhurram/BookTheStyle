@@ -107,10 +107,10 @@ it('opens the panel from a card with read-only weekly and date-specific tabs', f
         ->assertSee('Day off')
         ->assertDontSeeHtml('wire:click="saveHours"');
 
-    // The date-specific tab lists the time off.
+    // The date-specific tab lists the time off (note shown; no type label).
     $component->set('panelTab', 'dates')
-        ->assertSee('Vacation')
-        ->assertSee('Dentist trip');
+        ->assertSee('Dentist trip')
+        ->assertDontSee('Vacation');
 
     // Escape/close resets the panel.
     $component->call('closePanel')->assertSet('panelOpen', false);

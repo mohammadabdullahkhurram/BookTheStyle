@@ -81,17 +81,15 @@ it('stores a time-off override and validates its range', function () {
     $stylist = stylistOf($salon);
 
     $off = app(AddTimeOff::class)->handle($stylist, $salon, $stylist->id, [
-        'type' => 'vacation',
         'starts_at' => now()->addDay()->toDateTimeString(),
         'ends_at' => now()->addDays(3)->toDateTimeString(),
     ]);
 
-    expect($off->type->value)->toBe('vacation');
+    expect($off->kind)->toBe(TimeOff::KIND_OFF);
     expect(TimeOff::query()->where('salon_id', $salon->id)->count())->toBe(1);
 
     // end before start is rejected
     expect(fn () => app(AddTimeOff::class)->handle($stylist, $salon, $stylist->id, [
-        'type' => 'sick',
         'starts_at' => now()->addDays(2)->toDateTimeString(),
         'ends_at' => now()->addDay()->toDateTimeString(),
     ]))->toThrow(ValidationException::class);
@@ -152,7 +150,7 @@ it('loads stored work windows into the weekly grid as toggled-on rows with times
     $this->actingAs(salonOwnerOf($salon));
 
     Livewire::test('pages::salon.availability.index', ['salon' => $salon])
-        ->set('selectedStylistId', $stylist->id)
+        ->call('openPanel', $stylist->id)
         ->assertSet('days.0.on', true)
         ->assertSet('days.0.windows.0.start', '09:00')
         ->assertSet('days.0.windows.0.end', '17:00')

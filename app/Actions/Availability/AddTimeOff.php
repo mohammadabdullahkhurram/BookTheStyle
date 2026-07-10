@@ -2,7 +2,6 @@
 
 namespace App\Actions\Availability;
 
-use App\Enums\TimeOffType;
 use App\Jobs\SyncAvailabilityToGhl;
 use App\Models\Salon;
 use App\Models\TimeOff;
@@ -20,7 +19,7 @@ class AddTimeOff
     public function __construct(private AvailabilityAccess $access) {}
 
     /**
-     * @param  array{type: string, kind?: string, note?: string|null, starts_at: string, ends_at: string}  $data
+     * @param  array{kind?: string, note?: string|null, starts_at: string, ends_at: string}  $data
      */
     public function handle(User $actor, Salon $salon, int $stylistUserId, array $data): TimeOff
     {
@@ -34,7 +33,6 @@ class AddTimeOff
             ]);
         }
 
-        $type = TimeOffType::from($data['type']);
         $kind = $data['kind'] ?? TimeOff::KIND_OFF;
 
         if (! in_array($kind, [TimeOff::KIND_OFF, TimeOff::KIND_HOURS], true)) {
@@ -54,7 +52,6 @@ class AddTimeOff
         $timeOff = TimeOff::create([
             'salon_id' => $salon->id,
             'user_id' => $stylistUserId,
-            'type' => $type,
             'kind' => $kind,
             'note' => $data['note'] ?? null,
             'starts_at' => $start,

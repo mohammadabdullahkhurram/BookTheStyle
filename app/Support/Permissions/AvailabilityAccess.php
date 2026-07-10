@@ -26,14 +26,4 @@ class AvailabilityAccess
         return $actor->id === $stylistUserId
             && $actor->stylistMembershipFor($salon) !== null;
     }
-
-    /**
-     * Whether the actor can manage availability for at least one stylist (used
-     * to decide whether to show the Availability screen at all).
-     */
-    public function canManageAny(User $actor, Salon $salon): bool
-    {
-        return $actor->can('manage', $salon)
-            || $actor->stylistMembershipFor($salon) !== null;
-    }
 }

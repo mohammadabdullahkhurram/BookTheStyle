@@ -2,7 +2,6 @@
 
 namespace Database\Factories;
 
-use App\Enums\TimeOffType;
 use App\Models\Salon;
 use App\Models\TimeOff;
 use App\Models\User;
@@ -22,7 +21,6 @@ class TimeOffFactory extends Factory
         return [
             'salon_id' => Salon::factory(),
             'user_id' => User::factory(),
-            'type' => TimeOffType::Vacation,
             'note' => null,
             'starts_at' => $start,
             'ends_at' => $start->copy()->addDays(2)->endOfDay(),

@@ -124,12 +124,6 @@ new #[Title('Availability')] class extends Component {
             && $this->access()->canManage(Auth::user(), $this->salon, $this->selectedStylistId);
     }
 
-    #[Computed]
-    public function isManager(): bool
-    {
-        return Auth::user()->can('manage', $this->salon);
-    }
-
     public function openPanel(int $stylistId): void
     {
         abort_unless($this->salon->stylistUsers()->whereKey($stylistId)->exists(), 404);
@@ -171,17 +165,6 @@ new #[Title('Availability')] class extends Component {
         $this->dsModalOpen = false;
         $this->resetValidation();
         $this->loadWeek(); // discard unsaved grid edits
-    }
-
-    /** Anyone may LOOK at any stylist of the salon; editing stays gated. */
-    public function updatedSelectedStylistId(): void
-    {
-        if (! $this->salon->stylistUsers()->whereKey($this->selectedStylistId)->exists()) {
-            $this->selectedStylistId = 0;
-        }
-
-        $this->editing = false;
-        $this->loadWeek();
     }
 
     /** Build the grid from the stylist's stored work windows. */
@@ -510,7 +493,6 @@ new #[Title('Availability')] class extends Component {
                     : $date.' '.$block['end'];
 
                 $add->handle(Auth::user(), $this->salon, $this->selectedStylistId, [
-                    'type' => 'blocked',
                     'kind' => $block['kind'],
                     'starts_at' => $date.' '.$block['start'],
                     'ends_at' => $end,
@@ -850,8 +832,8 @@ new #[Title('Availability')] class extends Component {
                                     <div class="flex flex-col px-5 py-3.5">
                                         <span class="text-[15px] font-medium text-ink">{{ $off->starts_at->setTimezone($salon->timezone)->format('F j, Y') }}</span>
                                         <span class="text-[14px] text-secondary">{{ $this->dsRangeLabel($off) }}</span>
-                                        @if ($off->kind !== \App\Models\TimeOff::KIND_HOURS)
-                                            <span class="text-[12.5px] text-faint">{{ $off->type->label() }}{{ $off->note ? ' · '.$off->note : '' }}</span>
+                                        @if ($off->kind !== \App\Models\TimeOff::KIND_HOURS && $off->note)
+                                            <span class="text-[12.5px] text-faint">{{ $off->note }}</span>
                                         @endif
                                     </div>
                                 @empty

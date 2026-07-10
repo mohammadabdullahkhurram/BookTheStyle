@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Enums\TimeOffType;
 use App\Models\Concerns\BelongsToSalon;
 use Carbon\CarbonImmutable;
 use Database\Factories\TimeOffFactory;
@@ -24,7 +23,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $id
  * @property int $salon_id
  * @property int $user_id
- * @property TimeOffType $type
  * @property string $kind
  * @property string|null $note
  * @property CarbonImmutable $starts_at
@@ -44,19 +42,11 @@ class TimeOff extends Model
     protected $fillable = [
         'salon_id',
         'user_id',
-        'type',
         'kind',
         'note',
         'starts_at',
         'ends_at',
     ];
-
-    protected function casts(): array
-    {
-        return [
-            'type' => TimeOffType::class,
-        ];
-    }
 
     /**
      * @return Attribute<CarbonImmutable|null, mixed>

@@ -53,8 +53,7 @@ it('lets a stylist load their own availability with no stylist picker', function
 
     Livewire::actingAs($stylist)
         ->test('pages::salon.availability.index', ['salon' => $salon])
-        ->assertSet('selectedStylistId', $stylist->id)
-        ->assertSet('isManager', false);
+        ->assertSet('selectedStylistId', $stylist->id);
 });
 
 // ---------------------------------------------------------------------------
