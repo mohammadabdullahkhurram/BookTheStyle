@@ -143,10 +143,10 @@ new #[Title('Clients')] class extends Component {
                     @forelse ($this->clients as $client)
                         <tr>
                             <td class="px-6 py-4">
-                                <div class="flex items-center gap-3">
+                                <a href="{{ route('salon.client', ['salon' => $salon, 'clientId' => $client->id]) }}" wire:navigate class="flex items-center gap-3">
                                     <x-ui.avatar :name="$client->name" :seed="$client->id" size="sm" />
-                                    <span class="text-[15px] font-medium text-ink">{{ $client->name }}</span>
-                                </div>
+                                    <span class="text-[15px] font-medium text-ink transition hover:text-accent">{{ $client->name }}</span>
+                                </a>
                             </td>
                             <td class="px-6 py-4 text-[15px] text-secondary">{{ $client->phone ?: '—' }}</td>
                             <td class="px-6 py-4 text-[15px] text-secondary">{{ $client->email ?: '—' }}</td>

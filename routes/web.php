@@ -116,6 +116,7 @@ Route::domain('{salon}.'.$central)->middleware(['auth', 'resolve.salon'])->group
     Route::livewire('appointments/all', 'pages::salon.appointments.all')->name('salon.appointments.all');
     Route::livewire('book', 'pages::salon.bookings.create')->name('salon.bookings.create');
     Route::livewire('clients', 'pages::salon.clients.index')->name('salon.clients');
+    Route::livewire('clients/{clientId}', 'pages::salon.clients.show')->name('salon.client');
     Route::livewire('staff', 'pages::salon.staff.index')->name('salon.staff');
     Route::livewire('services', 'pages::salon.services.index')->name('salon.services');
     Route::livewire('availability', 'pages::salon.availability.index')->name('salon.availability');

@@ -229,7 +229,7 @@ new #[Title('Appointments')] class extends Component {
                             <x-ui.avatar :name="$booking->client->name" :seed="$seed" size="sm" class="mt-0.5" />
                             <div class="flex flex-col gap-1.5">
                                 <div class="flex flex-wrap items-center gap-2">
-                                    <span class="text-[15px] font-semibold text-ink">{{ $booking->client->name }}</span>
+                                    <a href="{{ route('salon.client', ['salon' => $salon, 'clientId' => $booking->client_id]) }}" wire:navigate class="text-[15px] font-semibold text-ink transition hover:text-accent">{{ $booking->client->name }}</a>
                                     <x-ui.status-pill :status="$booking->status" />
                                     @if ($booking->is_walkin)<span class="bts-pill" style="background-color:#F0EEEA;color:#9C9890;">{{ __('Walk-in') }}</span>@endif
                                     @can('manage', $salon)

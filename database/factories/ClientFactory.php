@@ -20,6 +20,12 @@ class ClientFactory extends Factory
             'name' => fake()->name(),
             'phone' => fake()->numerify('+1##########'),
             'email' => fake()->safeEmail(),
+            // Profile fields are optional; existing clients simply have none.
+            'allergies' => null,
+            'formula_notes' => null,
+            'preferred_stylist_id' => null,
+            'preferred_contact_method' => null,
+            'birthday' => null,
         ];
     }
 }

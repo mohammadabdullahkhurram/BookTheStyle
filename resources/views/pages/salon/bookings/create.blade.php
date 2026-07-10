@@ -408,6 +408,9 @@ new #[Title('New booking')] class extends Component {
 
                 @if ($clientMode === 'existing')
                     <flux:input wire:model.live.debounce.300ms="clientSearch" icon="magnifying-glass" :placeholder="__('Search by name, phone, or email')" />
+                    @if ($clientId)
+                        <a href="{{ route('salon.client', ['salon' => $salon, 'clientId' => $clientId]) }}" wire:navigate class="self-start text-[13px] font-semibold text-accent transition hover:text-accent-hover">{{ __('View client profile') }}</a>
+                    @endif
                     <flux:select wire:model="clientId" :label="__('Select client')">
                         <flux:select.option value="">{{ __('— choose —') }}</flux:select.option>
                         @foreach ($this->clientResults as $client)
