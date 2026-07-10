@@ -114,6 +114,19 @@ class GhlAvailabilityPusher
 
         $client = GhlClient::fromConnection($connection);
 
+        // No stored schedule id? GHL may still HAVE one for this provider —
+        // a previous run whose id never got persisted (crash, partial
+        // deploy), or a hand-made schedule. Adopt it: updating an existing
+        // schedule keeps the sync idempotent; a blind create would twin it.
+        if ($profile->ghl_schedule_id === null) {
+            $existing = $client->schedulesForUser((string) $profile->ghl_user_id);
+            $adopted = collect($existing)->pluck('id')->first(fn ($id): bool => is_string($id) && $id !== '');
+
+            if (is_string($adopted)) {
+                $profile->ghl_schedule_id = $adopted;
+            }
+        }
+
         if ($profile->ghl_schedule_id !== null) {
             try {
                 $client->updateSchedule($profile->ghl_schedule_id, $schedule);

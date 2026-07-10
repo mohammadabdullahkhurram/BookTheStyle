@@ -13,6 +13,7 @@ use App\Models\StylistProfile;
 use App\Models\TimeOff;
 use App\Models\User;
 use App\Services\Ghl\GhlAvailabilityPusher;
+use App\Services\Ghl\GhlClient;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Carbon;
@@ -78,6 +79,7 @@ function avWindows(Salon $salon, User $stylist, int $weekday, array $windows, Av
 function avFakeGhl(string $scheduleId = 'sched_1'): void
 {
     Http::fake([
+        'services.leadconnectorhq.com/calendars/schedules/search*' => Http::response(['schedules' => []]), // nothing to adopt
         'services.leadconnectorhq.com/calendars/schedules/*' => Http::response(['ok' => true]), // update + association
         'services.leadconnectorhq.com/calendars/schedules' => Http::response(['schedule' => ['id' => $scheduleId]], 201),
         'services.leadconnectorhq.com/calendars/cal_master' => Http::response(['calendar' => ['id' => 'cal_master']]),
@@ -148,7 +150,7 @@ it('re-pushes edited hours as an UPDATE to the same schedule — never a duplica
     });
 
     // Exactly one CREATE ever.
-    Http::assertSentCount(4); // create + assoc, then update + assoc — and nothing else
+    Http::assertSentCount(5); // adopt-search + create + assoc, then update + assoc — and nothing else
     expect(avProfile($salon, $stylist)->fresh()->ghl_schedule_id)->toBe('sched_1');
 });
 
@@ -239,10 +241,10 @@ it('re-syncing unchanged availability makes no API call', function () {
     avFakeGhl();
     $pusher = app(GhlAvailabilityPusher::class);
     $pusher->push(avProfile($salon, $stylist));
-    Http::assertSentCount(2); // create + association
+    Http::assertSentCount(3); // adopt-search + create + association
 
     $pusher->push(avProfile($salon, $stylist)->fresh());
-    Http::assertSentCount(2); // hash short-circuit: nothing more
+    Http::assertSentCount(3); // hash short-circuit: nothing more
 });
 
 it('recreates a schedule that was deleted inside GHL instead of failing forever', function () {
@@ -264,6 +266,76 @@ it('recreates a schedule that was deleted inside GHL instead of failing forever'
     $profile->refresh();
     expect($profile->ghl_schedule_id)->toBe('sched_new');
     expect($profile->ghl_availability_status)->toBe(GhlAvailabilityPusher::STATUS_SYNCED);
+});
+
+it('only ever calls GhlClient methods that actually exist (guards against a pusher/client drift)', function () {
+    // The exact failure mode this pins down: a pusher calling
+    // $client->something() that GhlClient doesn't define would fatal at
+    // runtime and strand the stylist mid-sync. Scan every file whose
+    // $client variable is a GhlClient and assert each invoked method exists.
+    $files = [
+        app_path('Services/Ghl/GhlAvailabilityPusher.php'),
+        app_path('Services/Ghl/GhlBookingPusher.php'),
+        app_path('Console/Commands/ReconcileGhlAppointments.php'),
+    ];
+
+    $called = [];
+    foreach ($files as $file) {
+        preg_match_all('/\$client->(\w+)\(/', (string) file_get_contents($file), $matches);
+        $called = [...$called, ...$matches[1]];
+    }
+
+    expect($called)->not->toBeEmpty();
+
+    foreach (array_unique($called) as $method) {
+        expect(method_exists(GhlClient::class, $method))
+            ->toBeTrue("GhlClient::{$method}() is called but not defined");
+    }
+});
+
+it('adopts an existing GHL schedule for the provider instead of creating a twin', function () {
+    $salon = avSalon();
+    $stylist = avStylist($salon);
+    avWindows($salon, $stylist, 0, [[540, 1020]]);
+
+    // No stored schedule id locally, but GHL already has one for this user
+    // (a previous sync whose id never persisted, or a hand-made schedule).
+    Http::fake([
+        'services.leadconnectorhq.com/calendars/schedules/search*' => Http::response(['schedules' => [['id' => 'sched_pre']]]),
+        'services.leadconnectorhq.com/calendars/schedules/*' => Http::response(['ok' => true]),
+    ]);
+
+    app(GhlAvailabilityPusher::class)->push(avProfile($salon, $stylist));
+
+    Http::assertSent(fn ($r): bool => $r->method() === 'PUT' && str_ends_with($r->url(), '/calendars/schedules/sched_pre'));
+    Http::assertNotSent(fn ($r): bool => $r->method() === 'POST' && str_ends_with($r->url(), '/calendars/schedules'));
+
+    $profile = avProfile($salon, $stylist)->fresh();
+    expect($profile->ghl_schedule_id)->toBe('sched_pre');
+    expect($profile->ghl_availability_status)->toBe(GhlAvailabilityPusher::STATUS_SYNCED);
+});
+
+it('recovers a stylist stuck at pending: the next push completes and lands on synced', function () {
+    $salon = avSalon();
+    $stylist = avStylist($salon);
+    avWindows($salon, $stylist, 0, [[540, 1020]]);
+
+    // The stuck state: a previous run died mid-sync — pending, no schedule
+    // id, stale hash.
+    $profile = avProfile($salon, $stylist);
+    $profile->forceFill([
+        'ghl_availability_status' => GhlAvailabilityPusher::STATUS_PENDING,
+        'ghl_availability_hash' => 'stale-from-crashed-run',
+        'ghl_schedule_id' => null,
+    ])->save();
+
+    avFakeGhl('sched_recovered');
+    app(GhlAvailabilityPusher::class)->push($profile);
+
+    $profile->refresh();
+    expect($profile->ghl_availability_status)->toBe(GhlAvailabilityPusher::STATUS_SYNCED);
+    expect($profile->ghl_schedule_id)->toBe('sched_recovered');
+    expect($profile->ghl_availability_synced_at)->not->toBeNull();
 });
 
 // ---------------------------------------------------------------------------

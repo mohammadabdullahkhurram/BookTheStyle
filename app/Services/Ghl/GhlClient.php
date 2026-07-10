@@ -131,6 +131,37 @@ class GhlClient
     }
 
     /**
+     * Read one availability schedule (rules, timezone, associations).
+     *
+     * @return array<string, mixed>
+     */
+    public function schedule(string $scheduleId): array
+    {
+        $data = $this->get('/calendars/schedules/'.$scheduleId, self::CALENDARS_VERSION);
+
+        $result = $data['schedule'] ?? null;
+
+        return is_array($result) ? $result : $data;
+    }
+
+    /**
+     * All availability schedules for one user in the salon's location — lets
+     * a sync ADOPT a schedule that already exists (a previous run whose id
+     * never got stored, or one made by hand) instead of creating a twin.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function schedulesForUser(string $userId): array
+    {
+        $data = $this->get('/calendars/schedules/search', self::CALENDARS_VERSION, [
+            'locationId' => $this->locationId,
+            'userId' => $userId,
+        ]);
+
+        return array_values(array_filter((array) ($data['schedules'] ?? []), 'is_array'));
+    }
+
+    /**
      * Apply an availability schedule to a calendar, so the calendar's slot
      * search honours it for that user.
      */
