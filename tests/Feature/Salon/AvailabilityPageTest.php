@@ -116,6 +116,30 @@ it('opens the panel from a card with read-only weekly and date-specific tabs', f
     $component->call('closePanel')->assertSet('panelOpen', false);
 });
 
+it('renders the schedule as a right-docked drawer teleported to the body', function () {
+    $salon = Salon::factory()->create();
+    $stylist = stylistOf($salon);
+
+    test()->actingAs(salonOwnerOf($salon));
+
+    $component = Livewire::test('pages::salon.availability.index', ['salon' => $salon])
+        ->call('openPanel', $stylist->id)
+        // Out of the page flow entirely: teleported to <body>, pinned to the
+        // right edge, drawer width on desktop (full-width only when narrow).
+        ->assertSeeHtml('x-teleport="body"')
+        ->assertSeeHtml('justify-end')
+        ->assertSeeHtml('sm:w-[460px]')
+        ->assertSeeHtml('bts-drawer')
+        // The focus-return anchor for closing.
+        ->assertSeeHtml('id="availability-card-'.$stylist->id.'"');
+
+    // Closing removes the drawer and hands focus back to the card.
+    $component->call('closePanel')
+        ->assertSet('panelOpen', false)
+        ->assertDontSeeHtml('x-teleport="body"')
+        ->assertDispatched('availability-panel-closed', stylistId: $stylist->id);
+});
+
 it('shows the Edit action only to those allowed to edit that stylist', function () {
     $salon = Salon::factory()->create();
     $a = stylistOf($salon);

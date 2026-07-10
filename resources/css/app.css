@@ -216,6 +216,30 @@ select:focus[data-flux-control] {
         border-color: var(--color-danger);
     }
 
+    /* Right-docked drawer (availability schedule panel): slides in from the
+       right edge; the scrim fades. Insertion-safe (pure CSS animation — the
+       drawer enters the DOM via Livewire, no JS transition hooks needed). */
+    .bts-drawer {
+        animation: bts-slide-in-right 0.22s ease-out;
+    }
+    .bts-scrim {
+        animation: bts-fade-in 0.2s ease-out;
+    }
+    @keyframes bts-slide-in-right {
+        from { transform: translateX(100%); }
+        to { transform: translateX(0); }
+    }
+    @keyframes bts-fade-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .bts-drawer,
+        .bts-scrim {
+            animation: none;
+        }
+    }
+
     /* Status pill (x-ui.status-pill). 12.5px/600, padding 5/13, radius 99. */
     .bts-pill {
         @apply inline-flex items-center rounded-full font-semibold;

@@ -138,6 +138,9 @@ new #[Title('Availability')] class extends Component {
     {
         $this->panelOpen = false;
         $this->editing = false;
+
+        // Send focus back to the card that opened the drawer (a11y).
+        $this->dispatch('availability-panel-closed', stylistId: $this->selectedStylistId);
     }
 
     /** Switch the panel into edit mode — server-gated, never trust the button. */
@@ -351,7 +354,10 @@ new #[Title('Availability')] class extends Component {
     }
 }; ?>
 
-<div>
+{{-- The root listens for the drawer-closed event (the drawer itself is gone
+     from the DOM by the time it fires) and returns focus to the card. --}}
+<div x-data
+     x-on:availability-panel-closed.window="document.getElementById('availability-card-' + $event.detail.stylistId)?.focus()">
     <div class="mx-auto flex w-full max-w-4xl flex-col gap-7 px-8 py-7">
         <x-ui.page-header :overline="__('Schedule')" :title="__('Availability')">
             <x-slot:subtitle>{{ __('Weekly hours and date-specific time off for every stylist. Select a card to view a schedule.') }}</x-slot:subtitle>
@@ -386,14 +392,21 @@ new #[Title('Availability')] class extends Component {
         @endif
     </div>
 
-    {{-- ─────────── Right-side schedule panel ─────────── --}}
+    {{-- ─────────── Right-docked schedule drawer ───────────
+         Teleported to <body> so no layout ancestor (stacking context,
+         transform, overflow) can pull it into the page flow; the flex
+         justify-end wrapper keeps it pinned to the RIGHT edge with the
+         cards still visible beside it. Full-width only on narrow screens. --}}
     @if ($panelOpen && $this->selectedStylist)
         @php($stylist = $this->selectedStylist)
-        <div class="fixed inset-0 z-40 bg-ink/25" wire:click="closePanel" aria-hidden="true"></div>
+        <template x-teleport="body">
+            <div class="fixed inset-0 z-50 flex justify-end" x-data
+                 @keydown.escape.window="$wire.closePanel()">
+                <div class="bts-scrim absolute inset-0 bg-ink/25" wire:click="closePanel" aria-hidden="true"></div>
 
-        <div class="fixed inset-y-0 right-0 z-50 flex w-full max-w-xl flex-col overflow-y-auto border-l border-border bg-card shadow-xl"
-             role="dialog" aria-modal="true" aria-label="{{ __(':name — availability', ['name' => $stylist->name]) }}"
-             tabindex="-1" x-data x-init="$el.focus()" @keydown.escape.window="$wire.closePanel()">
+                <div class="bts-drawer relative flex h-full w-full flex-col overflow-y-auto border-l border-border bg-card shadow-xl sm:w-[460px]"
+                     role="dialog" aria-modal="true" aria-label="{{ __(':name — availability', ['name' => $stylist->name]) }}"
+                     tabindex="-1" x-init="$el.focus()">
 
             {{-- Header: person + edit/close --}}
             <div class="flex items-start justify-between gap-4 border-b border-divider px-7 py-6">
@@ -571,7 +584,9 @@ new #[Title('Availability')] class extends Component {
                         @endforelse
                     </div>
                 @endif
+                </div>
             </div>
-        </div>
+            </div>
+        </template>
     @endif
 </div>

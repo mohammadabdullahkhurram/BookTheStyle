@@ -10,7 +10,7 @@
     the parent component's openPanel(). List-card tokens: radius 18, card
     border/shadow, accent ring when its panel is open.
 --}}
-<button type="button" wire:click="openPanel({{ $card['id'] }})"
+<button type="button" wire:click="openPanel({{ $card['id'] }})" id="availability-card-{{ $card['id'] }}"
         class="flex items-center gap-4 rounded-[18px] border bg-card p-5 text-left shadow-xs transition
                {{ $selected ? 'border-accent ring-1 ring-accent' : 'border-border hover:border-accent/60' }}"
         aria-label="{{ __(':name — view schedule', ['name' => $card['name']]) }}">
