@@ -8,6 +8,7 @@ use App\Models\Salon;
 use App\Models\TimeOff;
 use App\Support\AvailabilitySummary;
 use App\Support\Permissions\AvailabilityAccess;
+use Carbon\CarbonImmutable;
 use Flux\Flux;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
@@ -35,11 +36,21 @@ new #[Title('Availability')] class extends Component {
      */
     public array $days = [];
 
-    // Add-time-off form
-    public string $toType = 'vacation';
-    public string $toNote = '';
-    public string $toStart = '';
-    public string $toEnd = '';
+    // ── Date-specific hours: the add/edit calendar modal ─────────────────
+    // A "date-specific entry" is a TimeOff row: dates + times the stylist is
+    // UNAVAILABLE, overriding the weekly schedule (the engine subtracts them;
+    // 6e pushes them to GHL as date-specific overrides). The modal selects
+    // one or more dates, then all-day or one/more time blocks.
+    public bool $dsModalOpen = false;
+    public ?int $dsEditId = null;      // editing this TimeOff row (null = adding)
+    public string $dsMonth = '';       // calendar month shown, 'Y-m'
+    /** @var list<string> selected dates, 'Y-m-d' in the salon timezone */
+    public array $dsDates = [];
+    public bool $dsAllDay = true;
+    /** @var list<array{start: string, end: string}> unavailable blocks (HH:MM) */
+    public array $dsBlocks = [['start' => '09:00', 'end' => '17:00']];
+    public string $dsType = 'blocked';
+    public string $dsNote = '';
 
     /** @var array<int, string> */
     public array $weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -128,6 +139,7 @@ new #[Title('Availability')] class extends Component {
         $this->selectedStylistId = $stylistId;
         $this->editing = false;
         $this->copySource = null;
+        $this->dsModalOpen = false;
         $this->panelTab = 'hours';
         $this->panelOpen = true;
         $this->resetValidation();
@@ -140,6 +152,7 @@ new #[Title('Availability')] class extends Component {
         $this->panelOpen = false;
         $this->editing = false;
         $this->copySource = null;
+        $this->dsModalOpen = false;
 
         // Send focus back to the card that opened the drawer (a11y).
         $this->dispatch('availability-panel-closed', stylistId: $this->selectedStylistId);
@@ -157,6 +170,7 @@ new #[Title('Availability')] class extends Component {
     {
         $this->editing = false;
         $this->copySource = null;
+        $this->dsModalOpen = false;
         $this->resetValidation();
         $this->loadWeek(); // discard unsaved grid edits
     }
@@ -368,27 +382,213 @@ new #[Title('Availability')] class extends Component {
             .' – '.AvailabilitySummary::minutes($this->minutesFromTime($window['end']));
     }
 
-    public function addTimeOff(AddTimeOff $action): void
+    /** Open the add-dates calendar modal (server-gated like every edit). */
+    public function openDateSpecific(): void
+    {
+        abort_unless($this->canEditSelected, 403);
+
+        $this->resetValidation();
+        $this->dsEditId = null;
+        $this->dsDates = [];
+        $this->dsAllDay = true;
+        $this->dsBlocks = [['start' => '09:00', 'end' => '17:00']];
+        $this->dsType = 'blocked';
+        $this->dsNote = '';
+        $this->dsMonth = CarbonImmutable::now($this->salon->timezone)->format('Y-m');
+        $this->dsModalOpen = true;
+    }
+
+    /** Re-open the modal prefilled from an existing entry (pencil icon). */
+    public function editDateSpecific(int $timeOffId): void
+    {
+        abort_unless($this->canEditSelected, 403);
+
+        $off = TimeOff::query()
+            ->where('salon_id', $this->salon->id)
+            ->where('user_id', $this->selectedStylistId)
+            ->findOrFail($timeOffId);
+
+        $tz = $this->salon->timezone;
+        $start = $off->starts_at->setTimezone($tz);
+        $end = $off->ends_at->setTimezone($tz);
+
+        $this->resetValidation();
+        $this->dsEditId = $off->id;
+        $this->dsDates = [$start->toDateString()];
+        $this->dsAllDay = $this->isAllDay($off);
+        $this->dsBlocks = [[
+            'start' => $start->format('H:i'),
+            'end' => $start->isSameDay($end) ? $end->format('H:i') : '23:59',
+        ]];
+        $this->dsType = $off->type->value;
+        $this->dsNote = (string) $off->note;
+        $this->dsMonth = $start->format('Y-m');
+        $this->dsModalOpen = true;
+    }
+
+    public function closeDateSpecific(): void
+    {
+        $this->dsModalOpen = false;
+    }
+
+    public function dsPrevMonth(): void
+    {
+        $current = CarbonImmutable::now($this->salon->timezone)->format('Y-m');
+        $previous = CarbonImmutable::parse($this->dsMonth.'-01')->subMonth()->format('Y-m');
+
+        // Never navigate before the current month — past dates aren't selectable.
+        $this->dsMonth = max($previous, $current);
+    }
+
+    public function dsNextMonth(): void
+    {
+        $this->dsMonth = CarbonImmutable::parse($this->dsMonth.'-01')->addMonth()->format('Y-m');
+    }
+
+    /** Select/deselect a calendar day; past dates are refused server-side too. */
+    public function dsToggleDate(string $date): void
+    {
+        $tz = $this->salon->timezone;
+
+        try {
+            $day = CarbonImmutable::parse($date, $tz)->startOfDay();
+        } catch (\Throwable) {
+            return;
+        }
+
+        if ($day->lt(CarbonImmutable::now($tz)->startOfDay())) {
+            return; // past dates stay grey
+        }
+
+        $key = $day->toDateString();
+
+        $this->dsDates = in_array($key, $this->dsDates, true)
+            ? array_values(array_diff($this->dsDates, [$key]))
+            : [...$this->dsDates, $key];
+
+        sort($this->dsDates);
+    }
+
+    public function dsAddBlock(): void
+    {
+        $this->dsBlocks[] = ['start' => '13:00', 'end' => '17:00'];
+    }
+
+    public function dsRemoveBlock(int $index): void
+    {
+        if (isset($this->dsBlocks[$index]) && count($this->dsBlocks) > 1) {
+            array_splice($this->dsBlocks, $index, 1);
+        }
+    }
+
+    /**
+     * Create one entry per selected date (× block). Editing replaces the
+     * original entry. Persistence goes through the SAME AddTimeOff/
+     * RemoveTimeOff actions as always — validation, permissions, and the
+     * GHL availability sync all included.
+     */
+    public function dsSubmit(AddTimeOff $add, RemoveTimeOff $remove): void
     {
         $this->validate([
-            'toType' => ['required', 'in:vacation,sick,blocked'],
-            'toNote' => ['nullable', 'string', 'max:255'],
-            'toStart' => ['required', 'date'],
-            'toEnd' => ['required', 'date'],
-        ]);
+            'dsDates' => ['required', 'array', 'min:1'],
+            'dsType' => ['required', 'in:vacation,sick,blocked'],
+            'dsNote' => ['nullable', 'string', 'max:255'],
+        ], [], ['dsDates' => __('dates')]);
 
-        $action->handle(Auth::user(), $this->salon, $this->selectedStylistId, [
-            'type' => $this->toType,
-            'note' => $this->toNote ?: null,
-            'starts_at' => $this->toStart,
-            'ends_at' => $this->toEnd,
-        ]);
+        if ($this->dsEditId !== null) {
+            $old = TimeOff::query()
+                ->where('salon_id', $this->salon->id)
+                ->where('user_id', $this->selectedStylistId)
+                ->findOrFail($this->dsEditId);
+            $remove->handle(Auth::user(), $this->salon, $old);
+        }
+
+        foreach ($this->dsDates as $date) {
+            $blocks = $this->dsAllDay
+                ? [['start' => '00:00', 'end' => '24:00']]
+                : $this->dsBlocks;
+
+            foreach ($blocks as $block) {
+                $end = $block['end'] === '24:00'
+                    ? CarbonImmutable::parse($date, $this->salon->timezone)->addDay()->startOfDay()->format('Y-m-d H:i')
+                    : $date.' '.$block['end'];
+
+                $add->handle(Auth::user(), $this->salon, $this->selectedStylistId, [
+                    'type' => $this->dsType,
+                    'note' => $this->dsNote ?: null,
+                    'starts_at' => $date.' '.$block['start'],
+                    'ends_at' => $end,
+                ]);
+            }
+        }
 
         unset($this->timeOff);
-        $this->reset(['toNote', 'toStart', 'toEnd']);
-        $this->toType = 'vacation';
+        $this->dsModalOpen = false;
 
-        Flux::toast(variant: 'success', text: __('Time off added.'));
+        Flux::toast(variant: 'success', text: $this->dsEditId !== null
+            ? __('Date-specific hours updated.')
+            : __('Date-specific hours added.'));
+
+        $this->dsEditId = null;
+    }
+
+    /** The calendar grid for the modal: Sunday-first weeks of the shown month. */
+    #[Computed]
+    public function dsCalendar(): array
+    {
+        $tz = $this->salon->timezone;
+        $month = CarbonImmutable::parse(($this->dsMonth ?: CarbonImmutable::now($tz)->format('Y-m')).'-01', $tz);
+        $today = CarbonImmutable::now($tz)->startOfDay();
+
+        $cells = [];
+        $cursor = $month->startOfWeek(CarbonImmutable::SUNDAY);
+        $gridEnd = $month->endOfMonth()->endOfWeek(CarbonImmutable::SATURDAY);
+
+        while ($cursor->lte($gridEnd)) {
+            $cells[] = [
+                'date' => $cursor->toDateString(),
+                'day' => $cursor->day,
+                'in_month' => $cursor->month === $month->month,
+                'past' => $cursor->lt($today),
+            ];
+            $cursor = $cursor->addDay();
+        }
+
+        return ['label' => $month->format('F Y'), 'cells' => $cells, 'at_current_month' => $month->format('Y-m') === $today->format('Y-m')];
+    }
+
+    /** "GMT-04:00 America/New_York (EDT)" — the read view's timezone line. */
+    public function dsTimezoneLabel(): string
+    {
+        $now = CarbonImmutable::now($this->salon->timezone);
+
+        return 'GMT'.$now->format('P').' '.$this->salon->timezone.' ('.$now->format('T').')';
+    }
+
+    private function isAllDay(TimeOff $off): bool
+    {
+        $tz = $this->salon->timezone;
+        $start = $off->starts_at->setTimezone($tz);
+        $end = $off->ends_at->setTimezone($tz);
+
+        return $start->format('H:i') === '00:00' && $end->format('H:i') === '00:00' && $end->gt($start);
+    }
+
+    /** Row label: "Unavailable all day" or "Unavailable 10:00 AM – 12:00 PM". */
+    public function dsRangeLabel(TimeOff $off): string
+    {
+        if ($this->isAllDay($off)) {
+            return __('Unavailable all day');
+        }
+
+        $tz = $this->salon->timezone;
+        $start = $off->starts_at->setTimezone($tz);
+        $end = $off->ends_at->setTimezone($tz);
+
+        return __('Unavailable :from – :to', [
+            'from' => $start->format('g:i A'),
+            'to' => $start->isSameDay($end) ? $end->format('g:i A') : $end->format('M j, g:i A'),
+        ]);
     }
 
     public function removeTimeOff(int $id, RemoveTimeOff $action): void
@@ -633,53 +833,159 @@ new #[Title('Availability')] class extends Component {
                     @endif
                 @endif
 
-                {{-- ───── Date-specific hours (time off) ───── --}}
+                {{-- ───── Date-specific hours ───── --}}
                 @if ($panelTab === 'dates')
-                    @if ($editing)
-                        <div class="flex flex-col gap-4 rounded-[18px] border border-border bg-paper p-5">
-                            <div>
-                                <h3 class="text-[16px] font-semibold text-ink">{{ __('Add time off') }}</h3>
-                                <p class="mt-1 text-[14px] text-secondary">{{ __('Block out vacation, sick days, or any one-off unavailable stretch.') }}</p>
+                    @if (! $editing)
+                        {{-- READ view: timezone header + clean divided rows, no controls. --}}
+                        <div class="flex flex-col rounded-[18px] border border-border">
+                            <div class="border-b border-divider px-5 py-3 text-[12.5px] font-medium text-faint">{{ $this->dsTimezoneLabel() }}</div>
+                            <div class="flex flex-col divide-y divide-row">
+                                @forelse ($this->timeOff as $off)
+                                    <div class="flex flex-col px-5 py-3.5">
+                                        <span class="text-[15px] font-medium text-ink">{{ $off->starts_at->setTimezone($salon->timezone)->format('F j, Y') }}</span>
+                                        <span class="text-[14px] text-secondary">{{ $this->dsRangeLabel($off) }}</span>
+                                        <span class="text-[12.5px] text-faint">{{ $off->type->label() }}{{ $off->note ? ' · '.$off->note : '' }}</span>
+                                    </div>
+                                @empty
+                                    <div class="px-5 py-10 text-center text-[15px] text-faint">{{ __('No date-specific hours — the weekly schedule applies.') }}</div>
+                                @endforelse
                             </div>
-                            <form wire:submit="addTimeOff" class="flex flex-col gap-4">
-                                <div class="grid items-end gap-4 sm:grid-cols-2">
-                                    <flux:select wire:model="toType" :label="__('Type')">
-                                        <flux:select.option value="vacation">{{ __('Vacation') }}</flux:select.option>
-                                        <flux:select.option value="sick">{{ __('Sick') }}</flux:select.option>
-                                        <flux:select.option value="blocked">{{ __('Blocked') }}</flux:select.option>
-                                    </flux:select>
-                                    <flux:input wire:model="toNote" :label="__('Note (optional)')" />
-                                    <flux:input type="datetime-local" wire:model="toStart" :label="__('Starts')" />
-                                    <flux:input type="datetime-local" wire:model="toEnd" :label="__('Ends')" />
-                                </div>
-                                <div><x-ui.button type="submit"><flux:icon.plus variant="micro" class="shrink-0" />{{ __('Add time off') }}</x-ui.button></div>
-                                @error('ends_at') <div class="text-[14px] text-danger">{{ $message }}</div> @enderror
-                            </form>
                         </div>
-                    @endif
-
-                    <div class="flex flex-col divide-y divide-row rounded-[18px] border border-border">
-                        @forelse ($this->timeOff as $off)
-                            <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
-                                <div class="flex flex-col">
-                                    <span class="text-[15px] font-medium text-ink">{{ $off->type->label() }}</span>
-                                    <span class="text-[14px] text-secondary">
-                                        {{ $off->starts_at->setTimezone($salon->timezone)->format('M j, Y g:i A') }}
-                                        – {{ $off->ends_at->setTimezone($salon->timezone)->format('M j, Y g:i A') }}
-                                    </span>
-                                    @if ($off->note)
-                                        <span class="text-[13px] text-faint">{{ $off->note }}</span>
-                                    @endif
+                    @else
+                        {{-- EDIT view: helper + add button, entry rows with pencil/trash. --}}
+                        <div class="flex flex-col gap-4">
+                            <div class="flex flex-wrap items-start justify-between gap-3">
+                                <div class="min-w-0">
+                                    <h3 class="text-[16px] font-semibold text-ink">{{ __('Date-specific hours') }}</h3>
+                                    <p class="mt-0.5 text-[14px] text-secondary">{{ __('Set custom unavailability for specific dates that differ from the weekly schedule.') }}</p>
                                 </div>
-                                @if ($editing)
-                                    <button type="button" wire:click="removeTimeOff({{ $off->id }})"
-                                            class="text-[13px] font-medium text-secondary transition hover:text-danger">{{ __('Remove') }}</button>
-                                @endif
+                                <x-ui.button size="sm" variant="secondary" wire:click="openDateSpecific">
+                                    <flux:icon.plus variant="micro" class="shrink-0" />{{ __('Add date-specific hours') }}
+                                </x-ui.button>
                             </div>
-                        @empty
-                            <div class="px-5 py-10 text-center text-[15px] text-faint">{{ __('No date-specific hours — the weekly schedule applies.') }}</div>
-                        @endforelse
-                    </div>
+
+                            @if ($this->timeOff->isEmpty())
+                                <div class="flex flex-col items-center gap-2 rounded-[18px] border border-dashed border-input px-5 py-12 text-center">
+                                    <flux:icon.calendar-days class="size-8 text-fainter" />
+                                    <p class="text-[15px] text-faint">{{ __('No date-specific time added.') }}</p>
+                                </div>
+                            @else
+                                <div class="flex flex-col divide-y divide-row rounded-[18px] border border-border">
+                                    @foreach ($this->timeOff as $off)
+                                        <div class="flex items-center justify-between gap-3 px-5 py-3.5">
+                                            <div class="flex min-w-0 flex-col">
+                                                <span class="text-[15px] font-medium text-ink">{{ $off->starts_at->setTimezone($salon->timezone)->format('F j, Y') }}</span>
+                                                <span class="text-[14px] text-secondary">{{ $this->dsRangeLabel($off) }}</span>
+                                            </div>
+                                            <div class="flex shrink-0 items-center gap-0.5">
+                                                <button type="button" wire:click="editDateSpecific({{ $off->id }})" title="{{ __('Edit') }}"
+                                                        class="rounded-[9px] p-1.5 text-fainter transition hover:bg-muted hover:text-accent" aria-label="{{ __('Edit this date') }}">
+                                                    <flux:icon.pencil-square variant="micro" />
+                                                </button>
+                                                <button type="button" wire:click="removeTimeOff({{ $off->id }})" title="{{ __('Remove') }}"
+                                                        class="rounded-[9px] p-1.5 text-fainter transition hover:bg-muted hover:text-danger" aria-label="{{ __('Remove this date') }}">
+                                                    <flux:icon.trash variant="micro" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @endif
+                        </div>
+
+                        {{-- Add/edit modal: month calendar + the unavailable hours. --}}
+                        <x-ui.modal wire:model="dsModalOpen" class="max-w-md"
+                            :heading="$dsEditId ? __('Edit date-specific hours') : __('Choose the date to set specific hours')">
+                            <div class="flex flex-col gap-5">
+                                @php($calendar = $this->dsCalendar)
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center justify-between">
+                                        <button type="button" wire:click="dsPrevMonth" @disabled($calendar['at_current_month'])
+                                                class="rounded-[9px] p-1.5 transition {{ $calendar['at_current_month'] ? 'text-fainter/50' : 'text-fainter hover:bg-muted hover:text-ink' }}"
+                                                aria-label="{{ __('Previous month') }}">
+                                            <flux:icon.chevron-left variant="mini" />
+                                        </button>
+                                        <div class="text-[15px] font-semibold text-ink">{{ $calendar['label'] }}</div>
+                                        <button type="button" wire:click="dsNextMonth"
+                                                class="rounded-[9px] p-1.5 text-fainter transition hover:bg-muted hover:text-ink" aria-label="{{ __('Next month') }}">
+                                            <flux:icon.chevron-right variant="mini" />
+                                        </button>
+                                    </div>
+
+                                    <div class="grid grid-cols-7 gap-1 text-center">
+                                        @foreach (['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as $dayName)
+                                            <div class="py-1 text-[12px] font-semibold uppercase tracking-[0.04em] text-faint">{{ $dayName }}</div>
+                                        @endforeach
+                                        @foreach ($calendar['cells'] as $cell)
+                                            @php($isSelected = in_array($cell['date'], $dsDates, true))
+                                            <button type="button" wire:click="dsToggleDate('{{ $cell['date'] }}')"
+                                                    @disabled($cell['past'])
+                                                    aria-pressed="{{ $isSelected ? 'true' : 'false' }}"
+                                                    aria-label="{{ $cell['date'] }}"
+                                                    class="mx-auto flex size-9 items-center justify-center rounded-full text-[14px] transition
+                                                        {{ $isSelected ? 'bg-accent font-semibold text-white' : ($cell['past'] ? 'cursor-default text-fainter/60' : ($cell['in_month'] ? 'text-ink hover:bg-accent-soft' : 'text-faint hover:bg-muted')) }}">
+                                                {{ $cell['day'] }}
+                                            </button>
+                                        @endforeach
+                                    </div>
+                                    @error('dsDates') <div class="text-[14px] text-danger">{{ $message }}</div> @enderror
+                                </div>
+
+                                @if ($dsDates !== [])
+                                    <div class="flex flex-col gap-3 border-t border-divider pt-4">
+                                        <div class="text-[14.5px] font-semibold text-ink">{{ __('When are you unavailable?') }}</div>
+
+                                        <label class="flex w-fit cursor-pointer items-center gap-2.5">
+                                            <input type="checkbox" wire:model.live="dsAllDay"
+                                                   class="size-[17px] shrink-0 cursor-pointer rounded-[4px] border-input accent-accent" />
+                                            <span class="text-[14px] text-body">{{ __('Unavailable all day') }}</span>
+                                        </label>
+
+                                        @unless ($dsAllDay)
+                                            <div class="flex flex-col gap-2">
+                                                @foreach ($dsBlocks as $i => $block)
+                                                    <div class="flex items-center gap-2">
+                                                        <flux:input type="time" wire:model="dsBlocks.{{ $i }}.start" class="flex-1" aria-label="{{ __('Unavailable from') }}" />
+                                                        <span class="text-[14px] text-secondary">{{ __('to') }}</span>
+                                                        <flux:input type="time" wire:model="dsBlocks.{{ $i }}.end" class="flex-1" aria-label="{{ __('Unavailable until') }}" />
+                                                        <div class="flex w-[64px] shrink-0 items-center justify-end gap-0.5">
+                                                            @if ($i === 0)
+                                                                <button type="button" wire:click="dsAddBlock" title="{{ __('Add a block') }}"
+                                                                        class="rounded-[9px] p-1.5 text-fainter transition hover:bg-muted hover:text-accent" aria-label="{{ __('Add another block') }}">
+                                                                    <flux:icon.plus variant="micro" />
+                                                                </button>
+                                                            @endif
+                                                            @if (count($dsBlocks) > 1)
+                                                                <button type="button" wire:click="dsRemoveBlock({{ $i }})" title="{{ __('Remove') }}"
+                                                                        class="rounded-[9px] p-1.5 text-fainter transition hover:bg-muted hover:text-danger" aria-label="{{ __('Remove this block') }}">
+                                                                    <flux:icon.trash variant="micro" />
+                                                                </button>
+                                                            @endif
+                                                        </div>
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                        @endunless
+
+                                        <div class="grid gap-3 sm:grid-cols-2">
+                                            <flux:select wire:model="dsType" :label="__('Type')">
+                                                <flux:select.option value="blocked">{{ __('Blocked') }}</flux:select.option>
+                                                <flux:select.option value="vacation">{{ __('Vacation') }}</flux:select.option>
+                                                <flux:select.option value="sick">{{ __('Sick') }}</flux:select.option>
+                                            </flux:select>
+                                            <flux:input wire:model="dsNote" :label="__('Note (optional)')" />
+                                        </div>
+                                        @error('ends_at') <div class="text-[14px] text-danger">{{ $message }}</div> @enderror
+                                    </div>
+                                @endif
+
+                                <div class="flex justify-end gap-2 border-t border-divider pt-4">
+                                    <x-ui.button variant="secondary" wire:click="closeDateSpecific">{{ __('Cancel') }}</x-ui.button>
+                                    <x-ui.button wire:click="dsSubmit">{{ $dsEditId ? __('Save changes') : __('Add') }}</x-ui.button>
+                                </div>
+                            </div>
+                        </x-ui.modal>
+                    @endif
                 @endif
                 </div>
             </div>

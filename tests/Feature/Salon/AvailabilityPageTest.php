@@ -306,15 +306,132 @@ it('saves hours and time off from the panel and still queues the GHL availabilit
     expect(Availability::where('salon_id', $salon->id)->where('user_id', $stylist->id)->where('kind', 'work')->count())->toBe(1);
     Bus::assertDispatched(SyncAvailabilityToGhl::class, 1);
 
-    // Time off through the panel persists and syncs too.
+    // Date-specific hours through the panel persist and sync too.
     $component->set('panelTab', 'dates')
         ->call('startEditing')
-        ->set('toStart', '2027-01-05 10:00')
-        ->set('toEnd', '2027-01-05 12:00')
-        ->call('addTimeOff');
+        ->call('openDateSpecific')
+        ->call('dsToggleDate', '2027-01-05')
+        ->set('dsAllDay', false)
+        ->set('dsBlocks', [['start' => '10:00', 'end' => '12:00']])
+        ->call('dsSubmit')
+        ->assertSet('dsModalOpen', false);
 
     expect(TimeOff::where('salon_id', $salon->id)->where('user_id', $stylist->id)->count())->toBe(1);
     Bus::assertDispatched(SyncAvailabilityToGhl::class, 2);
+});
+
+it('shows date-specific entries read-only with a timezone header and no controls', function () {
+    $salon = Salon::factory()->create(['timezone' => 'America/New_York']);
+    $stylist = stylistOf($salon);
+    TimeOff::factory()->create([
+        'salon_id' => $salon->id, 'user_id' => $stylist->id,
+        'starts_at' => CarbonImmutable::parse('2027-07-20 00:00', $salon->timezone),
+        'ends_at' => CarbonImmutable::parse('2027-07-21 00:00', $salon->timezone),
+    ]);
+
+    test()->actingAs(salonOwnerOf($salon));
+
+    Livewire::test('pages::salon.availability.index', ['salon' => $salon])
+        ->call('openPanel', $stylist->id)
+        ->set('panelTab', 'dates')
+        // Timezone header + date + range, reference-style.
+        ->assertSee('America/New_York')
+        ->assertSee('GMT')
+        ->assertSee('July 20, 2027')
+        ->assertSee('Unavailable all day')
+        // Read mode carries NO edit or delete controls.
+        ->assertDontSeeHtml('wire:click="editDateSpecific')
+        ->assertDontSeeHtml('wire:click="removeTimeOff');
+});
+
+it('adds date-specific hours for several dates at once through the calendar modal', function () {
+    $salon = Salon::factory()->create(['timezone' => 'America/New_York']);
+    $stylist = stylistOf($salon);
+
+    test()->actingAs($stylist);
+
+    $component = Livewire::test('pages::salon.availability.index', ['salon' => $salon])
+        ->call('openPanel', $stylist->id)
+        ->call('startEditing')
+        ->set('panelTab', 'dates')
+        ->assertSee('No date-specific time added.')
+        ->call('openDateSpecific')
+        ->assertSet('dsModalOpen', true)
+        ->assertSee('Choose the date to set specific hours');
+
+    // Past dates stay grey: toggling one is refused server-side.
+    $yesterday = now($salon->timezone)->subDay()->toDateString();
+    $component->call('dsToggleDate', $yesterday)->assertSet('dsDates', []);
+
+    // The month navigation never goes before the current month.
+    $component->call('dsPrevMonth');
+    expect($component->get('dsMonth'))->toBe(now($salon->timezone)->format('Y-m'));
+
+    // Two future dates, one custom block — every selected date gets it.
+    $component->call('dsToggleDate', '2027-01-05')
+        ->call('dsToggleDate', '2027-01-07')
+        ->set('dsAllDay', false)
+        ->set('dsBlocks', [['start' => '10:00', 'end' => '12:00']])
+        ->call('dsSubmit')
+        ->assertSet('dsModalOpen', false)
+        ->assertSee('January 5, 2027')
+        ->assertSee('January 7, 2027');
+
+    $rows = TimeOff::where('salon_id', $salon->id)->where('user_id', $stylist->id)->orderBy('starts_at')->get();
+    expect($rows)->toHaveCount(2);
+    // 10:00 in January ET is 15:00 UTC — stored DST-safe in the salon zone.
+    expect($rows[0]->starts_at->toIso8601String())->toBe('2027-01-05T15:00:00+00:00');
+    expect($rows[0]->ends_at->toIso8601String())->toBe('2027-01-05T17:00:00+00:00');
+    expect($rows[1]->starts_at->toDateString())->toBe('2027-01-07');
+});
+
+it('edits a date-specific entry through the pencil and deletes through the trash', function () {
+    $salon = Salon::factory()->create(['timezone' => 'America/New_York']);
+    $stylist = stylistOf($salon);
+    $off = TimeOff::factory()->create([
+        'salon_id' => $salon->id, 'user_id' => $stylist->id,
+        'starts_at' => CarbonImmutable::parse('2027-01-05 10:00', $salon->timezone),
+        'ends_at' => CarbonImmutable::parse('2027-01-05 12:00', $salon->timezone),
+    ]);
+
+    test()->actingAs($stylist);
+
+    $component = Livewire::test('pages::salon.availability.index', ['salon' => $salon])
+        ->call('openPanel', $stylist->id)
+        ->call('startEditing')
+        ->set('panelTab', 'dates')
+        // Pencil prefills the modal from the entry.
+        ->call('editDateSpecific', $off->id)
+        ->assertSet('dsModalOpen', true)
+        ->assertSet('dsDates', ['2027-01-05'])
+        ->assertSet('dsAllDay', false)
+        ->assertSet('dsBlocks.0.start', '10:00')
+        // Change the hours and save: the entry is replaced, not duplicated.
+        ->set('dsBlocks', [['start' => '14:00', 'end' => '16:00']])
+        ->call('dsSubmit');
+
+    $rows = TimeOff::where('salon_id', $salon->id)->where('user_id', $stylist->id)->get();
+    expect($rows)->toHaveCount(1);
+    expect($rows[0]->id)->not->toBe($off->id);
+    expect($rows[0]->starts_at->setTimezone($salon->timezone)->format('H:i'))->toBe('14:00');
+
+    // Trash removes it.
+    $component->call('removeTimeOff', $rows[0]->id);
+    expect(TimeOff::where('salon_id', $salon->id)->count())->toBe(0);
+});
+
+it('keeps the date-specific modal away from read-only viewers', function () {
+    $salon = Salon::factory()->create();
+    $a = stylistOf($salon);
+    $b = stylistOf($salon);
+
+    test()->actingAs($a);
+
+    Livewire::test('pages::salon.availability.index', ['salon' => $salon])
+        ->call('openPanel', $b->id)
+        ->call('openDateSpecific')
+        ->assertForbidden()
+        ->assertSet('dsModalOpen', false);
 });
 
 it('rejects opening a panel for a non-stylist or another salon\'s stylist', function () {
