@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToSalon;
+use App\Support\Money;
 use App\Support\ServicePalette;
 use Database\Factories\ServiceFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -11,12 +12,14 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
- * A bookable service offered by a salon (SPEC §4). No price — scheduling only.
+ * A bookable service offered by a salon (SPEC §4). The price is display/
+ * record only (integer cents; NULL = "price varies") — no payments anywhere.
  *
  * @property int $id
  * @property int $salon_id
  * @property string $name
  * @property int $duration_min
+ * @property int|null $price_cents
  * @property string|null $color_key
  * @property bool $active
  */
@@ -29,6 +32,7 @@ class Service extends Model
         'salon_id',
         'name',
         'duration_min',
+        'price_cents',
         'color_key',
         'active',
     ];
@@ -37,8 +41,18 @@ class Service extends Model
     {
         return [
             'duration_min' => 'integer',
+            'price_cents' => 'integer',
             'active' => 'boolean',
         ];
+    }
+
+    /**
+     * The display price in the given currency, or null when the price varies
+     * / is not stated. Display only — never used to charge anything.
+     */
+    public function priceLabel(string $currency): ?string
+    {
+        return Money::format($this->price_cents, $currency);
     }
 
     /**

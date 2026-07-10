@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property string $name
  * @property string $slug
  * @property string $timezone
+ * @property string $currency
  * @property bool $active
  * @property array<string, mixed>|null $branding
  * @property string $legal_business_name
@@ -66,6 +67,7 @@ class Salon extends Model
         'contact_name',
         'contact_email',
         'contact_phone',
+        'currency',
         'allow_walkins',
         'allow_same_day',
         'max_advance_days',

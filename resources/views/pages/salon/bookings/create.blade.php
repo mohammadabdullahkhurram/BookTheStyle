@@ -194,9 +194,10 @@ new #[Title('New booking')] class extends Component {
     }
 
     /**
-     * Line rows for the review summary — only fully specified lines.
+     * Line rows for the review summary — only fully specified lines. Price is
+     * informational (display only; null = price varies).
      *
-     * @return list<array{service: string, stylist: string, time: string, end: string, minutes: int}>
+     * @return list<array{service: string, stylist: string, time: string, end: string, minutes: int, price_cents: int|null, price: string|null}>
      */
     #[Computed]
     public function summary(): array
@@ -228,6 +229,8 @@ new #[Title('New booking')] class extends Component {
                 'time' => $start->format('g:i A'),
                 'end' => $start->addMinutes($minutes)->format('g:i A'),
                 'minutes' => $minutes,
+                'price_cents' => $service->price_cents,
+                'price' => $service->priceLabel($this->salon->currency),
             ];
         }
 
@@ -442,7 +445,7 @@ new #[Title('New booking')] class extends Component {
                                 <flux:select wire:model.live="items.{{ $i }}.service_id" :label="__('Service')">
                                     <flux:select.option value="">{{ __('— choose —') }}</flux:select.option>
                                     @foreach ($this->services as $service)
-                                        <flux:select.option value="{{ $service->id }}">{{ $service->name }}</flux:select.option>
+                                        <flux:select.option value="{{ $service->id }}">{{ $service->name }}{{ $service->price_cents !== null ? ' · '.$service->priceLabel($salon->currency) : '' }}</flux:select.option>
                                     @endforeach
                                 </flux:select>
                                 <flux:select wire:model.live="items.{{ $i }}.stylist_id" :label="__('Stylist')" :disabled="! $this->canManage">
@@ -506,12 +509,14 @@ new #[Title('New booking')] class extends Component {
                             <div class="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 text-[14px]">
                                 <span class="font-medium text-ink">{{ $row['service'] }}</span>
                                 <span class="text-secondary">{{ $row['stylist'] }}</span>
-                                <span class="text-body">{{ $isWalkin ? __('Now') : $row['time'].' – '.$row['end'] }} · {{ $row['minutes'] }} {{ __('min') }}</span>
+                                <span class="text-body">{{ $isWalkin ? __('Now') : $row['time'].' – '.$row['end'] }} · {{ $row['minutes'] }} {{ __('min') }}@if ($row['price'] !== null) · {{ $row['price'] }}@endif</span>
                             </div>
                         @endforeach
                         <div class="flex items-center justify-between px-4 py-2.5 text-[14px]">
                             <span class="font-semibold text-ink">{{ __('Total') }}</span>
-                            <span class="font-semibold text-ink">{{ collect($this->summary)->sum('minutes') }} {{ __('min') }}</span>
+                            <span class="font-semibold text-ink">
+                                {{ collect($this->summary)->sum('minutes') }} {{ __('min') }}@if (collect($this->summary)->whereNotNull('price_cents')->isNotEmpty()) · {{ \App\Support\Money::format(collect($this->summary)->sum('price_cents'), $salon->currency) }} {{ __('est.') }}@endif
+                            </span>
                         </div>
                     </div>
                 @endif

@@ -4,6 +4,7 @@ use App\Actions\Salons\DisconnectGhl;
 use App\Actions\Salons\TestGhlConnection;
 use App\Actions\Salons\UpdateBookingPolicy;
 use App\Actions\Salons\UpdateBranding;
+use App\Actions\Salons\UpdateCurrency;
 use App\Actions\Salons\UpdateFeatureFlags;
 use App\Actions\Salons\UpdateGhlConnection;
 use App\Actions\Salons\UpdateGhlStaffMapping;
@@ -19,8 +20,10 @@ use App\Services\Ghl\GhlApiException;
 use App\Services\Ghl\GhlAvailabilityPusher;
 use App\Services\Ghl\GhlBookingPusher;
 use App\Services\Ghl\GhlClient;
+use App\Support\Money;
 use App\Support\SalonProfile;
 use Flux\Flux;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Validate;
@@ -59,6 +62,9 @@ new #[Title('Salon settings')] class extends Component {
 
     // The salon's IANA timezone (General settings).
     public string $timezone = '';
+
+    // Display currency for service prices (General settings). Display only.
+    public string $currency = 'USD';
 
     // Business + contact profile (name = business / trading name).
     public string $name = '';
@@ -144,6 +150,7 @@ new #[Title('Salon settings')] class extends Component {
         }
 
         $this->timezone = $salon->timezone;
+        $this->currency = $salon->currency;
         $this->loadProfile();
         $this->refreshGhlState();
     }
@@ -575,6 +582,20 @@ new #[Title('Salon settings')] class extends Component {
         Flux::toast(variant: 'success', text: __('Timezone saved.'));
     }
 
+    public function saveCurrency(UpdateCurrency $action): void
+    {
+        $this->authorize('manage', $this->salon);
+
+        $data = $this->validate([
+            'currency' => ['required', 'string', Rule::in(Money::codes())],
+        ]);
+
+        $action->handle($this->salon, $data['currency']);
+        $this->salon->refresh();
+
+        Flux::toast(variant: 'success', text: __('Currency saved.'));
+    }
+
     public function savePolicy(UpdateBookingPolicy $action): void
     {
         $this->authorize('manage', $this->salon);
@@ -727,6 +748,23 @@ new #[Title('Salon settings')] class extends Component {
                     {{ __('Changing the timezone changes how availability and bookings are shown. Existing bookings keep their exact moment in time — only the displayed local time follows the new timezone.') }}
                 </p>
                 <div><x-ui.button type="submit">{{ __('Save timezone') }}</x-ui.button></div>
+            </form>
+        </x-ui.card>
+
+        <x-ui.card class="flex flex-col gap-4">
+            <h2 class="bts-card-title">{{ __('Currency') }}</h2>
+            <form wire:submit="saveCurrency" class="flex flex-col gap-4">
+                <div class="max-w-56">
+                    <flux:select wire:model="currency" :label="__('Display currency')">
+                        @foreach (\App\Support\Money::codes() as $code)
+                            <flux:select.option value="{{ $code }}">{{ $code }} ({{ trim(\App\Support\Money::symbol($code)) }})</flux:select.option>
+                        @endforeach
+                    </flux:select>
+                </div>
+                <p class="text-[13px] text-faint">
+                    {{ __('Used to display service prices. Prices are informational only — the app never takes payments.') }}
+                </p>
+                <div><x-ui.button type="submit">{{ __('Save currency') }}</x-ui.button></div>
             </form>
         </x-ui.card>
         </section>

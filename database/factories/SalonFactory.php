@@ -37,6 +37,7 @@ class SalonFactory extends Factory
             'contact_name' => fake()->name(),
             'contact_email' => fake()->unique()->safeEmail(),
             'contact_phone' => fake()->numerify('+1 ###-###-####'),
+            'currency' => 'USD',
             'allow_walkins' => true,
             'allow_same_day' => true,
             'max_advance_days' => 90,

@@ -19,6 +19,9 @@ new #[Title('Services')] class extends Component {
     public string $name = '';
     public int $duration_min = 30;
 
+    /** Display price in major units; blank = "price varies" (stored NULL). */
+    public string $price = '';
+
     /** @var array<int, int> */
     public array $stylistIds = [];
 
@@ -32,6 +35,7 @@ new #[Title('Services')] class extends Component {
     public ?int $editingId = null;
     public string $editName = '';
     public int $editDuration = 30;
+    public string $editPrice = '';
     public bool $editActive = true;
 
     /** @var array<int, int> */
@@ -77,6 +81,7 @@ new #[Title('Services')] class extends Component {
         $data = $this->validate([
             'name' => ['required', 'string', 'max:255'],
             'duration_min' => ['required', 'integer', 'min:5', 'max:600'],
+            'price' => ['nullable', 'numeric', 'min:0', 'max:100000'],
             'stylistIds' => ['array'],
             'stylistIds.*' => ['integer'],
         ]);
@@ -86,11 +91,12 @@ new #[Title('Services')] class extends Component {
         $service = $action->handle($this->salon, [
             'name' => $data['name'],
             'duration_min' => $data['duration_min'],
+            'price_cents' => $this->toCents($data['price'] ?? null),
         ]);
         $sync->handle($this->salon, $service, $this->stylistOverrides($this->stylistIds, $this->durations, $this->buffers));
 
         unset($this->services);
-        $this->reset(['name', 'duration_min', 'stylistIds', 'durations', 'buffers']);
+        $this->reset(['name', 'duration_min', 'price', 'stylistIds', 'durations', 'buffers']);
         $this->duration_min = 30;
 
         Flux::toast(variant: 'success', text: __('Service created.'));
@@ -130,6 +136,9 @@ new #[Title('Services')] class extends Component {
         $this->editingId = $service->id;
         $this->editName = $service->name;
         $this->editDuration = $service->duration_min;
+        $this->editPrice = $service->price_cents === null
+            ? ''
+            : ($service->price_cents % 100 === 0 ? (string) intdiv($service->price_cents, 100) : number_format($service->price_cents / 100, 2, '.', ''));
         $this->editActive = $service->active;
 
         // Assigned stylists + their per-stylist overrides.
@@ -156,6 +165,7 @@ new #[Title('Services')] class extends Component {
         $data = $this->validate([
             'editName' => ['required', 'string', 'max:255'],
             'editDuration' => ['required', 'integer', 'min:5', 'max:600'],
+            'editPrice' => ['nullable', 'numeric', 'min:0', 'max:100000'],
             'editActive' => ['boolean'],
             'editStylistIds' => ['array'],
             'editStylistIds.*' => ['integer'],
@@ -164,6 +174,7 @@ new #[Title('Services')] class extends Component {
         $update->handle($this->salon, $service, [
             'name' => $data['editName'],
             'duration_min' => $data['editDuration'],
+            'price_cents' => $this->toCents($data['editPrice'] ?? null),
             'active' => $data['editActive'],
         ]);
 
@@ -195,6 +206,14 @@ new #[Title('Services')] class extends Component {
     {
         return $this->salon->services()->whereKey($id)->firstOrFail();
     }
+
+    /** Blank form price = NULL ("price varies"); otherwise store integer cents. */
+    private function toCents(int|float|string|null $price): ?int
+    {
+        return $price === null || $price === ''
+            ? null
+            : (int) round(((float) $price) * 100);
+    }
 }; ?>
 
 <div>
@@ -206,9 +225,10 @@ new #[Title('Services')] class extends Component {
             <form wire:submit="create" class="flex flex-col gap-5">
                 {{-- Default duration first, so the per-stylist override placeholder
                      below reflects it and "blank = service default" reads true. --}}
-                <div class="grid items-end gap-4 sm:grid-cols-3">
+                <div class="grid items-end gap-4 sm:grid-cols-4">
                     <div class="sm:col-span-2"><flux:input wire:model="name" :label="__('Name')" required /></div>
                     <flux:input type="number" wire:model.live="duration_min" :label="__('Default duration (min)')" min="5" max="600" step="5" />
+                    <flux:input type="number" wire:model="price" :label="__('Price (:symbol, optional)', ['symbol' => trim(\App\Support\Money::symbol($salon->currency))])" min="0" max="100000" step="0.01" :placeholder="__('Varies')" />
                 </div>
 
                 <x-ui.qualified-stylists
@@ -231,6 +251,7 @@ new #[Title('Services')] class extends Component {
                     <tr class="bts-overline border-b border-divider">
                         <th class="px-6 py-3.5 font-semibold">{{ __('Service') }}</th>
                         <th class="px-6 py-3.5 font-semibold">{{ __('Duration') }}</th>
+                        <th class="px-6 py-3.5 font-semibold">{{ __('Price') }}</th>
                         <th class="px-6 py-3.5 font-semibold">{{ __('Stylists') }}</th>
                         <th class="px-6 py-3.5 font-semibold">{{ __('Status') }}</th>
                         <th class="px-6 py-3.5"></th>
@@ -246,6 +267,7 @@ new #[Title('Services')] class extends Component {
                                 </div>
                             </td>
                             <td class="px-6 py-4 text-[15px] text-secondary">{{ $service->duration_min }} {{ __('min') }}</td>
+                            <td class="px-6 py-4 text-[15px] text-secondary">{{ $service->priceLabel($salon->currency) ?? __('Varies') }}</td>
                             <td class="px-6 py-4 text-[15px] text-secondary">
                                 {{ $service->stylists->pluck('name')->join(', ') ?: __('None assigned') }}
                             </td>
@@ -267,7 +289,7 @@ new #[Title('Services')] class extends Component {
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="px-6 py-10 text-center text-[15px] text-faint">{{ __('No services yet. Add one above.') }}</td>
+                            <td colspan="6" class="px-6 py-10 text-center text-[15px] text-faint">{{ __('No services yet. Add one above.') }}</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -278,7 +300,10 @@ new #[Title('Services')] class extends Component {
     <x-ui.modal wire:model="showEdit" class="max-w-lg" :heading="__('Edit service')">
         <form wire:submit="saveEdit" class="flex flex-col gap-5">
             <flux:input wire:model="editName" :label="__('Name')" required />
-            <flux:input type="number" wire:model.live="editDuration" :label="__('Default duration (min)')" min="5" max="600" step="5" />
+            <div class="grid gap-4 sm:grid-cols-2">
+                <flux:input type="number" wire:model.live="editDuration" :label="__('Default duration (min)')" min="5" max="600" step="5" />
+                <flux:input type="number" wire:model="editPrice" :label="__('Price (:symbol, optional)', ['symbol' => trim(\App\Support\Money::symbol($salon->currency))])" min="0" max="100000" step="0.01" :placeholder="__('Varies')" />
+            </div>
             <flux:checkbox wire:model="editActive" :label="__('Active')" />
 
             <x-ui.qualified-stylists

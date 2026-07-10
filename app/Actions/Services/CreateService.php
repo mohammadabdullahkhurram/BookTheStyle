@@ -18,13 +18,14 @@ use App\Support\ServicePalette;
 class CreateService
 {
     /**
-     * @param  array{name: string, duration_min: int, active?: bool}  $data
+     * @param  array{name: string, duration_min: int, price_cents?: int|null, active?: bool}  $data
      */
     public function handle(Salon $salon, array $data): Service
     {
         $service = $salon->services()->create([
             'name' => $data['name'],
             'duration_min' => $data['duration_min'],
+            'price_cents' => $data['price_cents'] ?? null,
             'color_key' => $this->assignColorKey($salon),
             'active' => $data['active'] ?? true,
         ]);

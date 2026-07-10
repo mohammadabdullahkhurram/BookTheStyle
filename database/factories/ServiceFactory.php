@@ -20,6 +20,7 @@ class ServiceFactory extends Factory
             'salon_id' => Salon::factory(),
             'name' => fake()->randomElement(['Cut & Style', 'Color', 'Blowout', 'Balayage', 'Treatment']),
             'duration_min' => fake()->randomElement([30, 45, 60, 90]),
+            'price_cents' => null, // price optional — "price varies" by default
             'color_key' => fake()->randomElement(ServicePalette::keys()),
             'active' => true,
         ];

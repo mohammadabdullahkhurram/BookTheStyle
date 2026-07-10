@@ -15,7 +15,7 @@ class UpdateService
     /**
      * Colour is auto-assigned at creation and stable, so it is not editable here.
      *
-     * @param  array{name: string, duration_min: int, active?: bool}  $data
+     * @param  array{name: string, duration_min: int, price_cents?: int|null, active?: bool}  $data
      */
     public function handle(Salon $salon, Service $service, array $data): Service
     {
@@ -26,6 +26,7 @@ class UpdateService
         $service->update([
             'name' => $data['name'],
             'duration_min' => $data['duration_min'],
+            'price_cents' => array_key_exists('price_cents', $data) ? $data['price_cents'] : $service->price_cents,
             'active' => $data['active'] ?? $service->active,
         ]);
 

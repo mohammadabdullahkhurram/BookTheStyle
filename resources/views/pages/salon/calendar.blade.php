@@ -339,12 +339,22 @@ new #[Title('Calendar')] class extends Component {
                                 <span class="size-2.5 rounded-full" style="background-color: {{ $item->service->palette()['dot'] }}"></span>
                                 <span class="font-medium text-ink">{{ $item->service->name }}</span>
                                 <span class="text-secondary">· {{ $item->stylist->name }}</span>
+                                @if ($item->service->price_cents !== null)
+                                    <span class="text-faint">· {{ $item->service->priceLabel($salon->currency) }}</span>
+                                @endif
                             </div>
                             <span class="text-secondary">
                                 {{ $item->starts_at?->setTimezone($salon->timezone)->format('g:i A') }}–{{ $item->ends_at?->setTimezone($salon->timezone)->format('g:i A') }}
                             </span>
                         </div>
                     @endforeach
+                    @if ($booking->items->contains(fn ($item) => $item->service->price_cents !== null))
+                        {{-- Informational estimate only — no payments in the app. --}}
+                        <div class="flex items-center justify-between border-t border-row pt-2 text-[13px]">
+                            <span class="text-secondary">{{ __('Estimated price') }}</span>
+                            <span class="font-medium text-ink">{{ \App\Support\Money::format($booking->items->sum(fn ($item) => $item->service->price_cents ?? 0), $salon->currency) }}</span>
+                        </div>
+                    @endif
                 </div>
 
                 <div class="grid grid-cols-2 gap-3 text-[14px]">
