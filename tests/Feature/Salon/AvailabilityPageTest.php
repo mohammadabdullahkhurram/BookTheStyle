@@ -169,6 +169,68 @@ it('shows the Edit action only to those allowed to edit that stylist', function 
         ->assertSet('editing', true);
 });
 
+it('lays each edit-mode day out as one row: checkbox, side-by-side times, action icons', function () {
+    $salon = Salon::factory()->create();
+    $stylist = stylistOf($salon);
+    apWindow($salon, $stylist->id, 0, 540, 720);
+    apWindow($salon, $stylist->id, 0, 840, 1020); // Monday split shift
+
+    test()->actingAs($stylist);
+
+    Livewire::test('pages::salon.availability.index', ['salon' => $salon])
+        ->call('openPanel', $stylist->id)
+        ->call('startEditing')
+        // Checkbox day toggles (not switches) + short day names.
+        ->assertSeeHtml('type="checkbox"')
+        ->assertSee('Mon')
+        // Side-by-side labelled time fields.
+        ->assertSee('Start time')
+        ->assertSee('End time')
+        // The split shift renders a second aligned block on the same day.
+        ->assertSeeHtml('wire:model="days.0.windows.1.start"')
+        // The per-row action icons: add block, duplicate to all days, remove.
+        ->assertSeeHtml('wire:click="addWindow(0)"')
+        ->assertSeeHtml('wire:click="copyDayToAll(0)"')
+        ->assertSeeHtml('wire:click="removeWindow(0, 1)"')
+        // An unchecked day reads "Unavailable" with no time fields.
+        ->assertSee('Unavailable')
+        ->assertDontSeeHtml('wire:model="days.6.windows.0.start"');
+});
+
+it('duplicates a day to every day from the row action and saves it', function () {
+    $salon = Salon::factory()->create();
+    $stylist = stylistOf($salon);
+
+    test()->actingAs($stylist);
+
+    Livewire::test('pages::salon.availability.index', ['salon' => $salon])
+        ->set('days.2.on', true)
+        ->set('days.2.windows', [['start' => '10:00', 'end' => '16:00']])
+        ->call('copyDayToAll', 2)
+        ->assertSet('days.0.windows.0.start', '10:00')
+        ->assertSet('days.6.on', true)
+        ->call('saveHours');
+
+    expect(Availability::where('salon_id', $salon->id)->where('user_id', $stylist->id)->where('kind', 'work')->count())->toBe(7);
+});
+
+it('removing a day\'s only time block turns the day off (trash on a single block)', function () {
+    $salon = Salon::factory()->create();
+    $stylist = stylistOf($salon);
+    apWindow($salon, $stylist->id, 0, 540, 1020);
+
+    test()->actingAs($stylist);
+
+    Livewire::test('pages::salon.availability.index', ['salon' => $salon])
+        ->call('openPanel', $stylist->id)
+        ->call('startEditing')
+        ->call('removeWindow', 0, 0)
+        ->assertSet('days.0.on', false)
+        ->call('saveHours');
+
+    expect(Availability::where('salon_id', $salon->id)->where('user_id', $stylist->id)->where('kind', 'work')->count())->toBe(0);
+});
+
 it('saves hours and time off from the panel and still queues the GHL availability sync', function () {
     $salon = Salon::factory()->create(['timezone' => 'America/New_York']);
     SalonGhlConnection::factory()->for($salon)->create([

@@ -239,20 +239,28 @@ new #[Title('Availability')] class extends Component {
 
     public function copyToWeekdays(): void
     {
-        $this->copyMondayTo(range(0, 4));
+        $this->copyDay(0, range(0, 4));
     }
 
     public function copyToAll(): void
     {
-        $this->copyMondayTo(range(0, 6));
+        $this->copyDay(0, range(0, 6));
+    }
+
+    /** The per-row duplicate action: copy THIS day's blocks to every day. */
+    public function copyDayToAll(int $weekday): void
+    {
+        if (isset($this->days[$weekday])) {
+            $this->copyDay($weekday, range(0, 6));
+        }
     }
 
     /**
      * @param  list<int>  $weekdays
      */
-    private function copyMondayTo(array $weekdays): void
+    private function copyDay(int $from, array $weekdays): void
     {
-        $template = $this->days[0];
+        $template = $this->days[$from];
 
         foreach ($weekdays as $weekday) {
             $this->days[$weekday] = [
@@ -469,11 +477,14 @@ new #[Title('Availability')] class extends Component {
                             @endforeach
                         </div>
                     @else
-                        {{-- Edit view: the weekly grid --}}
+                        {{-- Edit view: one compact horizontal row per weekday —
+                             [checkbox + day] [Start time] [End time] [actions].
+                             A split shift adds an aligned second row of fields. --}}
                         <div class="flex flex-col gap-1">
-                            <div class="flex flex-wrap items-center justify-between gap-3">
-                                <p class="text-[14px] text-secondary">{{ __('Toggle a day on to set its hours. A second window makes a split shift; the gap is unbookable.') }}</p>
-                                <div class="flex items-center gap-2">
+                            <div class="flex flex-col gap-1">
+                                <p class="text-[14px] text-secondary">{{ __('Check a day to set its hours. A second time block makes a split shift; the gap is unbookable.') }}</p>
+                                <p class="text-[12.5px] text-faint">{{ __('Times are in :timezone.', ['timezone' => $salon->timezone]) }}</p>
+                                <div class="mt-1 flex items-center gap-2">
                                     <span class="text-[13px] text-secondary">{{ __('Copy Monday to') }}</span>
                                     <x-ui.button size="sm" variant="secondary" wire:click="copyToWeekdays">{{ __('Weekdays') }}</x-ui.button>
                                     <x-ui.button size="sm" variant="secondary" wire:click="copyToAll">{{ __('Every day') }}</x-ui.button>
@@ -483,41 +494,56 @@ new #[Title('Availability')] class extends Component {
                             <div class="mt-2 flex flex-col divide-y divide-row">
                                 @foreach ($weekdays as $wd => $label)
                                     @php($day = $days[$wd])
-                                    <div class="flex flex-col gap-3 py-4 sm:flex-row sm:items-start sm:gap-5">
-                                        <div class="flex items-center gap-3 sm:w-36 sm:pt-2">
-                                            <button type="button" role="switch" aria-checked="{{ $day['on'] ? 'true' : 'false' }}"
-                                                    wire:click="toggleDay({{ $wd }})" aria-label="{{ $label }}"
-                                                    class="relative h-[26px] w-[44px] shrink-0 rounded-full transition {{ $day['on'] ? 'bg-accent' : 'bg-muted' }}">
-                                                <span class="absolute top-[3px] size-[20px] rounded-full bg-white shadow-sm transition-all {{ $day['on'] ? 'left-[21px]' : 'left-[3px]' }}"></span>
-                                            </button>
-                                            <span class="text-[15px] font-medium {{ $day['on'] ? 'text-ink' : 'text-faint' }}">{{ $label }}</span>
-                                        </div>
+                                    <div class="flex items-start gap-3 py-3">
+                                        {{-- Column 1: checkbox + short day name --}}
+                                        <label class="flex w-[72px] shrink-0 cursor-pointer items-center gap-2.5 {{ $day['on'] ? 'pt-[30px]' : 'pt-1.5' }}">
+                                            <input type="checkbox" @checked($day['on']) wire:click="toggleDay({{ $wd }})"
+                                                   aria-label="{{ $label }}"
+                                                   class="size-[17px] shrink-0 cursor-pointer rounded-[4px] border-input accent-accent" />
+                                            <span class="text-[14.5px] font-medium {{ $day['on'] ? 'text-ink' : 'text-faint' }}">{{ mb_substr($label, 0, 3) }}</span>
+                                        </label>
 
-                                        <div class="flex-1">
+                                        {{-- Columns 2–4: time blocks + action icons, or "Unavailable" --}}
+                                        <div class="min-w-0 flex-1">
                                             @if ($day['on'])
-                                                <div class="flex flex-col gap-2.5">
+                                                <div class="flex flex-col gap-2">
                                                     @foreach ($day['windows'] as $i => $window)
-                                                        <div class="flex flex-wrap items-center gap-2">
-                                                            <flux:input type="time" wire:model="days.{{ $wd }}.windows.{{ $i }}.start" class="w-[124px]" aria-label="{{ __('Start') }}" />
-                                                            <span class="text-[14px] text-secondary">{{ __('to') }}</span>
-                                                            <flux:input type="time" wire:model="days.{{ $wd }}.windows.{{ $i }}.end" class="w-[124px]" aria-label="{{ __('End') }}" />
-                                                            @if (count($day['windows']) > 1)
-                                                                <button type="button" wire:click="removeWindow({{ $wd }}, {{ $i }})"
-                                                                        class="rounded-[9px] p-1.5 text-fainter transition hover:bg-muted hover:text-danger" aria-label="{{ __('Remove window') }}">
-                                                                    <flux:icon.x-mark variant="micro" />
+                                                        <div class="flex items-end gap-2">
+                                                            <div class="min-w-0 flex-1">
+                                                                @if ($i === 0)
+                                                                    <div class="mb-1 text-[12.5px] font-medium text-faint">{{ __('Start time') }}</div>
+                                                                @endif
+                                                                <flux:input type="time" wire:model="days.{{ $wd }}.windows.{{ $i }}.start" aria-label="{{ __(':day start time', ['day' => $label]) }}" />
+                                                            </div>
+                                                            <div class="min-w-0 flex-1">
+                                                                @if ($i === 0)
+                                                                    <div class="mb-1 text-[12.5px] font-medium text-faint">{{ __('End time') }}</div>
+                                                                @endif
+                                                                <flux:input type="time" wire:model="days.{{ $wd }}.windows.{{ $i }}.end" aria-label="{{ __(':day end time', ['day' => $label]) }}" />
+                                                            </div>
+                                                            {{-- Fixed-width action column so a split shift's
+                                                                 fields align exactly under the first block's. --}}
+                                                            <div class="flex w-[96px] shrink-0 items-center justify-end gap-0.5 pb-1.5">
+                                                                @if ($i === 0)
+                                                                    <button type="button" wire:click="addWindow({{ $wd }})" title="{{ __('Add a time block') }}"
+                                                                            class="rounded-[9px] p-1.5 text-fainter transition hover:bg-muted hover:text-accent" aria-label="{{ __('Add a time block to :day', ['day' => $label]) }}">
+                                                                        <flux:icon.plus variant="micro" />
+                                                                    </button>
+                                                                    <button type="button" wire:click="copyDayToAll({{ $wd }})" title="{{ __('Copy to every day') }}"
+                                                                            class="rounded-[9px] p-1.5 text-fainter transition hover:bg-muted hover:text-accent" aria-label="{{ __('Copy :day to every day', ['day' => $label]) }}">
+                                                                        <flux:icon.document-duplicate variant="micro" />
+                                                                    </button>
+                                                                @endif
+                                                                <button type="button" wire:click="removeWindow({{ $wd }}, {{ $i }})" title="{{ __('Remove') }}"
+                                                                        class="rounded-[9px] p-1.5 text-fainter transition hover:bg-muted hover:text-danger" aria-label="{{ __('Remove this time block') }}">
+                                                                    <flux:icon.trash variant="micro" />
                                                                 </button>
-                                                            @endif
+                                                            </div>
                                                         </div>
                                                     @endforeach
-                                                    <div>
-                                                        <button type="button" wire:click="addWindow({{ $wd }})"
-                                                                class="inline-flex items-center gap-1 text-[13px] font-semibold text-accent transition hover:text-accent-hover">
-                                                            <flux:icon.plus variant="micro" class="shrink-0" />{{ __('add hours') }}
-                                                        </button>
-                                                    </div>
                                                 </div>
                                             @else
-                                                <div class="text-[14px] text-faint sm:pt-2">{{ __('Day off') }}</div>
+                                                <div class="pt-1.5 text-[14px] text-faint">{{ __('Unavailable') }}</div>
                                             @endif
                                         </div>
                                     </div>
