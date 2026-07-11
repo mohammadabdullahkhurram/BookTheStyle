@@ -43,6 +43,15 @@ function apiPost(string $routeName, array $payload, ?string $token): TestRespons
     return test()->postJson(route($routeName), $payload, $token !== null ? ['Authorization' => "Bearer {$token}"] : []);
 }
 
+/** POST with an empty body and everything in the query string — how GHL actually calls. */
+function apiQueryPost(string $routeName, string $query, string $token): TestResponse
+{
+    return test()->post(route($routeName).'?'.$query, [], [
+        'Authorization' => "Bearer {$token}",
+        'Accept' => 'application/json',
+    ]);
+}
+
 // ---------------------------------------------------------------------------
 // Auth
 // ---------------------------------------------------------------------------
@@ -247,6 +256,96 @@ it('assigns a free stylist when none is requested', function () {
     ], $token)->assertCreated();
 
     expect($response->json('confirmation.stylist'))->toBe($ben->name);
+});
+
+// ---------------------------------------------------------------------------
+// Wire tolerance — the shapes GHL actually sends (query string, empty body,
+// double-encoded values, flattened client fields).
+// ---------------------------------------------------------------------------
+
+it('reads availability params from the query string with an empty body', function () {
+    [, , $service, $token] = apiSalon();
+    $service->update(['name' => 'Hair Cut']);
+
+    // Single-encoded on the wire (normal): PHP's own decode yields "Hair Cut".
+    $response = apiQueryPost('api.booking.availability', 'service=Hair%20Cut&stylist=any&date=2026-06-22', $token)->assertOk();
+
+    expect($response->json('success'))->toBeTrue();
+    expect($response->json('service.name'))->toBe('Hair Cut');
+    expect($response->json('slots'))->not->toBe([]);
+});
+
+it('decodes a double-encoded service name instead of 422ing', function () {
+    [, , $service, $token] = apiSalon();
+    $service->update(['name' => 'Hair Cut']);
+
+    // GHL sent Hair%2520Cut: the server receives the literal "Hair%20Cut".
+    $wire = apiQueryPost('api.booking.availability', 'service=Hair%2520Cut&stylist=any&date=2026-06-22', $token)->assertOk();
+    expect($wire->json('service.name'))->toBe('Hair Cut');
+    expect($wire->json('slots'))->not->toBe([]);
+
+    // The same literal arriving in a JSON body decodes too (proves the
+    // normalization is ours, not the framework's query parse).
+    $body = apiPost('api.booking.availability', ['service' => 'Hair%20Cut', 'date' => '2026-06-22'], $token)->assertOk();
+    expect($body->json('service.name'))->toBe('Hair Cut');
+});
+
+it('books from a pure query-string request with encoded values and flattened client fields', function () {
+    [$salon, $stylist, $service, $token] = apiSalon();
+    $service->update(['name' => 'Hair Cut']);
+
+    $response = apiQueryPost(
+        'api.booking.create',
+        'service=Hair%2520Cut&stylist=any'
+            .'&datetime=2026-06-22T14%253A00%253A00-04%253A00' // double-encoded ISO datetime
+            .'&client_name=Query%2520Quinn&client_phone=%2B15550188',
+        $token,
+    )->assertCreated();
+
+    expect($response->json('success'))->toBeTrue();
+    expect($response->json('confirmation.service'))->toBe('Hair Cut');
+
+    $booking = $salon->bookings()->with('items', 'client')->findOrFail($response->json('booking_id'));
+    expect($booking->client->name)->toBe('Query Quinn');
+    expect($booking->client->phone)->toBe('+15550188');
+    expect($booking->items->first()->starts_at->toIso8601String())->toBe('2026-06-22T18:00:00+00:00'); // 14:00 EDT
+});
+
+it('accepts a nested client in the query string and repairs a "+" offset that became a space', function () {
+    [$salon, , $service, $token] = apiSalon();
+    $service->update(['name' => 'Hair Cut']);
+
+    // An unencoded "+00:00" offset is parsed as " 00:00" — must be repaired,
+    // not mangled into an invalid datetime. 18:00 UTC = 14:00 EDT.
+    $response = apiQueryPost(
+        'api.booking.create',
+        'service=Hair+Cut&datetime=2026-06-22T18:00:00+00:00&client[name]=Nested%20Nia&client[phone]=%2B15550199',
+        $token,
+    )->assertCreated();
+
+    $booking = $salon->bookings()->with('items', 'client')->findOrFail($response->json('booking_id'));
+    expect($booking->client->name)->toBe('Nested Nia');
+    expect($booking->items->first()->starts_at->toIso8601String())->toBe('2026-06-22T18:00:00+00:00');
+});
+
+it('still explains a genuinely unknown service after decoding', function () {
+    [, , $service, $token] = apiSalon();
+    $service->update(['name' => 'Hair Cut']);
+
+    $response = apiQueryPost('api.booking.availability', 'service=Perm%2520Wave&date=2026-06-22', $token)->assertStatus(422);
+
+    expect($response->json('error'))->toBe('unknown_service');
+    expect($response->json('services'))->toBe(['Hair Cut']);
+    expect($response->json('message'))->toContain('Perm Wave'); // the decoded term, not the encoded blob
+});
+
+it('never over-decodes legitimate values containing a bare percent sign', function () {
+    [, , $service, $token] = apiSalon();
+    $service->update(['name' => '100% natural glow']);
+
+    $response = apiPost('api.booking.availability', ['service' => '100% natural glow', 'date' => '2026-06-22'], $token)->assertOk();
+
+    expect($response->json('service.name'))->toBe('100% natural glow');
 });
 
 it('refuses cross-salon references cleanly', function () {

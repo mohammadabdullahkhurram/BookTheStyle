@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Salon;
 use App\Services\BookingApi\ApiError;
 use App\Services\BookingApi\VoiceBookingApi;
+use App\Services\BookingApi\VoiceInput;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -18,6 +19,12 @@ use Illuminate\Validation\ValidationException;
  * VoiceBookingApi. Every response is JSON with a speakable `message`;
  * failures are clean (never a stack trace) and logged by category
  * (api_validation vs engine) without PII or tokens.
+ *
+ * Wire tolerance: parameters are accepted from the JSON body OR the query
+ * string ($request->input() merges both — GHL sends a query string with an
+ * empty body), values are defensively percent-decoded (GHL double-encodes:
+ * "Hair%2520Cut" arrives as the literal "Hair%20Cut"), and client fields
+ * are accepted nested or flattened. See VoiceInput.
  */
 class VoiceBookingController extends Controller
 {
@@ -26,6 +33,15 @@ class VoiceBookingController extends Controller
         $salon = $this->salon($request);
 
         try {
+            // Normalize into the request so the validated data is the
+            // decoded, body-or-query merged form.
+            $request->merge([
+                'service' => VoiceInput::decode($request->input('service')),
+                'stylist' => VoiceInput::decode($request->input('stylist')),
+                'date' => VoiceInput::decode($request->input('date')),
+                'date_to' => VoiceInput::decode($request->input('date_to')),
+            ]);
+
             $input = $request->validate([
                 'service' => ['required'],
                 'stylist' => ['nullable'],
@@ -46,6 +62,17 @@ class VoiceBookingController extends Controller
         $salon = $this->salon($request);
 
         try {
+            // Normalize into the request so the validated data is the
+            // decoded, body-or-query merged form (client: nested or flattened).
+            $request->merge([
+                'service' => VoiceInput::decode($request->input('service')),
+                'stylist' => VoiceInput::decode($request->input('stylist')),
+                'datetime' => VoiceInput::datetime($request->input('datetime')),
+                'client' => VoiceInput::client($request),
+                'notes' => VoiceInput::decode($request->input('notes')),
+                'ghl_contact_id' => VoiceInput::decode($request->input('ghl_contact_id')),
+            ]);
+
             $input = $request->validate([
                 'service' => ['required'],
                 'stylist' => ['nullable'],
