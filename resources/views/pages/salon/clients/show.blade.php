@@ -196,6 +196,9 @@ new #[Title('Client')] class extends Component {
                             @if ($client->ghl_contact_id)
                                 <span class="bts-pill" style="background-color:#ECEAFB;color:#4B3FA0;">{{ __('Linked to GoHighLevel') }}</span>
                             @endif
+                            @if ($this->canEdit && $client->ghl_sync_status === \App\Services\Ghl\GhlContactSync::STATUS_FAILED)
+                                <span class="bts-pill" style="background-color:#F8E3E3;color:#A23A3A;" title="{{ $client->ghl_sync_error }}">{{ __('GoHighLevel sync failed') }}</span>
+                            @endif
                         </div>
                         <div class="text-[13px] text-faint">
                             {{ trans_choice(':count completed visit|:count completed visits', $this->stats['visits'], ['count' => $this->stats['visits']]) }}

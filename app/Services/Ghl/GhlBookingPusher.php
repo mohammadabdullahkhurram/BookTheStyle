@@ -213,7 +213,9 @@ class GhlBookingPusher
             throw GhlApiException::fromStatus(500);
         }
 
-        $bookingClient->update(['ghl_contact_id' => $id]);
+        // Link + record what GHL now holds, so the ContactCreate webhook
+        // this upsert fires is recognized as our own echo.
+        GhlContactSync::recordPushed($bookingClient, $id);
 
         return $id;
     }

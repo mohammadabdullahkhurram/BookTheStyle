@@ -29,6 +29,8 @@ final readonly class GhlWebhookPayload
         public ?string $contactName,
         public ?string $contactEmail,
         public ?string $contactPhone,
+        /** When the CONTACT itself last changed (contact webhooks only). */
+        public ?CarbonImmutable $contactChangedAt,
         public ?string $source,
         public ?string $title,
         /** @var list<string> contact tags (voice/chat automations tag contacts) */
@@ -111,9 +113,13 @@ final readonly class GhlWebhookPayload
             endsAt: $time(['appointment.endTime', 'calendar.endTime', 'endTime', 'customData.endTime']),
             changedAt: $time(['appointment.dateUpdated', 'appointment.dateAdded', 'calendar.dateUpdated', 'dateUpdated', 'timestamp', 'customData.dateUpdated']),
             contactId: $pick(['appointment.contactId', 'contact.id', 'contact_id', 'contactId', 'customData.contactId']),
-            contactName: $pick(['contact.name', 'full_name', 'contact.fullName', 'customData.contactName']),
+            // Contact-webhook bodies often carry only first/last name parts —
+            // compose them when no full-name field is present.
+            contactName: $pick(['contact.name', 'full_name', 'contact.fullName', 'customData.contactName'])
+                ?? (trim(($pick(['first_name', 'contact.firstName', 'firstName']) ?? '').' '.($pick(['last_name', 'contact.lastName', 'lastName']) ?? '')) ?: null),
             contactEmail: $pick(['contact.email', 'email', 'customData.contactEmail']),
             contactPhone: $pick(['contact.phone', 'phone', 'customData.contactPhone']),
+            contactChangedAt: $time(['contact.dateUpdated', 'date_updated', 'contact.dateAdded', 'date_added', 'customData.contactUpdatedAt']),
             source: $pick(['customData.source', 'appointment.source', 'source']),
             title: $pick(['appointment.title', 'calendar.title', 'title', 'customData.title']),
             tags: self::stringList(data_get($payload, 'contact.tags') ?? data_get($payload, 'tags') ?? data_get($payload, 'customData.tags')),

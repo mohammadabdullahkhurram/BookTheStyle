@@ -31,6 +31,10 @@ class WebhookEvent extends Model
 
     public const STATUS_CREATED_BOOKING = 'created_booking';
 
+    public const STATUS_CREATED_CLIENT = 'created_client';
+
+    public const STATUS_IGNORED_UNTAGGED = 'ignored_untagged';
+
     public const STATUS_IGNORED_ECHO = 'ignored_echo';
 
     public const STATUS_IGNORED_STALE = 'ignored_stale';

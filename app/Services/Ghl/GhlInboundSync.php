@@ -70,6 +70,14 @@ class GhlInboundSync
         $payload = GhlWebhookPayload::fromArray($event->payload);
 
         if ($payload->appointmentId === null) {
+            // No appointment: a contact create/update webhook routes to the
+            // contact sync (same endpoint, same secret, same event log).
+            if ($payload->contactId !== null) {
+                app(GhlContactSync::class)->applyInbound($event, $salon, $payload);
+
+                return;
+            }
+
             $event->conclude(WebhookEvent::STATUS_REVIEW, __('No appointment id in the payload.'));
 
             return;

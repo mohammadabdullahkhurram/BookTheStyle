@@ -235,6 +235,22 @@ class GhlClient
     }
 
     /**
+     * Update an existing contact's fields (PUT /contacts/{id}). Used by the
+     * client↔contact sync; locationId is implicit in the contact.
+     *
+     * @param  array<string, mixed>  $fields
+     * @return array<string, mixed>
+     */
+    public function updateContact(string $contactId, array $fields): array
+    {
+        $data = $this->send('put', '/contacts/'.$contactId, self::CONTACTS_VERSION, json: $fields);
+
+        $result = $data['contact'] ?? null;
+
+        return is_array($result) ? $result : [];
+    }
+
+    /**
      * Create an appointment on a calendar in the salon's location. Returns
      * the appointment array incl. its id.
      *

@@ -16,6 +16,15 @@
 */
 
 return [
+
+    /*
+    | Inbound contact webhooks are TAG-GATED: an unknown GHL contact only
+    | becomes an app client when it carries this tag (case-insensitive).
+    | Updates to already-matched clients apply regardless of tags. Keeps
+    | GHL's lead/form-fill firehose out of the Clients directory.
+    */
+    'client_tag' => env('GHL_CLIENT_TAG', 'client'),
+
     'required_scopes' => [
         'calendars.readonly' => 'View calendars',
         'calendars.write' => 'Edit calendars',
