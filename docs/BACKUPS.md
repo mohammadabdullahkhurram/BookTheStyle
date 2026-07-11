@@ -26,6 +26,8 @@ branch → add a row and a section here in the same sitting).
 | `backup-v1-prelaunch-complete` | branch | `903b295` | same state as `v1.0-prelaunch-complete` |
 | `v1.1-preflight` | tag | `3f57c7a` | + clients directory, voice-AI API, contact sync |
 | `backup-v1.1-preflight` | branch | `3f57c7a` | same state as `v1.1-preflight` |
+| `v1.2-oldui-final` | tag | `ee74c42` | + GHL wire fixes, onboarding wizard, booking widget — the OLD UI, final |
+| `backup-oldui-final` | branch | `ee74c42` | same state as `v1.2-oldui-final` |
 
 ## Details
 
@@ -60,3 +62,17 @@ branch → add a row and a section here in the same sitting).
   test, UI audit, and deploy (Phase 7).
 - **Restore:** `git checkout v1.1-preflight` (inspect) ·
   `git reset --hard v1.1-preflight` (reset main)
+
+### v1.2-oldui-final — the old UI preserved, all features in
+- **Commit:** `ee74c420564f50910acb952e4f6f6d9e8b5b3e3a`
+- **Frozen branch:** `backup-oldui-final` (same commit)
+- **State:** everything above **plus** the voice-AI API wire-format fixes
+  (query-string params, double-URL-encoding, date + time create shape), the
+  salon onboarding wizard (guided, resumable setup with GHL copy-paste
+  values and verification), and the embeddable booking widget (public
+  iframe page + widget.js loader + slug-scoped public API, source
+  `web_widget`). **This checkpoint preserves the OLD UI as a restore
+  point** — taken immediately before the UI redesign work; live GHL smoke
+  test and deploy still pending.
+- **Restore:** `git checkout v1.2-oldui-final` (inspect) ·
+  `git reset --hard v1.2-oldui-final` (reset main)
