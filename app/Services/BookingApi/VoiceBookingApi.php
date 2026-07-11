@@ -72,7 +72,7 @@ class VoiceBookingApi
     }
 
     /**
-     * @param  array{service: string|int, stylist?: string|int|null, datetime: string, client: array{name: string, phone?: string|null, email?: string|null}, notes?: string|null, ghl_contact_id?: string|null}  $input
+     * @param  array{service: string|int, stylist?: string|int|null, datetime?: string|null, date?: string|null, time?: string|null, client: array{name: string, phone?: string|null, email?: string|null}, notes?: string|null, ghl_contact_id?: string|null}  $input
      * @return array<string, mixed>
      */
     public function create(Salon $salon, array $input): array
@@ -80,11 +80,7 @@ class VoiceBookingApi
         $service = $this->resolveService($salon, $input['service']);
         $stylists = $this->resolveStylists($salon, $service, $input['stylist'] ?? null);
 
-        try {
-            $start = CarbonImmutable::parse($input['datetime'])->setTimezone($salon->timezone);
-        } catch (\Throwable) {
-            throw ApiError::validation(__('I could not understand that date and time. Please give an exact time, like 2026-07-25T11:30.'), 'invalid_datetime');
-        }
+        $start = $this->resolveStart($salon, $input);
 
         $client = $this->resolveClient($salon, $input['client'], $input['ghl_contact_id'] ?? null);
 
@@ -260,6 +256,49 @@ class VoiceBookingApi
         }
 
         return $days;
+    }
+
+    /**
+     * The requested start instant, from either accepted shape. Primary
+     * (GHL-friendly — its Custom Actions reject combined ISO datetimes
+     * before sending): separate `date` + `time`, exactly as the
+     * availability response returns per slot ("2026-07-27" + "11:00 AM"),
+     * combined and interpreted in the SALON's timezone — so booking the
+     * slot the AI offered lands on precisely that instant, DST included.
+     * Time accepts the common spoken/AI shapes ("11:00 AM", "11:00am",
+     * "11 AM", "11:00", "13:00"). Alternative: a combined ISO 8601
+     * `datetime` with offset (curl/direct callers). If neither shape
+     * yields a valid time, a clear speakable 422.
+     *
+     * @param  array{datetime?: string|null, date?: string|null, time?: string|null}  $input
+     */
+    private function resolveStart(Salon $salon, array $input): CarbonImmutable
+    {
+        $datetime = trim((string) ($input['datetime'] ?? ''));
+
+        if ($datetime !== '') {
+            try {
+                return CarbonImmutable::parse($datetime)->setTimezone($salon->timezone);
+            } catch (\Throwable) {
+                // Fall through — a supplied date + time pair may still work.
+            }
+        }
+
+        $date = trim((string) ($input['date'] ?? ''));
+        $time = trim((string) ($input['time'] ?? ''));
+
+        if ($date !== '' && $time !== '') {
+            try {
+                return CarbonImmutable::parse("{$date} {$time}", $salon->timezone);
+            } catch (\Throwable) {
+                // Falls through to the speakable error below.
+            }
+        }
+
+        throw ApiError::validation(
+            __('I need a valid date and time to book. Send date and time (like 2026-07-25 and 11:00 AM), or an exact datetime like 2026-07-25T11:30.'),
+            'invalid_datetime',
+        );
     }
 
     // -- Slot assembly -------------------------------------------------------

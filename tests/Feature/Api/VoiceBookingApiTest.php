@@ -259,6 +259,145 @@ it('assigns a free stylist when none is requested', function () {
 });
 
 // ---------------------------------------------------------------------------
+// Create via separate date + time — the primary, GHL-friendly shape (GHL
+// rejects combined ISO datetimes client-side, before the request is sent).
+// ---------------------------------------------------------------------------
+
+it('books via date + time exactly the slot availability offered', function () {
+    [$salon, , , $token] = apiSalon();
+
+    // Take a real offered slot and pass its date/time fields straight back.
+    $slots = apiPost('api.booking.availability', ['service' => 'Haircut', 'date' => '2026-06-22'], $token)
+        ->assertOk()->json('slots');
+    $slot = $slots[0];
+
+    $response = apiPost('api.booking.create', [
+        'service' => 'Haircut',
+        'date' => $slot['date'],
+        'time' => $slot['time'],
+        'client' => ['name' => 'Slot Sana', 'phone' => '+15550201'],
+    ], $token)->assertCreated();
+
+    // The booked instant is precisely the instant availability computed.
+    $booking = $salon->bookings()->with('items')->findOrFail($response->json('booking_id'));
+    expect($booking->items->first()->starts_at->toIso8601String())
+        ->toBe(CarbonImmutable::parse($slot['starts_at'])->utc()->toIso8601String());
+    expect($response->json('confirmation.starts_at'))->toBe($slot['starts_at']);
+});
+
+it('parses the common time formats in the salon timezone', function () {
+    [$salon, , , $token] = apiSalon();
+
+    // Salon is America/New_York (EDT, -04:00 on 2026-06-22).
+    $cases = [
+        ['9:00', '2026-06-22T13:00:00+00:00'],
+        ['10:00 AM', '2026-06-22T14:00:00+00:00'],
+        ['11:00am', '2026-06-22T15:00:00+00:00'],
+        ['13:00', '2026-06-22T17:00:00+00:00'],
+        ['2:00 PM', '2026-06-22T18:00:00+00:00'],
+        ['3 PM', '2026-06-22T19:00:00+00:00'],
+    ];
+
+    foreach ($cases as $i => [$time, $expectedUtc]) {
+        $response = apiPost('api.booking.create', [
+            'service' => 'Haircut',
+            'date' => '2026-06-22',
+            'time' => $time,
+            'client' => ['name' => "Format Fan {$i}", 'phone' => '+1555030'.$i],
+        ], $token)->assertCreated();
+
+        $booking = $salon->bookings()->with('items')->findOrFail($response->json('booking_id'));
+        expect($booking->items->first()->starts_at->toIso8601String())->toBe($expectedUtc, "time \"{$time}\"");
+    }
+});
+
+it('is DST-safe: the same wall time maps to the right offset per season', function () {
+    [$salon, , , $token] = apiSalon();
+    $salon->update(['max_advance_days' => 365]); // let the December case through the advance policy
+
+    // June Monday, EDT: 11:00 AM = 15:00 UTC.
+    $summer = apiPost('api.booking.create', [
+        'service' => 'Haircut', 'date' => '2026-06-22', 'time' => '11:00 AM',
+        'client' => ['name' => 'Summer Sue', 'phone' => '+15550401'],
+    ], $token)->assertCreated();
+    expect($summer->json('confirmation.starts_at'))->toContain('-04:00');
+
+    // December Monday, EST: 11:00 AM = 16:00 UTC.
+    $winter = apiPost('api.booking.create', [
+        'service' => 'Haircut', 'date' => '2026-12-21', 'time' => '11:00 AM',
+        'client' => ['name' => 'Winter Wes', 'phone' => '+15550402'],
+    ], $token)->assertCreated();
+    expect($winter->json('confirmation.starts_at'))->toContain('-05:00');
+
+    [$s, $w] = [$salon->bookings()->with('items')->find($summer->json('booking_id')), $salon->bookings()->with('items')->find($winter->json('booking_id'))];
+    expect($s->items->first()->starts_at->toIso8601String())->toBe('2026-06-22T15:00:00+00:00');
+    expect($w->items->first()->starts_at->toIso8601String())->toBe('2026-12-21T16:00:00+00:00');
+});
+
+it('still accepts the combined ISO datetime and prefers it when parseable', function () {
+    [$salon, , , $token] = apiSalon();
+
+    $response = apiPost('api.booking.create', [
+        'service' => 'Haircut',
+        'datetime' => '2026-06-22T14:00:00-04:00',
+        'date' => '2026-06-22', 'time' => '9:00 AM', // ignored: datetime wins
+        'client' => ['name' => 'Iso Ida', 'phone' => '+15550403'],
+    ], $token)->assertCreated();
+
+    $booking = $salon->bookings()->with('items')->findOrFail($response->json('booking_id'));
+    expect($booking->items->first()->starts_at->toIso8601String())->toBe('2026-06-22T18:00:00+00:00');
+});
+
+it('speaks a clear 422 when no shape yields a valid time', function () {
+    [, , , $token] = apiSalon();
+
+    foreach ([
+        [],                                                // nothing at all
+        ['date' => '2026-06-22'],                          // date without time
+        ['time' => '11:00 AM'],                            // time without date
+        ['date' => '2026-06-22', 'time' => 'not-a-time'],  // unparseable time
+        ['datetime' => 'garbage'],                         // unparseable datetime, no fallback
+    ] as $shape) {
+        $response = apiPost('api.booking.create', $shape + [
+            'service' => 'Haircut',
+            'client' => ['name' => 'No Time Ned'],
+        ], $token)->assertStatus(422);
+
+        expect($response->json('error'))->toBe('invalid_datetime');
+        expect($response->json('message'))->toContain('I need a valid date and time');
+    }
+});
+
+it('returns 409 with alternatives when the date + time slot is taken', function () {
+    [$salon, $stylist, $service, $token] = apiSalon();
+    makeBooking($salon, salonOwnerOf($salon), $stylist, $service, '2026-06-22 14:00');
+
+    $response = apiPost('api.booking.create', [
+        'service' => 'Haircut',
+        'date' => '2026-06-22', 'time' => '2:00 PM',
+        'client' => ['name' => 'Bumped Bea', 'phone' => '+15550404'],
+    ], $token)->assertStatus(409);
+
+    expect($response->json('error'))->toBe('slot_unavailable');
+    expect(count($response->json('alternatives')))->toBeGreaterThan(0);
+    expect($salon->bookings()->count())->toBe(1);
+});
+
+it('normalizes encoding-mangled date and time values from the query string', function () {
+    [$salon, , , $token] = apiSalon();
+
+    // Double-encoded time (11%253A00%2520AM → literal 11%3A00%20AM → "11:00 AM").
+    $response = apiQueryPost(
+        'api.booking.create',
+        'service=Haircut&date=2026-06-22&time=11%253A00%2520AM&client_name=Wire%20Wanda&client_phone=%2B15550405',
+        $token,
+    )->assertCreated();
+
+    $booking = $salon->bookings()->with('items')->findOrFail($response->json('booking_id'));
+    expect($booking->items->first()->starts_at->toIso8601String())->toBe('2026-06-22T15:00:00+00:00');
+});
+
+// ---------------------------------------------------------------------------
 // Wire tolerance — the shapes GHL actually sends (query string, empty body,
 // double-encoded values, flattened client fields).
 // ---------------------------------------------------------------------------

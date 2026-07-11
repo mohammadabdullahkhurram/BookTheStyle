@@ -68,15 +68,22 @@ class VoiceBookingController extends Controller
                 'service' => VoiceInput::decode($request->input('service')),
                 'stylist' => VoiceInput::decode($request->input('stylist')),
                 'datetime' => VoiceInput::datetime($request->input('datetime')),
+                'date' => VoiceInput::decode($request->input('date')),
+                'time' => VoiceInput::decode($request->input('time')),
                 'client' => VoiceInput::client($request),
                 'notes' => VoiceInput::decode($request->input('notes')),
                 'ghl_contact_id' => VoiceInput::decode($request->input('ghl_contact_id')),
             ]);
 
+            // The slot may arrive as date + time (primary — GHL-friendly)
+            // or as a combined ISO datetime; VoiceBookingApi requires one
+            // of the shapes and answers with a speakable 422 otherwise.
             $input = $request->validate([
                 'service' => ['required'],
                 'stylist' => ['nullable'],
-                'datetime' => ['required', 'string', 'max:40'],
+                'datetime' => ['nullable', 'string', 'max:40'],
+                'date' => ['nullable', 'string', 'max:40'],
+                'time' => ['nullable', 'string', 'max:20'],
                 'client' => ['required', 'array'],
                 'client.name' => ['required', 'string', 'max:255'],
                 'client.phone' => ['nullable', 'string', 'max:50'],
