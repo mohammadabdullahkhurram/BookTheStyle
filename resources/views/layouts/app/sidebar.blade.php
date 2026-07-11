@@ -71,6 +71,13 @@
                         @endcan
                         {{-- Check-in: front-desk level only (owner/admin/front-desk).
                              Hidden from stylists, who cannot change booking status. --}}
+                        @can('accessBookings', $salon)
+                            <a href="{{ route('salon.clients', $salon) }}" wire:navigate
+                               class="bts-nav-item {{ request()->routeIs('salon.clients') || request()->routeIs('salon.client') ? 'bts-nav-item-active' : '' }}">
+                                <flux:icon.user-group variant="micro" class="shrink-0" />
+                                <span x-show="!collapsed" x-cloak>{{ __('Clients') }}</span>
+                            </a>
+                        @endcan
                         @can('manageBookings', $salon)
                             <a href="{{ route('salon.appointments', $salon) }}" wire:navigate
                                class="bts-nav-item {{ request()->routeIs('salon.appointments') || request()->routeIs('salon.bookings.create') ? 'bts-nav-item-active' : '' }}">

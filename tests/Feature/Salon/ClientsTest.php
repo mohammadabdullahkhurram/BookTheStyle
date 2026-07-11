@@ -2,18 +2,37 @@
 
 use App\Actions\Clients\CreateClient;
 use App\Actions\Clients\UpdateClient;
+use App\Enums\SalonRole;
 use App\Models\Client;
 use App\Models\Salon;
+use App\Models\SalonMembership;
+use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Livewire\Livewire;
 
-it('lets front desk + owner reach clients, but not a stylist', function () {
+it('lets every booking-area role reach the directory; editing stays front-desk level', function () {
+    // Viewing matches the client-profile rule (accessBookings): stylists may
+    // look — they serve these clients — but add/edit stays manageBookings.
     $salon = Salon::factory()->create();
 
     $this->actingAs(frontDeskOf($salon))->get(route('salon.clients', $salon))->assertOk();
     $this->actingAs(salonOwnerOf($salon))->get(route('salon.clients', $salon))->assertOk();
-    $this->actingAs(stylistOf($salon))->get(route('salon.clients', $salon))->assertForbidden();
+    $this->actingAs(stylistOf($salon))->get(route('salon.clients', $salon))->assertOk();
+
+    // A user with no booking surface at all is still refused.
+    $outsider = User::factory()->create();
+    SalonMembership::factory()->for($outsider)->for($salon)->create([
+        'salon_role' => SalonRole::User, 'staff_type' => null,
+    ]);
+    $this->actingAs($outsider)->get(route('salon.clients', $salon))->assertForbidden();
+
+    // Stylists cannot create or edit clients from the screen.
+    Livewire::actingAs(stylistOf($salon))
+        ->test('pages::salon.clients.index', ['salon' => $salon])
+        ->set('name', 'Sneaky Add')
+        ->call('create')
+        ->assertForbidden();
 });
 
 it('creates a client scoped to the salon', function () {
