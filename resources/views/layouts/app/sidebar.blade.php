@@ -148,6 +148,14 @@
 
                 {{-- Settings --}}
                 <nav class="px-3 pb-2 pt-1">
+                    {{-- Setup wizard: managers, until the salon is marked live. --}}
+                    @if ($salon && $user?->can('manage', $salon) && $salon->onboarded_at === null)
+                        <a href="{{ route('salon.onboarding', $salon) }}" wire:navigate
+                           class="bts-nav-item {{ request()->routeIs('salon.onboarding') ? 'bts-nav-item-active' : '' }}">
+                            <flux:icon.rocket-launch variant="micro" class="shrink-0" />
+                            <span x-show="!collapsed" x-cloak>{{ __('Setup') }}</span>
+                        </a>
+                    @endif
                     @if ($salon && $user?->can('manage', $salon))
                         <a href="{{ route('salon.settings', $salon) }}" wire:navigate
                            class="bts-nav-item {{ request()->routeIs('salon.settings') ? 'bts-nav-item-active' : '' }}">

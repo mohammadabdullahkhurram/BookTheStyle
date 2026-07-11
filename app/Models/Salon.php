@@ -44,6 +44,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property array<string, mixed>|null $feature_flags
  * @property string|null $api_token_hash
  * @property CarbonImmutable|null $api_token_generated_at
+ * @property array<string, mixed>|null $onboarding
+ * @property CarbonImmutable|null $onboarded_at
  */
 class Salon extends Model
 {
@@ -87,6 +89,8 @@ class Salon extends Model
             'active' => 'boolean',
             'branding' => 'array',
             'api_token_generated_at' => 'immutable_datetime',
+            'onboarding' => 'array',
+            'onboarded_at' => 'immutable_datetime',
             'feature_flags' => 'array',
             'allow_walkins' => 'boolean',
             'allow_same_day' => 'boolean',

@@ -740,6 +740,12 @@ new #[Title('Salon settings')] class extends Component {
 
         {{-- General: business profile + timezone. --}}
         <section x-show="tab === 'general'" x-cloak class="flex flex-col gap-6">
+        @if ($salon->onboarded_at === null)
+            <div class="flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-border bg-accent-soft px-4 py-3">
+                <p class="text-[14px] text-accent-ink">{{ __('This salon is not live yet — the setup wizard walks through every remaining step.') }}</p>
+                <a href="{{ route('salon.onboarding', $salon) }}" wire:navigate class="bts-btn bts-btn-secondary bts-btn-sm shrink-0">{{ __('Open setup') }}</a>
+            </div>
+        @endif
         @can('manageProfile', $salon)
             <x-ui.card class="flex flex-col gap-5">
                 <h2 class="bts-card-title">{{ __('Business profile') }}</h2>
