@@ -85,7 +85,7 @@ function fakeContactAndAppointments(array $appointmentIds): void
         $sequence->push(['id' => $id]);
     }
 
-    Http::fake([
+    Http::fake(['services.leadconnectorhq.com/contacts/*/tags' => Http::response([]),
         'services.leadconnectorhq.com/contacts/upsert' => Http::response(['contact' => ['id' => 'ghl_c1']]),
         'services.leadconnectorhq.com/calendars/events/appointments*' => $sequence,
     ]);
@@ -184,7 +184,7 @@ it('pushes each stylist booking at ITS OWN time with ITS OWN service in the titl
     expect($ids->all())->toBe(['ghl_a1', 'ghl_a2']);
 
     // The contact was upserted once and shared.
-    Http::assertSentCount(3);
+    Http::assertSentCount(4); // + the one-time client tag add
 });
 
 it('keeps one spanning appointment for two services by the same stylist', function () {
@@ -205,7 +205,7 @@ it('keeps one spanning appointment for two services by the same stylist', functi
         && $r['endTime'] === '2026-06-23T11:30:00-04:00'
         && str_contains($r['title'], 'Color')
         && str_contains($r['title'], 'Blow-dry'));
-    Http::assertSentCount(2); // one upsert + ONE appointment
+    Http::assertSentCount(3); // one upsert + tag add + ONE appointment
     expect($booking->fresh()->ghl_appointment_id)->toBe('ghl_a1');
 });
 
@@ -226,13 +226,13 @@ it('updates the same appointment on re-push and skips when nothing changed', fun
     $pusher->push($booking);           // upsert + create = 2 requests
     $pusher->push($booking->fresh());  // unchanged — hash short-circuits, no request
 
-    Http::assertSentCount(2);
+    Http::assertSentCount(3); // upsert + tag add + create
 
     // Reschedule: same appointment updated, never duplicated.
     $item->update(['starts_at' => $item->starts_at->addHour(), 'ends_at' => $item->ends_at->addHour()]);
     $pusher->push($booking->fresh());
 
-    Http::assertSentCount(3);
+    Http::assertSentCount(4); // …plus the update (tag added once)
     Http::assertSent(fn ($r): bool => $r->method() === 'PUT'
         && str_ends_with($r->url(), '/calendars/events/appointments/ghl_a1')
         && $r['startTime'] === '2026-06-23T11:00:00-04:00');
@@ -313,7 +313,7 @@ it('books successfully with no push when the stylist is unmapped', function () {
 // ---------------------------------------------------------------------------
 
 it('reuses a stored contact id without upserting again', function () {
-    Http::fake([
+    Http::fake(['services.leadconnectorhq.com/contacts/*/tags' => Http::response([]),
         'services.leadconnectorhq.com/calendars/events/appointments*' => Http::response(['id' => 'ghl_a2']),
     ]);
     $salon = ghlBookingSalon();
@@ -332,7 +332,7 @@ it('reuses a stored contact id without upserting again', function () {
 });
 
 it('sends wall-clock times with DST-correct offsets', function () {
-    Http::fake([
+    Http::fake(['services.leadconnectorhq.com/contacts/*/tags' => Http::response([]),
         'services.leadconnectorhq.com/contacts/upsert' => Http::response(['contact' => ['id' => 'ghl_c1']]),
         'services.leadconnectorhq.com/calendars/events/appointments*' => Http::sequence()
             ->push(['id' => 'ghl_a_summer'])->push(['id' => 'ghl_a_winter']),
@@ -361,7 +361,7 @@ it('sends wall-clock times with DST-correct offsets', function () {
 // ---------------------------------------------------------------------------
 
 it('retries through a 429 and still syncs', function () {
-    Http::fake([
+    Http::fake(['services.leadconnectorhq.com/contacts/*/tags' => Http::response([]),
         'services.leadconnectorhq.com/contacts/upsert' => Http::sequence()
             ->push(['message' => 'rate limited'], 429)
             ->push(['contact' => ['id' => 'ghl_c1']]),
@@ -377,11 +377,11 @@ it('retries through a 429 and still syncs', function () {
     app(GhlBookingPusher::class)->push($booking);
 
     expect($booking->fresh()->ghl_sync_status)->toBe(GhlBookingPusher::STATUS_SYNCED);
-    Http::assertSentCount(3); // 429 + retried upsert + appointment
+    Http::assertSentCount(4); // 429 + retried upsert + tag add + appointment
 });
 
 it('records a visible sync error after exhausted retries, booking intact', function () {
-    Http::fake(['services.leadconnectorhq.com/*' => Http::response(['message' => 'no'], 401)]);
+    Http::fake(['services.leadconnectorhq.com/contacts/*/tags' => Http::response([]), 'services.leadconnectorhq.com/*' => Http::response(['message' => 'no'], 401)]);
     $salon = ghlBookingSalon();
     $anna = stylistOf($salon);
     mapProvider($salon, $anna);
@@ -533,7 +533,7 @@ it('splits 3 services (2 sharing a stylist) into 3 bookings and 3 single-service
     Http::assertNotSent(fn ($r): bool => str_contains($r->url(), 'appointments')
         && is_string($r['title'] ?? null) && str_contains($r['title'], 'Cut') && str_contains($r['title'], 'Color'));
 
-    Http::assertSentCount(4); // one contact upsert + three appointments
+    Http::assertSentCount(5); // one contact upsert + tag add + three appointments
 });
 
 it('pushes two separate appointments when the same stylist performs two services', function () {
@@ -556,7 +556,7 @@ it('pushes two separate appointments when the same stylist performs two services
         && $r['startTime'] === '2026-06-22T10:00:00-04:00' && $r['endTime'] === '2026-06-22T10:30:00-04:00');
     Http::assertSent(fn ($r): bool => $r->method() === 'POST' && str_contains($r->url(), 'appointments')
         && $r['startTime'] === '2026-06-22T14:00:00-04:00' && $r['endTime'] === '2026-06-22T14:30:00-04:00');
-    Http::assertSentCount(3); // upsert + 2 appointments — no grouping
+    Http::assertSentCount(4); // upsert + tag add + 2 appointments — no grouping
 });
 
 it('backfills grouped multi-item bookings into per-service bookings', function () {

@@ -28,6 +28,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $ghl_contact_id
  * @property string|null $ghl_pushed_hash
  * @property CarbonImmutable|null $ghl_pushed_at
+ * @property CarbonImmutable|null $ghl_client_tagged_at
  * @property string|null $ghl_sync_status
  * @property string|null $ghl_sync_error
  * @property CarbonImmutable|null $updated_at

@@ -63,7 +63,7 @@ function rcPushedBooking(Salon $salon): Booking
         'ends_at' => CarbonImmutable::parse('2026-06-23 10:45', $salon->timezone),
     ]);
 
-    Http::fake(['services.leadconnectorhq.com/calendars/events/appointments*' => Http::response(['id' => 'ghl_r1'])]);
+    Http::fake(['services.leadconnectorhq.com/contacts/*/tags' => Http::response([]), 'services.leadconnectorhq.com/calendars/events/appointments*' => Http::response(['id' => 'ghl_r1'])]);
     app(GhlBookingPusher::class)->push($booking);
 
     return $booking->fresh();
@@ -72,7 +72,10 @@ function rcPushedBooking(Salon $salon): Booking
 /** Fake the events-feed pull (and optionally a contact lookup). */
 function rcFeed(array $events, array $contacts = []): void
 {
-    $fakes = ['services.leadconnectorhq.com/calendars/events?*' => Http::response(['events' => $events])];
+    $fakes = [
+        'services.leadconnectorhq.com/contacts/*/tags' => Http::response([]),
+        'services.leadconnectorhq.com/calendars/events?*' => Http::response(['events' => $events]),
+    ];
     foreach ($contacts as $id => $contact) {
         $fakes['services.leadconnectorhq.com/contacts/'.$id] = Http::response(['contact' => $contact]);
     }
@@ -207,7 +210,7 @@ it('respects last-change-wins: an older GHL state loses and the app re-pushes', 
         'appointmentStatus' => 'cancelled',
         'dateUpdated' => '2026-06-22T07:00:00-04:00', // BEFORE the app's edit
     ])]);
-    Http::fake(['services.leadconnectorhq.com/calendars/events/appointments/*' => Http::response(['id' => 'ghl_r1'])]);
+    Http::fake(['services.leadconnectorhq.com/contacts/*/tags' => Http::response([]), 'services.leadconnectorhq.com/calendars/events/appointments/*' => Http::response(['id' => 'ghl_r1'])]);
 
     test()->artisan('ghl:reconcile')->assertSuccessful();
 

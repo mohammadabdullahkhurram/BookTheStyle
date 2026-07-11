@@ -61,6 +61,7 @@ function whPushedBooking(Salon $salon, User $stylist): Booking
 {
     $client = Client::factory()->for($salon)->create([
         'name' => 'Casey Client', 'email' => 'casey@example.com', 'ghl_contact_id' => 'ghl_c1',
+        'ghl_client_tagged_at' => now(), // tagging is covered in GhlContactSyncTest
     ]);
     $booking = Booking::factory()->for($salon)->for($client)->create(['status' => BookingStatus::Booked]);
     BookingItem::factory()->create([
@@ -72,7 +73,7 @@ function whPushedBooking(Salon $salon, User $stylist): Booking
         'ends_at' => CarbonImmutable::parse('2026-06-23 10:45', $salon->timezone),
     ]);
 
-    Http::fake(['services.leadconnectorhq.com/calendars/events/appointments*' => Http::response(['id' => 'ghl_a1'])]);
+    Http::fake(['services.leadconnectorhq.com/contacts/*/tags' => Http::response([]), 'services.leadconnectorhq.com/calendars/events/appointments*' => Http::response(['id' => 'ghl_a1'])]);
     app(GhlBookingPusher::class)->push($booking);
 
     return $booking->fresh();
@@ -284,6 +285,9 @@ it('applies the inbound change when GHL changed more recently', function () {
 // ---------------------------------------------------------------------------
 
 it('creates an app booking from a new GHL appointment, fully mapped', function () {
+    // A GHL-originated booking makes the contact a real client — the sync
+    // adds the client tag, so that one outbound call is expected here.
+    Http::fake(['services.leadconnectorhq.com/contacts/*/tags' => Http::response([])]);
     $salon = whSalon();
     $stylist = whStylist($salon, 'prov_anna');
     Service::factory()->for($salon)->create(['name' => 'Cut & Style', 'duration_min' => 45]);
@@ -608,7 +612,7 @@ it('heals a booking poisoned with the shared calendar id via contact + time, cor
 
 it('never stores the calendar id from an outbound create response, and warns instead', function () {
     Log::spy();
-    Http::fake([
+    Http::fake(['services.leadconnectorhq.com/contacts/*/tags' => Http::response([]),
         'services.leadconnectorhq.com/contacts/upsert' => Http::response(['contact' => ['id' => 'ghl_c1']]),
         // A degenerate response: only the calendar id, no appointment id.
         'services.leadconnectorhq.com/calendars/events/appointments*' => Http::response(['id' => 'cal_master']),

@@ -59,7 +59,7 @@ it('reschedules from the check-in tab: times move, history notes it, GHL gets an
     StylistProfile::updateOrCreate(['salon_id' => $salon->id, 'user_id' => $stylist->id], ['ghl_user_id' => 'prov_1']);
     $service = serviceFor($salon, $stylist, 60);
 
-    Http::fake([
+    Http::fake(['services.leadconnectorhq.com/contacts/*/tags' => Http::response([]),
         'services.leadconnectorhq.com/contacts/upsert' => Http::response(['contact' => ['id' => 'ghl_c1']]),
         'services.leadconnectorhq.com/calendars/events/appointments*' => Http::response(['id' => 'ghl_a1']),
     ]);
@@ -91,7 +91,7 @@ it('reschedules from the check-in tab: times move, history notes it, GHL gets an
         && str_ends_with($r->url(), '/calendars/events/appointments/ghl_a1')
         && $r['startTime'] === '2026-06-22T15:00:00-04:00');
     expect($booking->fresh()->ghl_appointment_id)->toBe('ghl_a1');
-    Http::assertSentCount(3); // upsert + create + the one update
+    Http::assertSentCount(4) /* incl. the one-time client tag add */; // upsert + create + the one update
 });
 
 it('rejects a conflicting reschedule server-side with a clear message', function () {
@@ -145,7 +145,7 @@ it('pushes a status change to GHL when the mapped status changes (no-show)', fun
     $stylist = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
     StylistProfile::updateOrCreate(['salon_id' => $salon->id, 'user_id' => $stylist->id], ['ghl_user_id' => 'prov_1']);
 
-    Http::fake([
+    Http::fake(['services.leadconnectorhq.com/contacts/*/tags' => Http::response([]),
         'services.leadconnectorhq.com/contacts/upsert' => Http::response(['contact' => ['id' => 'ghl_c1']]),
         'services.leadconnectorhq.com/calendars/events/appointments*' => Http::response(['id' => 'ghl_a1']),
     ]);

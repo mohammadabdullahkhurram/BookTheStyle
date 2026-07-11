@@ -1,11 +1,16 @@
 <?php
 
+use App\Actions\Bookings\TransitionBookingStatus;
 use App\Actions\Clients\UpdateClient;
+use App\Enums\BookingStatus;
 use App\Models\Client;
 use App\Models\Salon;
 use App\Models\SalonGhlConnection;
+use App\Models\Service;
+use App\Models\StylistProfile;
 use App\Models\WebhookEvent;
 use App\Services\Ghl\GhlContactSync;
+use App\Support\BookingApiToken;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
@@ -214,14 +219,14 @@ it('ignores the webhook that merely echoes what the app just pushed', function (
     app(UpdateClient::class)->handle($salon, $client, [
         'name' => 'Paula Phone', 'phone' => '+15550999', 'email' => 'paula@example.com',
     ]);
-    Http::assertSentCount(1);
+    Http::assertSentCount(2); // the PUT + the one-time tag add
 
     // GHL echoes the same state back — ignored, and no second push.
     postContactWebhook(['date_updated' => '2026-06-22T12:30:00Z'])->assertStatus(202);
 
     expect(WebhookEvent::query()->latest('id')->first()->status)->toBe(WebhookEvent::STATUS_IGNORED_ECHO);
     expect($client->refresh()->phone)->toBe('+15550999');
-    Http::assertSentCount(1); // still just the original push
+    Http::assertSentCount(2); // still just the original push + tag
 });
 
 it('keeps the newer app state when the inbound change is older (last-edit-wins)', function () {
@@ -289,4 +294,122 @@ it('dedupes an identical replayed webhook', function () {
     expect(WebhookEvent::query()->count())->toBe(2);
     expect(WebhookEvent::query()->latest('id')->first()->status)->toBe(WebhookEvent::STATUS_IGNORED_REPLAY);
     expect($salon->clients()->firstOrFail()->phone)->toBe('+15550999'); // applied exactly once
+});
+
+// ---------------------------------------------------------------------------
+// Auto-tagging — only REAL clients (bookings + app-side pushes)
+// ---------------------------------------------------------------------------
+
+it('tags the contact once when a booking is pushed — merge endpoint, never overwrite', function () {
+    Http::fake([
+        '*/contacts/upsert' => Http::response(['contact' => ['id' => 'c_book']]),
+        '*/contacts/*/tags' => Http::response([]),
+        '*/calendars/events/appointments*' => Http::response(['id' => 'a_tag1']),
+    ]);
+    $salon = csSalon();
+    $stylist = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
+    StylistProfile::updateOrCreate(['salon_id' => $salon->id, 'user_id' => $stylist->id], ['ghl_user_id' => 'prov_tag']);
+    $service = serviceFor($salon, $stylist, 60);
+
+    $booking = makeBooking($salon, salonOwnerOf($salon), $stylist, $service, '2026-06-22 10:00', 'Tag Tia');
+
+    // The tag goes through the ADD-tags endpoint (merges server-side) —
+    // never a tags write on the contact body (which would overwrite).
+    Http::assertSent(fn ($r): bool => $r->method() === 'POST'
+        && str_ends_with($r->url(), '/contacts/c_book/tags')
+        && $r['tags'] === ['client']);
+    Http::assertNotSent(fn ($r): bool => $r->method() === 'PUT' && str_contains($r->url(), '/contacts/'));
+    expect($booking->client->refresh()->ghl_client_tagged_at)->not->toBeNull();
+
+    // A second push for the same client (check-in status change) re-pushes
+    // the appointment but never re-tags.
+    app(TransitionBookingStatus::class)
+        ->handle(salonOwnerOf($salon), $salon, $booking, BookingStatus::Arrived);
+    expect(Http::recorded(fn ($r): bool => str_ends_with($r->url(), '/tags'))->count())->toBe(1);
+});
+
+it('tags via a voice-API booking too (same push path)', function () {
+    Http::fake([
+        '*/contacts/upsert' => Http::response(['contact' => ['id' => 'c_voice']]),
+        '*/contacts/*/tags' => Http::response([]),
+        '*/calendars/events/appointments*' => Http::response(['id' => 'a_tag2']),
+    ]);
+    $salon = csSalon();
+    $stylist = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
+    StylistProfile::updateOrCreate(['salon_id' => $salon->id, 'user_id' => $stylist->id], ['ghl_user_id' => 'prov_v']);
+    $service = serviceFor($salon, $stylist, 60);
+    $service->update(['name' => 'Haircut']);
+    $token = BookingApiToken::generate($salon);
+
+    test()->postJson(route('api.booking.create'), [
+        'service' => 'Haircut',
+        'datetime' => '2026-06-22T14:00:00-04:00',
+        'client' => ['name' => 'Voice Val', 'phone' => '+15550777'],
+    ], ['Authorization' => "Bearer {$token}"])->assertCreated();
+
+    Http::assertSent(fn ($r): bool => str_ends_with($r->url(), '/contacts/c_voice/tags') && $r['tags'] === ['client']);
+});
+
+it('tags the contact of a GHL-originated booking, skipping the API call when the payload already carries it', function () {
+    Http::fake(['*/contacts/*/tags' => Http::response([])]);
+    $salon = csSalon();
+    $stylist = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
+    StylistProfile::updateOrCreate(['salon_id' => $salon->id, 'user_id' => $stylist->id], ['ghl_user_id' => 'prov_in']);
+    Service::factory()->for($salon)->create(['name' => 'Cut & Style', 'duration_min' => 45]);
+
+    $appointment = fn (string $id) => [
+        'id' => $id, 'calendarId' => 'cal_master', 'assignedUserId' => 'prov_in',
+        'appointmentStatus' => 'confirmed', 'title' => 'Cut & Style',
+        'startTime' => '2026-06-23T15:00:00-04:00', 'endTime' => '2026-06-23T15:45:00-04:00',
+    ];
+
+    // Untagged contact books through GHL (voice AI): the app adds the tag.
+    test()->postJson(route('webhooks.ghl'), [
+        'locationId' => 'loc_cs', 'appointment' => $appointment('ghl_in1'),
+        'contact' => ['id' => 'c_in1', 'name' => 'Inbound Ida', 'email' => 'ida@example.com'],
+    ], ['X-Webhook-Secret' => 'cs-secret'])->assertStatus(202);
+
+    Http::assertSent(fn ($r): bool => str_ends_with($r->url(), '/contacts/c_in1/tags') && $r['tags'] === ['client']);
+
+    // Payload already tagged: recorded without any API call.
+    test()->postJson(route('webhooks.ghl'), [
+        'locationId' => 'loc_cs', 'appointment' => $appointment('ghl_in2'),
+        'contact' => ['id' => 'c_in2', 'name' => 'Tagged Tom', 'email' => 'tom@example.com', 'tags' => ['client']],
+    ], ['X-Webhook-Secret' => 'cs-secret'])->assertStatus(202);
+
+    expect(Http::recorded(fn ($r): bool => str_contains($r->url(), 'c_in2'))->count())->toBe(0);
+    expect($salon->clients()->where('ghl_contact_id', 'c_in2')->firstOrFail()->ghl_client_tagged_at)->not->toBeNull();
+});
+
+it('never tags for a voice availability check or an untagged inbound contact', function () {
+    Http::fake();
+    $salon = csSalon();
+    $stylist = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
+    $service = serviceFor($salon, $stylist, 60);
+    $service->update(['name' => 'Haircut']);
+    $token = BookingApiToken::generate($salon);
+
+    // Someone just checking times — no booking, no contact, no tag.
+    test()->postJson(route('api.booking.availability'), ['service' => 'Haircut'],
+        ['Authorization' => "Bearer {$token}"])->assertOk();
+    Http::assertNothingSent();
+
+    // A random untagged GHL contact webhook: no client created, no tag call.
+    postContactWebhook(['contact_id' => 'c_random', 'phone' => '+15550888'])->assertStatus(202);
+    Http::assertNothingSent();
+});
+
+it('tags on an app client push, once', function () {
+    fakeContactApi();
+    $salon = csSalon();
+    $client = Client::factory()->for($salon)->create([
+        'name' => 'Edith Edit', 'phone' => '+15550666', 'email' => null, 'ghl_contact_id' => 'c_1',
+    ]);
+
+    app(UpdateClient::class)->handle($salon, $client, ['name' => 'Edith Edited', 'phone' => '+15550666', 'email' => null]);
+    Http::assertSent(fn ($r): bool => str_ends_with($r->url(), '/contacts/c_1/tags') && $r['tags'] === ['client']);
+
+    // Another edit: pushed again, but the tag call never repeats.
+    app(UpdateClient::class)->handle($salon, $client->refresh(), ['name' => 'Edith Final', 'phone' => '+15550666', 'email' => null]);
+    expect(Http::recorded(fn ($r): bool => str_ends_with($r->url(), '/tags'))->count())->toBe(1);
 });

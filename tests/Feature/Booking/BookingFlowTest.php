@@ -76,7 +76,7 @@ function flowGhlSalon(): Salon
 }
 
 it('books two stylists at the same time as two lines, pushing per-stylist GHL appointments', function () {
-    Http::fake([
+    Http::fake(['services.leadconnectorhq.com/contacts/*/tags' => Http::response([]),
         'services.leadconnectorhq.com/contacts/upsert' => Http::response(['contact' => ['id' => 'ghl_c1']]),
         'services.leadconnectorhq.com/calendars/events/appointments*' => Http::sequence()
             ->push(['id' => 'ghl_a1'])->push(['id' => 'ghl_a2']),

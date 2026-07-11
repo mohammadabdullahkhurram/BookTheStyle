@@ -57,7 +57,7 @@ function elapsedBooking(Salon $salon, User $stylist, string $start, string $name
 
 function fakeGhlOnce(): void
 {
-    Http::fake([
+    Http::fake(['services.leadconnectorhq.com/contacts/*/tags' => Http::response([]),
         'services.leadconnectorhq.com/contacts/upsert' => Http::response(['contact' => ['id' => 'ghl_c1']]),
         'services.leadconnectorhq.com/calendars/events/appointments*' => Http::response(['id' => 'ghl_a1']),
     ]);

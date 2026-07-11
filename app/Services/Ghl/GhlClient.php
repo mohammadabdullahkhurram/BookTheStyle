@@ -251,6 +251,21 @@ class GhlClient
     }
 
     /**
+     * ADD tags to a contact (POST /contacts/{id}/tags) — GHL merges them
+     * with whatever the contact already carries; existing tags are never
+     * touched and re-adding is a server-side no-op. This is deliberately
+     * NOT a tags write on the contact body (which would overwrite).
+     *
+     * @param  list<string>  $tags
+     */
+    public function addContactTags(string $contactId, array $tags): void
+    {
+        $this->send('post', '/contacts/'.$contactId.'/tags', self::CONTACTS_VERSION, json: [
+            'tags' => $tags,
+        ]);
+    }
+
+    /**
      * Create an appointment on a calendar in the salon's location. Returns
      * the appointment array incl. its id.
      *

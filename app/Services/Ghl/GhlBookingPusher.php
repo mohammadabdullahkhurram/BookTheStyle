@@ -96,6 +96,10 @@ class GhlBookingPusher
         $client = GhlClient::fromConnection($connection);
         $contactId = $this->ensureContact($client, $booking);
 
+        // A booking makes this contact a REAL client — ensure the client tag
+        // is on it (once; merge-only; never for mere callers or leads).
+        app(GhlContactSync::class)->ensureClientTag($client, $booking->client);
+
         $payload = self::appointmentPayload($booking, $items, (string) $providerId, (string) $connection->calendar_id);
         $hash = self::payloadHash($payload, $contactId);
 

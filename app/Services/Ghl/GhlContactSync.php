@@ -4,6 +4,7 @@ namespace App\Services\Ghl;
 
 use App\Models\Client;
 use App\Models\Salon;
+use App\Models\SalonGhlConnection;
 use App\Models\WebhookEvent;
 use Illuminate\Support\Facades\Log;
 
@@ -42,6 +43,67 @@ class GhlContactSync
             trim((string) $phone),
             mb_strtolower(trim((string) $email)),
         ]) ?: '');
+    }
+
+    /**
+     * Ensure the configured client tag is on this client's GHL contact —
+     * exactly once (ghl_client_tagged_at gates repeats), via the ADD-tags
+     * endpoint (merge; never overwrites existing tags). Called only from
+     * REAL-client moments: a booking push, or an app-side client push. A
+     * tag failure never fails the caller — it logs and retries on the next
+     * qualifying event.
+     */
+    public function ensureClientTag(GhlClient $ghl, Client $client): void
+    {
+        $tag = trim((string) config('ghl.client_tag'));
+
+        if ($tag === '' || $client->ghl_client_tagged_at !== null || $client->ghl_contact_id === null) {
+            return;
+        }
+
+        try {
+            $ghl->addContactTags($client->ghl_contact_id, [$tag]);
+        } catch (GhlApiException $e) {
+            Log::info('GHL client tag failed — will retry on the next push', [
+                'salon_id' => $client->salon_id,
+                'client_id' => $client->id,
+                'status' => $e->getCode(),
+            ]);
+
+            return; // not stamped — retried on the next booking push / edit
+        }
+
+        self::markTagged($client);
+    }
+
+    /**
+     * The tag came from a booking arriving THROUGH GHL: if the inbound
+     * payload already shows it, just record that; otherwise add it via the
+     * API (a booking makes this contact a real client).
+     *
+     * @param  list<string>  $payloadTags
+     */
+    public function ensureClientTagFromInbound(SalonGhlConnection $connection, Client $client, array $payloadTags): void
+    {
+        if ($client->ghl_client_tagged_at !== null || $client->ghl_contact_id === null) {
+            return;
+        }
+
+        $tag = mb_strtolower(trim((string) config('ghl.client_tag')));
+
+        if ($tag !== '' && in_array($tag, array_map('mb_strtolower', $payloadTags), true)) {
+            self::markTagged($client); // already tagged in GHL — no API call
+
+            return;
+        }
+
+        $this->ensureClientTag(GhlClient::fromConnection($connection), $client);
+    }
+
+    /** The tag is confirmed present on the GHL contact. */
+    public static function markTagged(Client $client): void
+    {
+        $client->forceFill(['ghl_client_tagged_at' => now()])->save();
     }
 
     /** Record what was just pushed (or adopted) so its echo is recognized. */
@@ -100,6 +162,9 @@ class GhlContactSync
             throw $e;
         }
 
+        // An app-pushed client IS a real client — make sure the tag is on.
+        $this->ensureClientTag($ghl, $client);
+
         Log::info('GHL contact push applied', [
             'salon_id' => $client->salon_id,
             'client_id' => $client->id,
@@ -149,6 +214,7 @@ class GhlContactSync
                 'ghl_contact_id' => $payload->contactId,
             ]);
             self::recordPushed($created); // state came FROM GHL — in sync by definition
+            self::markTagged($created);   // it qualified BY the tag — already on the contact
 
             $decision('created_client', 'tagged contact with no matching client');
             $event->conclude(WebhookEvent::STATUS_CREATED_CLIENT, __('Created client from tagged contact.'));
@@ -159,6 +225,14 @@ class GhlContactSync
         // Adopt the contact id when we matched by phone/email.
         if ($client->ghl_contact_id === null) {
             $client->forceFill(['ghl_contact_id' => $payload->contactId])->save();
+        }
+
+        // Bookkeeping: the payload shows our client tag is already on the
+        // contact — remember it so no push ever re-adds it.
+        $tag = mb_strtolower(trim((string) config('ghl.client_tag')));
+        if ($client->ghl_client_tagged_at === null && $tag !== ''
+            && in_array($tag, array_map('mb_strtolower', $payload->tags), true)) {
+            self::markTagged($client);
         }
 
         // Merge: a field absent from the payload keeps the app value.

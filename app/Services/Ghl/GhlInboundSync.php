@@ -391,6 +391,10 @@ class GhlInboundSync
 
         $this->refreshBookingSyncState($booking, $connection, $payload);
 
+        // A booking arriving FROM GHL also makes its contact a real client —
+        // tag it (skipping the API call when the payload already shows it).
+        app(GhlContactSync::class)->ensureClientTagFromInbound($connection, $client, $payload->tags);
+
         $event->conclude(WebhookEvent::STATUS_CREATED_BOOKING, __('Created booking #:id.', ['id' => $booking->id]));
     }
 
