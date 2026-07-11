@@ -4,6 +4,8 @@ A multi-tenant booking platform for hair/beauty salons, operated by an agency (o
 
 `SPEC.md` is the canonical product spec, `CLAUDE.md` holds the operating rules, and `DESIGN-TOKENS.md` is the authoritative design system.
 
+Backups & restore points: every checkpoint tag/branch and its restore command is cataloged in [`docs/BACKUPS.md`](docs/BACKUPS.md).
+
 ## Stack
 
 - **PHP 8.4+** · **Laravel 13** (pinned to `13.15.0`) · auth via **Fortify** (no public self-registration — staff are invited)
