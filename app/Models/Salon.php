@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\StaffType;
+use Carbon\CarbonImmutable;
 use Database\Factories\SalonFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -41,6 +42,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property int $auto_no_show_grace_minutes
  * @property bool $auto_complete
  * @property array<string, mixed>|null $feature_flags
+ * @property string|null $api_token_hash
+ * @property CarbonImmutable|null $api_token_generated_at
  */
 class Salon extends Model
 {
@@ -83,6 +86,7 @@ class Salon extends Model
         return [
             'active' => 'boolean',
             'branding' => 'array',
+            'api_token_generated_at' => 'immutable_datetime',
             'feature_flags' => 'array',
             'allow_walkins' => 'boolean',
             'allow_same_day' => 'boolean',

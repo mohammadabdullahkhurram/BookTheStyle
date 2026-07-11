@@ -22,9 +22,10 @@ return Application::configure(basePath: dirname(__DIR__))
             SecurityHeaders::class,
         ]);
 
-        // The GHL inbound webhook is a server-to-server POST authenticated by
-        // its own shared secret — no session, no CSRF token.
-        $middleware->validateCsrfTokens(except: ['webhooks/*']);
+        // The GHL inbound webhook and the Voice-AI Booking API are
+        // server-to-server POSTs authenticated by their own secrets — no
+        // session, no CSRF token.
+        $middleware->validateCsrfTokens(except: ['webhooks/*', 'api/*']);
 
         // Resolves + authorises the active salon (tenant-isolation boundary).
         $middleware->alias([

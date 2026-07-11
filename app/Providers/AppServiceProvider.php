@@ -55,6 +55,15 @@ class AppServiceProvider extends ServiceProvider
     {
         RateLimiter::for('calendar-feed', fn (Request $request) => Limit::perMinute(60)->by($request->ip()));
         RateLimiter::for('ghl-webhook', fn (Request $request) => Limit::perMinute(120)->by($request->ip()));
+
+        // Booking API: per token (hashed — never the raw token as a cache
+        // key), falling back to per-IP for unauthenticated probes.
+        RateLimiter::for('booking-api', function (Request $request) {
+            $bearer = $request->bearerToken();
+
+            return Limit::perMinute((int) config('booking_api.rate_limit'))
+                ->by($bearer !== null ? hash('sha256', $bearer) : 'ip:'.$request->ip());
+        });
     }
 
     /**

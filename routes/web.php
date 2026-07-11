@@ -1,8 +1,10 @@
 <?php
 
+use App\Http\Controllers\Api\VoiceBookingController;
 use App\Http\Controllers\Auth\PasswordChangeController;
 use App\Http\Controllers\CalendarFeedController;
 use App\Http\Controllers\GhlWebhookController;
+use App\Http\Middleware\AuthenticateBookingApi;
 use Illuminate\Support\Facades\Route;
 
 $central = config('app.domain');     // apex, e.g. bookthestyle.com / lvh.me
@@ -95,6 +97,22 @@ Route::domain($app)->middleware('throttle:calendar-feed')->group(function () {
 Route::domain($app)->middleware('throttle:ghl-webhook')
     ->post('webhooks/ghl', GhlWebhookController::class)
     ->name('webhooks.ghl');
+
+/*
+| Voice-AI Booking API (Stage 2) — POST /api/v1/booking/* on the application
+| host. Sessionless + CSRF-exempt (see bootstrap/app.php); authenticated by a
+| per-salon bearer token (hashed at rest) that ALSO resolves the salon —
+| nothing tenant-identifying is ever taken from the URL or body. Rate-limited
+| per token. GHL Voice AI Custom Actions call these mid-conversation.
+| "api" is a reserved slug, so no salon can shadow it.
+*/
+Route::domain($app)
+    ->middleware(['throttle:booking-api', AuthenticateBookingApi::class])
+    ->prefix('api/v1/booking')
+    ->group(function () {
+        Route::post('availability', [VoiceBookingController::class, 'availability'])->name('api.booking.availability');
+        Route::post('create', [VoiceBookingController::class, 'create'])->name('api.booking.create');
+    });
 
 // Account settings live on app.{domain} too. Required before the wildcard salon
 // group so app.{domain}/settings/* wins over a salon path.

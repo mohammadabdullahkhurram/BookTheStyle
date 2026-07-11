@@ -47,6 +47,11 @@ class CreateBooking
     ) {}
 
     /**
+     * A null $actor is a SYSTEM caller (the token-authenticated Booking API):
+     * the token already authorizes the whole salon, so the per-actor
+     * permission check is skipped and $bookedByType/$source say who booked.
+     * Human callers keep the exact previous behavior.
+     *
      * @param  array{
      *     client: array{id?: int, name?: string, phone?: string|null, email?: string|null},
      *     items: list<array{service_id: int, stylist_id: int|null, start?: string|null}>,
@@ -55,9 +60,9 @@ class CreateBooking
      *     notes?: string|null,
      * }  $data
      */
-    public function handle(User $actor, Salon $salon, array $data): Booking
+    public function handle(?User $actor, Salon $salon, array $data, BookingSource $source = BookingSource::InApp, ?BookedByType $bookedByType = null): Booking
     {
-        $bookings = $this->create($actor, $salon, $data);
+        $bookings = $this->create($actor, $salon, $data, $source, $bookedByType);
 
         // Mirror to GHL in the background AFTER the bookings committed — the
         // app bookings are the source of truth and never wait on GHL. Each
@@ -79,7 +84,7 @@ class CreateBooking
      * }  $data
      * @return list<Booking> one booking per distinct stylist, earliest first
      */
-    private function create(User $actor, Salon $salon, array $data): array
+    private function create(?User $actor, Salon $salon, array $data, BookingSource $source, ?BookedByType $bookedByType): array
     {
         $isWalkin = (bool) ($data['is_walkin'] ?? false);
         $tz = $salon->timezone;
@@ -94,7 +99,7 @@ class CreateBooking
 
         $this->policy->assertCreatable($salon, $start, $isWalkin);
 
-        return DB::transaction(function () use ($actor, $salon, $data, $start, $isWalkin): array {
+        return DB::transaction(function () use ($actor, $salon, $data, $start, $isWalkin, $source, $bookedByType): array {
             $client = $this->resolveClient($salon, $data['client']);
 
             // Lay items sequentially and resolve each stylist.
@@ -142,7 +147,9 @@ class CreateBooking
                 $cursor = $itemStart->addMinutes($duration->blockedMinutes());
             }
 
-            $this->assertActorMayBook($actor, $salon, $resolved);
+            if ($actor !== null) {
+                $this->assertActorMayBook($actor, $salon, $resolved);
+            }
             $this->assertNoInternalOverlap($resolved);
 
             // Lock the involved stylists (ordered, to avoid deadlocks) then
@@ -179,9 +186,9 @@ class CreateBooking
                 $booking = $salon->bookings()->create([
                     'client_id' => $client->id,
                     'status' => $status,
-                    'booked_by_type' => BookedByType::fromActor($actor, $salon),
-                    'booked_by_user_id' => $actor->id,
-                    'source' => BookingSource::InApp,
+                    'booked_by_type' => $bookedByType ?? BookedByType::fromActor($actor ?? throw new AuthorizationException('A booked-by type is required for system bookings.'), $salon),
+                    'booked_by_user_id' => $actor?->id,
+                    'source' => $source,
                     'is_walkin' => $isWalkin,
                     'notes' => $data['notes'] ?? null,
                     'visit_group_id' => $visitGroupId,
@@ -202,7 +209,7 @@ class CreateBooking
                     'salon_id' => $salon->id,
                     'from_status' => null,
                     'to_status' => BookingStatus::Booked,
-                    'actor_user_id' => $actor->id,
+                    'actor_user_id' => $actor?->id,
                 ]);
 
                 if ($isWalkin) {
@@ -210,7 +217,7 @@ class CreateBooking
                         'salon_id' => $salon->id,
                         'from_status' => BookingStatus::Booked,
                         'to_status' => BookingStatus::Arrived,
-                        'actor_user_id' => $actor->id,
+                        'actor_user_id' => $actor?->id,
                     ]);
                 }
 

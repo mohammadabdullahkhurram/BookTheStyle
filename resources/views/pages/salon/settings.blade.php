@@ -2,6 +2,7 @@
 
 use App\Actions\Salons\DisconnectGhl;
 use App\Actions\Salons\TestGhlConnection;
+use App\Actions\Salons\GenerateBookingApiToken;
 use App\Actions\Salons\UpdateBookingPolicy;
 use App\Actions\Salons\UpdateBranding;
 use App\Actions\Salons\UpdateCurrency;
@@ -129,6 +130,9 @@ new #[Title('Salon settings')] class extends Component {
     // The inbound-webhook shared secret (owner/admin-only screen; the GHL
     // workflow sends it back in the X-Webhook-Secret header).
     public ?string $ghlWebhookSecret = null;
+
+    // Booking API token plaintext — present ONLY right after generation.
+    public ?string $apiTokenPlain = null;
 
     public function mount(Salon $salon): void
     {
@@ -580,6 +584,16 @@ new #[Title('Salon settings')] class extends Component {
         $this->salon->refresh();
 
         Flux::toast(variant: 'success', text: __('Timezone saved.'));
+    }
+
+    public function generateApiToken(GenerateBookingApiToken $action): void
+    {
+        $this->authorize('manage', $this->salon);
+
+        $this->apiTokenPlain = $action->handle($this->salon);
+        $this->salon->refresh();
+
+        Flux::toast(variant: 'success', text: __('API token generated — copy it now.'));
     }
 
     public function saveCurrency(UpdateCurrency $action): void
@@ -1117,6 +1131,38 @@ new #[Title('Salon settings')] class extends Component {
                 </x-ui.card>
             @endif
         @endcan
+
+        {{-- Voice-AI Booking API: the per-salon bearer token GHL Custom
+             Actions authenticate with. Hash-only storage; shown once. --}}
+        <x-ui.card class="flex flex-col gap-4">
+            <h2 class="bts-card-title">{{ __('Voice AI booking API') }}</h2>
+            <p class="text-[13.5px] leading-relaxed text-secondary">
+                {{ __('The GoHighLevel voice assistant books through this salon\'s own engine using these endpoints, authenticated by a secret token. The token is shown once — store it in the GHL Custom Action. Regenerating invalidates the old token immediately.') }}
+            </p>
+
+            @if ($apiTokenPlain !== null)
+                <div class="flex flex-col gap-2 rounded-[11px] border border-[#D8E4D5] bg-[#E7EFE4] px-4 py-3">
+                    <span class="text-[13px] font-semibold text-[#3E5C3A]">{{ __('Copy this token now — it will not be shown again.') }}</span>
+                    <code class="break-all font-mono text-[13.5px] text-ink" data-test="api-token">{{ $apiTokenPlain }}</code>
+                </div>
+            @elseif ($salon->api_token_generated_at !== null)
+                <p class="text-[13.5px] text-body">
+                    {{ __('A token is active (generated :date). It cannot be viewed again — regenerate to replace it.', ['date' => $salon->api_token_generated_at->setTimezone($salon->timezone)->format('M j, Y g:i A')]) }}
+                </p>
+            @else
+                <p class="text-[13.5px] text-faint">{{ __('No token yet — generate one to enable the booking API for this salon.') }}</p>
+            @endif
+
+            <div>
+                <x-ui.button type="button" variant="secondary" wire:click="generateApiToken" wire:confirm="{{ $salon->api_token_generated_at !== null ? __('Regenerate the API token? The current token stops working immediately.') : '' }}">
+                    {{ $salon->api_token_generated_at !== null ? __('Regenerate token') : __('Generate token') }}
+                </x-ui.button>
+            </div>
+
+            <p class="text-[12.5px] text-faint">
+                POST {{ rtrim(config('app.url'), '/') }}/api/v1/booking/availability · POST {{ rtrim(config('app.url'), '/') }}/api/v1/booking/create — Authorization: Bearer &lt;token&gt;
+            </p>
+        </x-ui.card>
         </section>
 
             </div>
