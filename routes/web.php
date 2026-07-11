@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\VoiceBookingController;
 use App\Http\Controllers\Auth\PasswordChangeController;
 use App\Http\Controllers\CalendarFeedController;
 use App\Http\Controllers\GhlWebhookController;
+use App\Http\Controllers\WidgetController;
 use App\Http\Middleware\AuthenticateBookingApi;
 use Illuminate\Support\Facades\Route;
 
@@ -117,6 +118,30 @@ Route::domain($app)
 // Account settings live on app.{domain} too. Required before the wildcard salon
 // group so app.{domain}/settings/* wins over a salon path.
 require __DIR__.'/settings.php';
+
+/*
+|--------------------------------------------------------------------------
+| Public booking widget  ({slug}.{app.domain}/widget)  — no auth
+|--------------------------------------------------------------------------
+| The embeddable client-facing booking surface. The page is loaded inside an
+| iframe on external salon websites (SecurityHeaders relaxes frame-ancestors
+| for THIS route only); its JSON endpoints live on the same salon subdomain,
+| so the page calls them same-origin (no CORS surface). Everything resolves
+| the ACTIVE salon from the slug inside the controller — no session, no
+| membership, rate-limited per IP + salon, bot-gated on the book submit.
+| The api/widget/* paths fall under the global api/* CSRF exemption.
+| The loader script external sites embed is served from the app host below.
+*/
+Route::domain('{salon}.'.$central)->middleware('throttle:widget-api')->group(function () {
+    Route::get('widget', [WidgetController::class, 'page'])->name('salon.widget');
+    Route::prefix('api/widget')->group(function () {
+        Route::get('services', [WidgetController::class, 'services'])->name('salon.widget.services');
+        Route::get('availability', [WidgetController::class, 'availability'])->name('salon.widget.availability');
+        Route::post('book', [WidgetController::class, 'book'])->name('salon.widget.book');
+    });
+});
+
+Route::domain($app)->get('widget.js', [WidgetController::class, 'script'])->name('widget.script');
 
 /*
 |--------------------------------------------------------------------------

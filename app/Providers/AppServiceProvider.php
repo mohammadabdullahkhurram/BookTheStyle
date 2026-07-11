@@ -64,6 +64,14 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute((int) config('booking_api.rate_limit'))
                 ->by($bearer !== null ? hash('sha256', $bearer) : 'ip:'.$request->ip());
         });
+
+        // Public booking widget: no credential exists in a visitor's browser,
+        // so the key is IP + salon host (one hot salon can't starve others
+        // behind a shared IP, and one IP can't hammer every salon).
+        RateLimiter::for('widget-api', function (Request $request) {
+            return Limit::perMinute((int) config('booking_api.widget_rate_limit'))
+                ->by($request->ip().'|'.$request->getHost());
+        });
     }
 
     /**

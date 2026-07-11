@@ -75,6 +75,12 @@ class SecurityHeaders
             $connect .= " {$http} {$ws}";
         }
 
+        // The public booking widget page is the ONE surface built to be
+        // iframed by external sites (salon websites on Wix/WordPress/etc.),
+        // so it alone allows any frame ancestor. Everything else keeps the
+        // strict self-only framing (clickjacking protection).
+        $embeddable = $request->route()?->getName() === 'salon.widget';
+
         $csp = implode('; ', [
             "default-src 'self'",
             "script-src {$script}",
@@ -86,12 +92,18 @@ class SecurityHeaders
             "frame-src {$frame}",
             "object-src 'none'",
             "base-uri 'self'",
-            "frame-ancestors 'self'",
+            $embeddable ? 'frame-ancestors *' : "frame-ancestors 'self'",
         ]);
 
         $response->headers->set('Content-Security-Policy', $csp);
         $response->headers->set('X-Content-Type-Options', 'nosniff');
-        $response->headers->set('X-Frame-Options', 'SAMEORIGIN');
+        if ($embeddable) {
+            // X-Frame-Options cannot express "allow all" — omit it and let
+            // frame-ancestors govern (every current browser honours CSP).
+            $response->headers->remove('X-Frame-Options');
+        } else {
+            $response->headers->set('X-Frame-Options', 'SAMEORIGIN');
+        }
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
 
         return $response;

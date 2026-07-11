@@ -14,6 +14,7 @@ enum BookingSource: string
     case InApp = 'in_app';
     case VoiceAi = 'voice_ai';
     case ChatWidget = 'chat_widget';
+    case WebWidget = 'web_widget';
     case GhlManual = 'ghl_manual';
     case GhlOther = 'ghl_other';
 
@@ -23,6 +24,7 @@ enum BookingSource: string
             self::InApp => 'In app',
             self::VoiceAi => 'Voice AI',
             self::ChatWidget => 'Chat widget',
+            self::WebWidget => 'Booking widget',
             self::GhlManual => 'GHL (manual)',
             self::GhlOther => 'GHL (other)',
         };

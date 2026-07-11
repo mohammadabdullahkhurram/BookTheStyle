@@ -72,11 +72,20 @@ class VoiceBookingApi
     }
 
     /**
+     * Create a booking through the shared engine. The voice AI is the
+     * default caller; the public web widget books through the exact same
+     * path with its own source/actor tags (same slot re-validation under
+     * lock, same client upsert, same GHL push).
+     *
      * @param  array{service: string|int, stylist?: string|int|null, datetime?: string|null, date?: string|null, time?: string|null, client: array{name: string, phone?: string|null, email?: string|null}, notes?: string|null, ghl_contact_id?: string|null}  $input
      * @return array<string, mixed>
      */
-    public function create(Salon $salon, array $input): array
-    {
+    public function create(
+        Salon $salon,
+        array $input,
+        BookingSource $source = BookingSource::VoiceAi,
+        BookedByType $bookedBy = BookedByType::VoiceAi,
+    ): array {
         $service = $this->resolveService($salon, $input['service']);
         $stylists = $this->resolveStylists($salon, $service, $input['stylist'] ?? null);
 
@@ -113,7 +122,7 @@ class VoiceBookingApi
                 'items' => [['service_id' => $service->id, 'stylist_id' => $stylist->id]],
                 'start' => $start->format('Y-m-d H:i'),
                 'notes' => isset($input['notes']) ? mb_substr((string) $input['notes'], 0, 1000) : null,
-            ], BookingSource::VoiceAi, BookedByType::VoiceAi);
+            ], $source, $bookedBy);
         } catch (ValidationException $e) {
             // The locked re-validation lost the race (or policy refused it).
             Log::info('Booking API create refused by engine', [

@@ -6,11 +6,12 @@
 
 @php
     // Source-keyed dot (DESIGN-TOKENS pastel hues): app=neutral, voice=violet,
-    // chat=green, ghl=amber.
+    // chat=green, web widget=sky, ghl=amber.
     $dots = [
         'in_app' => '#A09C94',
         'voice_ai' => '#8C7FE0',
         'chat_widget' => '#6E9968',
+        'web_widget' => '#5B92BD',
         'ghl_manual' => '#D49A4E',
     ];
     $value = $source instanceof \App\Enums\BookingSource ? $source->value : (string) $source;

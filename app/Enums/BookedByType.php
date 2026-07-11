@@ -17,6 +17,7 @@ enum BookedByType: string
     case FrontDesk = 'front_desk';
     case VoiceAi = 'voice_ai';
     case ChatWidget = 'chat_widget';
+    case WebWidget = 'web_widget';
 
     public function label(): string
     {
@@ -27,6 +28,7 @@ enum BookedByType: string
             self::FrontDesk => 'Front Desk',
             self::VoiceAi => 'Voice AI',
             self::ChatWidget => 'Chat widget',
+            self::WebWidget => 'Booking widget',
         };
     }
 

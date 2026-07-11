@@ -729,6 +729,8 @@ new #[Title('Salon settings')] class extends Component {
                             class="bts-nav-item shrink-0 text-left" :class="tab === 'features' && 'bts-nav-item-active'">{{ __('Features') }}</button>
                     <button type="button" x-on:click="tab = 'branding'; window.location.hash = 'branding'"
                             class="bts-nav-item shrink-0 text-left" :class="tab === 'branding' && 'bts-nav-item-active'">{{ __('Branding') }}</button>
+                    <button type="button" x-on:click="tab = 'widget'; window.location.hash = 'widget'"
+                            class="bts-nav-item shrink-0 text-left" :class="tab === 'widget' && 'bts-nav-item-active'">{{ __('Booking widget') }}</button>
                     @can('manageGhlConnection', $salon)
                         <button type="button" x-on:click="tab = 'integrations'; window.location.hash = 'integrations'"
                                 class="bts-nav-item shrink-0 text-left" :class="tab === 'integrations' && 'bts-nav-item-active'">{{ __('Integrations') }}</button>
@@ -875,6 +877,46 @@ new #[Title('Salon settings')] class extends Component {
             </form>
         </x-ui.card>
 
+        </section>
+
+        {{-- Booking widget: embed code for the salon's own website. --}}
+        <section x-show="tab === 'widget'" x-cloak class="flex flex-col gap-6">
+        <x-ui.card class="flex flex-col gap-5">
+            <h2 class="bts-card-title">{{ __('Booking widget') }}</h2>
+            <p class="text-[14px] text-secondary">
+                {{ __('A booking form clients use on YOUR website — paste one of the snippets below into any site builder (Wix, WordPress, Squarespace…). Visitors pick a service, stylist and time, and the booking lands here like any other, tagged "Booking widget".') }}
+            </p>
+
+            <div class="flex flex-wrap items-center gap-2">
+                <a href="{{ route('salon.widget', $salon) }}" target="_blank" rel="noopener" class="bts-btn bts-btn-secondary bts-btn-sm">{{ __('Preview the widget') }}</a>
+            </div>
+
+            {{-- Inline php directives only — the block form's closing marker
+                 would mis-pair with this file's earlier inline directives when
+                 Blade extracts raw blocks. 'script' is spliced so the literal
+                 tag never appears in this single-file component. --}}
+            @php($tag = 'scr'.'ipt')
+            @php($scriptSnippet = '<div data-bookthestyle-salon="'.$salon->slug.'"></div>'.PHP_EOL.'<'.$tag.' src="'.route('widget.script').'" async></'.$tag.'>')
+            @php($iframeSnippet = '<iframe src="'.route('salon.widget', $salon).'" style="width:100%;border:0;min-height:640px" title="Book an appointment"></iframe>')
+
+            <div class="flex flex-col gap-2">
+                <h3 class="text-[14px] font-semibold text-ink">{{ __('Recommended: script embed (auto-sizes to content)') }}</h3>
+                <x-ui.copy-field :label="__('Paste where the form should appear')" :value="$scriptSnippet" />
+            </div>
+
+            <div class="flex flex-col gap-2">
+                <h3 class="text-[14px] font-semibold text-ink">{{ __('Alternative: plain iframe') }}</h3>
+                <x-ui.copy-field :label="__('For builders that only accept an iframe')" :value="$iframeSnippet" />
+            </div>
+
+            <div class="rounded-[11px] bg-muted px-3 py-2.5 text-[13px] text-body">
+                <p class="font-semibold text-ink">{{ __('Options (script embed)') }}</p>
+                <ul class="mt-1 list-disc space-y-1 ps-4">
+                    <li>{{ __('data-accent="#RRGGBB" — override the widget accent (defaults to your branding accent).') }}</li>
+                    <li>{{ __('data-service="ID" — pre-select a service and skip straight to stylist choice.') }}</li>
+                </ul>
+            </div>
+        </x-ui.card>
         </section>
 
         {{-- Integrations: GoHighLevel connection, mapping, inbound webhook. --}}
