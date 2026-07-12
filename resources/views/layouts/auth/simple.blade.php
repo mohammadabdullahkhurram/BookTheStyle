@@ -3,7 +3,7 @@
     <head>
         @include('partials.head')
     </head>
-    <body class="min-h-screen bg-paper text-ink antialiased">
+    <body class="min-h-screen bg-paper text-ink antialiased" @if (\App\Support\NoirTheme::active()) data-theme="noir" @endif>
         <div class="relative flex min-h-svh flex-col items-center justify-center gap-8 p-6 md:p-10">
             {{-- Warm boutique wash: a plum glow from above, a faint blush
                  rising from below — both token-driven, purely decorative. --}}
@@ -14,10 +14,11 @@
                 <x-app-logo class="h-10" />
             </a>
 
-            {{-- Editorial composition: the form sits directly on the warm
-                 background — no floating card. Type and whitespace carry the
-                 structure; a hairline rule closes the composition. --}}
-            <div class="relative flex w-full max-w-sm flex-col gap-6">
+            {{-- Editorial composition: in the light language the form sits
+                 directly on the warm background; in noir, .bts-glass-panel
+                 lifts it onto a floating frosted surface with the light top
+                 edge (the showcase). --}}
+            <div class="bts-glass-panel relative flex w-full max-w-sm flex-col gap-6">
                 {{ $slot }}
             </div>
 

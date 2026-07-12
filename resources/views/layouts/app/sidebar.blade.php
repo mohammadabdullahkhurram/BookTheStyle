@@ -15,7 +15,7 @@
     <head>
         @include('partials.head')
     </head>
-    <body class="min-h-screen bg-paper text-ink antialiased">
+    <body class="min-h-screen bg-paper text-ink antialiased" @if (\App\Support\NoirTheme::active()) data-theme="noir" @endif>
         {{-- Keyboard users jump straight past the sidebar/top bar. --}}
         <a href="#main-content"
            class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-[12px] focus:bg-accent focus:px-5 focus:py-3 focus:text-[15px] focus:font-semibold focus:text-white">
@@ -29,7 +29,7 @@
             {{-- Desktop sidebar (lg and up; phones/tablets get the top bar + drawer) --}}
             <aside
                 :class="collapsed ? 'w-[76px]' : 'w-[244px]'"
-                class="sticky top-0 z-20 hidden h-svh shrink-0 flex-col border-e border-border bg-card transition-[width] duration-200 lg:flex"
+                class="sticky top-0 z-20 hidden h-svh shrink-0 flex-col border-e border-border bg-card transition-[width] duration-200 lg:flex bts-chrome"
             >
                 {{-- Logo + collapse --}}
                 <div class="flex items-center gap-3 px-4 pb-3 pt-4">
@@ -64,7 +64,7 @@
 
                 <div x-data="{ collapsed: false }" x-trap.noscroll="mobileNav"
                      role="dialog" aria-modal="true" aria-label="{{ __('Navigation') }}"
-                     class="bts-drawer-left relative flex h-full w-[280px] max-w-[85vw] flex-col overflow-y-auto border-e border-border bg-card shadow-xl">
+                     class="bts-drawer-left bts-chrome relative flex h-full w-[280px] max-w-[85vw] flex-col overflow-y-auto border-e border-border bg-card shadow-xl">
                     <div class="flex items-center justify-between gap-3 px-4 pb-3 pt-4">
                         <a href="{{ $salon ? route('salon.show', $salon) : route('dashboard') }}" wire:navigate
                            @click="mobileNav = false" aria-label="{{ __('BookTheStyle') }}" class="flex min-w-0 items-center">
@@ -83,7 +83,7 @@
             {{-- Main --}}
             <div class="flex min-w-0 flex-1 flex-col">
                 {{-- Mobile top bar: hamburger + logo (hidden from lg up). --}}
-                <header class="sticky top-0 z-30 flex items-center gap-3 border-b border-border bg-card px-4 py-2.5 lg:hidden">
+                <header class="bts-chrome sticky top-0 z-30 flex items-center gap-3 border-b border-border bg-card px-4 py-2.5 lg:hidden">
                     <button type="button" @click="mobileNav = true"
                             aria-label="{{ __('Open navigation') }}" :aria-expanded="mobileNav ? 'true' : 'false'"
                             class="rounded-md p-2 text-secondary transition hover:bg-muted hover:text-ink">

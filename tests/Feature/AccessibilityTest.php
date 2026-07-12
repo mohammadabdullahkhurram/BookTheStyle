@@ -32,7 +32,11 @@ it('ships AA-passing text tokens, a shared focus-visible ring, and reserves fain
         ->toContain('--accent-ink: #6b3358')
         ->toContain('--color-blush-ink: #9c4f3f')      // 5.83:1 on card, 5.03:1 on its tint
         ->toContain(':focus-visible')
-        ->toContain('outline: 2px solid var(--accent)');
+        // The ring is accent in light and a light plum in noir (dark) so it
+        // stays visible on both.
+        ->toContain('outline: 2px solid var(--focus-ring)')
+        ->toContain('--focus-ring: var(--accent)')
+        ->toContain('--focus-ring: #d9a9c6');
 
     // fainter must not be used as a text colour anywhere (decoration only).
     $offenders = collect(File::allFiles(resource_path('views')))
