@@ -74,7 +74,8 @@ it('reschedules from the check-in tab: times move, history notes it, GHL gets an
         ->test('pages::salon.appointments.index', ['salon' => $salon])
         ->call('openReschedule', $booking->id)
         ->set('rescheduleDate', '2026-06-22')
-        ->call('reschedule', '15:00')
+        ->set('rescheduleTime', '15:00')
+        ->call('reschedule')
         ->assertHasNoErrors()
         ->assertSet('showReschedule', false);
 
@@ -247,7 +248,8 @@ it('commits a multi-service reschedule at an offered slot, moving every item as 
     Livewire::actingAs($owner)
         ->test('pages::salon.appointments.all', ['salon' => $salon])
         ->call('openReschedule', $booking->id)
-        ->call('reschedule', '09:00')
+        ->set('rescheduleTime', '09:00')
+        ->call('reschedule')
         ->assertHasNoErrors()
         ->assertSet('showReschedule', false);
 

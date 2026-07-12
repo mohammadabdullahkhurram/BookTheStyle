@@ -36,6 +36,49 @@ enum BookingStatus: string
     }
 
     /**
+     * Imperative label for the BUTTON that transitions a booking INTO this
+     * status. Status pills keep label(); action buttons say what they do.
+     */
+    public function actionLabel(): string
+    {
+        return match ($this) {
+            self::Booked => 'Rebook',
+            self::Confirmed => 'Confirm',
+            self::Arrived => 'Check in',
+            self::InService => 'Start service',
+            self::Completed => 'Complete',
+            self::Cancelled => 'Cancel booking',
+            self::NoShow => 'Mark no-show',
+        };
+    }
+
+    /** Toast copy after a successful transition into this status. */
+    public function actionToast(): string
+    {
+        return match ($this) {
+            self::Arrived => 'Checked in.',
+            self::InService => 'Service started.',
+            self::Completed => 'Booking completed.',
+            self::Cancelled => 'Booking cancelled.',
+            self::NoShow => 'Marked as no-show.',
+            default => 'Booking updated.',
+        };
+    }
+
+    /**
+     * wire:confirm copy for transitions that are destructive and fire GHL /
+     * reminder side-effects; null = commit without confirmation.
+     */
+    public function confirmMessage(): ?string
+    {
+        return match ($this) {
+            self::Cancelled => "Cancel this booking? The client's appointment is removed and GoHighLevel is updated. This cannot be undone.",
+            self::NoShow => 'Mark this booking as a no-show? This is recorded on the client and synced to GoHighLevel. This cannot be undone.',
+            default => null,
+        };
+    }
+
+    /**
      * Flux badge colour.
      */
     public function color(): string

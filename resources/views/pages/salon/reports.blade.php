@@ -119,6 +119,11 @@ new #[Title('Reports')] class extends Component {
 
         @php($r = $this->report)
 
+        {{-- Everything below recomputes with the range: dim it while the new
+             numbers load so the page never looks frozen on slow queries. --}}
+        <div wire:loading.class="pointer-events-none opacity-60" wire:target="preset, from, to"
+             class="flex flex-col gap-6 transition-opacity">
+
         {{-- Bookings summary. --}}
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <x-ui.stat-card :label="__('Bookings')" :value="$r['total']" />
@@ -203,5 +208,6 @@ new #[Title('Reports')] class extends Component {
                 </x-ui.card>
             </div>
         @endif
+        </div>
     </div>
 </div>

@@ -184,9 +184,11 @@ select:focus[data-flux-control] {
 | that uses the x-ui.* Blade components or these classes inherits them.
 --------------------------------------------------------------------------- */
 @layer components {
-    /* Buttons (x-ui.button). Height 48, radius 12, 15px/600. */
+    /* Buttons (x-ui.button). Height 48, radius 12, 15px/600. Disabled state
+       (incl. Livewire's auto-disable during wire:submit / wire:loading) is
+       visible and un-clickable everywhere without per-call-site wiring. */
     .bts-btn {
-        @apply inline-flex h-12 items-center justify-center gap-2 rounded-[12px] px-5 text-[15px] font-semibold transition;
+        @apply inline-flex h-12 items-center justify-center gap-2 rounded-[12px] px-5 text-[15px] font-semibold transition disabled:pointer-events-none disabled:opacity-50;
     }
     .bts-btn-sm {
         @apply h-9 rounded-[10px] px-3 text-[13px];

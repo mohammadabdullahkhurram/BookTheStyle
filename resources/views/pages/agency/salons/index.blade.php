@@ -82,7 +82,9 @@ new #[Title('Salons')] class extends Component {
                             <td class="px-6 py-4">
                                 <div class="flex items-center justify-end gap-4">
                                     <a href="{{ route('agency.salons.edit', $salon) }}" wire:navigate class="text-[13px] font-semibold text-accent transition hover:text-accent-hover">{{ __('Edit') }}</a>
-                                    <button type="button" wire:click="toggleActive({{ $salon->id }})" class="text-[13px] font-medium text-secondary transition hover:text-ink">
+                                    <button type="button"
+                                            @if ($salon->active) wire:confirm="{{ __('Deactivate :salon? All its staff lose access until it is reactivated. No data is deleted.', ['salon' => $salon->name]) }}" @endif
+                                            wire:click="toggleActive({{ $salon->id }})" class="text-[13px] font-medium text-secondary transition hover:text-ink">
                                         {{ $salon->active ? __('Deactivate') : __('Reactivate') }}
                                     </button>
                                 </div>

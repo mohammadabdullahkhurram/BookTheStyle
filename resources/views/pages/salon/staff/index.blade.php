@@ -224,7 +224,7 @@ new #[Title('Staff')] class extends Component {
                     </flux:select>
                 </div>
                 <div>
-                    <x-ui.button type="submit"><flux:icon.plus variant="micro" class="shrink-0" />{{ __('Send invite') }}</x-ui.button>
+                    <x-ui.button type="submit" loading="invite"><flux:icon.plus variant="micro" class="shrink-0" />{{ __('Send invite') }}</x-ui.button>
                 </div>
             </form>
         </x-ui.card>
@@ -266,8 +266,12 @@ new #[Title('Staff')] class extends Component {
                                 <div class="flex items-center justify-end gap-4">
                                     @if ($this->canManageMembership($m))
                                         <button type="button" wire:click="startEdit({{ $m->id }})" class="text-[13px] font-semibold text-accent transition hover:text-accent-hover">{{ __('Edit') }}</button>
-                                        <button type="button" wire:click="resetPassword({{ $m->id }})" class="text-[13px] font-medium text-secondary transition hover:text-ink">{{ __('Reset password') }}</button>
-                                        <button type="button" wire:click="toggleActive({{ $m->id }})" class="text-[13px] font-medium text-secondary transition hover:text-ink">
+                                        <button type="button"
+                                                wire:confirm="{{ __('Reset :name\'s password? Their current password stops working immediately and a new temporary password is shown once.', ['name' => $m->user->name]) }}"
+                                                wire:click="resetPassword({{ $m->id }})" class="text-[13px] font-medium text-secondary transition hover:text-ink">{{ __('Reset password') }}</button>
+                                        <button type="button"
+                                                @if ($m->active) wire:confirm="{{ __('Deactivate :name? They lose access to this salon; their bookings and history are kept.', ['name' => $m->user->name]) }}" @endif
+                                                wire:click="toggleActive({{ $m->id }})" class="text-[13px] font-medium text-secondary transition hover:text-ink">
                                             {{ $m->active ? __('Deactivate') : __('Reactivate') }}
                                         </button>
                                     @else

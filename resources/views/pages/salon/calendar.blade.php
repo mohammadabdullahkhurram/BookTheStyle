@@ -149,11 +149,12 @@ new #[Title('Calendar')] class extends Component {
     public function changeStatus(int $bookingId, string $to, TransitionBookingStatus $action): void
     {
         $booking = $this->booking($bookingId);
-        $action->handle(Auth::user(), $this->salon, $booking, BookingStatus::from($to));
+        $status = BookingStatus::from($to);
+        $action->handle(Auth::user(), $this->salon, $booking, $status);
 
         unset($this->detail, $this->grid);
 
-        Flux::toast(variant: 'success', text: __('Booking updated.'));
+        Flux::toast(variant: 'success', text: __($status->actionToast()));
     }
 
     /**
@@ -227,9 +228,11 @@ new #[Title('Calendar')] class extends Component {
             @endif
         </div>
 
-        {{-- Column grid --}}
+        {{-- Column grid. Dims while a navigation/filter recompute is in flight
+             (targets exclude the background poll, which must stay invisible). --}}
         @php($visible = collect($grid['columns'])->reject(fn ($c) => $grid['view'] === 'day' && in_array($c['stylistId'], $hidden, true))->values())
-        <div class="overflow-x-auto rounded-[18px] border border-border bg-card shadow-card">
+        <div wire:loading.class="pointer-events-none opacity-60" wire:target="setView, prev, next, today, toggleStylist"
+             class="overflow-x-auto rounded-[18px] border border-border bg-card shadow-card transition-opacity">
             <div class="flex min-w-max">
                 {{-- Time axis --}}
                 <div class="sticky left-0 z-30 w-[64px] shrink-0 border-e border-divider bg-card">
@@ -387,11 +390,13 @@ new #[Title('Calendar')] class extends Component {
                         <div class="flex flex-wrap gap-2 border-t border-divider pt-4">
                             @foreach ($booking->status->allowedTransitions() as $next)
                                 @if ($next === \App\Enums\BookingStatus::Arrived)
-                                    <x-ui.button size="sm" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')">{{ __('Checked in') }}</x-ui.button>
+                                    <x-ui.button size="sm" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')">{{ __($next->actionLabel()) }}</x-ui.button>
                                 @elseif ($next === \App\Enums\BookingStatus::Cancelled)
-                                    <button type="button" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')" class="bts-btn bts-btn-sm border border-input-border bg-card text-danger hover:border-danger">{{ $next->label() }}</button>
+                                    <button type="button" wire:confirm="{{ __($next->confirmMessage()) }}" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')" class="bts-btn bts-btn-sm border border-input-border bg-card text-danger hover:border-danger">{{ __($next->actionLabel()) }}</button>
+                                @elseif ($next->confirmMessage())
+                                    <x-ui.button size="sm" variant="secondary" wire:confirm="{{ __($next->confirmMessage()) }}" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')">{{ __($next->actionLabel()) }}</x-ui.button>
                                 @else
-                                    <x-ui.button size="sm" variant="secondary" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')">{{ $next->label() }}</x-ui.button>
+                                    <x-ui.button size="sm" variant="secondary" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')">{{ __($next->actionLabel()) }}</x-ui.button>
                                 @endif
                             @endforeach
                         </div>

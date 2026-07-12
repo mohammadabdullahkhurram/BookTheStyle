@@ -113,9 +113,9 @@ it('offers exactly the four actions on both tabs — never a confirmed button', 
     foreach (['pages::salon.appointments.index', 'pages::salon.appointments.all'] as $page) {
         Livewire::actingAs($owner)
             ->test($page, ['salon' => $salon])
-            ->assertSee('Checked in')
-            ->assertSee('No-show')
-            ->assertSee('Cancelled')
+            ->assertSee('Check in')
+            ->assertSee('Mark no-show')
+            ->assertSee('Cancel booking')
             ->assertSee('Reschedule')
             // No confirm action anywhere (the legacy label may still appear
             // in the status FILTER; the button wiring must not exist).

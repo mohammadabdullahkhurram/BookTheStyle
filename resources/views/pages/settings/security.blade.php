@@ -218,7 +218,9 @@ new #[Title('Security settings')] class extends Component {
                             </flux:text>
 
                             <div class="flex justify-start">
-                                <x-ui.button variant="danger" wire:click="disable">{{ __('Disable 2FA') }}</x-ui.button>
+                                <x-ui.button variant="danger"
+                                    wire:confirm="{{ __('Disable two-factor authentication? Your account will no longer require a second step to sign in, and your recovery codes stop working.') }}"
+                                    wire:click="disable">{{ __('Disable 2FA') }}</x-ui.button>
                             </div>
 
                             <livewire:pages::settings.two-factor.recovery-codes :$requiresConfirmation />

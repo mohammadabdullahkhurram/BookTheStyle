@@ -527,7 +527,7 @@ new #[Title('New booking')] class extends Component {
                 <flux:textarea wire:model="notes" :label="__('Notes (optional)')" rows="2" />
 
                 <div class="flex items-center gap-3">
-                    <x-ui.button type="submit">{{ __('Create booking') }}</x-ui.button>
+                    <x-ui.button type="submit" loading="save">{{ __('Create booking') }}</x-ui.button>
                     <x-ui.button variant="secondary" :href="route('salon.show', $salon)" wire:navigate>{{ __('Cancel') }}</x-ui.button>
                 </div>
             </x-ui.card>

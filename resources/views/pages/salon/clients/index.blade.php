@@ -230,7 +230,7 @@ new #[Title('Clients')] class extends Component {
                         <flux:input wire:model="email" type="email" :label="__('Email')" />
                     </div>
                     <div>
-                        <x-ui.button type="submit"><flux:icon.plus variant="micro" class="shrink-0" />{{ __('Add client') }}</x-ui.button>
+                        <x-ui.button type="submit" loading="create"><flux:icon.plus variant="micro" class="shrink-0" />{{ __('Add client') }}</x-ui.button>
                     </div>
                 </form>
             </x-ui.card>
@@ -272,7 +272,8 @@ new #[Title('Clients')] class extends Component {
             </x-ui.card>
         @else
             {{-- Desktop table. --}}
-            <x-ui.card padding="p-0" class="hidden overflow-hidden md:block">
+            <x-ui.card padding="p-0" class="hidden overflow-hidden transition-opacity md:block"
+                wire:loading.class="pointer-events-none opacity-60" wire:target="search, sort, stylistFilter, serviceFilter, upcomingOnly, newOnly">
                 <div class="overflow-x-auto" tabindex="0">
                 <table class="w-full text-left">
                     <thead>
@@ -340,7 +341,8 @@ new #[Title('Clients')] class extends Component {
             </x-ui.card>
 
             {{-- Mobile: stacked cards. --}}
-            <div class="flex flex-col gap-3 md:hidden">
+            <div class="flex flex-col gap-3 transition-opacity md:hidden"
+                 wire:loading.class="pointer-events-none opacity-60" wire:target="search, sort, stylistFilter, serviceFilter, upcomingOnly, newOnly">
                 @foreach ($this->clients as $client)
                     <a href="{{ route('salon.client', ['salon' => $salon, 'clientId' => $client->id]) }}" wire:navigate wire:key="client-m-{{ $client->id }}">
                         <x-ui.card padding="p-4" class="flex flex-col gap-2">

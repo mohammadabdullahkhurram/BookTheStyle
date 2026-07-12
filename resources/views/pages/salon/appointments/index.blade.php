@@ -60,10 +60,11 @@ new #[Title('Check-in')] class extends Component {
     public function changeStatus(int $bookingId, string $to, TransitionBookingStatus $action): void
     {
         $booking = $this->booking($bookingId);
-        $action->handle(Auth::user(), $this->salon, $booking, BookingStatus::from($to));
+        $status = BookingStatus::from($to);
+        $action->handle(Auth::user(), $this->salon, $booking, $status);
         unset($this->bookings);
 
-        Flux::toast(variant: 'success', text: __('Booking updated.'));
+        Flux::toast(variant: 'success', text: __($status->actionToast()));
     }
 
     public function openTimeline(int $bookingId): void
@@ -95,17 +96,28 @@ new #[Title('Check-in')] class extends Component {
 
     public string $rescheduleDate = '';
 
+    /** The SELECTED (not yet committed) start time, 'H:i'. */
+    public string $rescheduleTime = '';
+
     public function openReschedule(int $bookingId): void
     {
         abort_unless(Auth::user()->can('manageBookings', $this->salon), 403);
         $booking = $this->booking($bookingId);
 
-        $this->resetErrorBag('start');
+        $this->resetErrorBag(['start', 'rescheduleTime']);
         $this->rescheduleId = $booking->id;
+        $this->rescheduleTime = '';
         $this->rescheduleDate = $booking->items()->orderBy('starts_at')->first()
             ?->starts_at->setTimezone($this->salon->timezone)->format('Y-m-d')
             ?? CarbonImmutable::now($this->salon->timezone)->format('Y-m-d');
         $this->showReschedule = true;
+    }
+
+    /** A picked date change invalidates any previously selected time. */
+    public function updatedRescheduleDate(): void
+    {
+        $this->rescheduleTime = '';
+        $this->resetErrorBag(['start', 'rescheduleTime']);
     }
 
     /**
@@ -137,14 +149,21 @@ new #[Title('Check-in')] class extends Component {
         );
     }
 
-    public function reschedule(string $time, \App\Actions\Bookings\RescheduleBooking $action): void
+    /** Commits the SELECTED time — chips only select; this button confirms. */
+    public function reschedule(\App\Actions\Bookings\RescheduleBooking $action): void
     {
+        $this->validate(
+            ['rescheduleTime' => ['required', 'date_format:H:i']],
+            ['rescheduleTime.required' => __('Pick a new start time first.')],
+        );
+
         $booking = $this->booking((int) $this->rescheduleId);
 
-        $action->handle(Auth::user(), $this->salon, $booking, "{$this->rescheduleDate} {$time}");
+        $action->handle(Auth::user(), $this->salon, $booking, "{$this->rescheduleDate} {$this->rescheduleTime}");
 
         $this->showReschedule = false;
         $this->rescheduleId = null;
+        $this->rescheduleTime = '';
         unset($this->bookings);
 
         Flux::toast(variant: 'success', text: __('Booking rescheduled.'));
@@ -180,7 +199,8 @@ new #[Title('Check-in')] class extends Component {
             <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" :placeholder="__('Search today\'s clients')" :label="__('Search')" class="max-w-64" />
         </div>
 
-        <div class="flex flex-col gap-3">
+        <div wire:loading.class="pointer-events-none opacity-60" wire:target="search"
+             class="flex flex-col gap-3 transition-opacity">
             @forelse ($this->bookings as $booking)
                 @php($start = $booking->items->min('starts_at'))
                 @php($dimmed = in_array($booking->status, [\App\Enums\BookingStatus::Completed, \App\Enums\BookingStatus::NoShow, \App\Enums\BookingStatus::Cancelled], true))
@@ -217,9 +237,11 @@ new #[Title('Check-in')] class extends Component {
                             <div class="flex flex-wrap justify-end gap-2">
                                 @foreach ($booking->status->allowedTransitions() as $next)
                                     @if ($next === \App\Enums\BookingStatus::Arrived)
-                                        <x-ui.button size="sm" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')">{{ __('Checked in') }}</x-ui.button>
+                                        <x-ui.button size="sm" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')">{{ __($next->actionLabel()) }}</x-ui.button>
+                                    @elseif ($next->confirmMessage())
+                                        <x-ui.button size="sm" variant="secondary" wire:confirm="{{ __($next->confirmMessage()) }}" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')">{{ __($next->actionLabel()) }}</x-ui.button>
                                     @else
-                                        <x-ui.button size="sm" variant="secondary" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')">{{ $next->label() }}</x-ui.button>
+                                        <x-ui.button size="sm" variant="secondary" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')">{{ __($next->actionLabel()) }}</x-ui.button>
                                     @endif
                                 @endforeach
                             </div>

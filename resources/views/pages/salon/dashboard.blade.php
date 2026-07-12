@@ -147,7 +147,8 @@ new #[Title('Today')] class extends Component {
         </div>
 
         {{-- Today's bookings --}}
-        <div class="overflow-hidden rounded-[18px] border border-border bg-card shadow-card">
+        <div wire:loading.class="pointer-events-none opacity-60" wire:target="date, filterStylist, filterService, filterStatus"
+             class="overflow-hidden rounded-[18px] border border-border bg-card shadow-card transition-opacity">
             <div class="flex items-start justify-between gap-4 px-6 py-5">
                 <h2 class="font-display text-[18px] font-bold text-ink">{{ __("Today's bookings") }}</h2>
                 <div class="text-right text-[14px] leading-tight text-secondary">

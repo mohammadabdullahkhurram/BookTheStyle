@@ -884,6 +884,7 @@ new #[Title('Availability')] class extends Component {
                                                     <flux:icon.pencil-square variant="micro" />
                                                 </button>
                                                 <button type="button" wire:click="removeTimeOff({{ $off->id }})" title="{{ __('Remove') }}"
+                                                        wire:confirm="{{ __('Remove this date-specific entry? The weekly schedule applies to that date again and GoHighLevel availability is updated.') }}"
                                                         class="rounded-[9px] p-1.5 text-fainter transition hover:bg-muted hover:text-danger" aria-label="{{ __('Remove this date') }}">
                                                     <flux:icon.trash variant="micro" />
                                                 </button>

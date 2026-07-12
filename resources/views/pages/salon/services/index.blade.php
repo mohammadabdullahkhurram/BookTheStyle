@@ -240,7 +240,7 @@ new #[Title('Services')] class extends Component {
                     :buffers-enabled="$this->buffersEnabled" />
 
                 <div>
-                    <x-ui.button type="submit"><flux:icon.plus variant="micro" class="shrink-0" />{{ __('Add service') }}</x-ui.button>
+                    <x-ui.button type="submit" loading="create"><flux:icon.plus variant="micro" class="shrink-0" />{{ __('Add service') }}</x-ui.button>
                 </div>
             </form>
         </x-ui.card>
@@ -282,7 +282,9 @@ new #[Title('Services')] class extends Component {
                             <td class="px-6 py-4">
                                 <div class="flex items-center justify-end gap-4">
                                     <button type="button" wire:click="startEdit({{ $service->id }})" class="text-[13px] font-semibold text-accent transition hover:text-accent-hover">{{ __('Edit') }}</button>
-                                    <button type="button" wire:click="toggleActive({{ $service->id }})" class="text-[13px] font-medium text-secondary transition hover:text-ink">
+                                    <button type="button"
+                                            @if ($service->active) wire:confirm="{{ __('Deactivate :service? Clients can no longer book it; existing bookings are unaffected.', ['service' => $service->name]) }}" @endif
+                                            wire:click="toggleActive({{ $service->id }})" class="text-[13px] font-medium text-secondary transition hover:text-ink">
                                         {{ $service->active ? __('Deactivate') : __('Reactivate') }}
                                     </button>
                                 </div>

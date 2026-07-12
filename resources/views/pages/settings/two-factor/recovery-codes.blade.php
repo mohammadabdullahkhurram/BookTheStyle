@@ -91,6 +91,7 @@ new class extends Component {
                     x-show="showRecoveryCodes"
                     icon="arrow-path"
                     variant="filled"
+                    wire:confirm="{{ __('Generate new recovery codes? Your current codes stop working immediately — save the new set somewhere safe.') }}"
                     wire:click="regenerateRecoveryCodes"
                 >
                     {{ __('Regenerate codes') }}
