@@ -28,6 +28,8 @@ branch → add a row and a section here in the same sitting).
 | `backup-v1.1-preflight` | branch | `3f57c7a` | same state as `v1.1-preflight` |
 | `v1.2-oldui-final` | tag | `ee74c42` | + GHL wire fixes, onboarding wizard, booking widget — the OLD UI, final |
 | `backup-oldui-final` | branch | `ee74c42` | same state as `v1.2-oldui-final` |
+| `v1.3-functional-complete` | tag | `c79c084` | All functional UX batches complete — data-integrity, mobile, confirmations, accessibility — before aesthetic refresh |
+| `backup-functional-complete` | branch | `c79c084` | same state as `v1.3-functional-complete` |
 
 ## Details
 
@@ -76,3 +78,22 @@ branch → add a row and a section here in the same sitting).
   test and deploy still pending.
 - **Restore:** `git checkout v1.2-oldui-final` (inspect) ·
   `git reset --hard v1.2-oldui-final` (reset main)
+
+### v1.3-functional-complete — functionally complete, accessible, mobile-ready
+- **Commit:** `c79c08421f7d89ae8af72b9535dab348e56fda4f`
+- **Frozen branch:** `backup-functional-complete` (same commit)
+- **State:** everything above **plus** all four functional batches from the
+  UI/UX audit: **Batch 1** data-integrity bugs (transactional date-specific
+  availability edits, full-visit multi-service reschedule slots, calendar
+  overlap lanes so concurrent bookings never hide); **Batch 2**
+  mobile/responsive (off-canvas nav drawer + top bar, scrollable tables with
+  stacked-card fallbacks, standardized page widths); **Batch 3**
+  confirmations & feedback (wire:confirm on every destructive action,
+  select-then-confirm reschedule, verb-labeled buttons, loading/disabled
+  states, action-specific toasts); **Batch 4** accessibility & contrast
+  (WCAG AA text tokens, shared focus ring, skip link, keyboard-reachable 2FA
+  recovery, aria/label/scope sweep, settings-hash whitelist). Marks the app
+  **functionally complete + accessible + mobile-ready, BEFORE the
+  aesthetic/visual refresh**; live GHL smoke test and deploy still pending.
+- **Restore:** `git checkout v1.3-functional-complete` (inspect) ·
+  `git reset --hard v1.3-functional-complete` (reset main)
