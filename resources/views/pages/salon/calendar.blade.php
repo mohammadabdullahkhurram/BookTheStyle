@@ -180,7 +180,7 @@ new #[Title('Calendar')] class extends Component {
 @php($colWidth = $grid['view'] === 'week' ? 'w-[150px]' : 'w-[208px]')
 
 <div wire:poll.5s="refresh">
-    <div class="mx-auto flex w-full max-w-[1400px] flex-col gap-6 px-8 py-7">
+    <div class="mx-auto flex w-full max-w-[1400px] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-7">
         <x-ui.page-header :overline="__('Calendar')" :title="$isMaster ? __('Master calendar') : __('My calendar')">
             <x-slot:actions>
                 @can('manageBookings', $salon)

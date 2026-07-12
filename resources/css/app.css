@@ -222,11 +222,19 @@ select:focus[data-flux-control] {
     .bts-drawer {
         animation: bts-slide-in-right 0.22s ease-out;
     }
+    /* Left-docked variant (mobile navigation drawer). */
+    .bts-drawer-left {
+        animation: bts-slide-in-left 0.22s ease-out;
+    }
     .bts-scrim {
         animation: bts-fade-in 0.2s ease-out;
     }
     @keyframes bts-slide-in-right {
         from { transform: translateX(100%); }
+        to { transform: translateX(0); }
+    }
+    @keyframes bts-slide-in-left {
+        from { transform: translateX(-100%); }
         to { transform: translateX(0); }
     }
     @keyframes bts-fade-in {
@@ -235,6 +243,7 @@ select:focus[data-flux-control] {
     }
     @media (prefers-reduced-motion: reduce) {
         .bts-drawer,
+        .bts-drawer-left,
         .bts-scrim {
             animation: none;
         }

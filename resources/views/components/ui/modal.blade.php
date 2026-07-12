@@ -14,8 +14,12 @@
     never overlaps the title, subheading or first content row at any name or
     status length, on mobile or desktop. All attributes (wire:model, name,
     class, :show, focusable, @close, …) forward straight through to flux:modal.
+
+    Mobile: w-full lets the dialog fill a phone viewport (the browser's native
+    dialog margins and each call site's max-w-* still cap it), and the
+    max-height + overflow keep tall dialogs scrollable instead of clipped.
 --}}
-<flux:modal {{ $attributes }}>
+<flux:modal {{ $attributes->merge(['class' => 'w-full max-h-[calc(100dvh-2rem)] overflow-y-auto']) }}>
     <div class="flex flex-col gap-5">
         @if ($hasHeader)
             <div class="flex flex-col gap-2.5 pe-12">

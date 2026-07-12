@@ -97,7 +97,7 @@ new #[Title('Today')] class extends Component {
 }; ?>
 
 <div>
-    <div class="mx-auto flex w-full max-w-6xl flex-col gap-7 px-8 py-7">
+    <div class="mx-auto flex w-full max-w-6xl flex-col gap-7 px-4 py-6 sm:px-6 lg:px-8 lg:py-7">
         {{-- Header --}}
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -156,41 +156,69 @@ new #[Title('Today')] class extends Component {
                 </div>
             </div>
 
-            <table class="w-full text-left">
-                <thead>
-                    <tr class="border-y border-divider text-[12.5px] font-semibold uppercase tracking-[0.04em] text-faint">
-                        <th class="px-6 py-3 font-semibold">{{ __('Time') }}</th>
-                        <th class="px-2 py-3 font-semibold">{{ __('Client') }}</th>
-                        <th class="px-2 py-3 font-semibold">{{ __('Service') }}</th>
-                        <th class="px-2 py-3 font-semibold">{{ __('Stylist') }}</th>
-                        <th class="px-2 py-3 font-semibold">{{ __('Status') }}</th>
-                        <th class="px-6 py-3 font-semibold">{{ __('Booked by') }}</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-row">
-                    @forelse ($this->bookings as $booking)
-                        @php($start = $booking->items->min('starts_at'))
-                        @php($stylistSeed = $booking->items->first()?->stylist_id ?? 0)
-                        @php($bookedLabel = $booking->source === \App\Enums\BookingSource::InApp ? $booking->booked_by_type->label() : $booking->source->label())
-                        <tr>
-                            <td class="px-6 py-4 align-top text-[14px] text-faint">{{ $start?->setTimezone($salon->timezone)->format('g:i A') }}</td>
-                            <td class="px-2 py-4 align-top">
-                                <div class="flex items-center gap-3">
-                                    <x-ui.avatar :name="$booking->client->name" :seed="$stylistSeed" size="sm" />
-                                    <span class="text-[15px] font-medium leading-tight text-ink">{{ $booking->client->name }}</span>
-                                    @if ($booking->is_walkin)<span class="bts-pill" style="background-color:#F0EEEA;color:#9C9890;">{{ __('Walk-in') }}</span>@endif
-                                </div>
-                            </td>
-                            <td class="px-2 py-4 align-top text-[15px] text-secondary">{{ $booking->items->map(fn ($i) => $i->service->name)->unique()->join(', ') }}</td>
-                            <td class="px-2 py-4 align-top text-[15px] text-secondary">{{ $booking->items->map(fn ($i) => $i->stylist->name)->unique()->join(', ') }}</td>
-                            <td class="px-2 py-4 align-top"><x-ui.status-pill :status="$booking->status" /></td>
-                            <td class="px-6 py-4 align-top"><x-ui.booked-by :label="$bookedLabel" :source="$booking->source" /></td>
+            {{-- Desktop table (keyboard-scrollable when it overflows). --}}
+            <div class="hidden overflow-x-auto md:block" tabindex="0">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="border-y border-divider text-[12.5px] font-semibold uppercase tracking-[0.04em] text-faint">
+                            <th class="px-6 py-3 font-semibold">{{ __('Time') }}</th>
+                            <th class="px-2 py-3 font-semibold">{{ __('Client') }}</th>
+                            <th class="px-2 py-3 font-semibold">{{ __('Service') }}</th>
+                            <th class="px-2 py-3 font-semibold">{{ __('Stylist') }}</th>
+                            <th class="px-2 py-3 font-semibold">{{ __('Status') }}</th>
+                            <th class="px-6 py-3 font-semibold">{{ __('Booked by') }}</th>
                         </tr>
-                    @empty
-                        <tr><td colspan="6" class="px-6 py-10 text-center text-[15px] text-faint">{{ __('No bookings for this day.') }}</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody class="divide-y divide-row">
+                        @forelse ($this->bookings as $booking)
+                            @php($start = $booking->items->min('starts_at'))
+                            @php($stylistSeed = $booking->items->first()?->stylist_id ?? 0)
+                            @php($bookedLabel = $booking->source === \App\Enums\BookingSource::InApp ? $booking->booked_by_type->label() : $booking->source->label())
+                            <tr>
+                                <td class="px-6 py-4 align-top text-[14px] text-faint">{{ $start?->setTimezone($salon->timezone)->format('g:i A') }}</td>
+                                <td class="px-2 py-4 align-top">
+                                    <div class="flex items-center gap-3">
+                                        <x-ui.avatar :name="$booking->client->name" :seed="$stylistSeed" size="sm" />
+                                        <span class="text-[15px] font-medium leading-tight text-ink">{{ $booking->client->name }}</span>
+                                        @if ($booking->is_walkin)<span class="bts-pill" style="background-color:#F0EEEA;color:#9C9890;">{{ __('Walk-in') }}</span>@endif
+                                    </div>
+                                </td>
+                                <td class="px-2 py-4 align-top text-[15px] text-secondary">{{ $booking->items->map(fn ($i) => $i->service->name)->unique()->join(', ') }}</td>
+                                <td class="px-2 py-4 align-top text-[15px] text-secondary">{{ $booking->items->map(fn ($i) => $i->stylist->name)->unique()->join(', ') }}</td>
+                                <td class="px-2 py-4 align-top"><x-ui.status-pill :status="$booking->status" /></td>
+                                <td class="px-6 py-4 align-top"><x-ui.booked-by :label="$bookedLabel" :source="$booking->source" /></td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="6" class="px-6 py-10 text-center text-[15px] text-faint">{{ __('No bookings for this day.') }}</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+
+            {{-- Narrow screens: stacked rows (same data, readable on a phone). --}}
+            <div class="flex flex-col divide-y divide-row border-t border-divider md:hidden">
+                @forelse ($this->bookings as $booking)
+                    @php($start = $booking->items->min('starts_at'))
+                    @php($stylistSeed = $booking->items->first()?->stylist_id ?? 0)
+                    @php($bookedLabel = $booking->source === \App\Enums\BookingSource::InApp ? $booking->booked_by_type->label() : $booking->source->label())
+                    <div class="flex flex-col gap-2 px-4 py-4">
+                        <div class="flex flex-wrap items-center gap-2.5">
+                            <x-ui.avatar :name="$booking->client->name" :seed="$stylistSeed" size="sm" />
+                            <span class="text-[15px] font-medium leading-tight text-ink">{{ $booking->client->name }}</span>
+                            @if ($booking->is_walkin)<span class="bts-pill" style="background-color:#F0EEEA;color:#9C9890;">{{ __('Walk-in') }}</span>@endif
+                            <span class="ms-auto"><x-ui.status-pill :status="$booking->status" /></span>
+                        </div>
+                        <div class="text-[14px] text-secondary">
+                            <span class="font-medium text-faint">{{ $start?->setTimezone($salon->timezone)->format('g:i A') }}</span>
+                            · {{ $booking->items->map(fn ($i) => $i->service->name)->unique()->join(', ') }}
+                            · {{ $booking->items->map(fn ($i) => $i->stylist->name)->unique()->join(', ') }}
+                        </div>
+                        <x-ui.booked-by :label="$bookedLabel" :source="$booking->source" />
+                    </div>
+                @empty
+                    <div class="px-4 py-10 text-center text-[15px] text-faint">{{ __('No bookings for this day.') }}</div>
+                @endforelse
+            </div>
         </div>
     </div>
 </div>

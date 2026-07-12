@@ -604,7 +604,7 @@ new #[Title('Availability')] class extends Component {
      from the DOM by the time it fires) and returns focus to the card. --}}
 <div x-data
      x-on:availability-panel-closed.window="document.getElementById('availability-card-' + $event.detail.stylistId)?.focus()">
-    <div class="mx-auto flex w-full max-w-4xl flex-col gap-7 px-8 py-7">
+    <div class="mx-auto flex w-full max-w-4xl flex-col gap-7 px-4 py-6 sm:px-6 lg:px-8 lg:py-7">
         <x-ui.page-header :overline="__('Schedule')" :title="__('Availability')">
             <x-slot:subtitle>{{ __('Weekly hours and date-specific time off for every stylist. Select a card to view a schedule.') }}</x-slot:subtitle>
         </x-ui.page-header>

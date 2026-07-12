@@ -37,7 +37,7 @@ new #[Title('Profile settings')] class extends Component {
     }
 }; ?>
 
-<section class="mx-auto w-full max-w-4xl px-8 py-7">
+<section class="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 lg:px-8 lg:py-7">
     @include('partials.settings-heading')
 
     <flux:heading class="sr-only">{{ __('Profile settings') }}</flux:heading>

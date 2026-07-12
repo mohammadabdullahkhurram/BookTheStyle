@@ -208,7 +208,7 @@ new #[Title('Clients')] class extends Component {
 }; ?>
 
 <div>
-    <div class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-8 py-7">
+    <div class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-7">
         <x-ui.page-header :overline="__('Directory')" :title="__('Clients')">
             <x-slot:actions>
                 <span class="text-[14px] text-secondary">
@@ -273,6 +273,7 @@ new #[Title('Clients')] class extends Component {
         @else
             {{-- Desktop table. --}}
             <x-ui.card padding="p-0" class="hidden overflow-hidden md:block">
+                <div class="overflow-x-auto" tabindex="0">
                 <table class="w-full text-left">
                     <thead>
                         <tr class="bts-overline border-b border-divider">
@@ -335,6 +336,7 @@ new #[Title('Clients')] class extends Component {
                         @endforeach
                     </tbody>
                 </table>
+                </div>
             </x-ui.card>
 
             {{-- Mobile: stacked cards. --}}

@@ -75,7 +75,7 @@ new #[Title('New agency user')] class extends Component {
 }; ?>
 
 <div>
-    <div class="mx-auto flex w-full max-w-2xl flex-col gap-7 px-8 py-7">
+    <div class="mx-auto flex w-full max-w-2xl flex-col gap-7 px-4 py-6 sm:px-6 lg:px-8 lg:py-7">
         <x-ui.page-header :overline="__('Agency')" :title="__('New agency user')">
             <x-slot:subtitle>{{ __('Create an operator. They receive a temporary password and must change it on first login.') }}</x-slot:subtitle>
         </x-ui.page-header>

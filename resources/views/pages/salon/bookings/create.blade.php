@@ -390,7 +390,7 @@ new #[Title('New booking')] class extends Component {
 }; ?>
 
 <div>
-    <div class="mx-auto flex w-full max-w-3xl flex-col gap-7 px-8 py-7">
+    <div class="mx-auto flex w-full max-w-3xl flex-col gap-7 px-4 py-6 sm:px-6 lg:px-8 lg:py-7">
         <x-ui.page-header :overline="__('New booking')" :title="__('Create a booking')" />
 
         @error('start') <div class="text-[14px] text-danger">{{ $message }}</div> @enderror

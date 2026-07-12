@@ -138,7 +138,7 @@ new #[Title('New salon')] class extends Component {
 }; ?>
 
 <div>
-    <div class="mx-auto flex w-full max-w-2xl flex-col gap-7 px-8 py-7">
+    <div class="mx-auto flex w-full max-w-2xl flex-col gap-7 px-4 py-6 sm:px-6 lg:px-8 lg:py-7">
         <x-ui.page-header :overline="__('Agency')" :title="__('New salon')">
             <x-slot:subtitle>{{ __('Set up a new sub-account.') }}</x-slot:subtitle>
         </x-ui.page-header>

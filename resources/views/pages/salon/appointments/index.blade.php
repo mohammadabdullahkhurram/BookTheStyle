@@ -165,7 +165,7 @@ new #[Title('Check-in')] class extends Component {
 }; ?>
 
 <div>
-    <div class="mx-auto flex w-full max-w-5xl flex-col gap-7 px-8 py-7">
+    <div class="mx-auto flex w-full max-w-6xl flex-col gap-7 px-4 py-6 sm:px-6 lg:px-8 lg:py-7">
         <x-ui.page-header :overline="__('Today')" :title="__('Check-in')">
             <x-slot:actions>
                 @can('manageBookings', $salon)

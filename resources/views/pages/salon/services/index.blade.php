@@ -217,7 +217,7 @@ new #[Title('Services')] class extends Component {
 }; ?>
 
 <div>
-    <div class="mx-auto flex w-full max-w-4xl flex-col gap-7 px-8 py-7">
+    <div class="mx-auto flex w-full max-w-6xl flex-col gap-7 px-4 py-6 sm:px-6 lg:px-8 lg:py-7">
         <x-ui.page-header :overline="__('Manage')" :title="__('Services')" />
 
         <x-ui.card class="flex flex-col gap-4">
@@ -246,6 +246,7 @@ new #[Title('Services')] class extends Component {
         </x-ui.card>
 
         <x-ui.card padding="p-0" class="overflow-hidden">
+            <div class="overflow-x-auto" tabindex="0">
             <table class="w-full text-left">
                 <thead>
                     <tr class="bts-overline border-b border-divider">
@@ -294,6 +295,7 @@ new #[Title('Services')] class extends Component {
                     @endforelse
                 </tbody>
             </table>
+            </div>
         </x-ui.card>
     </div>
 
