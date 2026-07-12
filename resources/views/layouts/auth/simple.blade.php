@@ -14,11 +14,14 @@
                 <x-app-logo class="h-10" />
             </a>
 
-            <div class="relative flex w-full max-w-sm flex-col gap-6 rounded-[var(--radius-modal)] border border-border bg-card p-8 shadow-[var(--shadow-overlay)]">
+            {{-- Editorial composition: the form sits directly on the warm
+                 background — no floating card. Type and whitespace carry the
+                 structure; a hairline rule closes the composition. --}}
+            <div class="relative flex w-full max-w-sm flex-col gap-6">
                 {{ $slot }}
             </div>
 
-            <p class="relative text-[13px] tracking-wide text-faint">{{ __('Salon scheduling, by invitation only.') }}</p>
+            <p class="relative border-t border-input-border pt-5 text-[13px] tracking-wide text-faint">{{ __('Salon scheduling, by invitation only.') }}</p>
         </div>
 
         @persist('toast')

@@ -113,8 +113,9 @@ new #[Title('Today')] class extends Component {
             @endcan
         </div>
 
-        {{-- Stats --}}
-        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {{-- Stats: open editorial figures on the page, separated by rules
+             and whitespace — no stat-card boxes. --}}
+        <div class="grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-4">
             <x-ui.stat-card :label="__('Total bookings')" :value="$this->stats['total']"
                 :sublabel="trans_choice('across :count stylist|across :count stylists', count($this->stats['per_stylist']), ['count' => count($this->stats['per_stylist'])])" />
             <x-ui.stat-card :label="__('Waiting')" :value="$this->stats['waiting']" :sublabel="__('arrived, not started')" tone="info" />
@@ -147,10 +148,11 @@ new #[Title('Today')] class extends Component {
             </flux:select>
         </div>
 
-        {{-- Today's bookings --}}
-        <div wire:loading.class="pointer-events-none opacity-60" wire:target="date, filterStylist, filterService, filterStatus"
-             class="overflow-hidden rounded-[var(--radius-list)] border border-border bg-card shadow-card transition-opacity">
-            <div class="flex items-center justify-between gap-4 px-6 py-5">
+        {{-- Today's bookings: a flat editorial section — heading and count on
+             the page, hairline rules and row dividers doing the structure. --}}
+        <section wire:loading.class="pointer-events-none opacity-60" wire:target="date, filterStylist, filterService, filterStatus"
+             class="flex flex-col transition-opacity">
+            <div class="flex items-baseline justify-between gap-4 pb-4">
                 <h2 class="bts-card-title">{{ __("Today's bookings") }}</h2>
                 <div class="flex items-baseline gap-2 text-[14px] text-secondary">
                     <span class="font-display text-[22px] font-semibold leading-none text-ink">{{ $this->bookings->count() }}</span>
@@ -163,12 +165,12 @@ new #[Title('Today')] class extends Component {
                 <table class="w-full text-left">
                     <thead>
                         <tr class="border-y border-divider text-[12.5px] font-semibold uppercase tracking-[0.04em] text-faint">
-                            <th scope="col" class="px-6 py-3 font-semibold">{{ __('Time') }}</th>
-                            <th scope="col" class="px-2 py-3 font-semibold">{{ __('Client') }}</th>
-                            <th scope="col" class="px-2 py-3 font-semibold">{{ __('Service') }}</th>
-                            <th scope="col" class="px-2 py-3 font-semibold">{{ __('Stylist') }}</th>
-                            <th scope="col" class="px-2 py-3 font-semibold">{{ __('Status') }}</th>
-                            <th scope="col" class="px-6 py-3 font-semibold">{{ __('Booked by') }}</th>
+                            <th scope="col" class="py-3 pr-4 font-semibold">{{ __('Time') }}</th>
+                            <th scope="col" class="py-3 pr-4 font-semibold">{{ __('Client') }}</th>
+                            <th scope="col" class="py-3 pr-4 font-semibold">{{ __('Service') }}</th>
+                            <th scope="col" class="py-3 pr-4 font-semibold">{{ __('Stylist') }}</th>
+                            <th scope="col" class="py-3 pr-4 font-semibold">{{ __('Status') }}</th>
+                            <th scope="col" class="py-3 font-semibold">{{ __('Booked by') }}</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-row">
@@ -177,23 +179,23 @@ new #[Title('Today')] class extends Component {
                             @php($stylistSeed = $booking->items->first()?->stylist_id ?? 0)
                             @php($bookedLabel = $booking->source === \App\Enums\BookingSource::InApp ? $booking->booked_by_type->label() : $booking->source->label())
                             <tr>
-                                <td class="px-6 py-4 align-top text-[14px] text-faint">{{ $start?->setTimezone($salon->timezone)->format('g:i A') }}</td>
-                                <td class="px-2 py-4 align-top">
+                                <td class="py-4 pr-4 align-top text-[14px] tabular-nums text-faint">{{ $start?->setTimezone($salon->timezone)->format('g:i A') }}</td>
+                                <td class="py-4 pr-4 align-top">
                                     <div class="flex items-center gap-3">
                                         <x-ui.avatar :name="$booking->client->name" :seed="$stylistSeed" size="sm" />
                                         <span class="text-[15px] font-medium leading-tight text-ink">{{ $booking->client->name }}</span>
                                         @if ($booking->is_walkin)<span class="bts-pill" style="background-color:#F0EEEA;color:#6B6862;">{{ __('Walk-in') }}</span>@endif
                                     </div>
                                 </td>
-                                <td class="px-2 py-4 align-top text-[15px] text-secondary">{{ $booking->items->map(fn ($i) => $i->service->name)->unique()->join(', ') }}</td>
-                                <td class="px-2 py-4 align-top text-[15px] text-secondary">{{ $booking->items->map(fn ($i) => $i->stylist->name)->unique()->join(', ') }}</td>
-                                <td class="px-2 py-4 align-top"><x-ui.status-pill :status="$booking->status" /></td>
-                                <td class="px-6 py-4 align-top"><x-ui.booked-by :label="$bookedLabel" :source="$booking->source" /></td>
+                                <td class="py-4 pr-4 align-top text-[15px] text-secondary">{{ $booking->items->map(fn ($i) => $i->service->name)->unique()->join(', ') }}</td>
+                                <td class="py-4 pr-4 align-top text-[15px] text-secondary">{{ $booking->items->map(fn ($i) => $i->stylist->name)->unique()->join(', ') }}</td>
+                                <td class="py-4 pr-4 align-top"><x-ui.status-pill :status="$booking->status" /></td>
+                                <td class="py-4 align-top"><x-ui.booked-by :label="$bookedLabel" :source="$booking->source" /></td>
                             </tr>
                         @empty
                             <tr>
                                 <td colspan="6">
-                                    <div class="flex flex-col items-center gap-3 px-6 py-16 text-center">
+                                    <div class="flex flex-col items-center gap-3 py-16 text-center">
                                         <span class="flex size-12 items-center justify-center rounded-full bg-accent-tint">
                                             <flux:icon.calendar-days variant="outline" class="size-6 text-accent-ink" />
                                         </span>
@@ -213,7 +215,7 @@ new #[Title('Today')] class extends Component {
                     @php($start = $booking->items->min('starts_at'))
                     @php($stylistSeed = $booking->items->first()?->stylist_id ?? 0)
                     @php($bookedLabel = $booking->source === \App\Enums\BookingSource::InApp ? $booking->booked_by_type->label() : $booking->source->label())
-                    <div class="flex flex-col gap-2 px-4 py-4">
+                    <div class="flex flex-col gap-2 py-4">
                         <div class="flex flex-wrap items-center gap-2.5">
                             <x-ui.avatar :name="$booking->client->name" :seed="$stylistSeed" size="sm" />
                             <span class="text-[15px] font-medium leading-tight text-ink">{{ $booking->client->name }}</span>
@@ -228,9 +230,9 @@ new #[Title('Today')] class extends Component {
                         <x-ui.booked-by :label="$bookedLabel" :source="$booking->source" />
                     </div>
                 @empty
-                    <div class="px-4 py-10 text-center text-[15px] text-faint">{{ __('No bookings for this day.') }}</div>
+                    <div class="py-10 text-center text-[15px] text-faint">{{ __('No bookings for this day.') }}</div>
                 @endforelse
             </div>
-        </div>
+        </section>
     </div>
 </div>

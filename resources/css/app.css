@@ -95,32 +95,34 @@
     --color-zinc-900: #211c18;
     --color-zinc-950: #16110d;
 
-    /* Corner radius (DESIGN-TOKENS) — a touch softer across the board;
-       crafted, not boxy. */
-    --radius-sm: 10px;    /* segment */
-    --radius-md: 12px;    /* input */
-    --radius-lg: 14px;    /* nav item */
-    --radius-xl: 18px;    /* stat card */
-    --radius-2xl: 20px;   /* list card */
-    --radius-3xl: 24px;   /* modal / hero */
+    /* Corner radius (DESIGN-TOKENS) — tight and intentional. The editorial
+       language builds structure from whitespace and hairline rules, not
+       rounded containers, so radii stay restrained. */
+    --radius-sm: 8px;     /* segment */
+    --radius-md: 10px;    /* input */
+    --radius-lg: 10px;    /* nav item */
+    --radius-xl: 12px;    /* stat surface (rarely used) */
+    --radius-2xl: 14px;   /* list card */
+    --radius-3xl: 16px;   /* modal / hero */
 
     /* Per-element radii (used by components for exactness). */
-    --radius-chip: 10px;
-    --radius-input: 12px;
-    --radius-button: 14px;
-    --radius-nav: 14px;
-    --radius-stat: 18px;
-    --radius-list: 20px;
-    --radius-modal: 24px;
+    --radius-chip: 8px;
+    --radius-input: 10px;
+    --radius-button: 10px;
+    --radius-nav: 10px;
+    --radius-stat: 12px;
+    --radius-list: 14px;
+    --radius-modal: 16px;
 
-    /* Shadows — warm umbra (never pure black), soft two-layer card depth,
-       plum-tinted button glow. */
-    --shadow-xs: 0 1px 2px rgb(63 47 38 / 0.05);
-    --shadow-sm: 0 1px 2px rgb(63 47 38 / 0.05);
-    --shadow-md: 0 2px 10px rgb(63 47 38 / 0.12);
-    --shadow-card: 0 1px 2px rgb(63 47 38 / 0.04), 0 8px 24px rgb(63 47 38 / 0.05);
-    --shadow-button: 0 2px 12px rgb(109 60 94 / 0.24);
-    --shadow-overlay: 0 24px 64px rgb(52 33 45 / 0.18);
+    /* Shadows — flat by default. Structure comes from hairline borders and
+       whitespace; only true overlays (modals, drawers) may float, and even
+       those stay quiet. Warm umbra, never pure black. */
+    --shadow-xs: 0 1px 2px rgb(63 47 38 / 0.03);
+    --shadow-sm: 0 1px 2px rgb(63 47 38 / 0.03);
+    --shadow-md: 0 1px 3px rgb(63 47 38 / 0.06);
+    --shadow-card: 0 1px 2px rgb(63 47 38 / 0.03);
+    --shadow-button: 0 1px 2px rgb(63 47 38 / 0.08);
+    --shadow-overlay: 0 16px 40px rgb(52 33 45 / 0.14);
 }
 
 @layer base {
@@ -212,16 +214,17 @@ select:focus[data-flux-control] {
 | that uses the x-ui.* Blade components or these classes inherits them.
 --------------------------------------------------------------------------- */
 @layer components {
-    /* Buttons (x-ui.button). Height 48, radius via token, 15px/600. Disabled
-       state (incl. Livewire's auto-disable during wire:submit / wire:loading)
-       is visible and un-clickable everywhere without per-call-site wiring. */
+    /* Buttons (x-ui.button). Height 44 (touch minimum, refined not big),
+       radius via token, 14.5px/600. Disabled state (incl. Livewire's
+       auto-disable during wire:submit / wire:loading) is visible and
+       un-clickable everywhere without per-call-site wiring. */
     .bts-btn {
-        @apply inline-flex h-12 items-center justify-center gap-2 px-5 text-[15px] font-semibold transition disabled:pointer-events-none disabled:opacity-50;
+        @apply inline-flex h-11 items-center justify-center gap-2 px-4 text-[14.5px] font-semibold transition disabled:pointer-events-none disabled:opacity-50;
         border-radius: var(--radius-button);
     }
     .bts-btn-sm {
-        @apply h-9 px-3.5 text-[13px];
-        border-radius: calc(var(--radius-button) - 3px);
+        @apply h-9 px-3 text-[13px];
+        border-radius: calc(var(--radius-button) - 2px);
     }
     .bts-btn-primary {
         background-color: var(--accent);
@@ -309,11 +312,17 @@ select:focus[data-flux-control] {
         color: var(--accent-ink);
     }
 
-    /* Cards. */
+    /* Cards — a restrained, rarely-used surface: hairline border, no lift.
+       Prefer whitespace + .bts-rule dividers over wrapping content in cards. */
     .bts-card {
         background-color: #fff;
         border: 1px solid var(--color-border);
-        box-shadow: var(--shadow-card);
+    }
+
+    /* Hairline section rule — the primary structural tool of the editorial
+       layout (warm sand, 1px). */
+    .bts-rule {
+        border-top: 1px solid var(--color-input-border);
     }
 
     /* Segmented toggle track (Flux radio.group variant=segmented). */

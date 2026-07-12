@@ -221,7 +221,7 @@ new #[Title('Clients')] class extends Component {
         </x-ui.page-header>
 
         @if ($this->canManage)
-            <x-ui.card class="flex flex-col gap-4">
+            <section class="flex flex-col gap-4 border-b border-input-border pb-7">
                 <h2 class="bts-card-title">{{ __('Add a client') }}</h2>
                 <form wire:submit="create" class="flex flex-col gap-4">
                     <div class="grid gap-4 sm:grid-cols-3">
@@ -233,7 +233,7 @@ new #[Title('Clients')] class extends Component {
                         <x-ui.button type="submit" loading="create"><flux:icon.plus variant="micro" class="shrink-0" />{{ __('Add client') }}</x-ui.button>
                     </div>
                 </form>
-            </x-ui.card>
+            </section>
         @endif
 
         {{-- Search + sort + filters. --}}
@@ -265,7 +265,7 @@ new #[Title('Clients')] class extends Component {
         </div>
 
         @if ($this->clients->isEmpty())
-            <x-ui.card class="flex flex-col items-center gap-3 py-16 text-center">
+            <div class="flex flex-col items-center gap-3 border-t border-input-border py-16 text-center">
                 <span class="flex size-12 items-center justify-center rounded-full bg-accent-tint">
                     <flux:icon.user-group variant="outline" class="size-6 text-accent-ink" />
                 </span>
@@ -274,29 +274,29 @@ new #[Title('Clients')] class extends Component {
                         ? __('No clients match. Adjust the search or filters.')
                         : __('No clients yet. They appear here with their first booking.') }}
                 </p>
-            </x-ui.card>
+            </div>
         @else
             {{-- Desktop table. --}}
-            <x-ui.card padding="p-0" class="hidden overflow-hidden transition-opacity md:block"
+            <div class="hidden transition-opacity md:block"
                 wire:loading.class="pointer-events-none opacity-60" wire:target="search, sort, stylistFilter, serviceFilter, upcomingOnly, newOnly">
                 <div class="overflow-x-auto" tabindex="0">
                 <table class="w-full text-left">
                     <thead>
-                        <tr class="bts-overline border-b border-divider">
-                            <th scope="col" class="px-5 py-4 font-semibold">{{ __('Client') }}</th>
-                            <th scope="col" class="px-5 py-4 font-semibold">{{ __('Contact') }}</th>
-                            <th scope="col" class="px-5 py-4 font-semibold">{{ __('Visits') }}</th>
-                            <th scope="col" class="px-5 py-4 font-semibold">{{ __('Last visit') }}</th>
-                            <th scope="col" class="px-5 py-4 font-semibold">{{ __('Upcoming') }}</th>
-                            <th scope="col" class="px-5 py-4 font-semibold">{{ __('Spent (est.)') }}</th>
-                            <th scope="col" class="px-5 py-4 font-semibold">{{ __('Stylist') }}</th>
-                            <th scope="col" class="px-5 py-4"></th>
+                        <tr class="border-y border-divider text-[12.5px] font-semibold uppercase tracking-[0.04em] text-faint">
+                            <th scope="col" class="py-3 pr-4 font-semibold">{{ __('Client') }}</th>
+                            <th scope="col" class="py-3 pr-4 font-semibold">{{ __('Contact') }}</th>
+                            <th scope="col" class="py-3 pr-4 font-semibold">{{ __('Visits') }}</th>
+                            <th scope="col" class="py-3 pr-4 font-semibold">{{ __('Last visit') }}</th>
+                            <th scope="col" class="py-3 pr-4 font-semibold">{{ __('Upcoming') }}</th>
+                            <th scope="col" class="py-3 pr-4 font-semibold">{{ __('Spent (est.)') }}</th>
+                            <th scope="col" class="py-3 pr-4 font-semibold">{{ __('Stylist') }}</th>
+                            <th scope="col" class="py-3"></th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-row">
                         @foreach ($this->clients as $client)
                             <tr wire:key="client-{{ $client->id }}">
-                                <td class="px-5 py-4">
+                                <td class="py-4 pr-4">
                                     <a href="{{ route('salon.client', ['salon' => $salon, 'clientId' => $client->id]) }}" wire:navigate class="flex items-center gap-3">
                                         <x-ui.avatar :name="$client->name" :seed="$client->id" size="sm" />
                                         <span class="flex items-center gap-2">
@@ -313,27 +313,27 @@ new #[Title('Clients')] class extends Component {
                                         </span>
                                     </a>
                                 </td>
-                                <td class="px-5 py-4 text-[13.5px] text-secondary">
+                                <td class="py-4 pr-4 text-[13.5px] text-secondary">
                                     <div class="flex flex-col">
                                         <span>{{ $client->phone ?: '—' }}</span>
                                         @if ($client->email)<span class="text-faint">{{ $client->email }}</span>@endif
                                     </div>
                                 </td>
-                                <td class="px-5 py-4 text-[14px] text-body">
+                                <td class="py-4 pr-4 text-[14px] text-body">
                                     {{ (int) $client->total_visits }}
                                     <span class="text-[12.5px] text-faint">· {{ trans_choice(':count service|:count services', (int) $client->total_services, ['count' => (int) $client->total_services]) }}@if ((int) $client->no_show_count > 0) · {{ __(':count no-show', ['count' => (int) $client->no_show_count]) }}@endif</span>
                                 </td>
-                                <td class="px-5 py-4 text-[14px] text-secondary">{{ $this->localDate($client->last_visit_at) ?? '—' }}</td>
-                                <td class="px-5 py-4 text-[14px]">
+                                <td class="py-4 pr-4 text-[14px] text-secondary">{{ $this->localDate($client->last_visit_at) ?? '—' }}</td>
+                                <td class="py-4 pr-4 text-[14px]">
                                     @if ($client->upcoming_at !== null)
                                         <span class="bts-pill" style="background-color:#E3EDF6;color:#356088;">{{ $this->localDate($client->upcoming_at) }}</span>
                                     @else
                                         <span class="text-faint">—</span>
                                     @endif
                                 </td>
-                                <td class="px-5 py-4 text-[14px] text-secondary">{{ $this->spentLabel($client->spent_cents) }}</td>
-                                <td class="px-5 py-4 text-[14px] text-secondary">{{ $client->preferredStylist?->name ?? '—' }}</td>
-                                <td class="px-5 py-4 text-right">
+                                <td class="py-4 pr-4 text-[14px] text-secondary">{{ $this->spentLabel($client->spent_cents) }}</td>
+                                <td class="py-4 pr-4 text-[14px] text-secondary">{{ $client->preferredStylist?->name ?? '—' }}</td>
+                                <td class="py-4 text-right">
                                     @if ($this->canManage)
                                         <button type="button" wire:click="startEdit({{ $client->id }})" class="text-[13px] font-semibold text-accent transition hover:text-accent-hover">{{ __('Edit') }}</button>
                                     @endif
@@ -343,14 +343,14 @@ new #[Title('Clients')] class extends Component {
                     </tbody>
                 </table>
                 </div>
-            </x-ui.card>
+            </div>
 
             {{-- Mobile: stacked cards. --}}
-            <div class="flex flex-col gap-3 transition-opacity md:hidden"
+            <div class="flex flex-col divide-y divide-row border-t border-divider transition-opacity md:hidden"
                  wire:loading.class="pointer-events-none opacity-60" wire:target="search, sort, stylistFilter, serviceFilter, upcomingOnly, newOnly">
                 @foreach ($this->clients as $client)
                     <a href="{{ route('salon.client', ['salon' => $salon, 'clientId' => $client->id]) }}" wire:navigate wire:key="client-m-{{ $client->id }}">
-                        <x-ui.card padding="p-4" class="flex flex-col gap-2">
+                        <div class="flex flex-col gap-2 py-4">
                             <div class="flex items-center gap-3">
                                 <x-ui.avatar :name="$client->name" :seed="$client->id" size="sm" />
                                 <span class="text-[15px] font-medium text-ink">{{ $client->name }}</span>
@@ -368,7 +368,7 @@ new #[Title('Clients')] class extends Component {
                                 @if ($client->upcoming_at) · {{ __('next :date', ['date' => $this->localDate($client->upcoming_at)]) }} @endif
                                 · {{ $this->spentLabel($client->spent_cents) }}
                             </div>
-                        </x-ui.card>
+                        </div>
                     </a>
                 @endforeach
             </div>

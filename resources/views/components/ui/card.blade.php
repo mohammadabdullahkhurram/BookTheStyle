@@ -1,6 +1,6 @@
 @props([
     'radius' => 'list',
-    'padding' => 'p-6',
+    'padding' => 'p-5',
 ])
 
 @php
@@ -13,6 +13,9 @@
     };
 @endphp
 
-<div {{ $attributes->merge(['class' => "{$rounded} border border-border bg-card shadow-card {$padding}"]) }}>
+{{-- A restrained surface: hairline border, flat. Reach for whitespace and
+     .bts-rule dividers first — a card is for content that genuinely needs
+     lifting off the page, and never nests inside another card. --}}
+<div {{ $attributes->merge(['class' => "{$rounded} border border-border bg-card {$padding}"]) }}>
     {{ $slot }}
 </div>

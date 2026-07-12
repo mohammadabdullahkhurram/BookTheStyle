@@ -8,8 +8,9 @@ The feeling of a high-end salon's brand: inviting, tactile, human — and polish
 
 - **Color.** The violet DNA shifted warm and rich: a **plum** accent (`#824C71`) instead of blue-violet, on a **warm cream/greige** neutral foundation (paper `#F7F4EF`, sand borders) — never cold grey. A **blush** (dusty rose) tint exists for sparing warm-emphasis moments only; it is never an action or status color. Every text/background pair passes WCAG AA (ratios noted inline below).
 - **Typography.** Editorial serif + humanist sans: **Fraunces** for headings, titles, and stat numbers (its warmth and character are the boutique voice); **Hanken Grotesk** for body and UI. Serifs carry their own presence — headings sit a weight step lighter (600–700, not 700–800) with near-neutral tracking. The **overline** — 12px / 600 / 0.09em tracking, uppercase, in `--accent-ink` plum — is the signature editorial detail above headings.
-- **Spacing.** Generous, intentional whitespace: the scale gains 40 and 48 steps for section breathing room; page sections breathe at 28–48, components keep the tighter steps. Calm density over compactness.
-- **Surfaces.** Softer radii one notch up across the board (list cards 20, modals 24), **warm umbra shadows** (never pure black — `rgb(63 47 38 / …)`), a soft two-layer card shadow, and a plum-tinted button glow. Tactile but clean; crafted, not boxy.
+- **Layout — flat & editorial.** Structure comes from **whitespace, typography, and hairline rules** (`.bts-rule`, 1px warm sand) — NOT from nested boxes. Most content sits directly on the warm background; a card is a *rare* lift for content that genuinely needs it, and a card never nests inside a card. Stats are open display figures under a hairline rule, not stat-cards. Tables sit on the page between `border-y` rules with flush first/last columns.
+- **Spacing.** Generous, intentional whitespace: the scale gains 40 and 48 steps for section breathing room. Proportions stay refined, not big — premium = intentional. The drama is **scale contrast** (large Fraunces figures against small tracked labels), never uniform bigness.
+- **Surfaces.** Flat by default: tight radii (button/input/nav 10, list 14, modal 16), **barely-there warm shadows** (a 1px umbra at most; only true overlays — modals, drawers — float, quietly). Hairline borders and dividers are the primary separators.
 - **Details.** Sentence case, no emoji. Micro-interactions stay 150–300ms and subtle. Pills, chips, and empty states are considered, never default-looking. Pastel families keep identifying people; service colours keep identifying work.
 
 ## Fonts (self-host via the existing self-hosted-fonts setup — no CDN)
@@ -91,7 +92,7 @@ Twelve soft, on-brand pastels — each a `{ bg, border, ink }` triplet (same aes
 |---|---|---|---|---|
 | Display | Fraunces | 56px | 600 | letter-spacing -0.01em, line-height 1.05 |
 | Page heading | Fraunces | 28px | 600 | letter-spacing -0.005em |
-| Stat number | Fraunces | 34px | 600 | tabular where columns align |
+| Stat number | Fraunces | 36px | 600 | open figure under a hairline rule; tabular where columns align |
 | Section / card title | Fraunces | 19px | 600 | letter-spacing -0.005em |
 | Subsection | Hanken | 16px | 600 | |
 | Body large | Hanken | 17px | 400 | color #57504A |
@@ -103,24 +104,24 @@ Twelve soft, on-brand pastels — each a `{ bg, border, ink }` triplet (same aes
 ## Spacing scale (px)
 6 · 9 · 12 · 16 · 18 · 22 · 24 · 28 · 32 · **40 · 48** (section breathing room)
 
-## Corner radius (one notch softer — crafted, not boxy)
+## Corner radius (tight and intentional — the structure is rules + whitespace)
 | Token | Radius |
 |---|---|
-| Segment | 10px |
-| Chip / small | 10px |
-| Input | 12px |
-| Button | 14px |
-| Nav item | 14px |
-| Stat card | 18px |
-| List card | 20px |
-| Modal / hero | 24px |
+| Segment | 8px |
+| Chip / small | 8px |
+| Input | 10px |
+| Button | 10px |
+| Nav item | 10px |
+| Stat surface (rare) | 12px |
+| List card | 14px |
+| Modal / hero | 16px |
 | Pill | 99px |
 | Avatar | 50% |
 
-## Shadows (warm umbra — never pure black)
-- Card `0 1px 2px rgb(63 47 38 / .04), 0 8px 24px rgb(63 47 38 / .05)`
-- Button (primary) `0 2px 12px rgb(109 60 94 / .24)` (plum glow)
-- Overlay / modal `0 24px 64px rgb(52 33 45 / .18)`
+## Shadows (flat by default — warm umbra, never pure black)
+- Card `0 1px 2px rgb(63 47 38 / .03)` (barely-there; prefer the hairline border)
+- Button (primary) `0 1px 2px rgb(63 47 38 / .08)`
+- Overlay / modal `0 16px 40px rgb(52 33 45 / .14)` (true overlays only)
 
 ## Status pills
 Padding `5px 13px` · radius `99px` · `12.5px / 600`
@@ -134,13 +135,15 @@ Padding `5px 13px` · radius `99px` · `12.5px / 600`
 | Cancelled | `#F0EEEA` | `#6B6862` (AA 4.79:1) |
 
 ## Components
-**Primary button** — bg `var(--accent)`, text `#FFFFFF`, radius 14, height 48, 15px/600, shadow `0 2px 12px rgb(109 60 94 / .24)`, hover bg `var(--accent-hover)`.
+**Primary button** — bg `var(--accent)`, text `#FFFFFF`, radius 10, height 44, 14.5px/600, hover bg `var(--accent-hover)`. Quiet 1px shadow at most.
 
-**Secondary button** — bg `#FFFFFF`, text `#3A3833`, border `1px #E0D8CC`, radius 14, height 48, 15px/600.
+**Secondary button** — bg `#FFFFFF`, text `#3A3833`, border `1px #E0D8CC`, radius 10, height 44, 14.5px/600.
 
-**Input** — height 48, radius 12, 15px/400, bg `#FCFAF6`, border `1px #E0D8CC`. Label 13px/600 `#6C645C`. Placeholder `#A9A093`. Focus: border `var(--accent)`, bg `#FFFFFF`.
+**Input** — height 44–48, radius 10, 15px/400, bg `#FCFAF6`, border `1px #E0D8CC`. Label 13px/600 `#6C645C`. Placeholder `#A9A093`. Focus: border `var(--accent)`, bg `#FFFFFF`.
 
-**Cards** — surface `#FFFFFF`, border `1px #EAE4DB`, shadow (card, above), padding 18–26. Radius: 18 (stat) / 20 (list) / 24 (modal).
+**Cards (rare)** — surface `#FFFFFF`, hairline border `1px #EAE4DB`, flat, padding 16–22. Radius: 14 (list) / 16 (modal). Reach for `.bts-rule` + whitespace first; never nest cards.
+
+**Open stat** — hairline top rule, 12.5px/600 tracked uppercase label in muted, Fraunces 36/600 figure, optional 13px faint sub-line. Sits directly on the page.
 
 **Calendar appointment block** — radius 11, padding `8px 11px`, bg + border + ink from the assigned service's palette triplet.
 

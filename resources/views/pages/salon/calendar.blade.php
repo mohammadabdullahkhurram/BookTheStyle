@@ -348,9 +348,10 @@ new #[Title('Calendar')] class extends Component {
                 @endif
             </x-slot:pill>
             <div class="flex flex-col gap-6">
-                <div class="flex flex-col gap-2 rounded-[var(--radius-md)] border border-border bg-paper p-4">
+                {{-- Services: a flat, hairline-divided list — no inner box. --}}
+                <div class="flex flex-col divide-y divide-row border-y border-divider">
                     @foreach ($booking->items as $item)
-                        <div class="flex items-center justify-between text-[14px]">
+                        <div class="flex items-center justify-between py-2.5 text-[14px]">
                             <div class="flex items-center gap-2">
                                 <span class="size-2.5 rounded-full" style="background-color: {{ $item->service->palette()['dot'] }}"></span>
                                 <span class="font-medium text-ink">{{ $item->service->name }}</span>
@@ -366,7 +367,7 @@ new #[Title('Calendar')] class extends Component {
                     @endforeach
                     @if ($booking->items->contains(fn ($item) => $item->service->price_cents !== null))
                         {{-- Informational estimate only — no payments in the app. --}}
-                        <div class="flex items-center justify-between border-t border-row pt-2 text-[13px]">
+                        <div class="flex items-center justify-between py-2.5 text-[13px]">
                             <span class="text-secondary">{{ __('Estimated price') }}</span>
                             <span class="font-medium text-ink">{{ \App\Support\Money::format($booking->items->sum(fn ($item) => $item->service->price_cents ?? 0), $salon->currency) }}</span>
                         </div>
