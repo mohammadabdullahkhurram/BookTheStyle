@@ -476,16 +476,263 @@ new #[Title('Design directions')] class extends Component {
         .gri-nav a { padding: 8px 0; font-size: 13.5px; color: #6f6f6f; display: flex; gap: 14px; border-bottom: 1px solid #ececec; }
         .gri-nav .on { color: #111; font-weight: 700; }
         .gri-nav .on .gri-idx { color: #e0301e; }
+
+        /* ═══════ 21 · DOUGH — claymorphism ═══════ */
+        .d-dough { background: #f2eef7; color: #4a4356; font-family: 'Hanken Grotesk', sans-serif; }
+        .d-dough .hd { font-family: 'Schibsted Grotesk', sans-serif; font-weight: 700; letter-spacing: -.01em; }
+        .dou-clay, .dou-stat, .dou-panel, .dou-modal, .dou-nav, .dou-glass { background: #faf8fd; border-radius: 26px;
+            box-shadow: inset -4px -4px 10px rgb(163 146 194 / .18), inset 4px 4px 10px rgb(255 255 255 / .9), 8px 10px 22px rgb(163 146 194 / .28); }
+        .dou-stat { padding: 18px 20px; }
+        .dou-stat:nth-child(1) { background: #efe6fb; } .dou-stat:nth-child(2) { background: #e2f2ec; }
+        .dou-stat:nth-child(3) { background: #fdeee2; } .dou-stat:nth-child(4) { background: #fde8ef; }
+        .dou-num { font-family: 'Schibsted Grotesk', sans-serif; font-size: 32px; font-weight: 800; color: #5c4a78; }
+        .dou-btn { height: 46px; padding: 0 24px; border-radius: 99px; font-weight: 700; font-size: 14.5px; display: inline-flex; align-items: center;
+            box-shadow: inset -3px -3px 7px rgb(0 0 0 / .12), inset 3px 3px 7px rgb(255 255 255 / .45), 6px 8px 16px rgb(163 146 194 / .3); }
+        .dou-btn:active { box-shadow: inset 3px 3px 7px rgb(0 0 0 / .15), inset -2px -2px 5px rgb(255 255 255 / .3), 2px 3px 8px rgb(163 146 194 / .2); }
+        .dou-btn-p { background: #8f6cc9; color: #fff; }
+        .dou-btn-s { background: #faf8fd; color: #5c4a78; }
+        .dou-btn-d { background: #f6d9de; color: #a34255; }
+        .dou-pill { font-size: 12.5px; font-weight: 700; padding: 6px 14px; border-radius: 99px;
+            box-shadow: inset -2px -2px 5px rgb(163 146 194 / .18), inset 2px 2px 5px rgb(255 255 255 / .85), 3px 4px 9px rgb(163 146 194 / .2); }
+        .dou-ok { background: #e2f2ec; color: #3d7a5e; } .dou-bad { background: #fde3e8; color: #a34255; } .dou-mut { background: #efeaf6; color: #6d6482; }
+        .dou-row { border-top: 2px solid #ece6f4; }
+        .dou-th { padding: 13px 18px; font-size: 12px; font-weight: 700; color: #9a8fb0; }
+        .dou-field { background: #f2eef7; border: 0; border-radius: 18px; padding: 12px 16px; font-size: 14.5px; color: #5c5468;
+            box-shadow: inset 4px 4px 9px rgb(163 146 194 / .22), inset -3px -3px 7px rgb(255 255 255 / .9); }
+        .dou-nav { padding: 12px; }
+        .dou-nav a { border-radius: 99px; padding: 9px 16px; font-size: 14.5px; font-weight: 600; color: #7d7292; display: block; }
+        .dou-nav .on { background: #efe6fb; color: #5c4a78;
+            box-shadow: inset -2px -2px 5px rgb(163 146 194 / .2), inset 2px 2px 5px rgb(255 255 255 / .9); }
+
+        /* ═══════ 22 · CONSOLE — terminal monospace ═══════ */
+        .d-console { background: #f7f4ea; color: #24261f; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; }
+        .d-console .hd { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-weight: 700; letter-spacing: -.02em; }
+        .con-prompt::before { content: '$ '; color: #2e7d43; font-weight: 700; }
+        .con-cursor::after { content: '▍'; color: #2e7d43; animation: con-blink 1.1s steps(1) infinite; }
+        @keyframes con-blink { 50% { opacity: 0; } }
+        .con-box, .con-stat, .con-panel, .con-modal, .con-nav, .con-glass { background: #fdfbf3; border: 1px solid #24261f; border-radius: 0; }
+        .con-stat { padding: 13px 15px; }
+        .con-num { font-size: 30px; font-weight: 700; color: #2e7d43; }
+        .con-lbl { font-size: 11px; text-transform: lowercase; color: #6d7060; }
+        .con-btn { height: 38px; padding: 0 16px; border-radius: 0; font-weight: 700; font-size: 13px; display: inline-flex; align-items: center;
+            font-family: inherit; border: 1px solid #24261f; }
+        .con-btn-p { background: #24261f; color: #f7f4ea; }
+        .con-btn-p::before { content: '> '; color: #7ee29a; }
+        .con-btn-s { background: #fdfbf3; color: #24261f; }
+        .con-btn-d { background: #fdfbf3; color: #9c3b2e; border-color: #9c3b2e; }
+        .con-pill { font-size: 12px; font-weight: 700; padding: 2px 6px; }
+        .con-ok { color: #2e7d43; } .con-ok::before { content: '[ '; } .con-ok::after { content: ' ]'; }
+        .con-bad { color: #9c3b2e; } .con-bad::before { content: '[ '; } .con-bad::after { content: ' ]'; }
+        .con-mut { color: #6d7060; } .con-mut::before { content: '[ '; } .con-mut::after { content: ' ]'; }
+        .con-row { border-top: 1px dashed #b9b8a5; }
+        .con-th { padding: 10px 14px; font-size: 11px; text-transform: lowercase; color: #6d7060; border-bottom: 1px solid #24261f; }
+        .con-field { background: #fdfbf3; border: 1px solid #24261f; border-radius: 0; padding: 9px 12px; font-size: 13px; color: #3d4034; font-family: inherit; }
+        .con-nav { padding: 10px 12px; }
+        .con-nav a { padding: 6px 0; font-size: 13.5px; color: #6d7060; display: block; }
+        .con-nav a::before { content: '  '; white-space: pre; }
+        .con-nav .on { color: #24261f; font-weight: 700; }
+        .con-nav .on::before { content: '❯ '; color: #2e7d43; }
+
+        /* ═══════ 23 · CONFETTI — Memphis 80s postmodern ═══════ */
+        .d-confetti { background: #fffdf6; color: #23204a; font-family: 'Hanken Grotesk', sans-serif; position: relative; }
+        .d-confetti .hd { font-family: 'Schibsted Grotesk', sans-serif; font-weight: 800; letter-spacing: -.01em; }
+        .cof-squig { display: inline-block; width: 54px; height: 8px;
+            background: radial-gradient(circle 4px at 4px 8px, transparent 3.4px, #ff5d8f 3.4px, #ff5d8f 4.6px, transparent 4.6px) 0 0/14px 8px repeat-x; }
+        .cof-stat, .cof-panel, .cof-modal, .cof-nav, .cof-glass { background: #fff; border: 2.5px solid #23204a; }
+        .cof-stat { padding: 15px 17px; position: relative; }
+        .cof-stat:nth-child(1) { border-radius: 18px 2px 18px 2px; background: #fff3c9; }
+        .cof-stat:nth-child(2) { border-radius: 2px 18px 2px 18px; background: #d8f2ee; }
+        .cof-stat:nth-child(3) { border-radius: 18px 18px 2px 18px; background: #ffe3ee; }
+        .cof-stat:nth-child(4) { border-radius: 2px 2px 18px 18px; background: #e6e0ff; }
+        .cof-num { font-family: 'Schibsted Grotesk', sans-serif; font-size: 33px; font-weight: 800; }
+        .cof-btn { height: 44px; padding: 0 20px; font-weight: 800; font-size: 14px; display: inline-flex; align-items: center; border: 2.5px solid #23204a; }
+        .cof-btn-p { background: #00b8a2; color: #fff; border-radius: 16px 3px 16px 3px; box-shadow: 4px 4px 0 #ffb03a; }
+        .cof-btn-s { background: #fff; color: #23204a; border-radius: 3px 16px 3px 16px; box-shadow: 4px 4px 0 #d8f2ee; }
+        .cof-btn-d { background: #ff5d8f; color: #fff; border-radius: 16px 3px 16px 3px; box-shadow: 4px 4px 0 #ffe3ee; }
+        .cof-pill { font-size: 12px; font-weight: 800; padding: 4px 11px; border: 2px solid #23204a; border-radius: 12px 2px 12px 2px; }
+        .cof-ok { background: #d8f2ee; } .cof-bad { background: #ff5d8f; color: #fff !important; } .cof-mut { background: #fff3c9; }
+        .cof-row { border-top: 2px solid #23204a; }
+        .cof-th { padding: 11px 15px; font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; background: #23204a; color: #fffdf6; }
+        .cof-field { background: #fff; border: 2.5px solid #23204a; border-radius: 2px 14px 2px 14px; padding: 10px 14px; font-size: 14px; }
+        .cof-nav { padding: 10px; border-radius: 18px 2px 18px 2px; }
+        .cof-nav a { padding: 8px 13px; font-size: 14px; font-weight: 800; color: #55517a; display: block; }
+        .cof-nav .on { color: #23204a; background: #fff3c9; border: 2px solid #23204a; border-radius: 10px 2px 10px 2px; }
+
+        /* ═══════ 24 · DECO — Art Deco Gatsby luxe ═══════ */
+        .d-deco { background: #f6f1e5; color: #241f18; font-family: 'Hanken Grotesk', sans-serif; }
+        .d-deco .hd { font-family: 'Fraunces', serif; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+        .dec-frame { border: 1px solid #a8823c; outline: 1px solid #a8823c; outline-offset: 3px; background: #fdfaf1; }
+        .dec-fan { height: 10px; background: repeating-conic-gradient(from -90deg at 50% 100%, #a8823c 0deg 6deg, transparent 6deg 18deg); width: 84px; margin: 0 auto; }
+        .dec-panel, .dec-modal, .dec-nav, .dec-glass { border: 1px solid #a8823c; outline: 1px solid #a8823c; outline-offset: 3px; background: #fdfaf1; }
+        .dec-lbl { font-size: 10.5px; font-weight: 600; letter-spacing: .3em; text-transform: uppercase; color: #a8823c; }
+        .dec-num { font-family: 'Fraunces', serif; font-size: 38px; font-weight: 600; }
+        .dec-stat { padding: 16px 18px; text-align: center; }
+        .dec-btn { height: 44px; padding: 0 26px; border-radius: 0; font-weight: 600; font-size: 12px; letter-spacing: .22em; text-transform: uppercase; display: inline-flex; align-items: center; }
+        .dec-btn-p { background: #241f18; color: #e9d9ae; border: 1px solid #a8823c; }
+        .dec-btn-s { background: transparent; border: 1px solid #a8823c; color: #241f18; }
+        .dec-btn-d { background: transparent; border: 1px solid #8f3d3d; color: #8f3d3d; }
+        .dec-pill { font-size: 10px; font-weight: 600; letter-spacing: .2em; text-transform: uppercase; padding: 4px 12px; border: 1px solid currentColor; }
+        .dec-ok { color: #241f18; } .dec-bad { color: #8f3d3d; } .dec-mut { color: #a8823c; }
+        .dec-row { border-top: 1px solid #d9c691; }
+        .dec-th { padding: 11px 16px; font-size: 10px; font-weight: 600; letter-spacing: .26em; text-transform: uppercase; color: #a8823c; border-bottom: 3px double #a8823c; }
+        .dec-field { background: #fdfaf1; border: 1px solid #a8823c; border-radius: 0; padding: 11px 15px; font-size: 14px; color: #4a4335; }
+        .dec-nav { padding: 12px; text-align: center; }
+        .dec-nav a { padding: 8px 0; font-size: 12px; letter-spacing: .22em; text-transform: uppercase; color: #776a4e; display: block; }
+        .dec-nav .on { color: #241f18; font-weight: 600; }
+        .dec-nav .on span { border-bottom: 1px solid #a8823c; padding-bottom: 3px; }
+
+        /* ═══════ 25 · FJORD — Scandinavian hygge ═══════ */
+        .d-fjord { background: #f1ede6; color: #3f3b36; font-family: 'Hanken Grotesk', sans-serif; }
+        .d-fjord .hd { font-family: 'Hanken Grotesk', sans-serif; font-weight: 600; letter-spacing: -.01em; }
+        .fjo-stat, .fjo-panel, .fjo-modal, .fjo-nav, .fjo-glass { background: #faf7f1; border-radius: 18px; box-shadow: 0 1px 3px rgb(63 59 54 / .06); }
+        .fjo-stat { padding: 17px 19px; }
+        .fjo-stat:nth-child(1) { background: #e5e9e8; } .fjo-stat:nth-child(2) { background: #ece5dc; }
+        .fjo-stat:nth-child(3) { background: #e8ebe2; } .fjo-stat:nth-child(4) { background: #ede4e2; }
+        .fjo-num { font-size: 30px; font-weight: 600; color: #57636b; }
+        .fjo-btn { height: 44px; padding: 0 22px; border-radius: 14px; font-weight: 600; font-size: 14.5px; display: inline-flex; align-items: center; }
+        .fjo-btn-p { background: #57636b; color: #f6f3ec; }
+        .fjo-btn-s { background: #e7e1d6; color: #4d483f; }
+        .fjo-btn-d { background: #ead9d5; color: #8a5247; }
+        .fjo-pill { font-size: 12.5px; font-weight: 600; padding: 5px 13px; border-radius: 10px; }
+        .fjo-ok { background: #dfe7dc; color: #4d6349; } .fjo-bad { background: #ead9d5; color: #8a5247; } .fjo-mut { background: #e9e3d8; color: #6f6a5e; }
+        .fjo-row { border-top: 1px solid #e6dfd3; }
+        .fjo-th { padding: 13px 18px; font-size: 12px; font-weight: 600; color: #92897a; }
+        .fjo-field { background: #faf7f1; border: 1px solid #ddd4c4; border-radius: 12px; padding: 11px 15px; font-size: 14.5px; color: #5c564c; }
+        .fjo-nav { padding: 10px; }
+        .fjo-nav a { border-radius: 12px; padding: 9px 14px; font-size: 14.5px; font-weight: 500; color: #837b6d; display: block; }
+        .fjo-nav .on { background: #e5e9e8; color: #57636b; font-weight: 600; }
+
+        /* ═══════ 26 · NEON — cyberpunk noir ═══════ */
+        .d-neon { background: #0b0e14; color: #d7e3ea; font-family: 'Hanken Grotesk', sans-serif; }
+        .d-neon .hd { font-family: 'Schibsted Grotesk', sans-serif; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+        .neo-box, .neo-stat, .neo-panel, .neo-modal, .neo-nav, .neo-glass { background: #10141d; border: 1px solid #1f2733; border-radius: 6px; }
+        .neo-stat { padding: 14px 16px; border-top: 2px solid #22e0e8; box-shadow: 0 -6px 18px -8px rgb(34 224 232 / .5); }
+        .neo-stat:nth-child(2) { border-top-color: #ff3d81; box-shadow: 0 -6px 18px -8px rgb(255 61 129 / .5); }
+        .neo-stat:nth-child(3) { border-top-color: #9df23a; box-shadow: 0 -6px 18px -8px rgb(157 242 58 / .5); }
+        .neo-stat:nth-child(4) { border-top-color: #ffb03a; box-shadow: 0 -6px 18px -8px rgb(255 176 58 / .5); }
+        .neo-num { font-family: 'Schibsted Grotesk', sans-serif; font-size: 30px; font-weight: 800; color: #22e0e8; text-shadow: 0 0 14px rgb(34 224 232 / .55); }
+        .neo-stat:nth-child(2) .neo-num { color: #ff3d81; text-shadow: 0 0 14px rgb(255 61 129 / .55); }
+        .neo-stat:nth-child(3) .neo-num { color: #9df23a; text-shadow: 0 0 14px rgb(157 242 58 / .5); }
+        .neo-stat:nth-child(4) .neo-num { color: #ffb03a; text-shadow: 0 0 14px rgb(255 176 58 / .5); }
+        .neo-btn { height: 40px; padding: 0 18px; border-radius: 4px; font-weight: 700; font-size: 12.5px; letter-spacing: .12em; text-transform: uppercase; display: inline-flex; align-items: center; }
+        .neo-btn-p { background: #22e0e8; color: #0b0e14; box-shadow: 0 0 18px rgb(34 224 232 / .45); }
+        .neo-btn-s { background: transparent; border: 1px solid #3a4657; color: #d7e3ea; }
+        .neo-btn-d { background: transparent; border: 1px solid #ff3d81; color: #ff3d81; box-shadow: 0 0 14px rgb(255 61 129 / .25); }
+        .neo-pill { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; padding: 3px 9px; border-radius: 3px; border: 1px solid currentColor; }
+        .neo-ok { color: #9df23a; } .neo-bad { color: #ff3d81; } .neo-mut { color: #7d8a99; }
+        .neo-row { border-top: 1px solid #1f2733; }
+        .neo-th { padding: 11px 15px; font-size: 10.5px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: #22e0e8; }
+        .neo-field { background: #0d1119; border: 1px solid #2a3441; border-radius: 4px; padding: 10px 13px; font-size: 13.5px; color: #aebbc7; }
+        .neo-nav { padding: 8px; }
+        .neo-nav a { border-radius: 4px; padding: 8px 13px; font-size: 12.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #7d8a99; display: block; }
+        .neo-nav .on { color: #22e0e8; background: rgb(34 224 232 / .08); box-shadow: inset 2px 0 0 #22e0e8; }
+
+        /* ═══════ 27 · WASH — watercolor painterly ═══════ */
+        .d-wash { background:
+            radial-gradient(34rem 22rem at 12% 6%, rgb(199 106 140 / .16), transparent 55%),
+            radial-gradient(30rem 20rem at 88% 12%, rgb(140 127 224 / .14), transparent 55%),
+            radial-gradient(38rem 26rem at 55% 105%, rgb(91 146 189 / .13), transparent 58%),
+            #fdfcf9; color: #4a4046; font-family: 'Hanken Grotesk', sans-serif; }
+        .d-wash .hd { font-family: 'Fraunces', serif; font-weight: 500; letter-spacing: .01em; }
+        .was-stat, .was-panel, .was-modal, .was-nav, .was-glass { background: rgb(255 255 255 / .65); border-radius: 18px 22px 16px 24px; box-shadow: 0 4px 18px rgb(120 90 120 / .08); }
+        .was-stat { padding: 17px 19px; position: relative; overflow: hidden; }
+        .was-stat::after { content: ''; position: absolute; right: -18px; bottom: -18px; width: 74px; height: 74px; border-radius: 50%;
+            filter: blur(16px); opacity: .5; }
+        .was-stat:nth-child(1)::after { background: #c76a8c; } .was-stat:nth-child(2)::after { background: #8c7fe0; }
+        .was-stat:nth-child(3)::after { background: #5b92bd; } .was-stat:nth-child(4)::after { background: #d49a4e; }
+        .was-num { font-family: 'Fraunces', serif; font-size: 34px; font-weight: 500; color: #7c4468; }
+        .was-btn { height: 42px; padding: 0 22px; border-radius: 18px 22px 16px 24px; font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; }
+        .was-btn-p { background: linear-gradient(120deg, rgb(199 106 140 / .9), rgb(140 127 224 / .85)); color: #fff; box-shadow: 0 6px 16px rgb(160 90 140 / .3); }
+        .was-btn-s { background: rgb(255 255 255 / .8); color: #6b5762; box-shadow: 0 3px 12px rgb(120 90 120 / .12); }
+        .was-btn-d { background: rgb(255 255 255 / .8); color: #a4506a; box-shadow: 0 3px 12px rgb(164 80 106 / .16); }
+        .was-pill { font-size: 12px; font-weight: 600; padding: 4px 13px; border-radius: 14px 18px 12px 18px; }
+        .was-ok { background: rgb(126 150 112 / .18); color: #55663f; } .was-bad { background: rgb(164 80 106 / .14); color: #a4506a; } .was-mut { background: rgb(120 90 120 / .1); color: #6b5762; }
+        .was-row { border-top: 1px solid rgb(120 90 120 / .12); }
+        .was-th { padding: 12px 17px; font-size: 11.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: #a08a98; }
+        .was-field { background: rgb(255 255 255 / .8); border: 1px solid rgb(120 90 120 / .18); border-radius: 14px 18px 12px 18px; padding: 10px 15px; font-size: 14px; color: #6b5762; }
+        .was-nav { padding: 10px; }
+        .was-nav a { border-radius: 14px 18px 12px 18px; padding: 8px 15px; font-size: 14px; font-weight: 500; color: #8a7583; display: block; }
+        .was-nav .on { background: rgb(199 106 140 / .16); color: #7c4468; font-weight: 600; }
+
+        /* ═══════ 28 · FIELD — flat 2.0 ═══════ */
+        .d-field { background: #f4efe6; color: #221d16; font-family: 'Schibsted Grotesk', sans-serif; }
+        .d-field .hd { font-weight: 800; letter-spacing: -.02em; }
+        .fie-stat, .fie-panel, .fie-modal, .fie-nav, .fie-glass { border-radius: 0; border: 0; box-shadow: none; }
+        .fie-stat { padding: 18px 20px; color: #f4efe6; }
+        .fie-stat:nth-child(1) { background: #6b3358; } .fie-stat:nth-child(2) { background: #274d3d; }
+        .fie-stat:nth-child(3) { background: #b3661f; } .fie-stat:nth-child(4) { background: #221d16; }
+        .fie-stat > div { opacity: 1 !important; }
+        .fie-num { font-size: 34px; font-weight: 800; }
+        .fie-panel, .fie-modal { background: #fffdf8; }
+        .fie-glass { background: #fffdf8; }
+        .fie-btn { height: 44px; padding: 0 24px; border-radius: 0; font-weight: 700; font-size: 14px; display: inline-flex; align-items: center; }
+        .fie-btn-p { background: #6b3358; color: #fff; }
+        .fie-btn-s { background: #e3dccd; color: #221d16; }
+        .fie-btn-d { background: #b3402e; color: #fff; }
+        .fie-pill { font-size: 12px; font-weight: 700; padding: 5px 12px; border-radius: 0; color: #fff; }
+        .fie-ok { background: #274d3d; } .fie-bad { background: #b3402e; } .fie-mut { background: #8a8171; }
+        .fie-row { border-top: 4px solid #f4efe6; }
+        .fie-th { padding: 12px 18px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; background: #221d16; color: #f4efe6; }
+        .fie-field { background: #fffdf8; border: 0; border-bottom: 4px solid #221d16; border-radius: 0; padding: 11px 15px; font-size: 14.5px; }
+        .fie-nav { padding: 0; overflow: hidden; }
+        .fie-nav a { padding: 11px 16px; font-size: 14px; font-weight: 700; color: #6f6552; display: block; background: #ece5d5; margin-bottom: 3px; }
+        .fie-nav .on { background: #6b3358; color: #fff; }
+
+        /* ═══════ 29 · VOLUME — maximalist editorial ═══════ */
+        .d-volume { background: #f3ede2; color: #1c1712; font-family: 'Hanken Grotesk', sans-serif; }
+        .d-volume .hd { font-family: 'Fraunces', serif; font-weight: 700; letter-spacing: -.01em; }
+        .vol-mono { font-family: ui-monospace, Menlo, monospace; font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; }
+        .vol-stat { border-top: 6px solid #1c1712; padding-top: 10px; position: relative; }
+        .vol-num { font-family: 'Fraunces', serif; font-size: 56px; font-weight: 700; line-height: .95; letter-spacing: -.02em; }
+        .vol-stat:nth-child(2) .vol-num { color: #c2372c; }
+        .vol-panel, .vol-modal, .vol-nav, .vol-glass { background: #fbf7ec; border: 2px solid #1c1712; }
+        .vol-btn { height: 46px; padding: 0 24px; border-radius: 0; font-weight: 800; font-size: 15px; display: inline-flex; align-items: center; border: 2px solid #1c1712; }
+        .vol-btn-p { background: #c2372c; color: #fbf7ec; box-shadow: 5px 5px 0 #1c1712; }
+        .vol-btn-s { background: #fbf7ec; color: #1c1712; }
+        .vol-btn-d { background: #1c1712; color: #fbf7ec; }
+        .vol-pill { font-family: ui-monospace, Menlo, monospace; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: 4px 10px; border: 2px solid #1c1712; }
+        .vol-ok { background: #e8dfc8; } .vol-bad { background: #c2372c; color: #fbf7ec !important; border-color: #c2372c; } .vol-mut { background: #fbf7ec; }
+        .vol-row { border-top: 2px solid #1c1712; }
+        .vol-th { padding: 10px 16px; font-family: ui-monospace, Menlo, monospace; font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; border-bottom: 6px solid #1c1712; }
+        .vol-field { background: #fbf7ec; border: 2px solid #1c1712; border-radius: 0; padding: 11px 15px; font-size: 15px; }
+        .vol-nav { padding: 0; }
+        .vol-nav a { padding: 10px 16px; font-family: 'Fraunces', serif; font-size: 18px; font-weight: 700; color: #6f6350; display: block; border-bottom: 2px solid #1c1712; }
+        .vol-nav a:last-child { border-bottom: 0; }
+        .vol-nav .on { color: #1c1712; background: #e8dfc8; }
+        .vol-nav .on::after { content: ' →'; color: #c2372c; }
+
+        /* ═══════ 30 · KYOTO — Zen Japandi ═══════ */
+        .d-kyoto { background: #f5f2ec; color: #45413a; font-family: 'Hanken Grotesk', sans-serif; }
+        .d-kyoto .hd { font-family: 'Fraunces', serif; font-weight: 500; letter-spacing: .02em; }
+        .kyo-enso { display: inline-block; width: 26px; height: 26px; border: 2px solid #8a7a63; border-radius: 50%;
+            border-top-color: transparent; transform: rotate(-40deg); }
+        .kyo-lbl { font-size: 11px; font-weight: 500; letter-spacing: .28em; text-transform: uppercase; color: #8a7a63; }
+        .kyo-num { font-family: 'Fraunces', serif; font-size: 34px; font-weight: 500; color: #45413a; }
+        .kyo-stat { border-left: 2px solid #c9beab; padding: 4px 0 4px 18px; }
+        .kyo-panel, .kyo-modal, .kyo-nav, .kyo-glass { background: #faf8f3; border: 1px solid #e5dfd2; border-radius: 2px; }
+        .kyo-btn { height: 42px; padding: 0 24px; border-radius: 2px; font-weight: 500; font-size: 13.5px; letter-spacing: .08em; display: inline-flex; align-items: center; }
+        .kyo-btn-p { background: #514a3f; color: #f5f2ec; }
+        .kyo-btn-s { background: transparent; border: 1px solid #b5aa94; color: #514a3f; }
+        .kyo-btn-d { background: transparent; border: 1px solid #b5aa94; color: #92564a; }
+        .kyo-pill { font-size: 11.5px; font-weight: 500; letter-spacing: .12em; padding: 4px 12px; border-radius: 2px; background: #ece7db; }
+        .kyo-ok { color: #5c6b4f; } .kyo-bad { color: #92564a; } .kyo-mut { color: #7d7362; }
+        .kyo-row { border-top: 1px solid #e5dfd2; }
+        .kyo-th { padding: 12px 18px; font-size: 10.5px; font-weight: 500; letter-spacing: .24em; text-transform: uppercase; color: #8a7a63; }
+        .kyo-field { background: #faf8f3; border: 0; border-bottom: 1px solid #b5aa94; border-radius: 0; padding: 10px 4px; font-size: 14.5px; color: #5c564a; }
+        .kyo-nav { padding: 14px 16px; }
+        .kyo-nav a { padding: 9px 0; font-size: 14px; letter-spacing: .06em; color: #8a8172; display: block; }
+        .kyo-nav .on { color: #45413a; }
+        .kyo-nav .on::before { content: ''; display: inline-block; width: 18px; height: 1px; background: #92564a; vertical-align: middle; margin-right: 10px; }
     </style>
 
     {{-- ————— Gallery intro + quick nav ————— --}}
     <div class="g-band" style="padding-bottom: 40px;">
         <div class="g-band-inner">
             <div class="g-title" style="color:#d9a9c6;">Design directions</div>
-            <h1 style="font-family:'Fraunces',serif; font-size:34px; font-weight:600; margin-top:14px;">Twenty complete languages, same components.</h1>
+            <h1 style="font-family:'Fraunces',serif; font-size:34px; font-weight:600; margin-top:14px;">Thirty complete languages, same components.</h1>
             <p class="g-caption" style="margin-top:12px;">Each band below renders the identical sample set — header and stats, a table, buttons and pills, a panel and modal preview, form fields, and the nav treatment — fully styled in one direction. Pick the one that feels like BookTheStyle; it will be implemented app-wide and this temporary tab removed.</p>
             <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:22px;">
-                @foreach ([['#lumen', '1 · Lumen'], ['#journal', '2 · Journal'], ['#meridian', '3 · Meridian'], ['#halo', '4 · Halo'], ['#velvet', '5 · Velvet'], ['#studio', '6 · Studio'], ['#aurora', '7 · Aurora'], ['#manor', '8 · Manor'], ['#bloom', '9 · Bloom'], ['#vertex', '10 · Vertex'], ['#glacier', '11 · Glacier'], ['#marble', '12 · Marble'], ['#bolt', '13 · Bolt'], ['#chrome', '14 · Chrome'], ['#gazette', '15 · Gazette'], ['#fern', '16 · Fern'], ['#werkstatt', '17 · Werkstatt'], ['#gilt', '18 · Gilt'], ['#sketch', '19 · Sketch'], ['#grid', '20 · Grid']] as [$href, $label])
+                @foreach ([['#lumen', '1 · Lumen'], ['#journal', '2 · Journal'], ['#meridian', '3 · Meridian'], ['#halo', '4 · Halo'], ['#velvet', '5 · Velvet'], ['#studio', '6 · Studio'], ['#aurora', '7 · Aurora'], ['#manor', '8 · Manor'], ['#bloom', '9 · Bloom'], ['#vertex', '10 · Vertex'], ['#glacier', '11 · Glacier'], ['#marble', '12 · Marble'], ['#bolt', '13 · Bolt'], ['#chrome', '14 · Chrome'], ['#gazette', '15 · Gazette'], ['#fern', '16 · Fern'], ['#werkstatt', '17 · Werkstatt'], ['#gilt', '18 · Gilt'], ['#sketch', '19 · Sketch'], ['#grid', '20 · Grid'], ['#dough', '21 · Dough'], ['#console', '22 · Console'], ['#confetti', '23 · Confetti'], ['#deco', '24 · Deco'], ['#fjord', '25 · Fjord'], ['#neon', '26 · Neon'], ['#wash', '27 · Wash'], ['#field', '28 · Field'], ['#volume', '29 · Volume'], ['#kyoto', '30 · Kyoto']] as [$href, $label])
                     <a href="{{ $href }}" style="border:1px solid rgb(255 255 255 / .2); border-radius:99px; padding:7px 16px; font-size:13.5px; color:#efeae4;">{{ $label }}</a>
                 @endforeach
             </div>
@@ -2275,6 +2522,906 @@ new #[Title('Design directions')] class extends Component {
                     </div>
                     <div class="g-label" style="color:#6f6f6f;">Nav treatment</div>
                     <div class="gri-nav" style="max-width:210px;">
+                        @foreach ($nav as $i => $n)<a class="{{ $i === 0 ? 'on' : '' }}"><span>{{ $n }}</span></a>@endforeach
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {{-- ═══════════ DOUGH ═══════════ --}}
+    <section id="dough" class="g-band d-dough">
+        <div class="g-band-inner">
+            <div style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;">
+                <h2 class="hd" style="font-size:24px;">21 · Dough — claymorphism</h2>
+                <p style="font-size:14px; opacity:.72;">Puffy inflated clay surfaces in pastel lilac, mint, and peach — inner and outer soft shadows, toy-like but refined and tactile.</p>
+            </div>
+
+            <div class="g-label" style="color:#9a8fb0;">Header + stats</div>
+            <div style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:14px;">
+                <div>
+                    <div style="font-size:12.5px; font-weight:700; color:#8f6cc9;">Saturday, 12 July</div>
+                    <div class="hd" style="font-size:26px; margin-top:8px;">Today at the salon</div>
+                </div>
+                <span class="dou-btn dou-btn-p">Add booking</span>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(175px,1fr)); gap:16px; margin-top:20px;">
+                @foreach ($stats as $s)
+                    <div class="dou-stat">
+                        <div style="font-size:12.5px; font-weight:600; opacity:.65;">{{ $s['label'] }}</div>
+                        <div class="dou-num" style="margin-top:8px;">{{ $s['value'] }}</div>
+                        <div style="font-size:12px; opacity:.55; margin-top:5px;">{{ $s['sub'] }}</div>
+                    </div>
+                @endforeach
+            </div>
+
+            <div class="g-grid">
+                <div>
+                    <div class="g-label" style="color:#9a8fb0;">Table</div>
+                    <div class="dou-glass" style="overflow:hidden; position:relative;">
+                        <table style="width:100%; text-align:left; font-size:14px;">
+                            <thead><tr>
+                                <th scope="col" class="dou-th">Time</th><th scope="col" class="dou-th">Client</th><th scope="col" class="dou-th">Service</th><th scope="col" class="dou-th" style="text-align:right;">Status</th>
+                            </tr></thead>
+                            <tbody>
+                                @foreach ($rows as $r)
+                                    <tr class="dou-row">
+                                        <td style="padding:12px 16px; opacity:.6;">{{ $r['time'] }}</td>
+                                        <td style="padding:12px 8px; font-weight:600;">{{ $r['client'] }}</td>
+                                        <td style="padding:12px 8px; opacity:.8;">{{ $r['service'] }} · {{ $r['stylist'] }}</td>
+                                        <td style="padding:12px 16px; text-align:right;">
+                                            <span class="dou-pill dou-{{ $r['kind'] === 'ok' ? 'ok' : ($r['kind'] === 'bad' ? 'bad' : 'mut') }}">{{ $r['status'] }}</span>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="g-label" style="color:#9a8fb0;">Buttons + pills</div>
+                    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+                        <span class="dou-btn dou-btn-p">Confirm booking</span>
+                        <span class="dou-btn dou-btn-s">Reschedule</span>
+                        <span class="dou-btn dou-btn-d">Cancel booking</span>
+                        <span class="dou-pill dou-ok">New client</span>
+                        <span class="dou-pill dou-mut">Walk-in</span>
+                    </div>
+
+                    <div class="g-label" style="color:#9a8fb0;">Form fields</div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; max-width:470px;">
+                        <div class="dou-field">Amelia Hart</div>
+                        <div class="dou-field" style="display:flex; justify-content:space-between;">Full colour <span style="opacity:.4;">▾</span></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="g-label" style="color:#9a8fb0;">Panel + modal</div>
+                    <div class="dou-panel" style="padding:18px; position:relative;">
+                        
+                        <div class="hd" style="font-size:16px;">Next up</div>
+                        <p style="font-size:13.5px; opacity:.8; margin-top:6px; line-height:1.6;">Ruth Okafor · Full colour with Simone, 10:30 AM. Allergy on file — review before mixing.</p>
+                    </div>
+                    <div class="g-stage" style="background:rgb(74 67 86 / .4); padding:26px; margin-top:14px;">
+                        <div class="dou-modal" style="padding:20px;">
+                            <div class="hd" style="font-size:16px;">Cancel this booking?</div>
+                            <p style="font-size:13.5px; opacity:.8; margin:8px 0 15px;">The client's appointment is removed and GoHighLevel is updated.</p>
+                            <div style="display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;">
+                                <span class="dou-btn dou-btn-s" style="height:36px;">Keep it</span>
+                                <span class="dou-btn dou-btn-d" style="height:36px;">Cancel booking</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="g-label" style="color:#9a8fb0;">Nav treatment</div>
+                    <div class="dou-nav" style="max-width:210px;">
+                        @foreach ($nav as $i => $n)<a class="{{ $i === 0 ? 'on' : '' }}"><span>{{ $n }}</span></a>@endforeach
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {{-- ═══════════ CONSOLE ═══════════ --}}
+    <section id="console" class="g-band d-console">
+        <div class="g-band-inner">
+            <div style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;">
+                <h2 class="hd" style="font-size:24px;">22 · Console — terminal monospace</h2>
+                <p style="font-size:14px; opacity:.72;">A beautiful command line: ink-on-paper mono, prompts and brackets, a blinking cursor, dashed rules. Structured and nerdy-chic.</p>
+            </div>
+
+            <div class="g-label" style="color:#6d7060;">Header + stats</div>
+            <div style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:14px;">
+                <div>
+                    <div class="con-prompt con-cursor" style="font-size:13px; font-weight:700;">bookthestyle --today</div>
+                    <div class="hd" style="font-size:26px; margin-top:8px;">Today at the salon</div>
+                </div>
+                <span class="con-btn con-btn-p">Add booking</span>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(175px,1fr)); gap:16px; margin-top:20px;">
+                @foreach ($stats as $s)
+                    <div class="con-stat">
+                        <div style="font-size:12.5px; font-weight:600; opacity:.65;">{{ $s['label'] }}</div>
+                        <div class="con-num" style="margin-top:8px;">{{ $s['value'] }}</div>
+                        <div style="font-size:12px; opacity:.55; margin-top:5px;">{{ $s['sub'] }}</div>
+                    </div>
+                @endforeach
+            </div>
+
+            <div class="g-grid">
+                <div>
+                    <div class="g-label" style="color:#6d7060;">Table</div>
+                    <div class="con-glass" style="overflow:hidden; position:relative;">
+                        <table style="width:100%; text-align:left; font-size:14px;">
+                            <thead><tr>
+                                <th scope="col" class="con-th">Time</th><th scope="col" class="con-th">Client</th><th scope="col" class="con-th">Service</th><th scope="col" class="con-th" style="text-align:right;">Status</th>
+                            </tr></thead>
+                            <tbody>
+                                @foreach ($rows as $r)
+                                    <tr class="con-row">
+                                        <td style="padding:12px 16px; opacity:.6;">{{ $r['time'] }}</td>
+                                        <td style="padding:12px 8px; font-weight:600;">{{ $r['client'] }}</td>
+                                        <td style="padding:12px 8px; opacity:.8;">{{ $r['service'] }} · {{ $r['stylist'] }}</td>
+                                        <td style="padding:12px 16px; text-align:right;">
+                                            <span class="con-pill con-{{ $r['kind'] === 'ok' ? 'ok' : ($r['kind'] === 'bad' ? 'bad' : 'mut') }}">{{ $r['status'] }}</span>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="g-label" style="color:#6d7060;">Buttons + pills</div>
+                    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+                        <span class="con-btn con-btn-p">Confirm booking</span>
+                        <span class="con-btn con-btn-s">Reschedule</span>
+                        <span class="con-btn con-btn-d">Cancel booking</span>
+                        <span class="con-pill con-ok">New client</span>
+                        <span class="con-pill con-mut">Walk-in</span>
+                    </div>
+
+                    <div class="g-label" style="color:#6d7060;">Form fields</div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; max-width:470px;">
+                        <div class="con-field">Amelia Hart</div>
+                        <div class="con-field" style="display:flex; justify-content:space-between;">Full colour <span style="opacity:.4;">▾</span></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="g-label" style="color:#6d7060;">Panel + modal</div>
+                    <div class="con-panel" style="padding:18px; position:relative;">
+                        
+                        <div class="hd" style="font-size:16px;">Next up</div>
+                        <p style="font-size:13.5px; opacity:.8; margin-top:6px; line-height:1.6;">Ruth Okafor · Full colour with Simone, 10:30 AM. Allergy on file — review before mixing.</p>
+                    </div>
+                    <div class="g-stage" style="background:rgb(36 38 31 / .5); padding:26px; margin-top:14px;">
+                        <div class="con-modal" style="padding:20px;">
+                            <div class="hd" style="font-size:16px;">Cancel this booking?</div>
+                            <p style="font-size:13.5px; opacity:.8; margin:8px 0 15px;">The client's appointment is removed and GoHighLevel is updated.</p>
+                            <div style="display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;">
+                                <span class="con-btn con-btn-s" style="height:36px;">Keep it</span>
+                                <span class="con-btn con-btn-d" style="height:36px;">Cancel booking</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="g-label" style="color:#6d7060;">Nav treatment</div>
+                    <div class="con-nav" style="max-width:210px;">
+                        @foreach ($nav as $i => $n)<a class="{{ $i === 0 ? 'on' : '' }}"><span>{{ $n }}</span></a>@endforeach
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {{-- ═══════════ CONFETTI ═══════════ --}}
+    <section id="confetti" class="g-band d-confetti">
+        <div class="g-band-inner">
+            <div style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;">
+                <h2 class="hd" style="font-size:24px;">23 · Confetti — Memphis postmodern</h2>
+                <p style="font-size:14px; opacity:.72;">Curated 80s chaos: squiggles, mismatched corner radii, clashing teal, pink, butter, and lilac on inked outlines. Fun with discipline.</p>
+            </div>
+
+            <div class="g-label" style="color:#55517a;">Header + stats</div>
+            <div style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:14px;">
+                <div>
+                    <span class="cof-squig"></span>
+                    <div class="hd" style="font-size:26px; margin-top:8px;">Today at the salon</div>
+                </div>
+                <span class="cof-btn cof-btn-p">Add booking</span>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(175px,1fr)); gap:16px; margin-top:20px;">
+                @foreach ($stats as $s)
+                    <div class="cof-stat">
+                        <div style="font-size:12.5px; font-weight:600; opacity:.65;">{{ $s['label'] }}</div>
+                        <div class="cof-num" style="margin-top:8px;">{{ $s['value'] }}</div>
+                        <div style="font-size:12px; opacity:.55; margin-top:5px;">{{ $s['sub'] }}</div>
+                    </div>
+                @endforeach
+            </div>
+
+            <div class="g-grid">
+                <div>
+                    <div class="g-label" style="color:#55517a;">Table</div>
+                    <div class="cof-glass" style="overflow:hidden; position:relative;">
+                        <table style="width:100%; text-align:left; font-size:14px;">
+                            <thead><tr>
+                                <th scope="col" class="cof-th">Time</th><th scope="col" class="cof-th">Client</th><th scope="col" class="cof-th">Service</th><th scope="col" class="cof-th" style="text-align:right;">Status</th>
+                            </tr></thead>
+                            <tbody>
+                                @foreach ($rows as $r)
+                                    <tr class="cof-row">
+                                        <td style="padding:12px 16px; opacity:.6;">{{ $r['time'] }}</td>
+                                        <td style="padding:12px 8px; font-weight:600;">{{ $r['client'] }}</td>
+                                        <td style="padding:12px 8px; opacity:.8;">{{ $r['service'] }} · {{ $r['stylist'] }}</td>
+                                        <td style="padding:12px 16px; text-align:right;">
+                                            <span class="cof-pill cof-{{ $r['kind'] === 'ok' ? 'ok' : ($r['kind'] === 'bad' ? 'bad' : 'mut') }}">{{ $r['status'] }}</span>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="g-label" style="color:#55517a;">Buttons + pills</div>
+                    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+                        <span class="cof-btn cof-btn-p">Confirm booking</span>
+                        <span class="cof-btn cof-btn-s">Reschedule</span>
+                        <span class="cof-btn cof-btn-d">Cancel booking</span>
+                        <span class="cof-pill cof-ok">New client</span>
+                        <span class="cof-pill cof-mut">Walk-in</span>
+                    </div>
+
+                    <div class="g-label" style="color:#55517a;">Form fields</div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; max-width:470px;">
+                        <div class="cof-field">Amelia Hart</div>
+                        <div class="cof-field" style="display:flex; justify-content:space-between;">Full colour <span style="opacity:.4;">▾</span></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="g-label" style="color:#55517a;">Panel + modal</div>
+                    <div class="cof-panel" style="padding:18px; position:relative;">
+                        
+                        <div class="hd" style="font-size:16px;">Next up</div>
+                        <p style="font-size:13.5px; opacity:.8; margin-top:6px; line-height:1.6;">Ruth Okafor · Full colour with Simone, 10:30 AM. Allergy on file — review before mixing.</p>
+                    </div>
+                    <div class="g-stage" style="background:rgb(35 32 74 / .45); padding:26px; margin-top:14px;">
+                        <div class="cof-modal" style="padding:20px;">
+                            <div class="hd" style="font-size:16px;">Cancel this booking?</div>
+                            <p style="font-size:13.5px; opacity:.8; margin:8px 0 15px;">The client's appointment is removed and GoHighLevel is updated.</p>
+                            <div style="display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;">
+                                <span class="cof-btn cof-btn-s" style="height:36px;">Keep it</span>
+                                <span class="cof-btn cof-btn-d" style="height:36px;">Cancel booking</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="g-label" style="color:#55517a;">Nav treatment</div>
+                    <div class="cof-nav" style="max-width:210px;">
+                        @foreach ($nav as $i => $n)<a class="{{ $i === 0 ? 'on' : '' }}"><span>{{ $n }}</span></a>@endforeach
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {{-- ═══════════ DECO ═══════════ --}}
+    <section id="deco" class="g-band d-deco">
+        <div class="g-band-inner">
+            <div style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;">
+                <h2 class="hd" style="font-size:24px;">24 · Deco — Gatsby luxe</h2>
+                <p style="font-size:14px; opacity:.72;">Nineteen-twenties opulence: gold double frames, sunburst fans, thirty-percent-tracked capitals, symmetric jewel-box glamour.</p>
+            </div>
+
+            <div class="g-label" style="color:#a8823c;">Header + stats</div>
+            <div style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:14px;">
+                <div>
+                    <div class="dec-fan" style="margin:0;"></div><div class="dec-lbl" style="margin-top:8px;">Saturday · 12 July</div>
+                    <div class="hd" style="font-size:26px; margin-top:8px;">Today at the salon</div>
+                </div>
+                <span class="dec-btn dec-btn-p">Add booking</span>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(175px,1fr)); gap:16px; margin-top:20px;">
+                @foreach ($stats as $s)
+                    <div class="dec-frame dec-stat">
+                        <div style="font-size:12.5px; font-weight:600; opacity:.65;">{{ $s['label'] }}</div>
+                        <div class="dec-num" style="margin-top:8px;">{{ $s['value'] }}</div>
+                        <div style="font-size:12px; opacity:.55; margin-top:5px;">{{ $s['sub'] }}</div>
+                    </div>
+                @endforeach
+            </div>
+
+            <div class="g-grid">
+                <div>
+                    <div class="g-label" style="color:#a8823c;">Table</div>
+                    <div class="dec-glass" style="overflow:hidden; position:relative;">
+                        <table style="width:100%; text-align:left; font-size:14px;">
+                            <thead><tr>
+                                <th scope="col" class="dec-th">Time</th><th scope="col" class="dec-th">Client</th><th scope="col" class="dec-th">Service</th><th scope="col" class="dec-th" style="text-align:right;">Status</th>
+                            </tr></thead>
+                            <tbody>
+                                @foreach ($rows as $r)
+                                    <tr class="dec-row">
+                                        <td style="padding:12px 16px; opacity:.6;">{{ $r['time'] }}</td>
+                                        <td style="padding:12px 8px; font-weight:600;">{{ $r['client'] }}</td>
+                                        <td style="padding:12px 8px; opacity:.8;">{{ $r['service'] }} · {{ $r['stylist'] }}</td>
+                                        <td style="padding:12px 16px; text-align:right;">
+                                            <span class="dec-pill dec-{{ $r['kind'] === 'ok' ? 'ok' : ($r['kind'] === 'bad' ? 'bad' : 'mut') }}">{{ $r['status'] }}</span>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="g-label" style="color:#a8823c;">Buttons + pills</div>
+                    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+                        <span class="dec-btn dec-btn-p">Confirm booking</span>
+                        <span class="dec-btn dec-btn-s">Reschedule</span>
+                        <span class="dec-btn dec-btn-d">Cancel booking</span>
+                        <span class="dec-pill dec-ok">New client</span>
+                        <span class="dec-pill dec-mut">Walk-in</span>
+                    </div>
+
+                    <div class="g-label" style="color:#a8823c;">Form fields</div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; max-width:470px;">
+                        <div class="dec-field">Amelia Hart</div>
+                        <div class="dec-field" style="display:flex; justify-content:space-between;">Full colour <span style="opacity:.4;">▾</span></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="g-label" style="color:#a8823c;">Panel + modal</div>
+                    <div class="dec-panel" style="padding:18px; position:relative;">
+                        
+                        <div class="hd" style="font-size:16px;">Next up</div>
+                        <p style="font-size:13.5px; opacity:.8; margin-top:6px; line-height:1.6;">Ruth Okafor · Full colour with Simone, 10:30 AM. Allergy on file — review before mixing.</p>
+                    </div>
+                    <div class="g-stage" style="background:rgb(36 31 24 / .5); padding:26px; margin-top:14px;">
+                        <div class="dec-modal" style="padding:20px;">
+                            <div class="hd" style="font-size:16px;">Cancel this booking?</div>
+                            <p style="font-size:13.5px; opacity:.8; margin:8px 0 15px;">The client's appointment is removed and GoHighLevel is updated.</p>
+                            <div style="display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;">
+                                <span class="dec-btn dec-btn-s" style="height:36px;">Keep it</span>
+                                <span class="dec-btn dec-btn-d" style="height:36px;">Cancel booking</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="g-label" style="color:#a8823c;">Nav treatment</div>
+                    <div class="dec-nav" style="max-width:210px;">
+                        @foreach ($nav as $i => $n)<a class="{{ $i === 0 ? 'on' : '' }}"><span>{{ $n }}</span></a>@endforeach
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {{-- ═══════════ FJORD ═══════════ --}}
+    <section id="fjord" class="g-band d-fjord">
+        <div class="g-band-inner">
+            <div style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;">
+                <h2 class="hd" style="font-size:24px;">25 · Fjord — Scandinavian hygge</h2>
+                <p style="font-size:14px; opacity:.72;">Cozy Nordic calm: dusty blue, clay, and oat; soft rounded surfaces; nothing raised more than a whisper. Warm minimalism, homey.</p>
+            </div>
+
+            <div class="g-label" style="color:#92897a;">Header + stats</div>
+            <div style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:14px;">
+                <div>
+                    <div style="font-size:12.5px; font-weight:600; color:#57636b;">Saturday, 12 July</div>
+                    <div class="hd" style="font-size:26px; margin-top:8px;">Today at the salon</div>
+                </div>
+                <span class="fjo-btn fjo-btn-p">Add booking</span>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(175px,1fr)); gap:16px; margin-top:20px;">
+                @foreach ($stats as $s)
+                    <div class="fjo-stat">
+                        <div style="font-size:12.5px; font-weight:600; opacity:.65;">{{ $s['label'] }}</div>
+                        <div class="fjo-num" style="margin-top:8px;">{{ $s['value'] }}</div>
+                        <div style="font-size:12px; opacity:.55; margin-top:5px;">{{ $s['sub'] }}</div>
+                    </div>
+                @endforeach
+            </div>
+
+            <div class="g-grid">
+                <div>
+                    <div class="g-label" style="color:#92897a;">Table</div>
+                    <div class="fjo-glass" style="overflow:hidden; position:relative;">
+                        <table style="width:100%; text-align:left; font-size:14px;">
+                            <thead><tr>
+                                <th scope="col" class="fjo-th">Time</th><th scope="col" class="fjo-th">Client</th><th scope="col" class="fjo-th">Service</th><th scope="col" class="fjo-th" style="text-align:right;">Status</th>
+                            </tr></thead>
+                            <tbody>
+                                @foreach ($rows as $r)
+                                    <tr class="fjo-row">
+                                        <td style="padding:12px 16px; opacity:.6;">{{ $r['time'] }}</td>
+                                        <td style="padding:12px 8px; font-weight:600;">{{ $r['client'] }}</td>
+                                        <td style="padding:12px 8px; opacity:.8;">{{ $r['service'] }} · {{ $r['stylist'] }}</td>
+                                        <td style="padding:12px 16px; text-align:right;">
+                                            <span class="fjo-pill fjo-{{ $r['kind'] === 'ok' ? 'ok' : ($r['kind'] === 'bad' ? 'bad' : 'mut') }}">{{ $r['status'] }}</span>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="g-label" style="color:#92897a;">Buttons + pills</div>
+                    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+                        <span class="fjo-btn fjo-btn-p">Confirm booking</span>
+                        <span class="fjo-btn fjo-btn-s">Reschedule</span>
+                        <span class="fjo-btn fjo-btn-d">Cancel booking</span>
+                        <span class="fjo-pill fjo-ok">New client</span>
+                        <span class="fjo-pill fjo-mut">Walk-in</span>
+                    </div>
+
+                    <div class="g-label" style="color:#92897a;">Form fields</div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; max-width:470px;">
+                        <div class="fjo-field">Amelia Hart</div>
+                        <div class="fjo-field" style="display:flex; justify-content:space-between;">Full colour <span style="opacity:.4;">▾</span></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="g-label" style="color:#92897a;">Panel + modal</div>
+                    <div class="fjo-panel" style="padding:18px; position:relative;">
+                        
+                        <div class="hd" style="font-size:16px;">Next up</div>
+                        <p style="font-size:13.5px; opacity:.8; margin-top:6px; line-height:1.6;">Ruth Okafor · Full colour with Simone, 10:30 AM. Allergy on file — review before mixing.</p>
+                    </div>
+                    <div class="g-stage" style="background:rgb(63 59 54 / .4); padding:26px; margin-top:14px;">
+                        <div class="fjo-modal" style="padding:20px;">
+                            <div class="hd" style="font-size:16px;">Cancel this booking?</div>
+                            <p style="font-size:13.5px; opacity:.8; margin:8px 0 15px;">The client's appointment is removed and GoHighLevel is updated.</p>
+                            <div style="display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;">
+                                <span class="fjo-btn fjo-btn-s" style="height:36px;">Keep it</span>
+                                <span class="fjo-btn fjo-btn-d" style="height:36px;">Cancel booking</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="g-label" style="color:#92897a;">Nav treatment</div>
+                    <div class="fjo-nav" style="max-width:210px;">
+                        @foreach ($nav as $i => $n)<a class="{{ $i === 0 ? 'on' : '' }}"><span>{{ $n }}</span></a>@endforeach
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {{-- ═══════════ NEON ═══════════ --}}
+    <section id="neon" class="g-band d-neon">
+        <div class="g-band-inner">
+            <div style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;">
+                <h2 class="hd" style="font-size:24px;">26 · Neon — cyberpunk noir</h2>
+                <p style="font-size:14px; opacity:.72;">The dramatic dark option: electric cyan, magenta, and lime glowing off near-black panels. High-tech grit, kept legible.</p>
+            </div>
+
+            <div class="g-label" style="color:#7d8a99;">Header + stats</div>
+            <div style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:14px;">
+                <div>
+                    <div style="font-size:11px; font-weight:700; letter-spacing:.22em; text-transform:uppercase; color:#ff3d81; text-shadow:0 0 12px rgb(255 61 129 / .5);">SAT 12.07 // GRID ONLINE</div>
+                    <div class="hd" style="font-size:26px; margin-top:8px;">Today at the salon</div>
+                </div>
+                <span class="neo-btn neo-btn-p">Add booking</span>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(175px,1fr)); gap:16px; margin-top:20px;">
+                @foreach ($stats as $s)
+                    <div class="neo-stat">
+                        <div style="font-size:12.5px; font-weight:600; opacity:.65;">{{ $s['label'] }}</div>
+                        <div class="neo-num" style="margin-top:8px;">{{ $s['value'] }}</div>
+                        <div style="font-size:12px; opacity:.55; margin-top:5px;">{{ $s['sub'] }}</div>
+                    </div>
+                @endforeach
+            </div>
+
+            <div class="g-grid">
+                <div>
+                    <div class="g-label" style="color:#7d8a99;">Table</div>
+                    <div class="neo-glass" style="overflow:hidden; position:relative;">
+                        <table style="width:100%; text-align:left; font-size:14px;">
+                            <thead><tr>
+                                <th scope="col" class="neo-th">Time</th><th scope="col" class="neo-th">Client</th><th scope="col" class="neo-th">Service</th><th scope="col" class="neo-th" style="text-align:right;">Status</th>
+                            </tr></thead>
+                            <tbody>
+                                @foreach ($rows as $r)
+                                    <tr class="neo-row">
+                                        <td style="padding:12px 16px; opacity:.6;">{{ $r['time'] }}</td>
+                                        <td style="padding:12px 8px; font-weight:600;">{{ $r['client'] }}</td>
+                                        <td style="padding:12px 8px; opacity:.8;">{{ $r['service'] }} · {{ $r['stylist'] }}</td>
+                                        <td style="padding:12px 16px; text-align:right;">
+                                            <span class="neo-pill neo-{{ $r['kind'] === 'ok' ? 'ok' : ($r['kind'] === 'bad' ? 'bad' : 'mut') }}">{{ $r['status'] }}</span>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="g-label" style="color:#7d8a99;">Buttons + pills</div>
+                    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+                        <span class="neo-btn neo-btn-p">Confirm booking</span>
+                        <span class="neo-btn neo-btn-s">Reschedule</span>
+                        <span class="neo-btn neo-btn-d">Cancel booking</span>
+                        <span class="neo-pill neo-ok">New client</span>
+                        <span class="neo-pill neo-mut">Walk-in</span>
+                    </div>
+
+                    <div class="g-label" style="color:#7d8a99;">Form fields</div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; max-width:470px;">
+                        <div class="neo-field">Amelia Hart</div>
+                        <div class="neo-field" style="display:flex; justify-content:space-between;">Full colour <span style="opacity:.4;">▾</span></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="g-label" style="color:#7d8a99;">Panel + modal</div>
+                    <div class="neo-panel" style="padding:18px; position:relative;">
+                        
+                        <div class="hd" style="font-size:16px;">Next up</div>
+                        <p style="font-size:13.5px; opacity:.8; margin-top:6px; line-height:1.6;">Ruth Okafor · Full colour with Simone, 10:30 AM. Allergy on file — review before mixing.</p>
+                    </div>
+                    <div class="g-stage" style="background:rgb(0 0 0 / .6); padding:26px; margin-top:14px;">
+                        <div class="neo-modal" style="padding:20px;">
+                            <div class="hd" style="font-size:16px;">Cancel this booking?</div>
+                            <p style="font-size:13.5px; opacity:.8; margin:8px 0 15px;">The client's appointment is removed and GoHighLevel is updated.</p>
+                            <div style="display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;">
+                                <span class="neo-btn neo-btn-s" style="height:36px;">Keep it</span>
+                                <span class="neo-btn neo-btn-d" style="height:36px;">Cancel booking</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="g-label" style="color:#7d8a99;">Nav treatment</div>
+                    <div class="neo-nav" style="max-width:210px;">
+                        @foreach ($nav as $i => $n)<a class="{{ $i === 0 ? 'on' : '' }}"><span>{{ $n }}</span></a>@endforeach
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {{-- ═══════════ WASH ═══════════ --}}
+    <section id="wash" class="g-band d-wash">
+        <div class="g-band-inner">
+            <div style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;">
+                <h2 class="hd" style="font-size:24px;">27 · Wash — watercolor painterly</h2>
+                <p style="font-size:14px; opacity:.72;">Pigment blooms bleeding at the corners of soft irregular panels; delicate serif figures. Gallery-atelier softness, art-forward.</p>
+            </div>
+
+            <div class="g-label" style="color:#a08a98;">Header + stats</div>
+            <div style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:14px;">
+                <div>
+                    <div style="font-size:12px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:#a4506a;">Saturday, 12 July</div>
+                    <div class="hd" style="font-size:26px; margin-top:8px;">Today at the salon</div>
+                </div>
+                <span class="was-btn was-btn-p">Add booking</span>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(175px,1fr)); gap:16px; margin-top:20px;">
+                @foreach ($stats as $s)
+                    <div class="was-stat">
+                        <div style="font-size:12.5px; font-weight:600; opacity:.65;">{{ $s['label'] }}</div>
+                        <div class="was-num" style="margin-top:8px;">{{ $s['value'] }}</div>
+                        <div style="font-size:12px; opacity:.55; margin-top:5px;">{{ $s['sub'] }}</div>
+                    </div>
+                @endforeach
+            </div>
+
+            <div class="g-grid">
+                <div>
+                    <div class="g-label" style="color:#a08a98;">Table</div>
+                    <div class="was-glass" style="overflow:hidden; position:relative;">
+                        <table style="width:100%; text-align:left; font-size:14px;">
+                            <thead><tr>
+                                <th scope="col" class="was-th">Time</th><th scope="col" class="was-th">Client</th><th scope="col" class="was-th">Service</th><th scope="col" class="was-th" style="text-align:right;">Status</th>
+                            </tr></thead>
+                            <tbody>
+                                @foreach ($rows as $r)
+                                    <tr class="was-row">
+                                        <td style="padding:12px 16px; opacity:.6;">{{ $r['time'] }}</td>
+                                        <td style="padding:12px 8px; font-weight:600;">{{ $r['client'] }}</td>
+                                        <td style="padding:12px 8px; opacity:.8;">{{ $r['service'] }} · {{ $r['stylist'] }}</td>
+                                        <td style="padding:12px 16px; text-align:right;">
+                                            <span class="was-pill was-{{ $r['kind'] === 'ok' ? 'ok' : ($r['kind'] === 'bad' ? 'bad' : 'mut') }}">{{ $r['status'] }}</span>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="g-label" style="color:#a08a98;">Buttons + pills</div>
+                    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+                        <span class="was-btn was-btn-p">Confirm booking</span>
+                        <span class="was-btn was-btn-s">Reschedule</span>
+                        <span class="was-btn was-btn-d">Cancel booking</span>
+                        <span class="was-pill was-ok">New client</span>
+                        <span class="was-pill was-mut">Walk-in</span>
+                    </div>
+
+                    <div class="g-label" style="color:#a08a98;">Form fields</div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; max-width:470px;">
+                        <div class="was-field">Amelia Hart</div>
+                        <div class="was-field" style="display:flex; justify-content:space-between;">Full colour <span style="opacity:.4;">▾</span></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="g-label" style="color:#a08a98;">Panel + modal</div>
+                    <div class="was-panel" style="padding:18px; position:relative;">
+                        
+                        <div class="hd" style="font-size:16px;">Next up</div>
+                        <p style="font-size:13.5px; opacity:.8; margin-top:6px; line-height:1.6;">Ruth Okafor · Full colour with Simone, 10:30 AM. Allergy on file — review before mixing.</p>
+                    </div>
+                    <div class="g-stage" style="background:rgb(74 64 70 / .4); padding:26px; margin-top:14px;">
+                        <div class="was-modal" style="padding:20px;">
+                            <div class="hd" style="font-size:16px;">Cancel this booking?</div>
+                            <p style="font-size:13.5px; opacity:.8; margin:8px 0 15px;">The client's appointment is removed and GoHighLevel is updated.</p>
+                            <div style="display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;">
+                                <span class="was-btn was-btn-s" style="height:36px;">Keep it</span>
+                                <span class="was-btn was-btn-d" style="height:36px;">Cancel booking</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="g-label" style="color:#a08a98;">Nav treatment</div>
+                    <div class="was-nav" style="max-width:210px;">
+                        @foreach ($nav as $i => $n)<a class="{{ $i === 0 ? 'on' : '' }}"><span>{{ $n }}</span></a>@endforeach
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {{-- ═══════════ FIELD ═══════════ --}}
+    <section id="field" class="g-band d-field">
+        <div class="g-band-inner">
+            <div style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;">
+                <h2 class="hd" style="font-size:24px;">28 · Field — flat 2.0</h2>
+                <p style="font-size:14px; opacity:.72;">No shadows, no borders, no gradients: bold flat colour fields doing all the structure. Confident geometric flatness, contemporary-clean.</p>
+            </div>
+
+            <div class="g-label" style="color:#8a8171;">Header + stats</div>
+            <div style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:14px;">
+                <div>
+                    <div style="font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; background:#221d16; color:#f4efe6; display:inline-block; padding:4px 10px;">Saturday, 12 July</div>
+                    <div class="hd" style="font-size:26px; margin-top:8px;">Today at the salon</div>
+                </div>
+                <span class="fie-btn fie-btn-p">Add booking</span>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(175px,1fr)); gap:16px; margin-top:20px;">
+                @foreach ($stats as $s)
+                    <div class="fie-stat">
+                        <div style="font-size:12.5px; font-weight:600; opacity:.65;">{{ $s['label'] }}</div>
+                        <div class="fie-num" style="margin-top:8px;">{{ $s['value'] }}</div>
+                        <div style="font-size:12px; opacity:.55; margin-top:5px;">{{ $s['sub'] }}</div>
+                    </div>
+                @endforeach
+            </div>
+
+            <div class="g-grid">
+                <div>
+                    <div class="g-label" style="color:#8a8171;">Table</div>
+                    <div class="fie-glass" style="overflow:hidden; position:relative;">
+                        <table style="width:100%; text-align:left; font-size:14px;">
+                            <thead><tr>
+                                <th scope="col" class="fie-th">Time</th><th scope="col" class="fie-th">Client</th><th scope="col" class="fie-th">Service</th><th scope="col" class="fie-th" style="text-align:right;">Status</th>
+                            </tr></thead>
+                            <tbody>
+                                @foreach ($rows as $r)
+                                    <tr class="fie-row">
+                                        <td style="padding:12px 16px; opacity:.6;">{{ $r['time'] }}</td>
+                                        <td style="padding:12px 8px; font-weight:600;">{{ $r['client'] }}</td>
+                                        <td style="padding:12px 8px; opacity:.8;">{{ $r['service'] }} · {{ $r['stylist'] }}</td>
+                                        <td style="padding:12px 16px; text-align:right;">
+                                            <span class="fie-pill fie-{{ $r['kind'] === 'ok' ? 'ok' : ($r['kind'] === 'bad' ? 'bad' : 'mut') }}">{{ $r['status'] }}</span>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="g-label" style="color:#8a8171;">Buttons + pills</div>
+                    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+                        <span class="fie-btn fie-btn-p">Confirm booking</span>
+                        <span class="fie-btn fie-btn-s">Reschedule</span>
+                        <span class="fie-btn fie-btn-d">Cancel booking</span>
+                        <span class="fie-pill fie-ok">New client</span>
+                        <span class="fie-pill fie-mut">Walk-in</span>
+                    </div>
+
+                    <div class="g-label" style="color:#8a8171;">Form fields</div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; max-width:470px;">
+                        <div class="fie-field">Amelia Hart</div>
+                        <div class="fie-field" style="display:flex; justify-content:space-between;">Full colour <span style="opacity:.4;">▾</span></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="g-label" style="color:#8a8171;">Panel + modal</div>
+                    <div class="fie-panel" style="padding:18px; position:relative;">
+                        
+                        <div class="hd" style="font-size:16px;">Next up</div>
+                        <p style="font-size:13.5px; opacity:.8; margin-top:6px; line-height:1.6;">Ruth Okafor · Full colour with Simone, 10:30 AM. Allergy on file — review before mixing.</p>
+                    </div>
+                    <div class="g-stage" style="background:rgb(34 29 22 / .5); padding:26px; margin-top:14px;">
+                        <div class="fie-modal" style="padding:20px;">
+                            <div class="hd" style="font-size:16px;">Cancel this booking?</div>
+                            <p style="font-size:13.5px; opacity:.8; margin:8px 0 15px;">The client's appointment is removed and GoHighLevel is updated.</p>
+                            <div style="display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;">
+                                <span class="fie-btn fie-btn-s" style="height:36px;">Keep it</span>
+                                <span class="fie-btn fie-btn-d" style="height:36px;">Cancel booking</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="g-label" style="color:#8a8171;">Nav treatment</div>
+                    <div class="fie-nav" style="max-width:210px;">
+                        @foreach ($nav as $i => $n)<a class="{{ $i === 0 ? 'on' : '' }}"><span>{{ $n }}</span></a>@endforeach
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {{-- ═══════════ VOLUME ═══════════ --}}
+    <section id="volume" class="g-band d-volume">
+        <div class="g-band-inner">
+            <div style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;">
+                <h2 class="hd" style="font-size:24px;">29 · Volume — maximalist editorial</h2>
+                <p style="font-size:14px; opacity:.72;">The anti-minimal: 56px serif figures on six-point rules, mono folio labels, red ink, hard offset shadows. Magazine-cover drama.</p>
+            </div>
+
+            <div class="g-label" style="color:#6f6350;">Header + stats</div>
+            <div style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:14px;">
+                <div>
+                    <div class="vol-mono" style="color:#c2372c;">Issue 001 — Saturday, 12 July</div>
+                    <div class="hd" style="font-size:26px; margin-top:8px;">Today at the salon</div>
+                </div>
+                <span class="vol-btn vol-btn-p">Add booking</span>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(175px,1fr)); gap:16px; margin-top:20px;">
+                @foreach ($stats as $s)
+                    <div class="vol-stat">
+                        <div style="font-size:12.5px; font-weight:600; opacity:.65;">{{ $s['label'] }}</div>
+                        <div class="vol-num" style="margin-top:8px;">{{ $s['value'] }}</div>
+                        <div style="font-size:12px; opacity:.55; margin-top:5px;">{{ $s['sub'] }}</div>
+                    </div>
+                @endforeach
+            </div>
+
+            <div class="g-grid">
+                <div>
+                    <div class="g-label" style="color:#6f6350;">Table</div>
+                    <div class="vol-glass" style="overflow:hidden; position:relative;">
+                        <table style="width:100%; text-align:left; font-size:14px;">
+                            <thead><tr>
+                                <th scope="col" class="vol-th">Time</th><th scope="col" class="vol-th">Client</th><th scope="col" class="vol-th">Service</th><th scope="col" class="vol-th" style="text-align:right;">Status</th>
+                            </tr></thead>
+                            <tbody>
+                                @foreach ($rows as $r)
+                                    <tr class="vol-row">
+                                        <td style="padding:12px 16px; opacity:.6;">{{ $r['time'] }}</td>
+                                        <td style="padding:12px 8px; font-weight:600;">{{ $r['client'] }}</td>
+                                        <td style="padding:12px 8px; opacity:.8;">{{ $r['service'] }} · {{ $r['stylist'] }}</td>
+                                        <td style="padding:12px 16px; text-align:right;">
+                                            <span class="vol-pill vol-{{ $r['kind'] === 'ok' ? 'ok' : ($r['kind'] === 'bad' ? 'bad' : 'mut') }}">{{ $r['status'] }}</span>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="g-label" style="color:#6f6350;">Buttons + pills</div>
+                    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+                        <span class="vol-btn vol-btn-p">Confirm booking</span>
+                        <span class="vol-btn vol-btn-s">Reschedule</span>
+                        <span class="vol-btn vol-btn-d">Cancel booking</span>
+                        <span class="vol-pill vol-ok">New client</span>
+                        <span class="vol-pill vol-mut">Walk-in</span>
+                    </div>
+
+                    <div class="g-label" style="color:#6f6350;">Form fields</div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; max-width:470px;">
+                        <div class="vol-field">Amelia Hart</div>
+                        <div class="vol-field" style="display:flex; justify-content:space-between;">Full colour <span style="opacity:.4;">▾</span></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="g-label" style="color:#6f6350;">Panel + modal</div>
+                    <div class="vol-panel" style="padding:18px; position:relative;">
+                        
+                        <div class="hd" style="font-size:16px;">Next up</div>
+                        <p style="font-size:13.5px; opacity:.8; margin-top:6px; line-height:1.6;">Ruth Okafor · Full colour with Simone, 10:30 AM. Allergy on file — review before mixing.</p>
+                    </div>
+                    <div class="g-stage" style="background:rgb(28 23 18 / .5); padding:26px; margin-top:14px;">
+                        <div class="vol-modal" style="padding:20px;">
+                            <div class="hd" style="font-size:16px;">Cancel this booking?</div>
+                            <p style="font-size:13.5px; opacity:.8; margin:8px 0 15px;">The client's appointment is removed and GoHighLevel is updated.</p>
+                            <div style="display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;">
+                                <span class="vol-btn vol-btn-s" style="height:36px;">Keep it</span>
+                                <span class="vol-btn vol-btn-d" style="height:36px;">Cancel booking</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="g-label" style="color:#6f6350;">Nav treatment</div>
+                    <div class="vol-nav" style="max-width:210px;">
+                        @foreach ($nav as $i => $n)<a class="{{ $i === 0 ? 'on' : '' }}"><span>{{ $n }}</span></a>@endforeach
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {{-- ═══════════ KYOTO ═══════════ --}}
+    <section id="kyoto" class="g-band d-kyoto">
+        <div class="g-band-inner">
+            <div style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;">
+                <h2 class="hd" style="font-size:24px;">30 · Kyoto — Zen Japandi</h2>
+                <p style="font-size:14px; opacity:.72;">Wood, stone, and paper; an enso ring; immense whitespace and asymmetric balance. Wabi-sabi quiet — the calmest of all thirty.</p>
+            </div>
+
+            <div class="g-label" style="color:#8a7a63;">Header + stats</div>
+            <div style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:14px;">
+                <div>
+                    <span class="kyo-enso"></span><div class="kyo-lbl" style="margin-top:10px;">Saturday · 12 July</div>
+                    <div class="hd" style="font-size:26px; margin-top:8px;">Today at the salon</div>
+                </div>
+                <span class="kyo-btn kyo-btn-p">Add booking</span>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(175px,1fr)); gap:16px; margin-top:20px;">
+                @foreach ($stats as $s)
+                    <div class="kyo-stat">
+                        <div style="font-size:12.5px; font-weight:600; opacity:.65;">{{ $s['label'] }}</div>
+                        <div class="kyo-num" style="margin-top:8px;">{{ $s['value'] }}</div>
+                        <div style="font-size:12px; opacity:.55; margin-top:5px;">{{ $s['sub'] }}</div>
+                    </div>
+                @endforeach
+            </div>
+
+            <div class="g-grid">
+                <div>
+                    <div class="g-label" style="color:#8a7a63;">Table</div>
+                    <div class="kyo-glass" style="overflow:hidden; position:relative;">
+                        <table style="width:100%; text-align:left; font-size:14px;">
+                            <thead><tr>
+                                <th scope="col" class="kyo-th">Time</th><th scope="col" class="kyo-th">Client</th><th scope="col" class="kyo-th">Service</th><th scope="col" class="kyo-th" style="text-align:right;">Status</th>
+                            </tr></thead>
+                            <tbody>
+                                @foreach ($rows as $r)
+                                    <tr class="kyo-row">
+                                        <td style="padding:12px 16px; opacity:.6;">{{ $r['time'] }}</td>
+                                        <td style="padding:12px 8px; font-weight:600;">{{ $r['client'] }}</td>
+                                        <td style="padding:12px 8px; opacity:.8;">{{ $r['service'] }} · {{ $r['stylist'] }}</td>
+                                        <td style="padding:12px 16px; text-align:right;">
+                                            <span class="kyo-pill kyo-{{ $r['kind'] === 'ok' ? 'ok' : ($r['kind'] === 'bad' ? 'bad' : 'mut') }}">{{ $r['status'] }}</span>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="g-label" style="color:#8a7a63;">Buttons + pills</div>
+                    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+                        <span class="kyo-btn kyo-btn-p">Confirm booking</span>
+                        <span class="kyo-btn kyo-btn-s">Reschedule</span>
+                        <span class="kyo-btn kyo-btn-d">Cancel booking</span>
+                        <span class="kyo-pill kyo-ok">New client</span>
+                        <span class="kyo-pill kyo-mut">Walk-in</span>
+                    </div>
+
+                    <div class="g-label" style="color:#8a7a63;">Form fields</div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; max-width:470px;">
+                        <div class="kyo-field">Amelia Hart</div>
+                        <div class="kyo-field" style="display:flex; justify-content:space-between;">Full colour <span style="opacity:.4;">▾</span></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="g-label" style="color:#8a7a63;">Panel + modal</div>
+                    <div class="kyo-panel" style="padding:18px; position:relative;">
+                        
+                        <div class="hd" style="font-size:16px;">Next up</div>
+                        <p style="font-size:13.5px; opacity:.8; margin-top:6px; line-height:1.6;">Ruth Okafor · Full colour with Simone, 10:30 AM. Allergy on file — review before mixing.</p>
+                    </div>
+                    <div class="g-stage" style="background:rgb(69 65 58 / .45); padding:26px; margin-top:14px;">
+                        <div class="kyo-modal" style="padding:20px;">
+                            <div class="hd" style="font-size:16px;">Cancel this booking?</div>
+                            <p style="font-size:13.5px; opacity:.8; margin:8px 0 15px;">The client's appointment is removed and GoHighLevel is updated.</p>
+                            <div style="display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;">
+                                <span class="kyo-btn kyo-btn-s" style="height:36px;">Keep it</span>
+                                <span class="kyo-btn kyo-btn-d" style="height:36px;">Cancel booking</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="g-label" style="color:#8a7a63;">Nav treatment</div>
+                    <div class="kyo-nav" style="max-width:210px;">
                         @foreach ($nav as $i => $n)<a class="{{ $i === 0 ? 'on' : '' }}"><span>{{ $n }}</span></a>@endforeach
                     </div>
                 </div>
