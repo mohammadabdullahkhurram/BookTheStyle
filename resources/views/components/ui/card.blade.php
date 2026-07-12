@@ -4,10 +4,12 @@
 ])
 
 @php
+    // Radii come from the token layer, so the whole surface system re-tunes
+    // from app.css alone.
     $rounded = match ($radius) {
-        'stat' => 'rounded-[16px]',
-        'modal' => 'rounded-[20px]',
-        default => 'rounded-[18px]',
+        'stat' => 'rounded-[var(--radius-stat)]',
+        'modal' => 'rounded-[var(--radius-modal)]',
+        default => 'rounded-[var(--radius-list)]',
     };
 @endphp
 

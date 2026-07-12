@@ -26,36 +26,39 @@
 | override them (see partials/head.blade.php + App\Support\AccentPalette).
 */
 @theme {
-    /* Type — Schibsted Grotesk (display/headings) + Hanken Grotesk (body/UI). */
+    /* Type — Fraunces (editorial display serif: warm, characterful) for
+       headings/numbers + Hanken Grotesk for body/UI. Schibsted Grotesk stays
+       in the fallback chain during the rollout. */
     --font-sans: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
-    --font-serif: 'Schibsted Grotesk', ui-sans-serif, system-ui, sans-serif;
-    --font-display: 'Schibsted Grotesk', ui-sans-serif, system-ui, sans-serif;
+    --font-serif: 'Fraunces', 'Schibsted Grotesk', ui-serif, Georgia, serif;
+    --font-display: 'Fraunces', 'Schibsted Grotesk', ui-serif, Georgia, serif;
 
-    /* Surfaces & backgrounds. */
-    --color-paper: #f6f5f3;   /* app background */
-    --color-app: #f6f5f3;
+    /* Surfaces & backgrounds — warm cream/greige foundation ("warm boutique"),
+       never cold grey. */
+    --color-paper: #f7f4ef;   /* app background — warm cream */
+    --color-app: #f7f4ef;
     --color-card: #ffffff;    /* surface / card */
     --color-surface: #ffffff;
-    --color-muted: #efede8;   /* muted surface / segmented track */
-    --color-field: #fcfbf9;   /* input field */
-    --color-sidebar-dark: #1e1d2a;
+    --color-muted: #f0ebe3;   /* muted surface / segmented track */
+    --color-field: #fcfaf6;   /* input field */
+    --color-sidebar-dark: #241c22; /* warm plum-black (was cool navy) */
 
-    /* Text. */
-    --color-ink: #1c1b1a;        /* primary */
-    --color-body: #56534c;       /* body */
-    --color-secondary: #6b6862;  /* muted */
-    /* WCAG AA: faint is used for real content (helper text, empty states,
-       overlines), so it must clear 4.5:1 — #746f67 is 4.99:1 on card,
-       4.58:1 on paper, 4.82:1 on field (the old #9c9890 was 2.87:1). */
-    --color-faint: #746f67;
-    --color-fainter: #a09c94;    /* decoration only (borders/hatching) — never text or meaningful icons */
-    --color-placeholder: #a8a49c;
+    /* Text — warm umber ramp. */
+    --color-ink: #211c18;        /* primary */
+    --color-body: #57504a;       /* body */
+    --color-secondary: #6c645c;  /* muted */
+    /* WCAG AA: faint is used for real content (helper text, empty states),
+       so it must clear 4.5:1 — #746c62 is 5.17:1 on card, 4.71:1 on paper,
+       4.96:1 on field. */
+    --color-faint: #746c62;
+    --color-fainter: #a69c8f;    /* decoration only (borders/hatching) — never text or meaningful icons */
+    --color-placeholder: #a9a093;
 
-    /* Borders & dividers. */
-    --color-border: #eae8e3;      /* card border */
-    --color-input-border: #e0ddd6;
-    --color-divider: #f0eee9;
-    --color-row: #f4f2ed;         /* row divider */
+    /* Borders & dividers — warm sand. */
+    --color-border: #eae4db;      /* card border */
+    --color-input-border: #e0d8cc;
+    --color-divider: #f1ece4;
+    --color-row: #f4efe7;         /* row divider */
 
     /* Accent — four swappable tokens (default violet set in @layer base). */
     --color-accent: var(--accent);
@@ -72,53 +75,64 @@
     --color-danger: #a23a3a;
     --color-info: #356088;
 
+    /* Blush — the sparing warm secondary (dusty rose). Use for gentle
+       emphasis moments only (a highlight tint + its AA ink), never for
+       actions or status. 5.03:1 ink-on-tint, 5.83:1 ink-on-card. */
+    --color-blush: #f8ece6;
+    --color-blush-ink: #9c4f3f;
+
     /* Neutral ramp remapped to warm paper tones so Flux's zinc-based
        components render in our palette instead of cool grey. */
-    --color-zinc-50: #f6f5f3;
-    --color-zinc-100: #efede8;
-    --color-zinc-200: #eae8e3;
-    --color-zinc-300: #e0ddd6;
-    --color-zinc-400: #a8a49c;
-    --color-zinc-500: #9c9890;
-    --color-zinc-600: #6b6862;
-    --color-zinc-700: #56534c;
-    --color-zinc-800: #2c2a27;
-    --color-zinc-900: #1c1b1a;
-    --color-zinc-950: #131210;
+    --color-zinc-50: #f7f4ef;
+    --color-zinc-100: #f0ebe3;
+    --color-zinc-200: #eae4db;
+    --color-zinc-300: #e0d8cc;
+    --color-zinc-400: #a9a093;
+    --color-zinc-500: #8a8175;
+    --color-zinc-600: #6c645c;
+    --color-zinc-700: #57504a;
+    --color-zinc-800: #2b2520;
+    --color-zinc-900: #211c18;
+    --color-zinc-950: #16110d;
 
-    /* Corner radius (DESIGN-TOKENS). */
-    --radius-sm: 8px;     /* segment */
-    --radius-md: 11px;    /* input */
-    --radius-lg: 13px;    /* nav item */
-    --radius-xl: 16px;    /* stat card */
-    --radius-2xl: 18px;   /* list card */
-    --radius-3xl: 20px;   /* modal / hero */
+    /* Corner radius (DESIGN-TOKENS) — a touch softer across the board;
+       crafted, not boxy. */
+    --radius-sm: 10px;    /* segment */
+    --radius-md: 12px;    /* input */
+    --radius-lg: 14px;    /* nav item */
+    --radius-xl: 18px;    /* stat card */
+    --radius-2xl: 20px;   /* list card */
+    --radius-3xl: 24px;   /* modal / hero */
 
     /* Per-element radii (used by components for exactness). */
-    --radius-chip: 9px;
-    --radius-input: 11px;
-    --radius-button: 12px;
-    --radius-nav: 13px;
-    --radius-stat: 16px;
-    --radius-list: 18px;
-    --radius-modal: 20px;
+    --radius-chip: 10px;
+    --radius-input: 12px;
+    --radius-button: 14px;
+    --radius-nav: 14px;
+    --radius-stat: 18px;
+    --radius-list: 20px;
+    --radius-modal: 24px;
 
-    /* Shadows. */
-    --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.04);
-    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.04);
-    --shadow-md: 0 2px 10px rgb(0 0 0 / 0.12);
-    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.04);
-    --shadow-button: 0 2px 10px rgb(0 0 0 / 0.12);
+    /* Shadows — warm umbra (never pure black), soft two-layer card depth,
+       plum-tinted button glow. */
+    --shadow-xs: 0 1px 2px rgb(63 47 38 / 0.05);
+    --shadow-sm: 0 1px 2px rgb(63 47 38 / 0.05);
+    --shadow-md: 0 2px 10px rgb(63 47 38 / 0.12);
+    --shadow-card: 0 1px 2px rgb(63 47 38 / 0.04), 0 8px 24px rgb(63 47 38 / 0.05);
+    --shadow-button: 0 2px 12px rgb(109 60 94 / 0.24);
+    --shadow-overlay: 0 24px 64px rgb(52 33 45 / 0.18);
 }
 
 @layer base {
-    /* Default accent = violet. Presets selectable via <html data-accent="…">;
-       a per-salon brand override sets these four inline (head partial). */
+    /* Default accent = plum (the violet DNA, shifted warm and rich —
+       aubergine over blue-violet). Presets selectable via
+       <html data-accent="…">; a per-salon brand override sets these four
+       inline (head partial). White-on-accent 6.5:1; ink 8.0:1 on tint. */
     :root {
-        --accent: #6555e4;
-        --accent-hover: #5544cc;
-        --accent-tint: #eceafb;
-        --accent-ink: #4b3fa0;
+        --accent: #824c71;
+        --accent-hover: #6d3c5e;
+        --accent-tint: #f5eaf0;
+        --accent-ink: #6b3358;
     }
 
     :root[data-accent='sage'] {
@@ -157,11 +171,13 @@
         -webkit-font-smoothing: antialiased;
     }
 
-    /* Headings are the display grotesk. */
+    /* Headings are the editorial display serif (Fraunces). Serifs carry
+       their own presence — weights sit a step lighter than the old grotesk
+       and tracking relaxes to near-neutral. */
     h1, h2, h3, h4,
     [data-flux-heading] {
         font-family: var(--font-display);
-        letter-spacing: -0.01em;
+        letter-spacing: -0.005em;
         color: var(--color-ink);
     }
 }
@@ -196,14 +212,16 @@ select:focus[data-flux-control] {
 | that uses the x-ui.* Blade components or these classes inherits them.
 --------------------------------------------------------------------------- */
 @layer components {
-    /* Buttons (x-ui.button). Height 48, radius 12, 15px/600. Disabled state
-       (incl. Livewire's auto-disable during wire:submit / wire:loading) is
-       visible and un-clickable everywhere without per-call-site wiring. */
+    /* Buttons (x-ui.button). Height 48, radius via token, 15px/600. Disabled
+       state (incl. Livewire's auto-disable during wire:submit / wire:loading)
+       is visible and un-clickable everywhere without per-call-site wiring. */
     .bts-btn {
-        @apply inline-flex h-12 items-center justify-center gap-2 rounded-[12px] px-5 text-[15px] font-semibold transition disabled:pointer-events-none disabled:opacity-50;
+        @apply inline-flex h-12 items-center justify-center gap-2 px-5 text-[15px] font-semibold transition disabled:pointer-events-none disabled:opacity-50;
+        border-radius: var(--radius-button);
     }
     .bts-btn-sm {
-        @apply h-9 rounded-[10px] px-3 text-[13px];
+        @apply h-9 px-3.5 text-[13px];
+        border-radius: calc(var(--radius-button) - 3px);
     }
     .bts-btn-primary {
         background-color: var(--accent);
@@ -272,9 +290,10 @@ select:focus[data-flux-control] {
         white-space: nowrap;
     }
 
-    /* Nav item (sidebar). Radius 13; accent-tint active. */
+    /* Nav item (sidebar). Radius via token; accent-tint active. */
     .bts-nav-item {
-        @apply flex items-center gap-3 rounded-[13px] px-3 py-2.5 text-[15px] font-medium transition;
+        @apply flex items-center gap-3 px-3 py-2.5 text-[15px] font-medium transition;
+        border-radius: var(--radius-nav);
         color: var(--color-secondary);
     }
     .bts-nav-item:hover {
@@ -323,21 +342,25 @@ select:focus[data-flux-control] {
         opacity: 1;
     }
 
-    /* Caption / overline (DESIGN-TOKENS type scale). */
+    /* Caption / overline (DESIGN-TOKENS type scale) — the editorial
+       signature: wide-tracked plum ink above headings. AA everywhere
+       (accent-ink is 8.5:1 on paper, 9.4:1 on card). */
     .bts-overline {
-        font-size: 12.5px;
+        font-size: 12px;
         font-weight: 600;
         line-height: 1;
-        letter-spacing: 0.04em;
+        letter-spacing: 0.09em;
         text-transform: uppercase;
-        color: var(--color-faint);
+        color: var(--accent-ink);
     }
 
-    /* Section / card title (Schibsted 18 / 700). */
+    /* Section / card title (Fraunces 19 / 600 — the serif carries its own
+       weight, so it sits a step lighter than the old grotesk 700). */
     .bts-card-title {
         font-family: var(--font-display);
-        font-size: 18px;
-        font-weight: 700;
+        font-size: 19px;
+        font-weight: 600;
+        letter-spacing: -0.005em;
         color: var(--color-ink);
     }
 

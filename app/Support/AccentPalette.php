@@ -18,7 +18,9 @@ final class AccentPalette
      * @var array<string, array{accent: string, hover: string, tint: string, ink: string}>
      */
     public const PRESETS = [
-        'violet' => ['accent' => '#6555E4', 'hover' => '#5544CC', 'tint' => '#ECEAFB', 'ink' => '#4B3FA0'],
+        // The default "violet" preset is the warm plum of the refreshed
+        // visual language (white-on-accent 6.5:1, ink-on-tint 8.0:1).
+        'violet' => ['accent' => '#824C71', 'hover' => '#6D3C5E', 'tint' => '#F5EAF0', 'ink' => '#6B3358'],
         'sage' => ['accent' => '#5C7458', 'hover' => '#4F6349', 'tint' => '#E7EEE5', 'ink' => '#3E5C3A'],
         'terracotta' => ['accent' => '#C0613E', 'hover' => '#A8502F', 'tint' => '#F4E6DD', 'ink' => '#8A431F'],
     ];

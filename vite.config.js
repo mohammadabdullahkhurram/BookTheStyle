@@ -15,8 +15,13 @@ export default defineConfig({
             ],
             refresh: true,
             // Self-hosted at build time (no CDN → CSP stays clean).
-            // Schibsted Grotesk = display/headings, Hanken Grotesk = body/UI.
+            // Fraunces = editorial display serif (headings/numbers),
+            // Hanken Grotesk = body/UI; Schibsted Grotesk remains as the
+            // fallback face during the visual-refresh rollout.
             fonts: [
+                bunny('Fraunces', {
+                    weights: [500, 600, 700],
+                }),
                 bunny('Schibsted Grotesk', {
                     weights: [400, 500, 600, 700, 800],
                 }),

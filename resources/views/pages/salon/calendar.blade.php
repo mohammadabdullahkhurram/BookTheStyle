@@ -347,8 +347,8 @@ new #[Title('Calendar')] class extends Component {
                     @endcan
                 @endif
             </x-slot:pill>
-            <div class="flex flex-col gap-5">
-                <div class="flex flex-col gap-2 rounded-[11px] border border-border bg-paper p-4">
+            <div class="flex flex-col gap-6">
+                <div class="flex flex-col gap-2 rounded-[var(--radius-md)] border border-border bg-paper p-4">
                     @foreach ($booking->items as $item)
                         <div class="flex items-center justify-between text-[14px]">
                             <div class="flex items-center gap-2">

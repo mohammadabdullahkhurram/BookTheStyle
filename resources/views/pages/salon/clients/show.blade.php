@@ -194,7 +194,7 @@ new #[Title('Client')] class extends Component {
                                 <span class="bts-pill" style="background-color:#EFEDE8;color:#56534C;">{{ __('Prefers :method', ['method' => $client->preferred_contact_method]) }}</span>
                             @endif
                             @if ($client->ghl_contact_id)
-                                <span class="bts-pill" style="background-color:#ECEAFB;color:#4B3FA0;">{{ __('Linked to GoHighLevel') }}</span>
+                                <span class="bts-pill" style="background-color:var(--accent-tint);color:var(--accent-ink);">{{ __('Linked to GoHighLevel') }}</span>
                             @endif
                             @if ($this->canEdit && $client->ghl_sync_status === \App\Services\Ghl\GhlContactSync::STATUS_FAILED)
                                 <span class="bts-pill" style="background-color:#F8E3E3;color:#A23A3A;" title="{{ $client->ghl_sync_error }}">{{ __('GoHighLevel sync failed') }}</span>

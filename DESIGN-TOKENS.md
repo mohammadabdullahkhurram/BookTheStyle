@@ -1,41 +1,58 @@
 # BookTheStyle — Design Tokens
 
-Authoritative design spec, extracted from the approved Claude Design style guide. These are exact values — build to them. The accent set is **swappable per salon** (violet default; sage + terracotta included), which maps to the existing per-salon branding accent.
+Authoritative design spec. These are exact values — build to them. The accent set is **swappable per salon** (plum default; sage + terracotta included), which maps to the existing per-salon branding accent.
+
+## Visual language — "warm boutique meets sleek premium"
+
+The feeling of a high-end salon's brand: inviting, tactile, human — and polished, editorial, confident. Not cool/techy, not generic SaaS. How the tokens express it:
+
+- **Color.** The violet DNA shifted warm and rich: a **plum** accent (`#824C71`) instead of blue-violet, on a **warm cream/greige** neutral foundation (paper `#F7F4EF`, sand borders) — never cold grey. A **blush** (dusty rose) tint exists for sparing warm-emphasis moments only; it is never an action or status color. Every text/background pair passes WCAG AA (ratios noted inline below).
+- **Typography.** Editorial serif + humanist sans: **Fraunces** for headings, titles, and stat numbers (its warmth and character are the boutique voice); **Hanken Grotesk** for body and UI. Serifs carry their own presence — headings sit a weight step lighter (600–700, not 700–800) with near-neutral tracking. The **overline** — 12px / 600 / 0.09em tracking, uppercase, in `--accent-ink` plum — is the signature editorial detail above headings.
+- **Spacing.** Generous, intentional whitespace: the scale gains 40 and 48 steps for section breathing room; page sections breathe at 28–48, components keep the tighter steps. Calm density over compactness.
+- **Surfaces.** Softer radii one notch up across the board (list cards 20, modals 24), **warm umbra shadows** (never pure black — `rgb(63 47 38 / …)`), a soft two-layer card shadow, and a plum-tinted button glow. Tactile but clean; crafted, not boxy.
+- **Details.** Sentence case, no emoji. Micro-interactions stay 150–300ms and subtle. Pills, chips, and empty states are considered, never default-looking. Pastel families keep identifying people; service colours keep identifying work.
 
 ## Fonts (self-host via the existing self-hosted-fonts setup — no CDN)
-- **Schibsted Grotesk** — display & headings. Weights 400 / 500 / 600 / 700 / 800.
+- **Fraunces** — display & headings & stat numbers. Weights 500 / 600 / 700. (Editorial serif; the boutique voice.)
 - **Hanken Grotesk** — body, labels, UI. Weights 400 / 500 / 600 / 700.
+- **Schibsted Grotesk** — retained in the fallback chain during the rollout. Weights 400–800.
 
-## Accent — violet (default theme)  *(4 swappable tokens)*
-- `--accent` `#6555E4`
-- `--accent-hover` `#5544CC`
-- `--accent-tint` `#ECEAFB`
-- `--accent-ink` `#4B3FA0`
+## Accent — plum (default theme)  *(4 swappable tokens)*
+The violet DNA, shifted warm (aubergine over blue-violet). White-on-accent 6.5:1; ink-on-tint 8.0:1.
+- `--accent` `#824C71`
+- `--accent-hover` `#6D3C5E`
+- `--accent-tint` `#F5EAF0`
+- `--accent-ink` `#6B3358`
 
 ### Alternate accents (same 4-token structure, per-salon swappable)
 - **Sage** `#5C7458` · tint `#E7EEE5`
 - **Terracotta** `#C0613E` · tint `#F4E6DD`
 
-## Surfaces & backgrounds
-- App background `#F6F5F3`
+### Blush — the sparing warm secondary
+Dusty-rose emphasis tint for gentle warmth only (never actions, never status). Ink 5.03:1 on tint, 5.83:1 on card.
+- `--color-blush` `#F8ECE6`
+- `--color-blush-ink` `#9C4F3F`
+
+## Surfaces & backgrounds (warm cream/greige — never cold grey)
+- App background `#F7F4EF`
 - Surface / card `#FFFFFF`
-- Input field `#FCFBF9`
-- Segmented track `#EFEDE8`
-- Sidebar (dark option) `#1E1D2A`
+- Input field `#FCFAF6`
+- Segmented track / muted `#F0EBE3`
+- Sidebar (dark option) `#241C22` (warm plum-black)
 
-## Text
-- Primary `#1C1B1A`
-- Body `#56534C`
-- Muted `#6B6862`
-- Faint `#746F67` (WCAG AA: 4.99:1 on card, 4.58:1 on paper — was `#9C9890` at 2.87:1)
-- Fainter `#A09C94` — decoration only (borders/hatching); never text or meaningful icons
-- Placeholder `#A8A49C`
+## Text (warm umber ramp)
+- Primary `#211C18`
+- Body `#57504A`
+- Muted `#6C645C`
+- Faint `#746C62` (WCAG AA: 5.17:1 on card, 4.71:1 on paper, 4.96:1 on field)
+- Fainter `#A69C8F` — decoration only (borders/hatching); never text or meaningful icons
+- Placeholder `#A9A093`
 
-## Borders & dividers
-- Card border `#EAE8E3`
-- Input border `#E0DDD6`
-- Divider `#F0EEE9`
-- Row divider `#F4F2ED`
+## Borders & dividers (warm sand)
+- Card border `#EAE4DB`
+- Input border `#E0D8CC`
+- Divider `#F1ECE4`
+- Row divider `#F4EFE7`
 
 ## Stylist avatar pastel families (avatars & client avatars only)
 | Stylist (color) | bg | border | Ink | Avatar |
@@ -45,7 +62,7 @@ Authoritative design spec, extracted from the approved Claude Design style guide
 | Jonah (amber) | `#FBEFD6` | `#EEDDB6` | `#8A5A1E` | `#D49A4E` |
 | Elise (violet) | `#EAE6FB` | `#D8D1F2` | `#4B3F9E` | `#8C7FE0` |
 
-(These four are the rotating stylist palette — `App\Support\PastelPalette`, keyed by stylist id. They identify **people**: avatars on calendar column headers, the booking detail, lists, the dashboard, and client avatars. They are **no longer used to colour calendar appointment blocks** — those colour by service, below.)
+(These four are the rotating stylist palette — `App\Support\PastelPalette`, keyed by stylist id. They identify **people**: avatars render family bg + family ink initials + family avatar-colour ring (5.2–6.9:1). They are **not** used to colour calendar appointment blocks — those colour by service, below.)
 
 ## Service colour palette (calendar blocks, coloured by service)
 Twelve soft, on-brand pastels — each a `{ bg, border, ink }` triplet (same aesthetic as the stylist families, wider distinct set) plus a solid `dot` for small swatches. Source of truth: `App\Support\ServicePalette`. Order is hue-spaced so sequential picks land on visibly distinct neighbours.
@@ -72,33 +89,38 @@ Twelve soft, on-brand pastels — each a `{ bg, border, ink }` triplet (same aes
 ## Type scale
 | Role | Font | Size | Weight | Notes |
 |---|---|---|---|---|
-| Display | Schibsted | 60px | 800 | letter-spacing -0.025em, line-height 1 |
-| Page heading | Schibsted | 26px | 700 | |
-| Stat number | Schibsted | 34px | 700 | |
-| Section / card title | Schibsted | 18px | 700 | |
-| Subsection | Schibsted | 16px | 600 | |
-| Body large | Hanken | 17px | 400 | color #56534C |
-| Body | Hanken | 15px | 400 | |
-| Body small | Hanken | 14px | 400 | color #4A4843 |
-| Label | Hanken | 13px | 600 | color #6B6862 |
-| Caption / overline | Hanken | 12.5px | 600 | uppercase, letter-spacing .04em, color #746F67 |
+| Display | Fraunces | 56px | 600 | letter-spacing -0.01em, line-height 1.05 |
+| Page heading | Fraunces | 28px | 600 | letter-spacing -0.005em |
+| Stat number | Fraunces | 34px | 600 | tabular where columns align |
+| Section / card title | Fraunces | 19px | 600 | letter-spacing -0.005em |
+| Subsection | Hanken | 16px | 600 | |
+| Body large | Hanken | 17px | 400 | color #57504A |
+| Body | Hanken | 15px | 400 | line-height 1.5+ |
+| Body small | Hanken | 14px | 400 | |
+| Label | Hanken | 13px | 600 | color #6C645C |
+| Caption / overline | Hanken | 12px | 600 | uppercase, letter-spacing .09em, color `--accent-ink` |
 
 ## Spacing scale (px)
-6 · 9 · 12 · 16 · 18 · 22 · 24 · 28 · 32
+6 · 9 · 12 · 16 · 18 · 22 · 24 · 28 · 32 · **40 · 48** (section breathing room)
 
-## Corner radius
+## Corner radius (one notch softer — crafted, not boxy)
 | Token | Radius |
 |---|---|
-| Segment | 8px |
-| Chip / small | 9px |
-| Input | 11px |
-| Button | 12px |
-| Nav item | 13px |
-| Stat card | 16px |
-| List card | 18px |
-| Modal / hero | 20px |
+| Segment | 10px |
+| Chip / small | 10px |
+| Input | 12px |
+| Button | 14px |
+| Nav item | 14px |
+| Stat card | 18px |
+| List card | 20px |
+| Modal / hero | 24px |
 | Pill | 99px |
 | Avatar | 50% |
+
+## Shadows (warm umbra — never pure black)
+- Card `0 1px 2px rgb(63 47 38 / .04), 0 8px 24px rgb(63 47 38 / .05)`
+- Button (primary) `0 2px 12px rgb(109 60 94 / .24)` (plum glow)
+- Overlay / modal `0 24px 64px rgb(52 33 45 / .18)`
 
 ## Status pills
 Padding `5px 13px` · radius `99px` · `12.5px / 600`
@@ -109,18 +131,18 @@ Padding `5px 13px` · radius `99px` · `12.5px / 600`
 | In service | `#FBEFD6` | `#8A5A1E` |
 | Completed | `#E7EFE4` | `#3E5C3A` |
 | No-show | `#F8E3E3` | `#A23A3A` |
-| Cancelled | `#F0EEEA` | `#6B6862` (AA 4.79:1 — was `#9C9890` at 2.5:1) |
+| Cancelled | `#F0EEEA` | `#6B6862` (AA 4.79:1) |
 
 ## Components
-**Primary button** — bg `var(--accent)`, text `#FFFFFF`, radius 12, height 48, 15px/600, shadow `0 2px 10px rgba(0,0,0,.12)`, hover bg `var(--accent-hover)`.
+**Primary button** — bg `var(--accent)`, text `#FFFFFF`, radius 14, height 48, 15px/600, shadow `0 2px 12px rgb(109 60 94 / .24)`, hover bg `var(--accent-hover)`.
 
-**Secondary button** — bg `#FFFFFF`, text `#3A3833`, border `1px #E0DDD6`, radius 12, height 48, 15px/600.
+**Secondary button** — bg `#FFFFFF`, text `#3A3833`, border `1px #E0D8CC`, radius 14, height 48, 15px/600.
 
-**Input** — height 48, radius 11, 15px/400, bg `#FCFBF9`, border `1px #E0DDD6`. Label 13px/600 `#6B6862`. Placeholder `#A8A49C`. Focus: border `var(--accent)`, bg `#FFFFFF`.
+**Input** — height 48, radius 12, 15px/400, bg `#FCFAF6`, border `1px #E0D8CC`. Label 13px/600 `#6C645C`. Placeholder `#A9A093`. Focus: border `var(--accent)`, bg `#FFFFFF`.
 
-**Cards** — surface `#FFFFFF`, border `1px #EAE8E3`, shadow `0 1px 2px rgba(0,0,0,.04)`, padding 18–26. Radius: 16 (stat) / 18 (list) / 20 (modal).
+**Cards** — surface `#FFFFFF`, border `1px #EAE4DB`, shadow (card, above), padding 18–26. Radius: 18 (stat) / 20 (list) / 24 (modal).
 
-**Calendar appointment block** — radius 11, padding `8px 11px`, bg + border + ink from the assigned stylist's pastel family.
+**Calendar appointment block** — radius 11, padding `8px 11px`, bg + border + ink from the assigned service's palette triplet.
 
 ## Global
 Light mode only. Sentence case (not Title Case). No emoji in UI.

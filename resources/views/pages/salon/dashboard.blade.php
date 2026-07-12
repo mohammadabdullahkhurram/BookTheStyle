@@ -97,12 +97,13 @@ new #[Title('Today')] class extends Component {
 }; ?>
 
 <div>
-    <div class="mx-auto flex w-full max-w-6xl flex-col gap-7 px-4 py-6 sm:px-6 lg:px-8 lg:py-7">
-        {{-- Header --}}
-        <div class="flex flex-wrap items-start justify-between gap-4">
+    <div class="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-7 sm:px-6 lg:px-8 lg:py-9">
+        {{-- Header: the editorial signature — wide-tracked plum overline date
+             over a Fraunces display title. --}}
+        <div class="flex flex-wrap items-end justify-between gap-4">
             <div>
-                <div class="text-[13px] text-secondary">{{ \Carbon\CarbonImmutable::parse($date, $salon->timezone)->translatedFormat('l, j F') }}</div>
-                <h1 class="mt-1 font-display text-[26px] font-bold leading-none text-ink">{{ __('Today at the salon') }}</h1>
+                <div class="bts-overline">{{ \Carbon\CarbonImmutable::parse($date, $salon->timezone)->translatedFormat('l, j F') }}</div>
+                <h1 class="mt-2 font-display text-[30px] font-semibold leading-[1.05] text-ink">{{ __('Today at the salon') }}</h1>
             </div>
             @can('manageBookings', $salon)
                 <x-ui.button :href="route('salon.bookings.create', $salon)" wire:navigate>
@@ -148,11 +149,11 @@ new #[Title('Today')] class extends Component {
 
         {{-- Today's bookings --}}
         <div wire:loading.class="pointer-events-none opacity-60" wire:target="date, filterStylist, filterService, filterStatus"
-             class="overflow-hidden rounded-[18px] border border-border bg-card shadow-card transition-opacity">
-            <div class="flex items-start justify-between gap-4 px-6 py-5">
-                <h2 class="font-display text-[18px] font-bold text-ink">{{ __("Today's bookings") }}</h2>
-                <div class="text-right text-[14px] leading-tight text-secondary">
-                    <span class="block font-display text-[18px] font-bold text-ink">{{ $this->bookings->count() }}</span>
+             class="overflow-hidden rounded-[var(--radius-list)] border border-border bg-card shadow-card transition-opacity">
+            <div class="flex items-center justify-between gap-4 px-6 py-5">
+                <h2 class="bts-card-title">{{ __("Today's bookings") }}</h2>
+                <div class="flex items-baseline gap-2 text-[14px] text-secondary">
+                    <span class="font-display text-[22px] font-semibold leading-none text-ink">{{ $this->bookings->count() }}</span>
                     {{ __('appointments') }}
                 </div>
             </div>
@@ -190,7 +191,17 @@ new #[Title('Today')] class extends Component {
                                 <td class="px-6 py-4 align-top"><x-ui.booked-by :label="$bookedLabel" :source="$booking->source" /></td>
                             </tr>
                         @empty
-                            <tr><td colspan="6" class="px-6 py-10 text-center text-[15px] text-faint">{{ __('No bookings for this day.') }}</td></tr>
+                            <tr>
+                                <td colspan="6">
+                                    <div class="flex flex-col items-center gap-3 px-6 py-16 text-center">
+                                        <span class="flex size-12 items-center justify-center rounded-full bg-accent-tint">
+                                            <flux:icon.calendar-days variant="outline" class="size-6 text-accent-ink" />
+                                        </span>
+                                        <p class="text-[15px] font-medium text-body">{{ __('No bookings for this day.') }}</p>
+                                        <p class="-mt-2 text-[14px] text-faint">{{ __('A quiet page — new appointments appear here as they land.') }}</p>
+                                    </div>
+                                </td>
+                            </tr>
                         @endforelse
                     </tbody>
                 </table>

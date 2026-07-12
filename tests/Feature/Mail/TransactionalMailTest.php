@@ -129,8 +129,8 @@ it('renders every mailable with its key content and a plain-text alternative', f
             expect($html)->toContain($needle);
         }
 
-        // Branded theme: the violet primary button.
-        expect($html)->toContain('#6555e4');
+        // Branded theme: the plum primary button.
+        expect($html)->toContain('#824c71');
 
         // The markdown mailer emits a plain-text alternative from the same view.
         if ($textView !== null) {

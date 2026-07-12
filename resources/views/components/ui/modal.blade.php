@@ -19,7 +19,7 @@
     dialog margins and each call site's max-w-* still cap it), and the
     max-height + overflow keep tall dialogs scrollable instead of clipped.
 --}}
-<flux:modal {{ $attributes->merge(['class' => 'w-full max-h-[calc(100dvh-2rem)] overflow-y-auto']) }}>
+<flux:modal {{ $attributes->merge(['class' => 'w-full max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-[var(--radius-modal)] shadow-[var(--shadow-overlay)]']) }}>
     <div class="flex flex-col gap-5">
         @if ($hasHeader)
             <div class="flex flex-col gap-2.5 pe-12">

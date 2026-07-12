@@ -4,14 +4,16 @@
     'back' => null,
 ])
 
+{{-- Editorial page header: wide-tracked plum overline (the signature detail)
+     over a Fraunces display title, with room to breathe. --}}
 <div class="flex flex-wrap items-start justify-between gap-4">
     <div class="min-w-0">
         @if ($overline)
-            <div class="text-[12.5px] font-semibold uppercase tracking-[0.04em] text-faint">{{ $overline }}</div>
+            <div class="bts-overline">{{ $overline }}</div>
         @endif
-        <h1 class="font-display text-[26px] font-bold leading-none text-ink {{ $overline ? 'mt-1.5' : '' }}">{{ $title }}</h1>
+        <h1 class="font-display text-[28px] font-semibold leading-[1.1] text-ink {{ $overline ? 'mt-2' : '' }}">{{ $title }}</h1>
         @isset($subtitle)
-            <p class="mt-2 text-[15px] text-secondary">{{ $subtitle }}</p>
+            <p class="mt-2 max-w-xl text-[15px] leading-relaxed text-secondary">{{ $subtitle }}</p>
         @endisset
     </div>
     @isset($actions)

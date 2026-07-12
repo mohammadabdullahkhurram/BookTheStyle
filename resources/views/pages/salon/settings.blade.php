@@ -867,7 +867,7 @@ new #[Title('Salon settings')] class extends Component {
                     </div>
                 </div>
 
-                <flux:input wire:model="accent" :label="__('Accent color')" :description="__('Hex color, e.g. #6555E4. Sets this salon\'s brand accent.')" placeholder="#6555E4" />
+                <flux:input wire:model="accent" :label="__('Accent color')" :description="__('Hex color, e.g. #824C71. Sets this salon\'s brand accent.')" placeholder="#824C71" />
                 <div><x-ui.button type="submit">{{ __('Save branding') }}</x-ui.button></div>
             </form>
         </x-ui.card>

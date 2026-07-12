@@ -208,7 +208,7 @@ new #[Title('Clients')] class extends Component {
 }; ?>
 
 <div>
-    <div class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-7">
+    <div class="mx-auto flex w-full max-w-6xl flex-col gap-7 px-4 py-7 sm:px-6 lg:px-8 lg:py-9">
         <x-ui.page-header :overline="__('Directory')" :title="__('Clients')">
             <x-slot:actions>
                 <span class="text-[14px] text-secondary">
@@ -265,10 +265,15 @@ new #[Title('Clients')] class extends Component {
         </div>
 
         @if ($this->clients->isEmpty())
-            <x-ui.card class="py-14 text-center text-[15px] text-faint">
-                {{ $search !== '' || $stylistFilter !== '' || $serviceFilter !== '' || $upcomingOnly || $newOnly
-                    ? __('No clients match. Adjust the search or filters.')
-                    : __('No clients yet. They appear here with their first booking.') }}
+            <x-ui.card class="flex flex-col items-center gap-3 py-16 text-center">
+                <span class="flex size-12 items-center justify-center rounded-full bg-accent-tint">
+                    <flux:icon.user-group variant="outline" class="size-6 text-accent-ink" />
+                </span>
+                <p class="text-[15px] font-medium text-body">
+                    {{ $search !== '' || $stylistFilter !== '' || $serviceFilter !== '' || $upcomingOnly || $newOnly
+                        ? __('No clients match. Adjust the search or filters.')
+                        : __('No clients yet. They appear here with their first booking.') }}
+                </p>
             </x-ui.card>
         @else
             {{-- Desktop table. --}}
@@ -278,20 +283,20 @@ new #[Title('Clients')] class extends Component {
                 <table class="w-full text-left">
                     <thead>
                         <tr class="bts-overline border-b border-divider">
-                            <th scope="col" class="px-5 py-3.5 font-semibold">{{ __('Client') }}</th>
-                            <th scope="col" class="px-5 py-3.5 font-semibold">{{ __('Contact') }}</th>
-                            <th scope="col" class="px-5 py-3.5 font-semibold">{{ __('Visits') }}</th>
-                            <th scope="col" class="px-5 py-3.5 font-semibold">{{ __('Last visit') }}</th>
-                            <th scope="col" class="px-5 py-3.5 font-semibold">{{ __('Upcoming') }}</th>
-                            <th scope="col" class="px-5 py-3.5 font-semibold">{{ __('Spent (est.)') }}</th>
-                            <th scope="col" class="px-5 py-3.5 font-semibold">{{ __('Stylist') }}</th>
-                            <th scope="col" class="px-5 py-3.5"></th>
+                            <th scope="col" class="px-5 py-4 font-semibold">{{ __('Client') }}</th>
+                            <th scope="col" class="px-5 py-4 font-semibold">{{ __('Contact') }}</th>
+                            <th scope="col" class="px-5 py-4 font-semibold">{{ __('Visits') }}</th>
+                            <th scope="col" class="px-5 py-4 font-semibold">{{ __('Last visit') }}</th>
+                            <th scope="col" class="px-5 py-4 font-semibold">{{ __('Upcoming') }}</th>
+                            <th scope="col" class="px-5 py-4 font-semibold">{{ __('Spent (est.)') }}</th>
+                            <th scope="col" class="px-5 py-4 font-semibold">{{ __('Stylist') }}</th>
+                            <th scope="col" class="px-5 py-4"></th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-row">
                         @foreach ($this->clients as $client)
                             <tr wire:key="client-{{ $client->id }}">
-                                <td class="px-5 py-3.5">
+                                <td class="px-5 py-4">
                                     <a href="{{ route('salon.client', ['salon' => $salon, 'clientId' => $client->id]) }}" wire:navigate class="flex items-center gap-3">
                                         <x-ui.avatar :name="$client->name" :seed="$client->id" size="sm" />
                                         <span class="flex items-center gap-2">
@@ -300,7 +305,7 @@ new #[Title('Clients')] class extends Component {
                                                 <span class="bts-pill" style="background-color:#F8E3E3;color:#A23A3A;" title="{{ __('Has allergies / sensitivities') }}">{{ __('Allergy') }}</span>
                                             @endif
                                             @if ($this->isNew($client))
-                                                <span class="bts-pill" style="background-color:#ECEAFB;color:#4B3FA0;">{{ __('New') }}</span>
+                                                <span class="bts-pill" style="background-color:var(--accent-tint);color:var(--accent-ink);">{{ __('New') }}</span>
                                             @endif
                                             @if ($client->notes_count > 0)
                                                 <flux:icon.document-text variant="micro" class="text-faint" title="{{ __('Has notes') }}" />
@@ -308,27 +313,27 @@ new #[Title('Clients')] class extends Component {
                                         </span>
                                     </a>
                                 </td>
-                                <td class="px-5 py-3.5 text-[13.5px] text-secondary">
+                                <td class="px-5 py-4 text-[13.5px] text-secondary">
                                     <div class="flex flex-col">
                                         <span>{{ $client->phone ?: '—' }}</span>
                                         @if ($client->email)<span class="text-faint">{{ $client->email }}</span>@endif
                                     </div>
                                 </td>
-                                <td class="px-5 py-3.5 text-[14px] text-body">
+                                <td class="px-5 py-4 text-[14px] text-body">
                                     {{ (int) $client->total_visits }}
                                     <span class="text-[12.5px] text-faint">· {{ trans_choice(':count service|:count services', (int) $client->total_services, ['count' => (int) $client->total_services]) }}@if ((int) $client->no_show_count > 0) · {{ __(':count no-show', ['count' => (int) $client->no_show_count]) }}@endif</span>
                                 </td>
-                                <td class="px-5 py-3.5 text-[14px] text-secondary">{{ $this->localDate($client->last_visit_at) ?? '—' }}</td>
-                                <td class="px-5 py-3.5 text-[14px]">
+                                <td class="px-5 py-4 text-[14px] text-secondary">{{ $this->localDate($client->last_visit_at) ?? '—' }}</td>
+                                <td class="px-5 py-4 text-[14px]">
                                     @if ($client->upcoming_at !== null)
                                         <span class="bts-pill" style="background-color:#E3EDF6;color:#356088;">{{ $this->localDate($client->upcoming_at) }}</span>
                                     @else
                                         <span class="text-faint">—</span>
                                     @endif
                                 </td>
-                                <td class="px-5 py-3.5 text-[14px] text-secondary">{{ $this->spentLabel($client->spent_cents) }}</td>
-                                <td class="px-5 py-3.5 text-[14px] text-secondary">{{ $client->preferredStylist?->name ?? '—' }}</td>
-                                <td class="px-5 py-3.5 text-right">
+                                <td class="px-5 py-4 text-[14px] text-secondary">{{ $this->spentLabel($client->spent_cents) }}</td>
+                                <td class="px-5 py-4 text-[14px] text-secondary">{{ $client->preferredStylist?->name ?? '—' }}</td>
+                                <td class="px-5 py-4 text-right">
                                     @if ($this->canManage)
                                         <button type="button" wire:click="startEdit({{ $client->id }})" class="text-[13px] font-semibold text-accent transition hover:text-accent-hover">{{ __('Edit') }}</button>
                                     @endif
@@ -353,7 +358,7 @@ new #[Title('Clients')] class extends Component {
                                     <span class="bts-pill" style="background-color:#F8E3E3;color:#A23A3A;">{{ __('Allergy') }}</span>
                                 @endif
                                 @if ($this->isNew($client))
-                                    <span class="bts-pill" style="background-color:#ECEAFB;color:#4B3FA0;">{{ __('New') }}</span>
+                                    <span class="bts-pill" style="background-color:var(--accent-tint);color:var(--accent-ink);">{{ __('New') }}</span>
                                 @endif
                             </div>
                             <div class="text-[13px] text-secondary">{{ $client->phone ?: ($client->email ?: '—') }}</div>
