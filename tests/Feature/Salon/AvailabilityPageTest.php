@@ -494,3 +494,91 @@ it('rejects opening a panel for a non-stylist or another salon\'s stylist', func
     Livewire::test('pages::salon.availability.index', ['salon' => $salonA])
         ->call('openPanel', $frontDesk->id)->assertNotFound()->assertSet('panelOpen', false);
 });
+
+// ---------------------------------------------------------------------------
+// Editing safety: an invalid replacement must never destroy the original
+// ---------------------------------------------------------------------------
+
+it('keeps the original entry and queues no GHL sync when an edited replacement is invalid', function () {
+    $salon = Salon::factory()->create(['timezone' => 'America/New_York']);
+    SalonGhlConnection::factory()->for($salon)->create([
+        'location_id' => 'loc_edit', 'private_integration_token' => 'pit-secret', 'calendar_id' => 'cal_m',
+    ]);
+    $stylist = stylistOf($salon);
+    StylistProfile::updateOrCreate(
+        ['salon_id' => $salon->id, 'user_id' => $stylist->id],
+        ['ghl_user_id' => 'prov_edit'],
+    );
+
+    $off = TimeOff::factory()->create([
+        'salon_id' => $salon->id, 'user_id' => $stylist->id,
+        'kind' => TimeOff::KIND_HOURS,
+        'starts_at' => CarbonImmutable::parse('2027-01-05 09:00', $salon->timezone),
+        'ends_at' => CarbonImmutable::parse('2027-01-05 17:00', $salon->timezone),
+    ]);
+
+    Bus::fake([SyncAvailabilityToGhl::class]);
+    test()->actingAs($stylist);
+
+    // A mistyped replacement — end before start — must abort the WHOLE edit.
+    Livewire::test('pages::salon.availability.index', ['salon' => $salon])
+        ->call('openPanel', $stylist->id)
+        ->call('startEditing')
+        ->set('panelTab', 'dates')
+        ->call('editDateSpecific', $off->id)
+        ->set('dsBlocks', [['start' => '17:00', 'end' => '09:00']])
+        ->call('dsSubmit')
+        ->assertHasErrors('ends_at');
+
+    // The transaction rolled back: the original survives untouched, nothing added.
+    $rows = TimeOff::where('salon_id', $salon->id)->where('user_id', $stylist->id)->get();
+    expect($rows)->toHaveCount(1);
+    expect($rows[0]->id)->toBe($off->id);
+    expect($rows[0]->starts_at->setTimezone($salon->timezone)->format('Y-m-d H:i'))->toBe('2027-01-05 09:00');
+    expect($rows[0]->ends_at->setTimezone($salon->timezone)->format('Y-m-d H:i'))->toBe('2027-01-05 17:00');
+
+    // And the failed edit never told GHL anything.
+    Bus::assertNotDispatched(SyncAvailabilityToGhl::class);
+});
+
+it('queues exactly one GHL sync for a whole date-specific edit, after it commits', function () {
+    $salon = Salon::factory()->create(['timezone' => 'America/New_York']);
+    SalonGhlConnection::factory()->for($salon)->create([
+        'location_id' => 'loc_once', 'private_integration_token' => 'pit-secret', 'calendar_id' => 'cal_m',
+    ]);
+    $stylist = stylistOf($salon);
+    StylistProfile::updateOrCreate(
+        ['salon_id' => $salon->id, 'user_id' => $stylist->id],
+        ['ghl_user_id' => 'prov_once'],
+    );
+
+    $off = TimeOff::factory()->create([
+        'salon_id' => $salon->id, 'user_id' => $stylist->id,
+        'kind' => TimeOff::KIND_HOURS,
+        'starts_at' => CarbonImmutable::parse('2027-01-05 09:00', $salon->timezone),
+        'ends_at' => CarbonImmutable::parse('2027-01-05 17:00', $salon->timezone),
+    ]);
+
+    Bus::fake([SyncAvailabilityToGhl::class]);
+    test()->actingAs($stylist);
+
+    // Edit into two dates × one block: one remove + two adds, ONE sync.
+    Livewire::test('pages::salon.availability.index', ['salon' => $salon])
+        ->call('openPanel', $stylist->id)
+        ->call('startEditing')
+        ->set('panelTab', 'dates')
+        ->call('editDateSpecific', $off->id)
+        ->call('dsToggleDate', '2027-01-07')
+        ->set('dsBlocks', [['start' => '10:00', 'end' => '14:00']])
+        ->call('dsSubmit')
+        ->assertHasNoErrors()
+        ->assertSet('dsModalOpen', false);
+
+    $rows = TimeOff::where('salon_id', $salon->id)->where('user_id', $stylist->id)->orderBy('starts_at')->get();
+    expect($rows)->toHaveCount(2);
+    expect($rows->pluck('id')->all())->not->toContain($off->id); // replaced, not duplicated
+    expect($rows[0]->starts_at->setTimezone($salon->timezone)->format('Y-m-d H:i'))->toBe('2027-01-05 10:00');
+    expect($rows[1]->starts_at->setTimezone($salon->timezone)->format('Y-m-d H:i'))->toBe('2027-01-07 10:00');
+
+    Bus::assertDispatched(SyncAvailabilityToGhl::class, 1);
+});

@@ -2,8 +2,12 @@
 
 use App\Actions\Bookings\RescheduleBooking;
 use App\Enums\BookingStatus;
+use App\Models\Booking;
+use App\Models\Client;
+use App\Models\Salon;
 use App\Models\SalonGhlConnection;
 use App\Models\StylistProfile;
+use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Carbon;
@@ -162,4 +166,94 @@ it('pushes a status change to GHL when the mapped status changes (no-show)', fun
     Http::assertSent(fn ($r): bool => $r->method() === 'PUT'
         && str_ends_with($r->url(), '/calendars/events/appointments/ghl_a1')
         && $r['appointmentStatus'] === 'noshow');
+});
+
+// ---------------------------------------------------------------------------
+// Multi-service visits: offered slots must fit the WHOLE visit
+// ---------------------------------------------------------------------------
+
+/**
+ * A single booking with two back-to-back service items for one stylist:
+ * 10:00–11:00 (60 min) + 11:00–13:00 (120 min) — a 3-hour visit. Built
+ * directly (the current create flow splits visits into per-service
+ * bookings, but the schema, older data, and RescheduleBooking all support
+ * multi-item bookings — and reschedule moves every item as one block).
+ */
+function makeMultiServiceBooking(Salon $salon, User $stylist): Booking
+{
+    $cut = serviceFor($salon, $stylist, 60);
+    $colour = serviceFor($salon, $stylist, 120);
+    $tz = $salon->timezone;
+
+    $booking = Booking::factory()->create([
+        'salon_id' => $salon->id,
+        'client_id' => Client::factory()->create(['salon_id' => $salon->id])->id,
+    ]);
+
+    $booking->items()->create([
+        'salon_id' => $salon->id, 'service_id' => $cut->id, 'stylist_id' => $stylist->id,
+        'starts_at' => CarbonImmutable::parse('2026-06-22 10:00', $tz),
+        'ends_at' => CarbonImmutable::parse('2026-06-22 11:00', $tz),
+        'buffer_min' => 0,
+    ]);
+    $booking->items()->create([
+        'salon_id' => $salon->id, 'service_id' => $colour->id, 'stylist_id' => $stylist->id,
+        'starts_at' => CarbonImmutable::parse('2026-06-22 11:00', $tz),
+        'ends_at' => CarbonImmutable::parse('2026-06-22 13:00', $tz),
+        'buffer_min' => 0,
+    ]);
+
+    return $booking;
+}
+
+it('offers only slots where the whole multi-service visit fits, on both reschedule paths', function (string $component) {
+    $salon = bookingSalon();
+    $owner = salonOwnerOf($salon);
+    $stylist = stylistWithHours($salon, 0, 9 * 60, 17 * 60); // Mon 9–17
+
+    $booking = makeMultiServiceBooking($salon, $stylist);
+    makeBooking($salon, $owner, $stylist, serviceFor($salon, $stylist, 60), '2026-06-22 14:00', 'Blocker');
+
+    $slots = Livewire::actingAs($owner)
+        ->test($component, ['salon' => $salon])
+        ->call('openReschedule', $booking->id)
+        ->assertSet('rescheduleDate', '2026-06-22')
+        ->instance()->rescheduleSlots;
+
+    // Free (ignoring the booking itself): 9:00–14:00 and 15:00–17:00. The
+    // 3-hour visit fits only when it ENDS by 14:00 — starts 9:00 to 11:00.
+    expect($slots)->toContain('09:00');
+    expect($slots)->toContain('10:00');   // its own current start
+    expect($slots)->toContain('11:00');
+
+    // The first service alone would fit at all of these — the whole visit
+    // does not. None may be offered.
+    expect($slots)->not->toContain('11:30'); // visit would run into the 14:00 blocker
+    expect($slots)->not->toContain('12:00');
+    expect($slots)->not->toContain('13:00');
+    expect($slots)->not->toContain('15:00'); // visit would run past 17:00 close
+    expect($slots)->not->toContain('16:00');
+})->with([
+    'appointments list' => 'pages::salon.appointments.all',
+    'check-in' => 'pages::salon.appointments.index',
+]);
+
+it('commits a multi-service reschedule at an offered slot, moving every item as one block', function () {
+    $salon = bookingSalon();
+    $owner = salonOwnerOf($salon);
+    $stylist = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
+    $booking = makeMultiServiceBooking($salon, $stylist);
+
+    Livewire::actingAs($owner)
+        ->test('pages::salon.appointments.all', ['salon' => $salon])
+        ->call('openReschedule', $booking->id)
+        ->call('reschedule', '09:00')
+        ->assertHasNoErrors()
+        ->assertSet('showReschedule', false);
+
+    $items = $booking->fresh()->items()->orderBy('starts_at')->get();
+    expect($items[0]->starts_at->setTimezone($salon->timezone)->format('H:i'))->toBe('09:00');
+    expect($items[0]->ends_at->setTimezone($salon->timezone)->format('H:i'))->toBe('10:00');
+    expect($items[1]->starts_at->setTimezone($salon->timezone)->format('H:i'))->toBe('10:00');
+    expect($items[1]->ends_at->setTimezone($salon->timezone)->format('H:i'))->toBe('12:00');
 });

@@ -77,7 +77,7 @@ class CalendarData
                 'family' => PastelPalette::forSeed($stylist->id),
                 'work' => $work,
                 'blocked' => $this->mergeBlocked($breaks, $timeOff),
-                'bookings' => $bookings,
+                'bookings' => $this->assignLanes($bookings),
             ];
         }
 
@@ -93,7 +93,8 @@ class CalendarData
 
     /**
      * Week view: one column per day of the week (Mon–Sun), each aggregating the
-     * in-scope stylists' bookings (coloured per stylist). A lighter variant —
+     * in-scope stylists' bookings (coloured by service, like day view), with
+     * concurrent bookings split into side-by-side lanes. A lighter variant —
      * shading is the salon's union working hours; per-stylist breaks aren't shown.
      *
      * @return array<string, mixed>
@@ -142,7 +143,7 @@ class CalendarData
                 'family' => null,
                 'work' => $d['work'],
                 'blocked' => [],
-                'bookings' => $d['bookings'],
+                'bookings' => $this->assignLanes($d['bookings']),
                 'slots' => $this->slots($d['day'], $startMin, $endMin, $d['work'], []),
             ];
         }
@@ -329,6 +330,68 @@ class CalendarData
                 })
                 ->all()
         );
+    }
+
+    /**
+     * Side-by-side overlap lanes so concurrent blocks in one column never
+     * hide each other (the week view merges all stylists into a day column;
+     * inbound-synced bookings can overlap even in day view). Blocks that
+     * overlap in time — a block occupies its service minutes PLUS its buffer
+     * tail — get parallel lanes; each transitive overlap cluster shares the
+     * column width evenly. Every block gains leftPct/widthPct for the view;
+     * a lone block keeps the full width.
+     *
+     * @param  list<array<string, mixed>>  $blocks
+     * @return list<array<string, mixed>>
+     */
+    private function assignLanes(array $blocks): array
+    {
+        if ($blocks === []) {
+            return [];
+        }
+
+        usort($blocks, fn (array $a, array $b): int => [$a['startMin'], -$a['endMin']] <=> [$b['startMin'], -$b['endMin']]);
+
+        $spread = function (int $from, int $to, int $lanes) use (&$blocks): void {
+            $width = round(100 / max(1, $lanes), 3);
+            for ($i = $from; $i < $to; $i++) {
+                $blocks[$i]['widthPct'] = $width;
+                $blocks[$i]['leftPct'] = round($blocks[$i]['lane'] * $width, 3);
+                unset($blocks[$i]['lane']);
+            }
+        };
+
+        $laneEnds = []; // lane index => occupied-until minute, within the open cluster
+        $clusterFrom = 0;
+        $clusterEnd = -1;
+
+        foreach (array_keys($blocks) as $i) {
+            $start = (int) $blocks[$i]['startMin'];
+            $end = (int) $blocks[$i]['endMin'] + (int) ($blocks[$i]['bufferMin'] ?? 0);
+
+            // Clear of everything so far → close the cluster, start a new one.
+            if ($i > 0 && $start >= $clusterEnd) {
+                $spread($clusterFrom, $i, count($laneEnds));
+                $laneEnds = [];
+                $clusterFrom = $i;
+            }
+
+            $lane = count($laneEnds);
+            foreach ($laneEnds as $l => $occupiedUntil) {
+                if ($occupiedUntil <= $start) {
+                    $lane = $l;
+                    break;
+                }
+            }
+
+            $laneEnds[$lane] = $end;
+            $blocks[$i]['lane'] = $lane;
+            $clusterEnd = max($clusterEnd, $end);
+        }
+
+        $spread($clusterFrom, count($blocks), count($laneEnds));
+
+        return $blocks;
     }
 
     /**

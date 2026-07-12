@@ -268,3 +268,63 @@ it('renders the booking-detail header cleanly at every status and a long name (c
         expect($html)->toContain('pe-12');
     }
 });
+
+// ---------------------------------------------------------------------------
+// Overlap lanes: concurrent bookings must never hide each other
+// ---------------------------------------------------------------------------
+
+it('lanes concurrent week-view bookings side by side so none is hidden', function () {
+    $salon = bookingSalon();
+    $owner = salonOwnerOf($salon);
+    $anna = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
+    $ben = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
+    makeBooking($salon, $owner, $anna, serviceFor($salon, $anna, 60), '2026-06-22 10:00', 'Alice Anderson');
+    makeBooking($salon, $owner, $ben, serviceFor($salon, $ben, 60), '2026-06-22 10:00', 'Bob Brown');
+
+    $grid = app(CalendarData::class)->week($salon, calDay(), null);
+    $monday = $grid['columns'][0];
+
+    // Both concurrent bookings are present…
+    expect(collect($monday['bookings'])->pluck('client')->all())
+        ->toContain('Alice Anderson')
+        ->toContain('Bob Brown');
+
+    // …in DISJOINT horizontal lanes, so neither covers the other.
+    [$a, $b] = collect($monday['bookings'])->sortBy('leftPct')->values()->all();
+    expect($a['widthPct'])->toBeLessThan(100.0);
+    expect($b['widthPct'])->toBeLessThan(100.0);
+    expect($a['leftPct'] + $a['widthPct'])->toBeLessThanOrEqual($b['leftPct'] + 0.01);
+
+    // The rendered week view shows and can open BOTH bookings.
+    $bookingIds = collect($monday['bookings'])->pluck('bookingId');
+    $page = Livewire::actingAs($owner)
+        ->test('pages::salon.calendar', ['salon' => $salon])
+        ->call('setView', 'week')
+        ->assertSee('Alice Anderson')
+        ->assertSee('Bob Brown');
+    foreach ($bookingIds as $id) {
+        $page->assertSeeHtml('wire:click="openBooking('.$id.')"');
+    }
+});
+
+it('keeps non-overlapping bookings at full column width', function () {
+    $salon = bookingSalon();
+    $owner = salonOwnerOf($salon);
+    $stylist = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
+    makeBooking($salon, $owner, $stylist, serviceFor($salon, $stylist, 60), '2026-06-22 10:00', 'Alice Anderson');
+    makeBooking($salon, $owner, $stylist, serviceFor($salon, $stylist, 60), '2026-06-22 13:00', 'Bob Brown');
+
+    $week = app(CalendarData::class)->week($salon, calDay(), null);
+    foreach ($week['columns'][0]['bookings'] as $b) {
+        expect($b['leftPct'])->toBe(0.0);
+        expect($b['widthPct'])->toBe(100.0);
+    }
+
+    // Day view carries the same lane fields (and stays full width here too).
+    $day = app(CalendarData::class)->day($salon, calDay(), null);
+    $col = collect($day['columns'])->firstWhere('stylistId', $stylist->id);
+    foreach ($col['bookings'] as $b) {
+        expect($b['leftPct'])->toBe(0.0);
+        expect($b['widthPct'])->toBe(100.0);
+    }
+});

@@ -285,20 +285,24 @@ new #[Title('Calendar')] class extends Component {
                                 </div>
                             @endforeach
 
-                            {{-- Appointment blocks --}}
+                            {{-- Appointment blocks. Concurrent bookings render in
+                                 side-by-side lanes (leftPct/widthPct from
+                                 CalendarData) so none is ever hidden behind
+                                 another — a lone block keeps the full width. --}}
                             @foreach ($col['bookings'] as $b)
                                 @php($dimmed = in_array($b['status'], ['completed', 'no_show', 'cancelled'], true))
+                                @php($lane = 'left: calc('.$b['leftPct'].'% + 4px); width: calc('.$b['widthPct'].'% - 8px);')
                                 <button type="button" wire:click="openBooking({{ $b['bookingId'] }})"
-                                        class="absolute inset-x-1 overflow-hidden rounded-[11px] border px-[11px] py-2 text-start transition hover:brightness-[.97] {{ $dimmed ? 'opacity-60' : '' }}"
-                                        style="top: {{ ($b['startMin'] - $startMin) * $ppm }}px; height: {{ max(28, ($b['endMin'] - $b['startMin']) * $ppm - 2) }}px; background-color: {{ $b['color']['bg'] }}; border-color: {{ $b['color']['border'] }}; color: {{ $b['color']['ink'] }};">
+                                        class="absolute overflow-hidden rounded-[11px] border px-[11px] py-2 text-start transition hover:brightness-[.97] {{ $dimmed ? 'opacity-60' : '' }}"
+                                        style="{{ $lane }} top: {{ ($b['startMin'] - $startMin) * $ppm }}px; height: {{ max(28, ($b['endMin'] - $b['startMin']) * $ppm - 2) }}px; background-color: {{ $b['color']['bg'] }}; border-color: {{ $b['color']['border'] }}; color: {{ $b['color']['ink'] }};">
                                     <div class="text-[11px] font-semibold opacity-80">{{ $b['startLabel'] }}–{{ $b['endLabel'] }}</div>
                                     <div class="truncate text-[13px] font-semibold leading-tight">{{ $b['client'] }}</div>
                                     <div class="truncate text-[12px] leading-tight opacity-85">{{ $b['service'] }}</div>
                                 </button>
-                                {{-- Cleanup buffer: muted, non-bookable tail. --}}
+                                {{-- Cleanup buffer: muted, non-bookable tail (same lane as its block). --}}
                                 @if (($b['bufferMin'] ?? 0) > 0)
-                                    <div class="pointer-events-none absolute inset-x-1 rounded-b-[8px] border border-t-0 border-divider bg-muted/70"
-                                         style="top: {{ ($b['endMin'] - $startMin) * $ppm }}px; height: {{ max(4, $b['bufferMin'] * $ppm) }}px;"
+                                    <div class="pointer-events-none absolute rounded-b-[8px] border border-t-0 border-divider bg-muted/70"
+                                         style="{{ $lane }} top: {{ ($b['endMin'] - $startMin) * $ppm }}px; height: {{ max(4, $b['bufferMin'] * $ppm) }}px;"
                                          aria-hidden="true"></div>
                                 @endif
                             @endforeach

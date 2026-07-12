@@ -17,7 +17,11 @@ class RemoveTimeOff
 {
     public function __construct(private AvailabilityAccess $access) {}
 
-    public function handle(User $actor, Salon $salon, TimeOff $timeOff): void
+    /**
+     * $queueSync = false lets a caller composing several entries into one
+     * transactional edit queue a single GHL sync itself after commit.
+     */
+    public function handle(User $actor, Salon $salon, TimeOff $timeOff, bool $queueSync = true): void
     {
         if ($timeOff->salon_id !== $salon->id) {
             throw new AuthorizationException('That time off is not in this salon.');
@@ -30,6 +34,8 @@ class RemoveTimeOff
         $timeOff->delete();
 
         // Mirror the change into GHL (the date-specific override goes away).
-        SyncAvailabilityToGhl::queueForStylist($salon, $timeOff->user_id);
+        if ($queueSync) {
+            SyncAvailabilityToGhl::queueForStylist($salon, $timeOff->user_id);
+        }
     }
 }

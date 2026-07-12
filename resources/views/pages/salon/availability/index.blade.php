@@ -12,6 +12,7 @@ use App\Support\Permissions\AvailabilityAccess;
 use Carbon\CarbonImmutable;
 use Flux\Flux;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -463,8 +464,13 @@ new #[Title('Availability')] class extends Component {
     /**
      * Create one entry per selected date (× block). Editing replaces the
      * original entry. Persistence goes through the SAME AddTimeOff/
-     * RemoveTimeOff actions as always — validation, permissions, and the
-     * GHL availability sync all included.
+     * RemoveTimeOff actions as always — validation and permissions included.
+     *
+     * The whole edit is ONE transaction, and the replacement entries are
+     * created (and therefore validated) BEFORE the original is deleted — an
+     * invalid replacement rolls everything back with the original untouched.
+     * The GHL availability sync queues exactly once, after a successful
+     * commit, instead of once per action.
      */
     public function dsSubmit(AddTimeOff $add, RemoveTimeOff $remove): void
     {
@@ -472,33 +478,38 @@ new #[Title('Availability')] class extends Component {
             'dsDates' => ['required', 'array', 'min:1'],
         ], [], ['dsDates' => __('dates')]);
 
-        if ($this->dsEditId !== null) {
-            $old = TimeOff::query()
+        DB::transaction(function () use ($add, $remove): void {
+            $old = $this->dsEditId === null ? null : TimeOff::query()
                 ->where('salon_id', $this->salon->id)
                 ->where('user_id', $this->selectedStylistId)
                 ->findOrFail($this->dsEditId);
-            $remove->handle(Auth::user(), $this->salon, $old);
-        }
 
-        foreach ($this->dsDates as $date) {
-            // No blocks = unavailable that whole date; otherwise each block
-            // is part of that date's AVAILABLE hours (a schedule override).
-            $blocks = $this->dsBlocks === []
-                ? [['start' => '00:00', 'end' => '24:00', 'kind' => TimeOff::KIND_OFF]]
-                : array_map(fn (array $b): array => [...$b, 'kind' => TimeOff::KIND_HOURS], $this->dsBlocks);
+            foreach ($this->dsDates as $date) {
+                // No blocks = unavailable that whole date; otherwise each block
+                // is part of that date's AVAILABLE hours (a schedule override).
+                $blocks = $this->dsBlocks === []
+                    ? [['start' => '00:00', 'end' => '24:00', 'kind' => TimeOff::KIND_OFF]]
+                    : array_map(fn (array $b): array => [...$b, 'kind' => TimeOff::KIND_HOURS], $this->dsBlocks);
 
-            foreach ($blocks as $block) {
-                $end = $block['end'] === '24:00'
-                    ? CarbonImmutable::parse($date, $this->salon->timezone)->addDay()->startOfDay()->format('Y-m-d H:i')
-                    : $date.' '.$block['end'];
+                foreach ($blocks as $block) {
+                    $end = $block['end'] === '24:00'
+                        ? CarbonImmutable::parse($date, $this->salon->timezone)->addDay()->startOfDay()->format('Y-m-d H:i')
+                        : $date.' '.$block['end'];
 
-                $add->handle(Auth::user(), $this->salon, $this->selectedStylistId, [
-                    'kind' => $block['kind'],
-                    'starts_at' => $date.' '.$block['start'],
-                    'ends_at' => $end,
-                ]);
+                    $add->handle(Auth::user(), $this->salon, $this->selectedStylistId, [
+                        'kind' => $block['kind'],
+                        'starts_at' => $date.' '.$block['start'],
+                        'ends_at' => $end,
+                    ], queueSync: false);
+                }
             }
-        }
+
+            if ($old !== null) {
+                $remove->handle(Auth::user(), $this->salon, $old, queueSync: false);
+            }
+        });
+
+        SyncAvailabilityToGhl::queueForStylist($this->salon, $this->selectedStylistId);
 
         unset($this->timeOff);
         $this->dsModalOpen = false;

@@ -19,9 +19,12 @@ class AddTimeOff
     public function __construct(private AvailabilityAccess $access) {}
 
     /**
+     * $queueSync = false lets a caller composing several entries into one
+     * transactional edit queue a single GHL sync itself after commit.
+     *
      * @param  array{kind?: string, note?: string|null, starts_at: string, ends_at: string}  $data
      */
-    public function handle(User $actor, Salon $salon, int $stylistUserId, array $data): TimeOff
+    public function handle(User $actor, Salon $salon, int $stylistUserId, array $data, bool $queueSync = true): TimeOff
     {
         if (! $this->access->canManage($actor, $salon, $stylistUserId)) {
             throw new AuthorizationException('You may not manage this stylist\'s availability.');
@@ -59,7 +62,9 @@ class AddTimeOff
         ]);
 
         // Mirror the change into GHL so its AI stops offering these times.
-        SyncAvailabilityToGhl::queueForStylist($salon, $stylistUserId);
+        if ($queueSync) {
+            SyncAvailabilityToGhl::queueForStylist($salon, $stylistUserId);
+        }
 
         return $timeOff;
     }

@@ -134,9 +134,10 @@ new #[Title('Appointments')] class extends Component {
     }
 
     /**
-     * Real slot-engine start times for the booking's stylist on the picked
-     * date, with the booking's own current slot excluded from conflicts (so
-     * nearby times stay offered).
+     * Real slot-engine start times on the picked date where the WHOLE visit
+     * fits — every service item, in order, with its stylist and buffers — not
+     * just the first service. The booking's own current slots are excluded
+     * from conflicts (so nearby times stay offered).
      *
      * @return list<string>
      */
@@ -148,18 +149,16 @@ new #[Title('Appointments')] class extends Component {
         }
 
         $booking = $this->salon->bookings()->with('items')->whereKey($this->rescheduleId)->first();
-        $item = $booking?->items->sortBy('starts_at')->first();
-        if ($item === null) {
+        if ($booking === null) {
             return [];
         }
 
-        $blocked = (int) round($item->starts_at->diffInMinutes($item->ends_at)) + (int) $item->buffer_min;
         $tz = $this->salon->timezone;
 
         return array_map(
             fn ($slot): string => $slot->setTimezone($tz)->format('H:i'),
-            app(\App\Services\Booking\SlotEngine::class)
-                ->slotsFor($this->salon, (int) $item->stylist_id, $blocked, $this->rescheduleDate, $booking->id),
+            app(\App\Services\Booking\RescheduleSlots::class)
+                ->startTimes($this->salon, $booking, $this->rescheduleDate),
         );
     }
 
