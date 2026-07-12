@@ -79,6 +79,14 @@
                 <flux:icon.chart-bar variant="micro" class="shrink-0" />
                 <span x-show="!collapsed" x-cloak>{{ __('Reports') }}</span>
             </a>
+            {{-- TEMPORARY: design-direction gallery — removed once a
+                 direction is chosen and rolled out app-wide. --}}
+            <a href="{{ route('salon.uiux', $salon) }}" wire:navigate @click="mobileNav = false"
+               aria-label="{{ __('UI/UX') }}" :title="collapsed ? '{{ __('UI/UX') }}' : null"
+               class="bts-nav-item {{ request()->routeIs('salon.uiux') ? 'bts-nav-item-active' : '' }}">
+                <flux:icon.swatch variant="micro" class="shrink-0" />
+                <span x-show="!collapsed" x-cloak>{{ __('UI/UX') }}</span>
+            </a>
         @endcan
         {{-- Every member may VIEW staff schedules; editing is
              gated per stylist inside the page. --}}

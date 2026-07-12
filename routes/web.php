@@ -165,5 +165,8 @@ Route::domain('{salon}.'.$central)->middleware(['auth', 'resolve.salon'])->group
     Route::livewire('availability', 'pages::salon.availability.index')->name('salon.availability');
     Route::livewire('reports', 'pages::salon.reports')->name('salon.reports');
     Route::livewire('settings', 'pages::salon.settings')->name('salon.settings');
+    // TEMPORARY: design-direction gallery (owner/admin) — removed once a
+    // direction is chosen and rolled out app-wide.
+    Route::livewire('ui-ux', 'pages::salon.uiux')->name('salon.uiux');
     Route::livewire('setup', 'pages::salon.onboarding')->name('salon.onboarding');
 });
