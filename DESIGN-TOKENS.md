@@ -13,19 +13,18 @@ The feeling of a high-end salon's brand: inviting, tactile, human — and polish
 - **Surfaces.** Flat by default: tight radii (button/input/nav 10, list 14, modal 16), **barely-there warm shadows** (a 1px umbra at most; only true overlays — modals, drawers — float, quietly). Hairline borders and dividers are the primary separators.
 - **Details.** Sentence case, no emoji. Micro-interactions stay 150–300ms and subtle. Pills, chips, and empty states are considered, never default-looking. Pastel families keep identifying people; service colours keep identifying work.
 
-## Noir — the deep-glass dark language (proof screens)
+## Lumen — the light liquid-glass language (proof screens)
 
-The premium dark expression of the same DNA (see `App\Support\NoirTheme` for the proof-route list; activated as `data-theme="noir"` on `<body>`). Linear/Stripe craft, Arc warmth, Cosmos depth, Apple liquid glass. All ratios are WCAG AA-verified light-on-dark.
+The premium light expression of the DNA (see `App\Support\LumenTheme` for the proof-route list; activated as `data-theme="lumen"` on `<body>`). Linear craft, Stripe dashboard clarity, Arc/Marblism warmth, Cosmos beauty, Apple light liquid glass. LIGHT mode only. Every glass blend is AA-verified for the text sitting on it.
 
-- **Backdrop.** Deep ink-plum `#141019` (never pure black) with a fixed radial mesh: plum `rgb(130 76 113 / .16)` top-left, violet `rgb(84 62 120 / .15)` top-right, ember `rgb(156 79 63 / .10)` rising from below — layered darkness the glass can blur over.
-- **Content surfaces (crisp, near-opaque).** Card `#201A26`, muted `#2A2231`, field `#181320`. Data never sits on glass.
-- **Text ramp (warm, no glaring #FFF).** Ink `#F2EDE8` (14.6:1 on card) · body `#CFC6BE` (10.1:1) · secondary `#B2A9A1` (7.3:1) · faint `#A39A91` (6.1:1) · placeholder `#8F8377` (4.6:1).
-- **Accent on dark.** Fill stays plum `#824C71` (white text 6.5:1); hover brightens to `#96587F` (5.25:1); ink lightens to `#D9A9C6` (8.4:1 on card); tint becomes `rgb(130 76 113 / .28)`. Focus ring `#D9A9C6` (9.3:1 on the backdrop). Primary buttons carry a restrained plum glow `0 0 20px rgb(130 76 113 / .4)`.
-- **Semantic tones (light variants).** Success `#A8CB9E` · warning `#E6BE7E` · danger `#EDA6A6` · info `#A6C8EC` · blush-ink `#EFC0B0` (all 8.5–10.4:1 on card).
-- **Hairlines.** Border `rgb(255 255 255 / .08)` · input `…/.14` · divider `…/.07` · row `…/.05`.
-- **Liquid glass — chrome and overlays ONLY.** `--glass-bg rgb(255 255 255 / .06)` (panels over the backdrop) or `--glass-strong rgb(32 26 38 / .72)` (dialogs over content), `blur(20px) saturate(1.4)`, light border `rgb(255 255 255 / .12)`, visionOS top edge `inset 0 1px 0 rgb(255 255 255 / .10)`, shadow `0 8px 32px rgb(0 0 0 / .35)`. Applied via `.bts-chrome` (sidebar, top bar, nav drawer), `.bts-glass-panel` (login), and the dialog override. Never on dense content.
-- **Scrim.** `rgb(10 7 12 / .6)`.
-- **Performance.** backdrop-filter is limited to a handful of fixed chrome elements and overlays — never per-row or per-card.
+- **Backdrop.** The warm paper `#F7F4EF` under a whisper-quiet fixed radial mesh: plum `rgb(130 76 113 / .07)` top-left, blush `rgb(214 138 111 / .06)` top-right, sage `rgb(92 116 88 / .05)` rising from below — just enough colour for the glass to blur, never loud.
+- **Liquid glass (light) — chrome, overlays, and widget tiles ONLY.** `--glass-bg rgb(255 255 255 / .55)` + `blur(20px) saturate(1.5)`, hairline `rgb(63 47 38 / .08)` border, the visionOS light top edge `inset 0 1px 0 rgb(255 255 255 / .75)`, soft diffuse warm shadow `0 8px 30px rgb(63 47 38 / .08)`. Applied via `.bts-chrome` (sidebar, top bar, nav drawer), `.bts-glass-panel` (login showcase, blur 24), `.bts-stat` widget tiles (blur 14, radius 16), and the dialog override. Never on dense content.
+- **Overlays.** Dialogs use `--glass-strong rgb(252 250 246 / .9)` — opaque enough that dark text stays AA over the scrimmed page (faint 4.7:1 worst case). Scrim `rgb(31 22 17 / .28)` (warm, light-appropriate).
+- **Content stays crisp.** Tables, forms, and text keep the plain light surfaces (card `#FFFFFF`, field `#FCFAF6`) and the standard warm text ramp — glass never carries data. On chrome glass (~`#F8F5F4` blended) the ramp reads: body 7.3:1 · secondary 5.4:1 · faint 4.8:1.
+- **Widget stats.** Under lumen the open ruled stat becomes a frosted Apple-widget tile: radius 16, light edge, `0 4px 18px rgb(63 47 38 / .06)`, gentle hover lift — refined, not a bordered box.
+- **The jewel.** Accent stays plum `#824C71`; primaries gain a soft glow on hover only: `--glow-accent 0 6px 20px rgb(130 76 113 / .25)`. Focus ring stays `--focus-ring` (accent) — visible on the light foundation and on light glass.
+- **Type.** Fraunces stays for headings/figures — the Marblism/Arc warmth lives in the serif; Linear-crispness comes from Hanken UI + spacing precision.
+- **Performance.** backdrop-filter is limited to a handful of fixed chrome elements, the stat tiles, and open overlays — never per-row.
 
 ## Fonts (self-host via the existing self-hosted-fonts setup — no CDN)
 - **Fraunces** — display & headings & stat numbers. Weights 500 / 600 / 700. (Editorial serif; the boutique voice.)

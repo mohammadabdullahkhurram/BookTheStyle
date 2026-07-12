@@ -15,7 +15,7 @@
     <head>
         @include('partials.head')
     </head>
-    <body class="min-h-screen bg-paper text-ink antialiased" @if (\App\Support\NoirTheme::active()) data-theme="noir" @endif>
+    <body class="min-h-screen bg-paper text-ink antialiased" @if (\App\Support\LumenTheme::active()) data-theme="lumen" @endif>
         {{-- Keyboard users jump straight past the sidebar/top bar. --}}
         <a href="#main-content"
            class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-[12px] focus:bg-accent focus:px-5 focus:py-3 focus:text-[15px] focus:font-semibold focus:text-white">

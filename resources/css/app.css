@@ -151,151 +151,106 @@
         --accent-ink: #8a431f;
     }
 
-    /* Keyboard-focus ring colour — accent in light; noir overrides it with a
-       light plum so the ring stays visible on dark. */
+    /* Keyboard-focus ring colour — a theme layer may retune it; plum accent
+       by default (visible on the light foundation and on light glass). */
     :root {
         --focus-ring: var(--accent);
     }
 
     /* ────────────────────────────────────────────────────────────────────
-       NOIR — the deep-glass dark language (proof screens; see
-       App\Support\NoirTheme for the route list). Scoped to <body> so
-       wire:navigate page swaps carry the theme correctly. Every value here
-       is AA-verified light-on-dark (ratios in DESIGN-TOKENS.md): ink
-       14.6:1, body 10.1:1, secondary 7.3:1, faint 6.1:1 on the content
-       surface. Glass is for CHROME and overlays only — content sits on
-       near-opaque surfaces so data stays crisp.
+       LUMEN — the light liquid-glass language (proof screens; see
+       App\Support\LumenTheme for the route list). Scoped to <body> so
+       wire:navigate page swaps carry it correctly. LIGHT mode only: a warm
+       airy backdrop with a barely-there colour mesh for the glass to blur
+       over; frosted Apple-style glass on CHROME and overlays; content stays
+       on crisp near-solid surfaces. Every glass blend is AA-verified for
+       the text that sits on it (chrome ~#F8F5F4: body 7.3:1, secondary
+       5.4:1, faint 4.8:1; dialog glass at 90% over the scrim: faint 4.7:1).
        ──────────────────────────────────────────────────────────────────── */
-    body[data-theme='noir'] {
-        /* Deep moody backdrop — never pure black. */
-        --color-paper: #141019;
-        --color-app: #141019;
-        /* Crisp content surfaces (near-opaque). */
-        --color-card: #201a26;
-        --color-surface: #201a26;
-        --color-muted: #2a2231;
-        --color-field: #181320;
-        --color-sidebar-dark: #100d14;
-        /* Warm light-on-dark text ramp (no glaring pure white). */
-        --color-ink: #f2ede8;
-        --color-body: #cfc6be;
-        --color-secondary: #b2a9a1;
-        --color-faint: #a39a91;
-        --color-fainter: #6a6172;      /* decoration only */
-        --color-placeholder: #8f8377;
-        /* Hairline light borders. */
-        --color-border: rgb(255 255 255 / 0.08);
-        --color-input-border: rgb(255 255 255 / 0.14);
-        --color-divider: rgb(255 255 255 / 0.07);
-        --color-row: rgb(255 255 255 / 0.05);
-        /* Semantic tones — light tonal variants (8.5–9.8:1 on card). */
-        --color-success: #a8cb9e;
-        --color-warning: #e6be7e;
-        --color-danger: #eda6a6;
-        --color-info: #a6c8ec;
-        --color-blush: rgb(214 138 111 / 0.16);
-        --color-blush-ink: #efc0b0;
-        /* Accent: the plum fill keeps white text (6.5:1); ink/tint/hover
-           get dark-context variants (ink 8.4:1 on card; hover 5.25:1). */
-        --accent-hover: #96587f;
-        --accent-tint: rgb(130 76 113 / 0.28);
-        --accent-ink: #d9a9c6;
-        --focus-ring: #d9a9c6;
-        /* Depth: quiet true shadows + a restrained plum glow on primaries. */
-        --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.3);
-        --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
-        --shadow-md: 0 2px 8px rgb(0 0 0 / 0.4);
-        --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3);
-        --shadow-button: 0 1px 2px rgb(0 0 0 / 0.4), 0 0 20px rgb(130 76 113 / 0.4);
-        --shadow-overlay: 0 24px 60px rgb(0 0 0 / 0.5);
-        /* Liquid glass (chrome + overlays only). */
-        --glass-bg: rgb(255 255 255 / 0.06);
-        --glass-strong: rgb(32 26 38 / 0.72);
-        --glass-border: rgb(255 255 255 / 0.12);
-        --glass-highlight: inset 0 1px 0 rgb(255 255 255 / 0.1);
-        --glass-shadow: 0 8px 32px rgb(0 0 0 / 0.35);
+    body[data-theme='lumen'] {
+        /* Liquid glass (light): translucent warm white + blur + the
+           visionOS light edge + a soft diffuse warm shadow. */
+        --glass-bg: rgb(255 255 255 / 0.55);
+        --glass-strong: rgb(252 250 246 / 0.9);
+        --glass-border: rgb(63 47 38 / 0.08);
+        --glass-highlight: inset 0 1px 0 rgb(255 255 255 / 0.75);
+        --glass-shadow: 0 8px 30px rgb(63 47 38 / 0.08);
         --glass-blur: 20px;
-        --scrim: rgb(10 7 12 / 0.6);
-        /* Flux zinc ramp flipped so its menus/controls read dark. */
-        --color-zinc-50: #16121c;
-        --color-zinc-100: #201a26;
-        --color-zinc-200: #2a2231;
-        --color-zinc-300: #3a3143;
-        --color-zinc-400: #8f8377;
-        --color-zinc-500: #a39a91;
-        --color-zinc-600: #b2a9a1;
-        --color-zinc-700: #cfc6be;
-        --color-zinc-800: #2a2231;
-        --color-zinc-900: #f2ede8;
-        --color-zinc-950: #f7f4ef;
+        --scrim: rgb(31 22 17 / 0.28);
+        /* The jewel: a soft plum glow reserved for primary actions. */
+        --glow-accent: 0 6px 20px rgb(130 76 113 / 0.25);
 
-        color-scheme: dark;
+        /* Warm airy backdrop: paper with a whisper of plum, blush, and sage
+           — enough for glass to blur, never enough to shout. */
         background-color: var(--color-paper);
-        /* Layered darkness: a subtle plum/violet/ember mesh the glass can
-           blur over (Cosmos-like depth, not flat black). */
         background-image:
-            radial-gradient(50rem 34rem at 12% -6%, rgb(130 76 113 / 0.16), transparent 60%),
-            radial-gradient(44rem 30rem at 88% 4%, rgb(84 62 120 / 0.15), transparent 60%),
-            radial-gradient(60rem 42rem at 50% 112%, rgb(156 79 63 / 0.1), transparent 62%);
+            radial-gradient(52rem 36rem at 10% -8%, rgb(130 76 113 / 0.07), transparent 60%),
+            radial-gradient(46rem 32rem at 92% 0%, rgb(214 138 111 / 0.06), transparent 60%),
+            radial-gradient(64rem 44rem at 50% 115%, rgb(92 116 88 / 0.05), transparent 62%);
         background-attachment: fixed;
-    }
-
-    /* No light flash on overscroll behind a noir body. */
-    html:has(body[data-theme='noir']) {
-        background-color: #141019;
     }
 
     /* Glass chrome: sidebar, mobile top bar, off-canvas nav (marked
        .bts-chrome in the layout). Blur is limited to these few fixed
        elements + overlays, so backdrop-filter stays cheap. */
-    body[data-theme='noir'] .bts-chrome {
-        background-color: rgb(20 16 25 / 0.55);
+    body[data-theme='lumen'] .bts-chrome {
+        background-color: var(--glass-bg);
         border-color: var(--glass-border);
-        -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
-        backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
+        box-shadow: var(--glass-highlight);
+        -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
+        backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
     }
 
-    /* The floating glass panel (login showcase): frosted surface with the
-       visionOS light top edge. */
-    body[data-theme='noir'] .bts-glass-panel {
-        background-color: var(--glass-bg);
+    /* The floating glass panel (login showcase): an Apple-widget surface —
+       frosted, light top edge, soft diffuse shadow. */
+    body[data-theme='lumen'] .bts-glass-panel {
+        background-color: rgb(255 255 255 / 0.6);
         border: 1px solid var(--glass-border);
         border-radius: var(--radius-modal);
         box-shadow: var(--glass-highlight), var(--glass-shadow);
-        -webkit-backdrop-filter: blur(24px) saturate(1.4);
-        backdrop-filter: blur(24px) saturate(1.4);
+        -webkit-backdrop-filter: blur(24px) saturate(1.5);
+        backdrop-filter: blur(24px) saturate(1.5);
         padding: 2rem;
     }
 
-    /* Overlays (Flux dialogs) become frosted glass with enough opacity to
-       keep their content crisp; the scrim deepens. */
-    body[data-theme='noir'] dialog {
+    /* Widget-style stat tiles (Apple widget feel, not a bordered box):
+       replaces the open ruled stat on lumen screens. */
+    body[data-theme='lumen'] .bts-stat {
+        border-top: 0;
+        background-color: var(--glass-bg);
+        border: 1px solid var(--glass-border);
+        border-radius: 16px;
+        box-shadow: var(--glass-highlight), 0 4px 18px rgb(63 47 38 / 0.06);
+        padding: 16px 18px;
+        -webkit-backdrop-filter: blur(14px) saturate(1.4);
+        backdrop-filter: blur(14px) saturate(1.4);
+    }
+
+    /* Overlays (Flux dialogs): light frosted glass at 90% so dark text on
+       them stays AA even over the scrimmed page; the scrim warms. */
+    body[data-theme='lumen'] dialog {
         background-color: var(--glass-strong);
         border: 1px solid var(--glass-border);
-        box-shadow: var(--glass-highlight), var(--glass-shadow);
-        -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.3);
-        backdrop-filter: blur(var(--glass-blur)) saturate(1.3);
+        box-shadow: var(--glass-highlight), 0 20px 50px rgb(63 47 38 / 0.16);
+        -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
+        backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
     }
-    body[data-theme='noir'] dialog::backdrop {
+    body[data-theme='lumen'] dialog::backdrop {
         background-color: var(--scrim);
     }
-    body[data-theme='noir'] .bts-scrim {
+    body[data-theme='lumen'] .bts-scrim {
         background-color: var(--scrim);
     }
 
-    /* Ghost buttons on dark: translucent fills instead of the light-mode
-       hardcoded white surfaces. */
-    body[data-theme='noir'] .bts-btn-secondary {
-        background-color: rgb(255 255 255 / 0.07);
-        color: var(--color-ink);
-        border-color: rgb(255 255 255 / 0.14);
+    /* Gentle lift on glass + the plum glow on primaries — calm, 200ms. */
+    body[data-theme='lumen'] .bts-btn-primary:hover {
+        box-shadow: var(--glow-accent);
     }
-    body[data-theme='noir'] .bts-btn-secondary:hover {
-        border-color: rgb(255 255 255 / 0.32);
+    body[data-theme='lumen'] .bts-stat {
+        transition: box-shadow 0.2s ease, transform 0.2s ease;
     }
-    body[data-theme='noir'] .bts-btn-danger {
-        background-color: rgb(255 255 255 / 0.05);
-        border-color: rgb(255 255 255 / 0.14);
+    body[data-theme='lumen'] .bts-stat:hover {
+        box-shadow: var(--glass-highlight), 0 8px 26px rgb(63 47 38 / 0.09);
     }
 
     *,
