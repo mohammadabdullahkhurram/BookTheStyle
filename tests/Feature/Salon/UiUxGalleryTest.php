@@ -8,7 +8,7 @@ use App\Models\Salon;
 | direction is chosen and implemented app-wide.
 */
 
-it('renders the gallery with all ten directions for managers', function () {
+it('renders the gallery with all twenty directions for managers', function () {
     $salon = Salon::factory()->create();
     $owner = salonOwnerOf($salon);
 
@@ -24,7 +24,17 @@ it('renders the gallery with all ten directions for managers', function () {
         ->assertSee('Aurora — vibrant gradient')
         ->assertSee('Manor — warm neutral pro')
         ->assertSee('Bloom — playful boutique')
-        ->assertSee('Vertex — sharp contemporary');
+        ->assertSee('Vertex — sharp contemporary')
+        ->assertSee('Glacier — full liquid glass')
+        ->assertSee('Marble — the Marblism theme')
+        ->assertSee('Bolt — neo-brutalist')
+        ->assertSee('Chrome — retro-futuristic')
+        ->assertSee('Gazette — newspaper broadsheet')
+        ->assertSee('Fern — organic botanical')
+        ->assertSee('Werkstatt — Bauhaus geometric')
+        ->assertSee('Gilt — luxe dark gold')
+        ->assertSee('Sketch — hand-drawn')
+        ->assertSee('Grid — Swiss precision');
 });
 
 it('gates the gallery from non-managers', function () {
