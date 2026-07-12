@@ -717,22 +717,34 @@ new #[Title('Salon settings')] class extends Component {
 
         {{-- Category navigation + one panel per category. Panels are Alpine
              show/hide (all content stays in the DOM), so every wire binding
-             and save method behaves exactly as on the old single page. --}}
-        <div x-data="{ tab: window.location.hash.slice(1) || 'general' }" class="flex items-start gap-8 max-md:flex-col">
+             and save method behaves exactly as on the old single page. The
+             hash is WHITELISTED against the tabs this user can actually see:
+             an unknown or unauthorized #fragment falls back to General
+             instead of matching no panel (blank page); back/forward work via
+             the hashchange listener. --}}
+        <div x-data="{
+                 tabs: ['general', 'policy', 'features', 'branding', 'widget'@can('manageGhlConnection', $salon), 'integrations'@endcan],
+                 tab: 'general',
+                 resolve(hash) { return this.tabs.includes(hash) ? hash : 'general' },
+                 pick(name) { this.tab = name; window.location.hash = name },
+                 init() { this.tab = this.resolve(window.location.hash.slice(1)) },
+             }"
+             @hashchange.window="tab = resolve(window.location.hash.slice(1))"
+             class="flex items-start gap-8 max-md:flex-col">
             <div class="w-full md:w-[210px] md:shrink-0">
                 <nav class="flex gap-1 overflow-x-auto md:flex-col" aria-label="{{ __('Salon settings') }}">
-                    <button type="button" x-on:click="tab = 'general'; window.location.hash = 'general'"
+                    <button type="button" x-on:click="pick('general')" :aria-current="tab === 'general' ? 'page' : null"
                             class="bts-nav-item shrink-0 text-left" :class="tab === 'general' && 'bts-nav-item-active'">{{ __('General') }}</button>
-                    <button type="button" x-on:click="tab = 'policy'; window.location.hash = 'policy'"
+                    <button type="button" x-on:click="pick('policy')" :aria-current="tab === 'policy' ? 'page' : null"
                             class="bts-nav-item shrink-0 text-left" :class="tab === 'policy' && 'bts-nav-item-active'">{{ __('Booking policy') }}</button>
-                    <button type="button" x-on:click="tab = 'features'; window.location.hash = 'features'"
+                    <button type="button" x-on:click="pick('features')" :aria-current="tab === 'features' ? 'page' : null"
                             class="bts-nav-item shrink-0 text-left" :class="tab === 'features' && 'bts-nav-item-active'">{{ __('Features') }}</button>
-                    <button type="button" x-on:click="tab = 'branding'; window.location.hash = 'branding'"
+                    <button type="button" x-on:click="pick('branding')" :aria-current="tab === 'branding' ? 'page' : null"
                             class="bts-nav-item shrink-0 text-left" :class="tab === 'branding' && 'bts-nav-item-active'">{{ __('Branding') }}</button>
-                    <button type="button" x-on:click="tab = 'widget'; window.location.hash = 'widget'"
+                    <button type="button" x-on:click="pick('widget')" :aria-current="tab === 'widget' ? 'page' : null"
                             class="bts-nav-item shrink-0 text-left" :class="tab === 'widget' && 'bts-nav-item-active'">{{ __('Booking widget') }}</button>
                     @can('manageGhlConnection', $salon)
-                        <button type="button" x-on:click="tab = 'integrations'; window.location.hash = 'integrations'"
+                        <button type="button" x-on:click="pick('integrations')" :aria-current="tab === 'integrations' ? 'page' : null"
                                 class="bts-nav-item shrink-0 text-left" :class="tab === 'integrations' && 'bts-nav-item-active'">{{ __('Integrations') }}</button>
                     @endcan
                 </nav>

@@ -238,7 +238,7 @@ new #[Title('Clients')] class extends Component {
 
         {{-- Search + sort + filters. --}}
         <div class="flex flex-wrap items-end gap-3">
-            <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" :placeholder="__('Search by name, phone, or email')" class="min-w-64 flex-1" />
+            <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" :label="__('Search')" :placeholder="__('Search by name, phone, or email')" class="min-w-64 flex-1" />
             <flux:select wire:model.live="sort" :label="__('Sort')" class="max-w-44">
                 <flux:select.option value="name">{{ __('Name (A–Z)') }}</flux:select.option>
                 <flux:select.option value="visits">{{ __('Most visits') }}</flux:select.option>
@@ -278,14 +278,14 @@ new #[Title('Clients')] class extends Component {
                 <table class="w-full text-left">
                     <thead>
                         <tr class="bts-overline border-b border-divider">
-                            <th class="px-5 py-3.5 font-semibold">{{ __('Client') }}</th>
-                            <th class="px-5 py-3.5 font-semibold">{{ __('Contact') }}</th>
-                            <th class="px-5 py-3.5 font-semibold">{{ __('Visits') }}</th>
-                            <th class="px-5 py-3.5 font-semibold">{{ __('Last visit') }}</th>
-                            <th class="px-5 py-3.5 font-semibold">{{ __('Upcoming') }}</th>
-                            <th class="px-5 py-3.5 font-semibold">{{ __('Spent (est.)') }}</th>
-                            <th class="px-5 py-3.5 font-semibold">{{ __('Stylist') }}</th>
-                            <th class="px-5 py-3.5"></th>
+                            <th scope="col" class="px-5 py-3.5 font-semibold">{{ __('Client') }}</th>
+                            <th scope="col" class="px-5 py-3.5 font-semibold">{{ __('Contact') }}</th>
+                            <th scope="col" class="px-5 py-3.5 font-semibold">{{ __('Visits') }}</th>
+                            <th scope="col" class="px-5 py-3.5 font-semibold">{{ __('Last visit') }}</th>
+                            <th scope="col" class="px-5 py-3.5 font-semibold">{{ __('Upcoming') }}</th>
+                            <th scope="col" class="px-5 py-3.5 font-semibold">{{ __('Spent (est.)') }}</th>
+                            <th scope="col" class="px-5 py-3.5 font-semibold">{{ __('Stylist') }}</th>
+                            <th scope="col" class="px-5 py-3.5"></th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-row">

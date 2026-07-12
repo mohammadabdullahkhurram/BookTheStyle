@@ -234,16 +234,16 @@ new #[Title('Staff')] class extends Component {
             <table class="w-full text-left">
                 <thead>
                     <tr class="bts-overline border-b border-divider">
-                        <th class="px-6 py-3.5 font-semibold">{{ __('Name') }}</th>
-                        <th class="px-6 py-3.5 font-semibold">{{ __('Role') }}</th>
-                        <th class="px-6 py-3.5 font-semibold">{{ __('Type') }}</th>
-                        <th class="px-6 py-3.5 font-semibold">{{ __('Status') }}</th>
-                        <th class="px-6 py-3.5"></th>
+                        <th scope="col" class="px-6 py-3.5 font-semibold">{{ __('Name') }}</th>
+                        <th scope="col" class="px-6 py-3.5 font-semibold">{{ __('Role') }}</th>
+                        <th scope="col" class="px-6 py-3.5 font-semibold">{{ __('Type') }}</th>
+                        <th scope="col" class="px-6 py-3.5 font-semibold">{{ __('Status') }}</th>
+                        <th scope="col" class="px-6 py-3.5"></th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-row">
                     @forelse ($this->memberships as $m)
-                        <tr @class(['opacity-65' => ! $m->active])>
+                        <tr @class(['bg-muted/40' => ! $m->active])>
                             <td class="px-6 py-4">
                                 <div class="flex items-center gap-3">
                                     <x-ui.avatar :name="$m->user->name" :seed="$m->user->id" size="sm" />
@@ -259,7 +259,7 @@ new #[Title('Staff')] class extends Component {
                                 @if ($m->active)
                                     <span class="bts-pill" style="background-color:#E7EFE4;color:#3E5C3A;">{{ __('Active') }}</span>
                                 @else
-                                    <span class="bts-pill" style="background-color:#F0EEEA;color:#9C9890;">{{ __('Inactive') }}</span>
+                                    <span class="bts-pill" style="background-color:#F0EEEA;color:#6B6862;">{{ __('Inactive') }}</span>
                                 @endif
                             </td>
                             <td class="px-6 py-4">

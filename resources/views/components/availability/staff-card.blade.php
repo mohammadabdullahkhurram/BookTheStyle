@@ -24,5 +24,5 @@
         </span>
         <span class="truncate text-[14px] text-secondary">{{ $card['summary'] }}</span>
     </span>
-    <flux:icon.chevron-right variant="mini" class="shrink-0 text-fainter" />
+    <flux:icon.chevron-right variant="mini" class="shrink-0 text-faint" />
 </button>

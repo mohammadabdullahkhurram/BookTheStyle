@@ -238,7 +238,7 @@ new #[Title('Appointments')] class extends Component {
                 @php($start = $booking->items->min('starts_at'))
                 @php($dimmed = in_array($booking->status, [\App\Enums\BookingStatus::Completed, \App\Enums\BookingStatus::NoShow, \App\Enums\BookingStatus::Cancelled], true))
                 @php($seed = $booking->items->first()?->stylist_id ?? 0)
-                <x-ui.card padding="p-5" class="{{ $dimmed ? 'opacity-65' : '' }}">
+                <x-ui.card padding="p-5" class="{{ $dimmed ? '!bg-paper' : '' }}">
                     <div class="flex flex-wrap items-start justify-between gap-4">
                         <div class="flex items-start gap-4">
                             <div class="w-28 shrink-0 pt-0.5 text-[13.5px] font-medium leading-snug text-faint">
@@ -250,7 +250,7 @@ new #[Title('Appointments')] class extends Component {
                                 <div class="flex flex-wrap items-center gap-2">
                                     <a href="{{ route('salon.client', ['salon' => $salon, 'clientId' => $booking->client_id]) }}" wire:navigate class="text-[15px] font-semibold text-ink transition hover:text-accent">{{ $booking->client->name }}</a>
                                     <x-ui.status-pill :status="$booking->status" />
-                                    @if ($booking->is_walkin)<span class="bts-pill" style="background-color:#F0EEEA;color:#9C9890;">{{ __('Walk-in') }}</span>@endif
+                                    @if ($booking->is_walkin)<span class="bts-pill" style="background-color:#F0EEEA;color:#6B6862;">{{ __('Walk-in') }}</span>@endif
                                     @can('manage', $salon)
                                         @if ($booking->ghl_sync_status === 'failed')
                                             <span class="bts-pill" style="background-color:#F8E3E3;color:#A23A3A;" title="{{ $booking->ghl_sync_error }}">{{ __('Sync failed') }}</span>

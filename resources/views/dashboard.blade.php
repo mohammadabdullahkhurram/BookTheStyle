@@ -112,24 +112,24 @@
                             {{-- Business details — show what's set, omit what isn't. --}}
                             <dl class="flex flex-col gap-1.5 text-[13px] text-secondary">
                                 <div class="flex items-center gap-2">
-                                    <flux:icon.clock variant="micro" class="shrink-0 text-fainter" />
+                                    <flux:icon.clock variant="micro" class="shrink-0 text-faint" />
                                     <dd class="truncate">{{ $salon->timezone }}</dd>
                                 </div>
                                 @if ($locality !== '')
                                     <div class="flex items-center gap-2">
-                                        <flux:icon.map-pin variant="micro" class="shrink-0 text-fainter" />
+                                        <flux:icon.map-pin variant="micro" class="shrink-0 text-faint" />
                                         <dd class="truncate">{{ $locality }}</dd>
                                     </div>
                                 @endif
                                 @if (filled($salon->business_phone))
                                     <div class="flex items-center gap-2">
-                                        <flux:icon.phone variant="micro" class="shrink-0 text-fainter" />
+                                        <flux:icon.phone variant="micro" class="shrink-0 text-faint" />
                                         <dd class="truncate">{{ $salon->business_phone }}</dd>
                                     </div>
                                 @endif
                                 @if (filled($salon->contact_email))
                                     <div class="flex items-center gap-2">
-                                        <flux:icon.envelope variant="micro" class="shrink-0 text-fainter" />
+                                        <flux:icon.envelope variant="micro" class="shrink-0 text-faint" />
                                         <dd class="truncate">{{ $salon->contact_email }}</dd>
                                     </div>
                                 @endif

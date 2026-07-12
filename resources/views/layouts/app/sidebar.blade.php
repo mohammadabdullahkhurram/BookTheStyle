@@ -16,6 +16,11 @@
         @include('partials.head')
     </head>
     <body class="min-h-screen bg-paper text-ink antialiased">
+        {{-- Keyboard users jump straight past the sidebar/top bar. --}}
+        <a href="#main-content"
+           class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-[12px] focus:bg-accent focus:px-5 focus:py-3 focus:text-[15px] focus:font-semibold focus:text-white">
+            {{ __('Skip to content') }}
+        </a>
         <div
             x-data="{ collapsed: (localStorage.getItem('bts-sidebar') === '1'), mobileNav: false }"
             x-init="$watch('collapsed', v => localStorage.setItem('bts-sidebar', v ? '1' : '0'))"
@@ -35,13 +40,13 @@
                         <x-app-logo-icon x-show="collapsed" x-cloak class="size-9" alt="" />
                     </a>
                     <button type="button" x-show="!collapsed" x-cloak @click="collapsed = true"
-                            class="shrink-0 rounded-md p-1 text-fainter transition hover:bg-muted hover:text-ink" aria-label="{{ __('Collapse sidebar') }}">
+                            class="shrink-0 rounded-md p-1 text-faint transition hover:bg-muted hover:text-ink" aria-label="{{ __('Collapse sidebar') }}">
                         <flux:icon.chevron-left variant="micro" />
                     </button>
                 </div>
 
                 <button type="button" x-show="collapsed" x-cloak @click="collapsed = false"
-                        class="mx-4 mb-1 flex items-center justify-center rounded-md p-1.5 text-fainter transition hover:bg-muted hover:text-ink" aria-label="{{ __('Expand sidebar') }}">
+                        class="mx-4 mb-1 flex items-center justify-center rounded-md p-1.5 text-faint transition hover:bg-muted hover:text-ink" aria-label="{{ __('Expand sidebar') }}">
                     <flux:icon.bars-3 variant="micro" />
                 </button>
 
@@ -66,7 +71,7 @@
                             <x-app-logo class="h-8" alt="" />
                         </a>
                         <button type="button" @click="mobileNav = false" aria-label="{{ __('Close navigation') }}"
-                                class="shrink-0 rounded-md p-1.5 text-fainter transition hover:bg-muted hover:text-ink">
+                                class="shrink-0 rounded-md p-1.5 text-faint transition hover:bg-muted hover:text-ink">
                             <flux:icon.x-mark variant="mini" />
                         </button>
                     </div>
@@ -93,7 +98,7 @@
                     </a>
                 </header>
 
-                <main class="flex-1">
+                <main id="main-content" class="flex-1">
                     {{ $slot }}
                 </main>
             </div>

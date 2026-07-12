@@ -56,16 +56,16 @@ new #[Title('Salons')] class extends Component {
             <table class="w-full text-left">
                 <thead>
                     <tr class="bts-overline border-b border-divider">
-                        <th class="px-6 py-3.5 font-semibold">{{ __('Salon') }}</th>
-                        <th class="px-6 py-3.5 font-semibold">{{ __('Timezone') }}</th>
-                        <th class="px-6 py-3.5 font-semibold">{{ __('Staff') }}</th>
-                        <th class="px-6 py-3.5 font-semibold">{{ __('Status') }}</th>
-                        <th class="px-6 py-3.5"></th>
+                        <th scope="col" class="px-6 py-3.5 font-semibold">{{ __('Salon') }}</th>
+                        <th scope="col" class="px-6 py-3.5 font-semibold">{{ __('Timezone') }}</th>
+                        <th scope="col" class="px-6 py-3.5 font-semibold">{{ __('Staff') }}</th>
+                        <th scope="col" class="px-6 py-3.5 font-semibold">{{ __('Status') }}</th>
+                        <th scope="col" class="px-6 py-3.5"></th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-row">
                     @forelse ($this->salons as $salon)
-                        <tr @class(['opacity-65' => ! $salon->active])>
+                        <tr @class(['bg-muted/40' => ! $salon->active])>
                             <td class="px-6 py-4">
                                 <div class="text-[15px] font-medium text-ink">{{ $salon->name }}</div>
                                 <div class="text-[12.5px] text-faint">{{ $salon->slug }}.{{ config('app.domain') }}</div>
@@ -76,7 +76,7 @@ new #[Title('Salons')] class extends Component {
                                 @if ($salon->active)
                                     <span class="bts-pill" style="background-color:#E7EFE4;color:#3E5C3A;">{{ __('Active') }}</span>
                                 @else
-                                    <span class="bts-pill" style="background-color:#F0EEEA;color:#9C9890;">{{ __('Inactive') }}</span>
+                                    <span class="bts-pill" style="background-color:#F0EEEA;color:#6B6862;">{{ __('Inactive') }}</span>
                                 @endif
                             </td>
                             <td class="px-6 py-4">

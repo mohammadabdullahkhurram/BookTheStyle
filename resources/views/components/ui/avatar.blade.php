@@ -18,5 +18,8 @@
     };
 @endphp
 
-<span {{ $attributes->merge(['class' => "inline-flex {$dim} shrink-0 items-center justify-center rounded-full font-semibold text-white"]) }}
-      style="background-color: {{ $family['avatar'] }};">{{ $initials }}</span>
+{{-- Family pastel bg + family ink initials: the only pairing in the palette
+     that clears WCAG AA (5.2–6.9:1; white-on-avatar was as low as 2.2:1).
+     The border keeps the chip defined; the family still identifies the person. --}}
+<span {{ $attributes->merge(['class' => "inline-flex {$dim} shrink-0 items-center justify-center rounded-full border font-semibold"]) }}
+      style="background-color: {{ $family['bg'] }}; border-color: {{ $family['avatar'] }}; color: {{ $family['ink'] }};">{{ $initials }}</span>

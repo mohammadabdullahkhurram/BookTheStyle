@@ -154,8 +154,8 @@ new #[Title('Reports')] class extends Component {
                         @php($isAi = in_array($row['source'], [\App\Enums\BookingSource::VoiceAi->value, \App\Enums\BookingSource::ChatWidget->value], true))
                         <div class="flex items-center gap-3 text-[14px]">
                             <span class="w-28 shrink-0 {{ $isAi ? 'font-semibold text-accent-ink' : 'text-secondary' }}">{{ $this->sourceLabel($row['source']) }}</span>
-                            <div class="h-2.5 flex-1 overflow-hidden rounded-[99px] bg-[#EFEDE8]">
-                                <div class="h-full rounded-[99px] {{ $isAi ? 'bg-accent' : 'bg-[#9C9890]' }}" style="width: {{ max(2, $row['share']) }}%"></div>
+                            <div class="h-2.5 flex-1 overflow-hidden rounded-[99px] bg-muted">
+                                <div class="h-full rounded-[99px] {{ $isAi ? 'bg-accent' : 'bg-secondary' }}" style="width: {{ max(2, $row['share']) }}%"></div>
                             </div>
                             <span class="w-24 shrink-0 text-right text-secondary">{{ $row['count'] }} · {{ $row['share'] }}%</span>
                         </div>
@@ -193,7 +193,7 @@ new #[Title('Reports')] class extends Component {
                         @forelse ($r['top_services'] as $row)
                             <div class="flex items-center gap-3 text-[14px]">
                                 <span class="w-32 shrink-0 truncate text-secondary" title="{{ $row['name'] }}">{{ $row['name'] }}</span>
-                                <div class="h-2.5 flex-1 overflow-hidden rounded-[99px] bg-[#EFEDE8]">
+                                <div class="h-2.5 flex-1 overflow-hidden rounded-[99px] bg-muted">
                                     <div class="h-full rounded-[99px] bg-accent" style="width: {{ max(2, round($row['count'] / $maxCount * 100)) }}%"></div>
                                 </div>
                                 <span class="w-32 shrink-0 text-right text-secondary">

@@ -477,6 +477,7 @@ new #[Title('New booking')] class extends Component {
                                             <div class="flex flex-wrap gap-2">
                                                 @foreach ($slots as $slot)
                                                     <button type="button" wire:click="pickTime({{ $i }}, '{{ $slot }}')"
+                                                            aria-pressed="{{ $item['time'] === $slot ? 'true' : 'false' }}"
                                                             class="rounded-[9px] border px-3 py-1.5 text-[14px] font-medium transition {{ $item['time'] === $slot ? 'border-accent bg-accent-tint text-accent-ink' : 'border-input-border bg-field text-body hover:border-faint' }}">
                                                         {{ $slot }}
                                                     </button>

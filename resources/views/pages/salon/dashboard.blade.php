@@ -162,12 +162,12 @@ new #[Title('Today')] class extends Component {
                 <table class="w-full text-left">
                     <thead>
                         <tr class="border-y border-divider text-[12.5px] font-semibold uppercase tracking-[0.04em] text-faint">
-                            <th class="px-6 py-3 font-semibold">{{ __('Time') }}</th>
-                            <th class="px-2 py-3 font-semibold">{{ __('Client') }}</th>
-                            <th class="px-2 py-3 font-semibold">{{ __('Service') }}</th>
-                            <th class="px-2 py-3 font-semibold">{{ __('Stylist') }}</th>
-                            <th class="px-2 py-3 font-semibold">{{ __('Status') }}</th>
-                            <th class="px-6 py-3 font-semibold">{{ __('Booked by') }}</th>
+                            <th scope="col" class="px-6 py-3 font-semibold">{{ __('Time') }}</th>
+                            <th scope="col" class="px-2 py-3 font-semibold">{{ __('Client') }}</th>
+                            <th scope="col" class="px-2 py-3 font-semibold">{{ __('Service') }}</th>
+                            <th scope="col" class="px-2 py-3 font-semibold">{{ __('Stylist') }}</th>
+                            <th scope="col" class="px-2 py-3 font-semibold">{{ __('Status') }}</th>
+                            <th scope="col" class="px-6 py-3 font-semibold">{{ __('Booked by') }}</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-row">
@@ -181,7 +181,7 @@ new #[Title('Today')] class extends Component {
                                     <div class="flex items-center gap-3">
                                         <x-ui.avatar :name="$booking->client->name" :seed="$stylistSeed" size="sm" />
                                         <span class="text-[15px] font-medium leading-tight text-ink">{{ $booking->client->name }}</span>
-                                        @if ($booking->is_walkin)<span class="bts-pill" style="background-color:#F0EEEA;color:#9C9890;">{{ __('Walk-in') }}</span>@endif
+                                        @if ($booking->is_walkin)<span class="bts-pill" style="background-color:#F0EEEA;color:#6B6862;">{{ __('Walk-in') }}</span>@endif
                                     </div>
                                 </td>
                                 <td class="px-2 py-4 align-top text-[15px] text-secondary">{{ $booking->items->map(fn ($i) => $i->service->name)->unique()->join(', ') }}</td>
@@ -206,7 +206,7 @@ new #[Title('Today')] class extends Component {
                         <div class="flex flex-wrap items-center gap-2.5">
                             <x-ui.avatar :name="$booking->client->name" :seed="$stylistSeed" size="sm" />
                             <span class="text-[15px] font-medium leading-tight text-ink">{{ $booking->client->name }}</span>
-                            @if ($booking->is_walkin)<span class="bts-pill" style="background-color:#F0EEEA;color:#9C9890;">{{ __('Walk-in') }}</span>@endif
+                            @if ($booking->is_walkin)<span class="bts-pill" style="background-color:#F0EEEA;color:#6B6862;">{{ __('Walk-in') }}</span>@endif
                             <span class="ms-auto"><x-ui.status-pill :status="$booking->status" /></span>
                         </div>
                         <div class="text-[14px] text-secondary">

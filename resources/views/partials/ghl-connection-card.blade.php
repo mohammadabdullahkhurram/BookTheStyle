@@ -9,7 +9,7 @@
     [$pillBg, $pillFg, $pillLabel] = match ($ghlStatus) {
         'connected' => ['#E7EFE4', '#3E5C3A', __('Connected')],
         'incomplete' => ['#FBEFD6', '#8A5A1E', __('Incomplete')],
-        default => ['#F0EEEA', '#9C9890', __('Not connected')],
+        default => ['#F0EEEA', '#6B6862', __('Not connected')],
     };
 @endphp
 

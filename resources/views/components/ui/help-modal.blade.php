@@ -30,7 +30,7 @@
                 @endif
             </div>
             <button type="button" @click="helpOpen = false" aria-label="{{ __('Close') }}"
-                    class="-mr-1.5 shrink-0 rounded-md p-1.5 text-fainter transition hover:bg-muted hover:text-ink">
+                    class="-mr-1.5 shrink-0 rounded-md p-1.5 text-faint transition hover:bg-muted hover:text-ink">
                 <flux:icon.x-mark variant="micro" />
             </button>
         </div>
@@ -51,7 +51,7 @@
                             </video>
                         @else
                             <div class="flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-[12px] border border-dashed border-input-border bg-field px-4 text-center">
-                                <flux:icon.video-camera variant="outline" class="size-7 text-fainter" />
+                                <flux:icon.video-camera variant="outline" class="size-7 text-faint" />
                                 <p class="text-[14px] font-medium text-body">{{ __('Video coming soon') }}</p>
                                 <p class="text-[13px] text-secondary">{{ __('Follow the written steps for now.') }}</p>
                             </div>

@@ -670,7 +670,7 @@ new #[Title('Availability')] class extends Component {
                         </x-ui.button>
                     @endif
                     <button type="button" wire:click="closePanel" aria-label="{{ __('Close panel') }}"
-                            class="rounded-[9px] p-2 text-fainter transition hover:bg-muted hover:text-ink">
+                            class="rounded-[9px] p-2 text-faint transition hover:bg-muted hover:text-ink">
                         <flux:icon.x-mark variant="mini" />
                     </button>
                 </div>
@@ -759,13 +759,13 @@ new #[Title('Availability')] class extends Component {
                                                             <div class="flex w-[96px] shrink-0 items-center justify-end gap-0.5 pb-1.5">
                                                                 @if ($i === 0)
                                                                     <button type="button" wire:click="addWindow({{ $wd }})" title="{{ __('Add a time block') }}"
-                                                                            class="rounded-[9px] p-1.5 text-fainter transition hover:bg-muted hover:text-accent" aria-label="{{ __('Add a time block to :day', ['day' => $label]) }}">
+                                                                            class="rounded-[9px] p-1.5 text-faint transition hover:bg-muted hover:text-accent" aria-label="{{ __('Add a time block to :day', ['day' => $label]) }}">
                                                                         <flux:icon.plus variant="micro" />
                                                                     </button>
                                                                     <div class="relative">
                                                                         <button type="button" wire:click="openCopyPopover({{ $wd }})" title="{{ __('Copy times to other days') }}"
                                                                                 aria-haspopup="dialog" aria-expanded="{{ $copySource === $wd ? 'true' : 'false' }}"
-                                                                                class="rounded-[9px] p-1.5 transition hover:bg-muted hover:text-accent {{ $copySource === $wd ? 'bg-muted text-accent' : 'text-fainter' }}"
+                                                                                class="rounded-[9px] p-1.5 transition hover:bg-muted hover:text-accent {{ $copySource === $wd ? 'bg-muted text-accent' : 'text-faint' }}"
                                                                                 aria-label="{{ __('Copy :day times to other days', ['day' => $label]) }}">
                                                                             <flux:icon.document-duplicate variant="micro" />
                                                                         </button>
@@ -805,7 +805,7 @@ new #[Title('Availability')] class extends Component {
                                                                     </div>
                                                                 @endif
                                                                 <button type="button" wire:click="removeWindow({{ $wd }}, {{ $i }})" title="{{ __('Remove') }}"
-                                                                        class="rounded-[9px] p-1.5 text-fainter transition hover:bg-muted hover:text-danger" aria-label="{{ __('Remove this time block') }}">
+                                                                        class="rounded-[9px] p-1.5 text-faint transition hover:bg-muted hover:text-danger" aria-label="{{ __('Remove this time block') }}">
                                                                     <flux:icon.trash variant="micro" />
                                                                 </button>
                                                             </div>
@@ -867,7 +867,7 @@ new #[Title('Availability')] class extends Component {
 
                             @if ($this->timeOff->isEmpty())
                                 <div class="flex flex-col items-center gap-2 rounded-[18px] border border-dashed border-input px-5 py-12 text-center">
-                                    <flux:icon.calendar-days class="size-8 text-fainter" />
+                                    <flux:icon.calendar-days class="size-8 text-faint" />
                                     <p class="text-[15px] text-faint">{{ __('No date-specific time added.') }}</p>
                                 </div>
                             @else
@@ -880,12 +880,12 @@ new #[Title('Availability')] class extends Component {
                                             </div>
                                             <div class="flex shrink-0 items-center gap-0.5">
                                                 <button type="button" wire:click="editDateSpecific({{ $off->id }})" title="{{ __('Edit') }}"
-                                                        class="rounded-[9px] p-1.5 text-fainter transition hover:bg-muted hover:text-accent" aria-label="{{ __('Edit this date') }}">
+                                                        class="rounded-[9px] p-1.5 text-faint transition hover:bg-muted hover:text-accent" aria-label="{{ __('Edit this date') }}">
                                                     <flux:icon.pencil-square variant="micro" />
                                                 </button>
                                                 <button type="button" wire:click="removeTimeOff({{ $off->id }})" title="{{ __('Remove') }}"
                                                         wire:confirm="{{ __('Remove this date-specific entry? The weekly schedule applies to that date again and GoHighLevel availability is updated.') }}"
-                                                        class="rounded-[9px] p-1.5 text-fainter transition hover:bg-muted hover:text-danger" aria-label="{{ __('Remove this date') }}">
+                                                        class="rounded-[9px] p-1.5 text-faint transition hover:bg-muted hover:text-danger" aria-label="{{ __('Remove this date') }}">
                                                     <flux:icon.trash variant="micro" />
                                                 </button>
                                             </div>
@@ -908,13 +908,13 @@ new #[Title('Availability')] class extends Component {
                                 <div class="flex flex-col gap-2">
                                     <div class="flex items-center justify-between">
                                         <button type="button" wire:click="dsPrevMonth" @disabled($calendar['at_current_month'])
-                                                class="rounded-[9px] p-1.5 transition {{ $calendar['at_current_month'] ? 'text-fainter/50' : 'text-fainter hover:bg-muted hover:text-ink' }}"
+                                                class="rounded-[9px] p-1.5 transition {{ $calendar['at_current_month'] ? 'text-fainter/50' : 'text-faint hover:bg-muted hover:text-ink' }}"
                                                 aria-label="{{ __('Previous month') }}">
                                             <flux:icon.chevron-left variant="mini" />
                                         </button>
                                         <div class="text-[15px] font-semibold text-ink">{{ $calendar['label'] }}</div>
                                         <button type="button" wire:click="dsNextMonth"
-                                                class="rounded-[9px] p-1.5 text-fainter transition hover:bg-muted hover:text-ink" aria-label="{{ __('Next month') }}">
+                                                class="rounded-[9px] p-1.5 text-faint transition hover:bg-muted hover:text-ink" aria-label="{{ __('Next month') }}">
                                             <flux:icon.chevron-right variant="mini" />
                                         </button>
                                     </div>
@@ -958,12 +958,12 @@ new #[Title('Availability')] class extends Component {
                                                         <div class="flex w-[64px] shrink-0 items-center justify-end gap-0.5">
                                                             @if ($i === 0)
                                                                 <button type="button" wire:click="dsAddBlock" title="{{ __('Add a block') }}"
-                                                                        class="rounded-[9px] p-1.5 text-fainter transition hover:bg-muted hover:text-accent" aria-label="{{ __('Add another block') }}">
+                                                                        class="rounded-[9px] p-1.5 text-faint transition hover:bg-muted hover:text-accent" aria-label="{{ __('Add another block') }}">
                                                                     <flux:icon.plus variant="micro" />
                                                                 </button>
                                                             @endif
                                                             <button type="button" wire:click="dsRemoveBlock({{ $i }})" title="{{ __('Remove') }}"
-                                                                    class="rounded-[9px] p-1.5 text-fainter transition hover:bg-muted hover:text-danger" aria-label="{{ __('Remove this block') }}">
+                                                                    class="rounded-[9px] p-1.5 text-faint transition hover:bg-muted hover:text-danger" aria-label="{{ __('Remove this block') }}">
                                                                 <flux:icon.trash variant="micro" />
                                                             </button>
                                                         </div>

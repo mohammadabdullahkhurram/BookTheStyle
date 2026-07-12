@@ -45,10 +45,10 @@ new #[Title('Agency users')] class extends Component {
             <table class="w-full text-left">
                 <thead>
                     <tr class="bts-overline border-b border-divider">
-                        <th class="px-6 py-3.5 font-semibold">{{ __('Name') }}</th>
-                        <th class="px-6 py-3.5 font-semibold">{{ __('Role') }}</th>
-                        <th class="px-6 py-3.5 font-semibold">{{ __('Salon scope') }}</th>
-                        <th class="px-6 py-3.5"></th>
+                        <th scope="col" class="px-6 py-3.5 font-semibold">{{ __('Name') }}</th>
+                        <th scope="col" class="px-6 py-3.5 font-semibold">{{ __('Role') }}</th>
+                        <th scope="col" class="px-6 py-3.5 font-semibold">{{ __('Salon scope') }}</th>
+                        <th scope="col" class="px-6 py-3.5"></th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-row">

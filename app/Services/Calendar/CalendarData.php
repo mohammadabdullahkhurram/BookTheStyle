@@ -418,7 +418,7 @@ class CalendarData
      *
      * @param  list<array{0: int, 1: int}>  $work
      * @param  list<array{startMin: int, endMin: int, label: string}>  $blocked
-     * @return list<array{min: int, iso: string, bookable: bool}>
+     * @return list<array{min: int, iso: string, label: string, bookable: bool}>
      */
     private function slots(CarbonImmutable $day, int $startMin, int $endMin, array $work, array $blocked): array
     {
@@ -428,9 +428,13 @@ class CalendarData
             $bookable = $this->withinAny($work, $m, $m + self::SLOT_MINUTES)
                 && ! $this->overlapsBlocked($blocked, $m, $m + self::SLOT_MINUTES);
 
+            $local = $day->setTime(intdiv($m, 60), $m % 60);
+
             $slots[] = [
                 'min' => $m,
-                'iso' => $day->setTime(intdiv($m, 60), $m % 60)->utc()->toIso8601ZuluString(),
+                'iso' => $local->utc()->toIso8601ZuluString(),
+                // Human time for the slot button's accessible name.
+                'label' => $local->format('g:i A'),
                 'bookable' => $bookable,
             ];
         }

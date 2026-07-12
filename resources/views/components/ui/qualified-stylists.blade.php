@@ -23,17 +23,31 @@
             : __('Who can perform this service, and how long they take. Leave time blank to use the service default.') }}
     </flux:text>
     <div class="flex flex-col gap-2.5">
+        @if (count($stylists))
+            {{-- Column headings: the override inputs are labeled, not
+                 placeholder-only (placeholders vanish on input and are
+                 never announced as names). --}}
+            <div class="flex items-center gap-3 text-[12.5px] font-medium text-faint" aria-hidden="true">
+                <div class="min-w-0 flex-1"></div>
+                <div class="w-24 shrink-0">{{ __('Time (min)') }}</div>
+                @if ($buffersEnabled && $buffersModel)
+                    <div class="w-24 shrink-0">{{ __('Buffer (min)') }}</div>
+                @endif
+            </div>
+        @endif
         @forelse ($stylists as $stylist)
             <div class="flex items-center gap-3">
                 <div class="min-w-0 flex-1">
                     <flux:checkbox wire:model="{{ $idsModel }}" value="{{ $stylist->id }}" :label="$stylist->name" />
                 </div>
                 <div class="w-24 shrink-0">
-                    <flux:input type="number" wire:model="{{ $durationsModel }}.{{ $stylist->id }}" :placeholder="$placeholderDuration . ' min'" min="5" max="600" step="5" />
+                    <flux:input type="number" wire:model="{{ $durationsModel }}.{{ $stylist->id }}" :placeholder="$placeholderDuration . ' min'"
+                        aria-label="{{ __(':name — duration in minutes (blank = service default)', ['name' => $stylist->name]) }}" min="5" max="600" step="5" />
                 </div>
                 @if ($buffersEnabled && $buffersModel)
                     <div class="w-24 shrink-0">
-                        <flux:input type="number" wire:model="{{ $buffersModel }}.{{ $stylist->id }}" :placeholder="__('buffer')" min="0" max="120" step="5" />
+                        <flux:input type="number" wire:model="{{ $buffersModel }}.{{ $stylist->id }}" :placeholder="__('buffer')"
+                            aria-label="{{ __(':name — cleanup buffer in minutes', ['name' => $stylist->name]) }}" min="0" max="120" step="5" />
                     </div>
                 @endif
             </div>

@@ -64,7 +64,7 @@
                 <div class="flex min-h-[300px]">
                     <div class="flex w-12 shrink-0 flex-col items-end gap-[34px] border-e border-row pe-2 pt-[44px]">
                         @foreach (['9', '10', '11', '12', '1'] as $h)
-                            <span class="font-display text-[11px] text-fainter">{{ $h }}</span>
+                            <span class="font-display text-[11px] text-faint">{{ $h }}</span>
                         @endforeach
                     </div>
                     @foreach ($cols as $col)
@@ -124,7 +124,7 @@
                     <a href="{{ route('book-call') }}" class="font-semibold text-accent transition hover:text-accent-hover">{{ __('Book a call') }}</a>
                 </div>
             </div>
-            <div class="mx-auto max-w-[1040px] px-6 pb-7 text-[13px] text-fainter sm:px-8">&copy; {{ date('Y') }} BookTheStyle. {{ __('Scheduling only — no payments.') }}</div>
+            <div class="mx-auto max-w-[1040px] px-6 pb-7 text-[13px] text-faint sm:px-8">&copy; {{ date('Y') }} BookTheStyle. {{ __('Scheduling only — no payments.') }}</div>
         </footer>
     </body>
 </html>

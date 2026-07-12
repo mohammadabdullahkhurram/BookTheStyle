@@ -240,7 +240,7 @@ new #[Title('Edit salon')] class extends Component {
                 @if ($salon->active)
                     <span class="bts-pill" style="background-color:#E7EFE4;color:#3E5C3A;">{{ __('Active') }}</span>
                 @else
-                    <span class="bts-pill" style="background-color:#F0EEEA;color:#9C9890;">{{ __('Inactive') }}</span>
+                    <span class="bts-pill" style="background-color:#F0EEEA;color:#6B6862;">{{ __('Inactive') }}</span>
                 @endif
             </x-slot:actions>
         </x-ui.page-header>

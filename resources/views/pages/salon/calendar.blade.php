@@ -195,9 +195,9 @@ new #[Title('Calendar')] class extends Component {
         {{-- Toolbar --}}
         <div class="flex flex-wrap items-center gap-3">
             <div class="inline-flex rounded-[8px] bg-muted p-1">
-                <button type="button" wire:click="setView('day')"
+                <button type="button" wire:click="setView('day')" aria-pressed="{{ $grid['view'] === 'day' ? 'true' : 'false' }}"
                         class="rounded-[6px] px-3 py-1 text-[14px] font-medium transition {{ $grid['view'] === 'day' ? 'bg-card text-ink shadow-xs' : 'text-secondary hover:text-ink' }}">{{ __('Day') }}</button>
-                <button type="button" wire:click="setView('week')"
+                <button type="button" wire:click="setView('week')" aria-pressed="{{ $grid['view'] === 'week' ? 'true' : 'false' }}"
                         class="rounded-[6px] px-3 py-1 text-[14px] font-medium transition {{ $grid['view'] === 'week' ? 'bg-card text-ink shadow-xs' : 'text-secondary hover:text-ink' }}">{{ __('Week') }}</button>
             </div>
 
@@ -218,9 +218,12 @@ new #[Title('Calendar')] class extends Component {
                 <div class="ms-auto flex flex-wrap items-center gap-2">
                     @foreach ($grid['columns'] as $col)
                         @php($isHidden = in_array($col['stylistId'], $hidden, true))
+                        {{-- Pressed = shown. A hidden stylist reads as a hollow,
+                             muted chip (state is not colour/opacity alone). --}}
                         <button type="button" wire:click="toggleStylist({{ $col['stylistId'] }})"
-                                class="inline-flex items-center gap-2 rounded-full border border-input-border px-3 py-1 text-[13px] font-medium transition {{ $isHidden ? 'text-faint opacity-60' : 'text-ink' }}">
-                            <span class="size-2.5 rounded-full" style="background-color: {{ $col['family']['avatar'] }}"></span>
+                                aria-pressed="{{ $isHidden ? 'false' : 'true' }}"
+                                class="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[13px] font-medium transition {{ $isHidden ? 'border-dashed border-input-border bg-muted/50 text-faint' : 'border-input-border text-ink' }}">
+                            <span class="size-2.5 rounded-full {{ $isHidden ? 'opacity-40' : '' }}" style="background-color: {{ $col['family']['avatar'] }}"></span>
                             {{ $col['name'] }}
                         </button>
                     @endforeach
@@ -266,6 +269,7 @@ new #[Title('Calendar')] class extends Component {
                                 @foreach ($col['slots'] as $slot)
                                     @if ($slot['bookable'])
                                         <button type="button" wire:click="selectSlot('{{ $slot['iso'] }}', {{ $col['stylistId'] ?? 'null' }})"
+                                                aria-label="{{ __('Book :who at :time', ['who' => $col['name'], 'time' => $slot['label']]) }}"
                                                 class="group block w-full bg-card transition hover:bg-accent-tint/50" style="height: {{ 30 * $ppm }}px"></button>
                                     @else
                                         <div class="w-full bg-muted/45" style="height: {{ 30 * $ppm }}px"></div>
@@ -284,7 +288,7 @@ new #[Title('Calendar')] class extends Component {
                             @foreach ($col['blocked'] as $bl)
                                 <div class="pointer-events-none absolute inset-x-1 flex items-start justify-center overflow-hidden rounded-[8px] px-2 py-1"
                                      style="top: {{ ($bl['startMin'] - $startMin) * $ppm }}px; height: {{ ($bl['endMin'] - $bl['startMin']) * $ppm }}px; background-image: repeating-linear-gradient(45deg, rgba(107,104,98,.08), rgba(107,104,98,.08) 6px, rgba(107,104,98,.02) 6px, rgba(107,104,98,.02) 12px);">
-                                    <span class="text-[11px] font-medium text-faint">{{ $bl['label'] }}</span>
+                                    <span class="text-[12px] font-medium text-secondary">{{ $bl['label'] }}</span>
                                 </div>
                             @endforeach
 
@@ -295,12 +299,17 @@ new #[Title('Calendar')] class extends Component {
                             @foreach ($col['bookings'] as $b)
                                 @php($dimmed = in_array($b['status'], ['completed', 'no_show', 'cancelled'], true))
                                 @php($lane = 'left: calc('.$b['leftPct'].'% + 4px); width: calc('.$b['widthPct'].'% - 8px);')
+                                {{-- Done/no-show blocks fade their FILL toward white
+                                     (color-mix) so the ink text keeps AA contrast —
+                                     never whole-block opacity, which dims the text. --}}
+                                @php($blockBg = $dimmed ? "color-mix(in srgb, {$b['color']['bg']} 45%, white)" : $b['color']['bg'])
+                                @php($blockBorder = $dimmed ? "color-mix(in srgb, {$b['color']['border']} 55%, white)" : $b['color']['border'])
                                 <button type="button" wire:click="openBooking({{ $b['bookingId'] }})"
-                                        class="absolute overflow-hidden rounded-[11px] border px-[11px] py-2 text-start transition hover:brightness-[.97] {{ $dimmed ? 'opacity-60' : '' }}"
-                                        style="{{ $lane }} top: {{ ($b['startMin'] - $startMin) * $ppm }}px; height: {{ max(28, ($b['endMin'] - $b['startMin']) * $ppm - 2) }}px; background-color: {{ $b['color']['bg'] }}; border-color: {{ $b['color']['border'] }}; color: {{ $b['color']['ink'] }};">
-                                    <div class="text-[11px] font-semibold opacity-80">{{ $b['startLabel'] }}–{{ $b['endLabel'] }}</div>
+                                        class="absolute overflow-hidden rounded-[11px] border px-[11px] py-2 text-start transition hover:brightness-[.97]"
+                                        style="{{ $lane }} top: {{ ($b['startMin'] - $startMin) * $ppm }}px; height: {{ max(28, ($b['endMin'] - $b['startMin']) * $ppm - 2) }}px; background-color: {{ $blockBg }}; border-color: {{ $blockBorder }}; color: {{ $b['color']['ink'] }};">
+                                    <div class="text-[11px] font-semibold">{{ $b['startLabel'] }}–{{ $b['endLabel'] }}</div>
                                     <div class="truncate text-[13px] font-semibold leading-tight">{{ $b['client'] }}</div>
-                                    <div class="truncate text-[12px] leading-tight opacity-85">{{ $b['service'] }}</div>
+                                    <div class="truncate text-[12px] leading-tight">{{ $b['service'] }}</div>
                                 </button>
                                 {{-- Cleanup buffer: muted, non-bookable tail (same lane as its block). --}}
                                 @if (($b['bufferMin'] ?? 0) > 0)
@@ -331,7 +340,7 @@ new #[Title('Calendar')] class extends Component {
                  clear of the modal's close × at any status length. --}}
             <x-slot:pill>
                 <x-ui.status-pill :status="$booking->status" />
-                @if ($booking->is_walkin)<span class="bts-pill" style="background-color:#F0EEEA;color:#9C9890;">{{ __('Walk-in') }}</span>@endif
+                @if ($booking->is_walkin)<span class="bts-pill" style="background-color:#F0EEEA;color:#6B6862;">{{ __('Walk-in') }}</span>@endif
                 @if ($booking->ghl_sync_status === 'failed')
                     @can('manage', $salon)
                         <span class="bts-pill" style="background-color:#F8E3E3;color:#A23A3A;" title="{{ $booking->ghl_sync_error }}">{{ __('GoHighLevel sync failed') }}</span>

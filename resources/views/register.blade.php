@@ -62,12 +62,12 @@
                                 <flux:icon.calendar variant="outline" class="size-6" />
                             </div>
                             <div class="font-display text-[16px] font-semibold text-body">{{ __('Calendar embed') }}</div>
-                            <div class="max-w-[320px] text-[13.5px] text-fainter">{{ __('Your scheduling tool drops in here.') }}</div>
+                            <div class="max-w-[320px] text-[13.5px] text-faint">{{ __('Your scheduling tool drops in here.') }}</div>
                         </div>
                     </div>
                 </div>
 
-                <p class="mx-auto mt-6 text-[13.5px] text-fainter">{{ __('Prefer email? Reach us at hello@bookthestyle.com') }}</p>
+                <p class="mx-auto mt-6 text-[13.5px] text-faint">{{ __('Prefer email? Reach us at hello@bookthestyle.com') }}</p>
             </main>
         </div>
     </body>

@@ -27,8 +27,8 @@ Authoritative design spec, extracted from the approved Claude Design style guide
 - Primary `#1C1B1A`
 - Body `#56534C`
 - Muted `#6B6862`
-- Faint `#9C9890`
-- Fainter / icons `#A09C94`
+- Faint `#746F67` (WCAG AA: 4.99:1 on card, 4.58:1 on paper — was `#9C9890` at 2.87:1)
+- Fainter `#A09C94` — decoration only (borders/hatching); never text or meaningful icons
 - Placeholder `#A8A49C`
 
 ## Borders & dividers
@@ -81,7 +81,7 @@ Twelve soft, on-brand pastels — each a `{ bg, border, ink }` triplet (same aes
 | Body | Hanken | 15px | 400 | |
 | Body small | Hanken | 14px | 400 | color #4A4843 |
 | Label | Hanken | 13px | 600 | color #6B6862 |
-| Caption / overline | Hanken | 12.5px | 600 | uppercase, letter-spacing .04em, color #9C9890 |
+| Caption / overline | Hanken | 12.5px | 600 | uppercase, letter-spacing .04em, color #746F67 |
 
 ## Spacing scale (px)
 6 · 9 · 12 · 16 · 18 · 22 · 24 · 28 · 32
@@ -109,7 +109,7 @@ Padding `5px 13px` · radius `99px` · `12.5px / 600`
 | In service | `#FBEFD6` | `#8A5A1E` |
 | Completed | `#E7EFE4` | `#3E5C3A` |
 | No-show | `#F8E3E3` | `#A23A3A` |
-| Cancelled | `#F0EEEA` | `#9C9890` |
+| Cancelled | `#F0EEEA` | `#6B6862` (AA 4.79:1 — was `#9C9890` at 2.5:1) |
 
 ## Components
 **Primary button** — bg `var(--accent)`, text `#FFFFFF`, radius 12, height 48, 15px/600, shadow `0 2px 10px rgba(0,0,0,.12)`, hover bg `var(--accent-hover)`.
