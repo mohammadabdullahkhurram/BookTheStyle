@@ -146,16 +146,107 @@ new #[Title('Design directions')] class extends Component {
         .vel-field { background: #fffdf9; border: 1.5px solid #e0c9b7; border-radius: 16px; padding: 11px 16px; font-size: 14.5px; color: #5c4a3d; }
         .vel-nav a { border-radius: 14px; padding: 9px 14px; font-size: 14.5px; font-weight: 500; color: #7d6a5d; display: block; }
         .vel-nav .on { background: #f0dfe9; color: #6b3358; font-weight: 600; }
+
+        /* ═══════ 6 · STUDIO — mono minimal ═══════ */
+        .d-studio { background: #fcfbf8; color: #1a1918; font-family: 'Hanken Grotesk', sans-serif; }
+        .d-studio .hd { font-family: 'Schibsted Grotesk', sans-serif; font-weight: 700; letter-spacing: -.03em; }
+        .stu-rule { border-top: 1px solid #e6e4de; }
+        .stu-lbl { font-size: 10.5px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: #8a877f; }
+        .stu-num { font-family: 'Schibsted Grotesk', sans-serif; font-size: 40px; font-weight: 400; letter-spacing: -.03em; line-height: 1; }
+        .stu-btn { height: 38px; padding: 0 18px; border-radius: 6px; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; }
+        .stu-btn-p { background: #1a1918; color: #fcfbf8; }
+        .stu-btn-s { background: transparent; border: 1px solid #c9c6be; color: #1a1918; }
+        .stu-btn-d { background: transparent; border: 1px solid #c9c6be; color: #8a2e2e; }
+        .stu-pill { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; padding: 3px 9px; border: 1px solid #d9d6cf; border-radius: 4px; }
+        .stu-field { background: transparent; border: 1px solid #c9c6be; border-radius: 6px; padding: 9px 12px; font-size: 13.5px; color: #4a4741; }
+        .stu-nav a { padding: 7px 0; font-size: 13.5px; color: #8a877f; display: block; letter-spacing: .01em; }
+        .stu-nav .on { color: #1a1918; font-weight: 600; }
+        .stu-nav .on::before { content: '—'; color: #824c71; margin-right: 8px; }
+
+        /* ═══════ 7 · AURORA — vibrant gradient ═══════ */
+        .d-aurora { background:
+            radial-gradient(42rem 26rem at 5% -8%, rgb(110 86 207 / .2), transparent 55%),
+            radial-gradient(38rem 24rem at 70% -12%, rgb(199 106 140 / .18), transparent 55%),
+            radial-gradient(46rem 30rem at 100% 30%, rgb(212 154 78 / .14), transparent 55%),
+            #fefdfb; color: #221d26; font-family: 'Hanken Grotesk', sans-serif; }
+        .d-aurora .hd { font-family: 'Schibsted Grotesk', sans-serif; font-weight: 800; letter-spacing: -.03em; }
+        .aur-grad-text { background: linear-gradient(100deg, #6e56cf 0%, #b04a7d 55%, #d4702e 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .aur-card { position: relative; background: #fff; border-radius: 14px; box-shadow: 0 2px 10px rgb(52 33 70 / .06); }
+        .aur-card::before { content: ''; position: absolute; inset: 0; border-radius: 14px; padding: 1px;
+            background: linear-gradient(120deg, rgb(110 86 207 / .45), rgb(199 106 140 / .3), rgb(212 154 78 / .3));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }
+        .aur-num { font-family: 'Schibsted Grotesk', sans-serif; font-size: 30px; font-weight: 800; letter-spacing: -.02em; }
+        .aur-btn { height: 40px; padding: 0 18px; border-radius: 10px; font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; }
+        .aur-btn-p { background: linear-gradient(100deg, #6e56cf, #b04a7d); color: #fff; box-shadow: 0 6px 18px rgb(110 86 207 / .3); }
+        .aur-btn-s { background: #fff; border: 1px solid #e4dfe8; color: #453a50; }
+        .aur-btn-d { background: #fff; border: 1px solid #ecd3d9; color: #b03652; }
+        .aur-pill { font-size: 12px; font-weight: 600; padding: 4px 11px; border-radius: 99px; }
+        .aur-row { border-top: 1px solid #f1edf2; }
+        .aur-field { background: #fff; border: 1px solid #e4dfe8; border-radius: 10px; padding: 10px 13px; font-size: 14px; color: #57504a; }
+        .aur-nav a { border-radius: 9px; padding: 7px 12px; font-size: 14px; font-weight: 500; color: #6d6377; display: block; }
+        .aur-nav .on { background: linear-gradient(100deg, rgb(110 86 207 / .14), rgb(199 106 140 / .12)); color: #5b3a7e; font-weight: 600; }
+
+        /* ═══════ 8 · MANOR — warm neutral pro ═══════ */
+        .d-manor { background: #eeeae3; color: #2e2a24; font-family: 'Hanken Grotesk', sans-serif; }
+        .d-manor .hd { font-family: 'Schibsted Grotesk', sans-serif; font-weight: 600; letter-spacing: -.01em; }
+        .man-panel { background: #f7f4ee; border: 1px solid #e0dad0; border-radius: 8px; box-shadow: 0 1px 2px rgb(46 42 36 / .04); }
+        .man-lbl { font-size: 11px; font-weight: 600; letter-spacing: .22em; text-transform: uppercase; color: #8d8377; }
+        .man-num { font-family: 'Schibsted Grotesk', sans-serif; font-size: 32px; font-weight: 600; letter-spacing: -.01em; color: #2e2a24; }
+        .man-btn { height: 42px; padding: 0 22px; border-radius: 4px; font-weight: 600; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; display: inline-flex; align-items: center; }
+        .man-btn-p { background: #2e2a24; color: #f2efe8; }
+        .man-btn-s { background: transparent; border: 1px solid #b5aa99; color: #2e2a24; }
+        .man-btn-d { background: transparent; border: 1px solid #b5aa99; color: #8f4636; }
+        .man-pill { font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; padding: 4px 10px; background: #e6e0d5; border-radius: 3px; }
+        .man-row { border-top: 1px solid #e0dad0; }
+        .man-field { background: #f7f4ee; border: 1px solid #cfc6b8; border-radius: 4px; padding: 10px 14px; font-size: 14px; color: #574f45; }
+        .man-nav a { padding: 8px 0; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: #8d8377; display: block; border-bottom: 1px solid #e0dad0; }
+        .man-nav .on { color: #6b3358; font-weight: 600; }
+
+        /* ═══════ 9 · BLOOM — playful boutique ═══════ */
+        .d-bloom { background: #fdf8f2; color: #43332c; font-family: 'Hanken Grotesk', sans-serif; }
+        .d-bloom .hd { font-family: 'Fraunces', serif; font-weight: 700; letter-spacing: 0; }
+        .blm-card { background: #fff; border-radius: 20px; box-shadow: inset -2px -2px 6px rgb(214 138 111 / .08), 0 4px 14px rgb(122 74 44 / .08); }
+        .blm-num { font-family: 'Fraunces', serif; font-size: 34px; font-weight: 700; color: #824c71; }
+        .blm-btn { height: 44px; padding: 0 22px; border-radius: 99px; font-weight: 700; font-size: 14.5px; display: inline-flex; align-items: center; transition: transform .15s cubic-bezier(.34,1.56,.64,1); }
+        .blm-btn:hover { transform: translateY(-2px); }
+        .blm-btn-p { background: #824c71; color: #fff; box-shadow: 0 5px 0 rgb(107 51 88 / .35); }
+        .blm-btn-s { background: #ffe9d9; color: #9a5a2a; }
+        .blm-btn-d { background: #ffe3e3; color: #a23a3a; }
+        .blm-pill { font-size: 12.5px; font-weight: 700; padding: 5px 13px; border-radius: 99px; }
+        .blm-row { border-top: 2px dotted #f0dcc8; }
+        .blm-field { background: #fff; border: 2px solid #f0dcc8; border-radius: 16px; padding: 10px 15px; font-size: 14.5px; color: #6b584c; }
+        .blm-squig { display: inline-block; width: 46px; height: 6px; background: radial-gradient(circle 3px at 3px 3px, #d49a4e 90%, transparent) 0 0/12px 6px repeat-x; }
+        .blm-nav a { border-radius: 99px; padding: 8px 16px; font-size: 14.5px; font-weight: 600; color: #8d7365; display: block; }
+        .blm-nav .on { background: #f6e3ef; color: #824c71; }
+
+        /* ═══════ 10 · VERTEX — sharp contemporary ═══════ */
+        .d-vertex { background: #fcfcfb; color: #16150f; font-family: 'Hanken Grotesk', sans-serif; }
+        .d-vertex .hd { font-family: 'Schibsted Grotesk', sans-serif; font-weight: 800; letter-spacing: -.04em; }
+        .vtx-card { background: #fff; border: 1px solid #e9e8e4; border-radius: 8px; }
+        .vtx-num { font-family: 'Schibsted Grotesk', sans-serif; font-size: 28px; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+        .vtx-btn { height: 34px; padding: 0 14px; border-radius: 7px; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; }
+        .vtx-btn-p { background: #6b2e57; color: #fff; }
+        .vtx-btn-p:hover { background: #55233f; }
+        .vtx-btn-s { background: #fff; border: 1px solid #d8d7d1; color: #33322c; }
+        .vtx-btn-d { background: #fff; border: 1px solid #d8d7d1; color: #b03636; }
+        .vtx-pill { font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 5px; border: 1px solid; }
+        .vtx-row { border-top: 1px solid #efeeea; }
+        .vtx-field { background: #fff; border: 1px solid #d8d7d1; border-radius: 7px; padding: 8px 11px; font-size: 13.5px; color: #45443e;
+            box-shadow: 0 1px 2px rgb(22 21 15 / .03); }
+        .vtx-nav { background: rgb(255 255 255 / .65); -webkit-backdrop-filter: blur(14px) saturate(1.3); backdrop-filter: blur(14px) saturate(1.3);
+            border: 1px solid #e9e8e4; border-radius: 10px; }
+        .vtx-nav a { border-radius: 6px; padding: 6px 10px; font-size: 13px; font-weight: 500; color: #6a685f; display: block; }
+        .vtx-nav .on { background: #16150f; color: #fcfcfb; font-weight: 600; }
     </style>
 
     {{-- ————— Gallery intro + quick nav ————— --}}
     <div class="g-band" style="padding-bottom: 40px;">
         <div class="g-band-inner">
             <div class="g-title" style="color:#d9a9c6;">Design directions</div>
-            <h1 style="font-family:'Fraunces',serif; font-size:34px; font-weight:600; margin-top:14px;">Five complete languages, same components.</h1>
+            <h1 style="font-family:'Fraunces',serif; font-size:34px; font-weight:600; margin-top:14px;">Ten complete languages, same components.</h1>
             <p class="g-caption" style="margin-top:12px;">Each band below renders the identical sample set — header and stats, a table, buttons and pills, a panel and modal preview, form fields, and the nav treatment — fully styled in one direction. Pick the one that feels like BookTheStyle; it will be implemented app-wide and this temporary tab removed.</p>
             <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:22px;">
-                @foreach ([['#lumen', '1 · Lumen'], ['#journal', '2 · Journal'], ['#meridian', '3 · Meridian'], ['#halo', '4 · Halo'], ['#velvet', '5 · Velvet']] as [$href, $label])
+                @foreach ([['#lumen', '1 · Lumen'], ['#journal', '2 · Journal'], ['#meridian', '3 · Meridian'], ['#halo', '4 · Halo'], ['#velvet', '5 · Velvet'], ['#studio', '6 · Studio'], ['#aurora', '7 · Aurora'], ['#manor', '8 · Manor'], ['#bloom', '9 · Bloom'], ['#vertex', '10 · Vertex']] as [$href, $label])
                     <a href="{{ $href }}" style="border:1px solid rgb(255 255 255 / .2); border-radius:99px; padding:7px 16px; font-size:13.5px; color:#efeae4;">{{ $label }}</a>
                 @endforeach
             </div>
@@ -609,6 +700,442 @@ new #[Title('Design directions')] class extends Component {
                     </div>
                     <div class="g-label" style="color:#a08874;">Nav treatment</div>
                     <div class="vel-panel vel-nav" style="padding:10px; max-width:210px;">
+                        @foreach ($nav as $i => $n)<a class="{{ $i === 0 ? 'on' : '' }}">{{ $n }}</a>@endforeach
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {{-- ═══════════ 6 · STUDIO ═══════════ --}}
+    <section id="studio" class="g-band d-studio">
+        <div class="g-band-inner">
+            <div style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;">
+                <h2 class="hd" style="font-size:24px;">6 · Studio — mono minimal</h2>
+                <p style="font-size:14px; color:#8a877f;">Near-monochrome, ultra-restrained, one quiet plum accent, tiny precise labels. Muji and Braun calm — the anti-loud.</p>
+            </div>
+
+            <div class="g-label" style="color:#8a877f;">Header + stats</div>
+            <div style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:14px;">
+                <div>
+                    <div class="stu-lbl">Saturday, 12 July</div>
+                    <div class="hd" style="font-size:26px; margin-top:8px;">Today at the salon</div>
+                </div>
+                <span class="stu-btn stu-btn-p">Add booking</span>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:32px; margin-top:28px;">
+                @foreach ($stats as $s)
+                    <div class="stu-rule" style="padding-top:14px;">
+                        <div class="stu-lbl">{{ $s['label'] }}</div>
+                        <div class="stu-num" style="margin-top:12px;">{{ $s['value'] }}</div>
+                        <div style="font-size:12.5px; color:#8a877f; margin-top:8px;">{{ $s['sub'] }}</div>
+                    </div>
+                @endforeach
+            </div>
+
+            <div class="g-grid">
+                <div>
+                    <div class="g-label" style="color:#8a877f;">Table</div>
+                    <table style="width:100%; text-align:left; font-size:13.5px; border-top:1px solid #1a1918;">
+                        <thead><tr>
+                            <th scope="col" class="stu-lbl" style="padding:12px 0; font-size:10px;">Time</th><th scope="col" class="stu-lbl" style="padding:12px 0; font-size:10px;">Client</th><th scope="col" class="stu-lbl" style="padding:12px 0; font-size:10px;">Service</th><th scope="col" class="stu-lbl" style="padding:12px 0; font-size:10px; text-align:right;">Status</th>
+                        </tr></thead>
+                        <tbody>
+                            @foreach ($rows as $r)
+                                <tr class="stu-rule">
+                                    <td style="padding:14px 0; color:#8a877f; font-variant-numeric:tabular-nums;">{{ $r['time'] }}</td>
+                                    <td style="padding:14px 0; font-weight:600;">{{ $r['client'] }}</td>
+                                    <td style="padding:14px 0; color:#4a4741;">{{ $r['service'] }} · {{ $r['stylist'] }}</td>
+                                    <td style="padding:14px 0; text-align:right;"><span class="stu-pill" style="color:{{ $r['kind'] === 'ok' ? '#1a1918' : ($r['kind'] === 'bad' ? '#8a2e2e' : '#8a877f') }};">{{ $r['status'] }}</span></td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+
+                    <div class="g-label" style="color:#8a877f;">Buttons + pills</div>
+                    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                        <span class="stu-btn stu-btn-p">Confirm booking</span>
+                        <span class="stu-btn stu-btn-s">Reschedule</span>
+                        <span class="stu-btn stu-btn-d">Cancel booking</span>
+                        <span class="stu-pill" style="color:#824c71; border-color:#824c71;">New client</span>
+                    </div>
+
+                    <div class="g-label" style="color:#8a877f;">Form fields</div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; max-width:460px;">
+                        <div class="stu-field">Amelia Hart</div>
+                        <div class="stu-field" style="display:flex; justify-content:space-between;">Full colour <span style="opacity:.4;">▾</span></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="g-label" style="color:#8a877f;">Panel + modal</div>
+                    <div class="stu-rule" style="border-top:1px solid #1a1918; padding-top:14px;">
+                        <div class="stu-lbl">Next up</div>
+                        <p style="font-size:15px; margin-top:10px; line-height:1.6;">Ruth Okafor · Full colour with Simone, 10:30 AM.<br><span style="color:#8a877f;">Allergy on file — review before mixing.</span></p>
+                    </div>
+                    <div class="g-stage" style="background:rgb(26 25 24 / .4); padding:26px; margin-top:18px;">
+                        <div style="background:#fcfbf8; padding:22px; border-radius:8px;">
+                            <div class="hd" style="font-size:16px;">Cancel this booking?</div>
+                            <p style="font-size:13px; color:#4a4741; margin:8px 0 16px;">The client's appointment is removed and GoHighLevel is updated.</p>
+                            <div style="display:flex; gap:10px; justify-content:flex-end;">
+                                <span class="stu-btn stu-btn-s" style="height:32px;">Keep it</span>
+                                <span class="stu-btn stu-btn-d" style="height:32px;">Cancel booking</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="g-label" style="color:#8a877f;">Nav treatment</div>
+                    <div class="stu-nav" style="max-width:180px;">
+                        @foreach ($nav as $i => $n)<a class="{{ $i === 0 ? 'on' : '' }}">{{ $n }}</a>@endforeach
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {{-- ═══════════ 7 · AURORA ═══════════ --}}
+    <section id="aurora" class="g-band d-aurora">
+        <div class="g-band-inner">
+            <div style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;">
+                <h2 class="hd" style="font-size:24px;">7 · Aurora — vibrant gradient</h2>
+                <p style="font-size:14px; color:#6d6377;">Light and clean with bold aurora gradients as the expressive moments. Stripe energy, Cosmos colour — lively yet refined.</p>
+            </div>
+
+            <div class="g-label" style="color:#8d8195;">Header + stats</div>
+            <div style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:14px;">
+                <div>
+                    <div style="font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;" class="aur-grad-text">Saturday, 12 July</div>
+                    <div class="hd" style="font-size:28px; margin-top:6px;">Today at the salon</div>
+                </div>
+                <span class="aur-btn aur-btn-p">Add booking</span>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; margin-top:18px;">
+                @foreach ($stats as $s)
+                    <div class="aur-card" style="padding:15px 17px;">
+                        <div style="font-size:13px; font-weight:500; color:#6d6377;">{{ $s['label'] }}</div>
+                        <div class="aur-num aur-grad-text" style="margin-top:8px;">{{ $s['value'] }}</div>
+                        <div style="font-size:12.5px; color:#8d8195; margin-top:5px;">{{ $s['sub'] }}</div>
+                    </div>
+                @endforeach
+            </div>
+
+            <div class="g-grid">
+                <div>
+                    <div class="g-label" style="color:#8d8195;">Table</div>
+                    <div class="aur-card" style="overflow:hidden;">
+                        <table style="width:100%; text-align:left; font-size:14px;">
+                            <thead><tr style="font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; color:#8d8195;">
+                                <th scope="col" style="padding:12px 16px;">Time</th><th scope="col" style="padding:12px 8px;">Client</th><th scope="col" style="padding:12px 8px;">Service</th><th scope="col" style="padding:12px 16px; text-align:right;">Status</th>
+                            </tr></thead>
+                            <tbody>
+                                @foreach ($rows as $r)
+                                    <tr class="aur-row">
+                                        <td style="padding:12px 16px; color:#8d8195;">{{ $r['time'] }}</td>
+                                        <td style="padding:12px 8px; font-weight:600;">{{ $r['client'] }}</td>
+                                        <td style="padding:12px 8px; color:#57504a;">{{ $r['service'] }} · {{ $r['stylist'] }}</td>
+                                        <td style="padding:12px 16px; text-align:right;">
+                                            <span class="aur-pill" style="background:{{ $r['kind'] === 'ok' ? 'rgb(110 86 207 / .12)' : ($r['kind'] === 'bad' ? 'rgb(176 54 82 / .1)' : 'rgb(52 33 70 / .06)') }}; color:{{ $r['kind'] === 'ok' ? '#5b3a7e' : ($r['kind'] === 'bad' ? '#b03652' : '#6d6377') }};">{{ $r['status'] }}</span>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="g-label" style="color:#8d8195;">Buttons + pills</div>
+                    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                        <span class="aur-btn aur-btn-p">Confirm booking</span>
+                        <span class="aur-btn aur-btn-s">Reschedule</span>
+                        <span class="aur-btn aur-btn-d">Cancel booking</span>
+                        <span class="aur-pill" style="background:linear-gradient(100deg, rgb(110 86 207 / .16), rgb(199 106 140 / .14)); color:#5b3a7e;">New client</span>
+                    </div>
+
+                    <div class="g-label" style="color:#8d8195;">Form fields</div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; max-width:460px;">
+                        <div class="aur-field">Amelia Hart</div>
+                        <div class="aur-field" style="display:flex; justify-content:space-between;">Full colour <span style="opacity:.4;">▾</span></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="g-label" style="color:#8d8195;">Panel + modal</div>
+                    <div class="aur-card" style="padding:17px;">
+                        <div class="hd" style="font-size:16px;">Next up</div>
+                        <p style="font-size:13.5px; color:#57504a; margin-top:6px; line-height:1.55;">Ruth Okafor · Full colour with Simone, 10:30 AM. Allergy on file.</p>
+                    </div>
+                    <div class="g-stage" style="background:rgb(34 29 38 / .45); padding:26px; margin-top:14px;">
+                        <div class="aur-card" style="padding:20px;">
+                            <div class="hd" style="font-size:16px;">Cancel this booking?</div>
+                            <p style="font-size:13.5px; color:#57504a; margin:8px 0 14px;">The client's appointment is removed and GoHighLevel is updated.</p>
+                            <div style="display:flex; gap:8px; justify-content:flex-end;">
+                                <span class="aur-btn aur-btn-s" style="height:34px;">Keep it</span>
+                                <span class="aur-btn aur-btn-d" style="height:34px;">Cancel booking</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="g-label" style="color:#8d8195;">Nav treatment</div>
+                    <div class="aur-card aur-nav" style="padding:9px; max-width:210px;">
+                        @foreach ($nav as $i => $n)<a class="{{ $i === 0 ? 'on' : '' }}">{{ $n }}</a>@endforeach
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {{-- ═══════════ 8 · MANOR ═══════════ --}}
+    <section id="manor" class="g-band d-manor">
+        <div class="g-band-inner">
+            <div style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;">
+                <h2 class="hd" style="font-size:24px;">8 · Manor — warm neutral pro</h2>
+                <p style="font-size:14px; color:#8d8377;">Greige and taupe, wide-tracked labels, quiet depth. A high-end interior studio — calm, adult, quietly expensive.</p>
+            </div>
+
+            <div class="g-label" style="color:#8d8377;">Header + stats</div>
+            <div style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:14px;">
+                <div>
+                    <div class="man-lbl">Saturday, 12 July</div>
+                    <div class="hd" style="font-size:26px; margin-top:8px;">Today at the salon</div>
+                </div>
+                <span class="man-btn man-btn-p">Add booking</span>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; margin-top:20px;">
+                @foreach ($stats as $s)
+                    <div class="man-panel" style="padding:16px 18px;">
+                        <div class="man-lbl" style="font-size:10px;">{{ $s['label'] }}</div>
+                        <div class="man-num" style="margin-top:10px;">{{ $s['value'] }}</div>
+                        <div style="font-size:12.5px; color:#8d8377; margin-top:6px;">{{ $s['sub'] }}</div>
+                    </div>
+                @endforeach
+            </div>
+
+            <div class="g-grid">
+                <div>
+                    <div class="g-label" style="color:#8d8377;">Table</div>
+                    <div class="man-panel" style="overflow:hidden;">
+                        <table style="width:100%; text-align:left; font-size:14px;">
+                            <thead><tr>
+                                <th scope="col" class="man-lbl" style="padding:12px 18px; font-size:10px;">Time</th><th scope="col" class="man-lbl" style="padding:12px 8px; font-size:10px;">Client</th><th scope="col" class="man-lbl" style="padding:12px 8px; font-size:10px;">Service</th><th scope="col" class="man-lbl" style="padding:12px 18px; font-size:10px; text-align:right;">Status</th>
+                            </tr></thead>
+                            <tbody>
+                                @foreach ($rows as $r)
+                                    <tr class="man-row">
+                                        <td style="padding:13px 18px; color:#8d8377;">{{ $r['time'] }}</td>
+                                        <td style="padding:13px 8px; font-weight:600;">{{ $r['client'] }}</td>
+                                        <td style="padding:13px 8px; color:#574f45;">{{ $r['service'] }} · {{ $r['stylist'] }}</td>
+                                        <td style="padding:13px 18px; text-align:right;"><span class="man-pill" style="color:{{ $r['kind'] === 'ok' ? '#4c5a43' : ($r['kind'] === 'bad' ? '#8f4636' : '#6f675c') }};">{{ $r['status'] }}</span></td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="g-label" style="color:#8d8377;">Buttons + pills</div>
+                    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+                        <span class="man-btn man-btn-p">Confirm booking</span>
+                        <span class="man-btn man-btn-s">Reschedule</span>
+                        <span class="man-btn man-btn-d">Cancel booking</span>
+                        <span class="man-pill" style="color:#6b3358;">New client</span>
+                    </div>
+
+                    <div class="g-label" style="color:#8d8377;">Form fields</div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; max-width:460px;">
+                        <div class="man-field">Amelia Hart</div>
+                        <div class="man-field" style="display:flex; justify-content:space-between;">Full colour <span style="opacity:.4;">▾</span></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="g-label" style="color:#8d8377;">Panel + modal</div>
+                    <div class="man-panel" style="padding:18px;">
+                        <div class="man-lbl" style="font-size:10px;">Next up</div>
+                        <p style="font-size:14px; margin-top:9px; line-height:1.6;">Ruth Okafor · Full colour with Simone, 10:30 AM. <span style="color:#8d8377;">Allergy on file.</span></p>
+                    </div>
+                    <div class="g-stage" style="background:rgb(46 42 36 / .4); padding:26px; margin-top:14px;">
+                        <div class="man-panel" style="padding:22px;">
+                            <div class="hd" style="font-size:17px;">Cancel this booking?</div>
+                            <p style="font-size:13.5px; color:#574f45; margin:8px 0 16px;">The client's appointment is removed and GoHighLevel is updated.</p>
+                            <div style="display:flex; gap:10px; justify-content:flex-end;">
+                                <span class="man-btn man-btn-s" style="height:34px;">Keep it</span>
+                                <span class="man-btn man-btn-d" style="height:34px;">Cancel booking</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="g-label" style="color:#8d8377;">Nav treatment</div>
+                    <div class="man-nav" style="max-width:190px;">
+                        @foreach ($nav as $i => $n)<a class="{{ $i === 0 ? 'on' : '' }}">{{ $n }}</a>@endforeach
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {{-- ═══════════ 9 · BLOOM ═══════════ --}}
+    <section id="bloom" class="g-band d-bloom">
+        <div class="g-band-inner">
+            <div style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;">
+                <h2 class="hd" style="font-size:24px;">9 · Bloom — playful boutique</h2>
+                <p style="font-size:14px; color:#8d7365;">Marblism-forward: warm, friendly, softly rounded, gently springy. The most human one — approachable but polished.</p>
+            </div>
+
+            <div class="g-label" style="color:#a08874;">Header + stats</div>
+            <div style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:14px;">
+                <div>
+                    <span class="blm-squig"></span>
+                    <div class="hd" style="font-size:28px; margin-top:8px;">Today at the salon</div>
+                    <div style="font-size:13.5px; color:#8d7365; margin-top:4px;">Saturday, 12 July · a lovely full book</div>
+                </div>
+                <span class="blm-btn blm-btn-p">Add booking</span>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:16px; margin-top:20px;">
+                @foreach ($stats as $i => $s)
+                    <div class="blm-card" style="padding:17px 19px;">
+                        <div style="font-size:13px; font-weight:600; color:#8d7365;">{{ $s['label'] }}</div>
+                        <div class="blm-num" style="margin-top:8px; color:{{ ['#824c71','#356088','#3e7a4e','#9a5a2a'][$i] }};">{{ $s['value'] }}</div>
+                        <div style="font-size:12.5px; color:#a08874; margin-top:5px;">{{ $s['sub'] }}</div>
+                    </div>
+                @endforeach
+            </div>
+
+            <div class="g-grid">
+                <div>
+                    <div class="g-label" style="color:#a08874;">Table</div>
+                    <div class="blm-card" style="overflow:hidden;">
+                        <table style="width:100%; text-align:left; font-size:14.5px;">
+                            <thead><tr style="font-size:12px; font-weight:700; color:#a08874;">
+                                <th scope="col" style="padding:13px 18px;">Time</th><th scope="col" style="padding:13px 8px;">Client</th><th scope="col" style="padding:13px 8px;">Service</th><th scope="col" style="padding:13px 18px; text-align:right;">Status</th>
+                            </tr></thead>
+                            <tbody>
+                                @foreach ($rows as $r)
+                                    <tr class="blm-row">
+                                        <td style="padding:13px 18px; color:#8d7365;">{{ $r['time'] }}</td>
+                                        <td style="padding:13px 8px; font-weight:700; color:#43332c;">{{ $r['client'] }}</td>
+                                        <td style="padding:13px 8px; color:#6b584c;">{{ $r['service'] }} · {{ $r['stylist'] }}</td>
+                                        <td style="padding:13px 18px; text-align:right;">
+                                            <span class="blm-pill" style="background:{{ $r['kind'] === 'ok' ? '#e2f0e2' : ($r['kind'] === 'bad' ? '#ffe3e3' : '#f5ead9') }}; color:{{ $r['kind'] === 'ok' ? '#3e7a4e' : ($r['kind'] === 'bad' ? '#a23a3a' : '#9a5a2a') }};">{{ $r['status'] }}</span>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="g-label" style="color:#a08874;">Buttons + pills</div>
+                    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+                        <span class="blm-btn blm-btn-p">Confirm booking</span>
+                        <span class="blm-btn blm-btn-s">Reschedule</span>
+                        <span class="blm-btn blm-btn-d">Cancel booking</span>
+                        <span class="blm-pill" style="background:#f6e3ef; color:#824c71;">New client</span>
+                        <span class="blm-pill" style="background:#e3edf6; color:#356088;">Arrived</span>
+                    </div>
+
+                    <div class="g-label" style="color:#a08874;">Form fields</div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; max-width:470px;">
+                        <div class="blm-field">Amelia Hart</div>
+                        <div class="blm-field" style="display:flex; justify-content:space-between;">Full colour <span style="opacity:.4;">▾</span></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="g-label" style="color:#a08874;">Panel + modal</div>
+                    <div class="blm-card" style="padding:19px;">
+                        <div class="hd" style="font-size:17px; color:#43332c;">Next up</div>
+                        <p style="font-size:13.5px; color:#6b584c; margin-top:6px; line-height:1.6;">Ruth Okafor · Full colour with Simone, 10:30 AM. Allergy on file — a gentle heads-up before mixing.</p>
+                    </div>
+                    <div class="g-stage" style="background:rgb(67 51 44 / .4); padding:26px; margin-top:14px; border-radius:20px;">
+                        <div class="blm-card" style="padding:22px;">
+                            <div class="hd" style="font-size:17px; color:#43332c;">Cancel this booking?</div>
+                            <p style="font-size:13.5px; color:#6b584c; margin:8px 0 16px;">The client's appointment is removed and GoHighLevel is updated.</p>
+                            <div style="display:flex; gap:10px; justify-content:flex-end;">
+                                <span class="blm-btn blm-btn-s" style="height:36px;">Keep it</span>
+                                <span class="blm-btn blm-btn-d" style="height:36px;">Cancel booking</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="g-label" style="color:#a08874;">Nav treatment</div>
+                    <div class="blm-card blm-nav" style="padding:10px; max-width:200px;">
+                        @foreach ($nav as $i => $n)<a class="{{ $i === 0 ? 'on' : '' }}">{{ $n }}</a>@endforeach
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {{-- ═══════════ 10 · VERTEX ═══════════ --}}
+    <section id="vertex" class="g-band d-vertex">
+        <div class="g-band-inner">
+            <div style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;">
+                <h2 class="hd" style="font-size:24px;">10 · Vertex — sharp contemporary</h2>
+                <p style="font-size:14px; color:#6a685f;">Crisp near-white, tight geometry, a deep bold plum, glass only on the nav. Linear and Vercel confidence in light.</p>
+            </div>
+
+            <div class="g-label" style="color:#8a887e;">Header + stats</div>
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px;">
+                <div>
+                    <div class="hd" style="font-size:22px;">Today</div>
+                    <div style="font-size:13px; color:#6a685f; margin-top:2px;">Saturday, 12 July · 4 stylists on</div>
+                </div>
+                <span class="vtx-btn vtx-btn-p">Add booking</span>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(165px,1fr)); gap:10px; margin-top:16px;">
+                @foreach ($stats as $s)
+                    <div class="vtx-card" style="padding:12px 14px;">
+                        <div style="font-size:12px; font-weight:600; color:#6a685f;">{{ $s['label'] }}</div>
+                        <div class="vtx-num" style="margin-top:6px;">{{ $s['value'] }}</div>
+                        <div style="font-size:11.5px; color:#8a887e; margin-top:4px;">{{ $s['sub'] }}</div>
+                    </div>
+                @endforeach
+            </div>
+
+            <div class="g-grid">
+                <div>
+                    <div class="g-label" style="color:#8a887e;">Table</div>
+                    <div class="vtx-card" style="overflow:hidden;">
+                        <table style="width:100%; text-align:left;">
+                            <thead><tr style="font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:#8a887e; border-bottom:1px solid #16150f;">
+                                <th scope="col" style="padding:9px 13px;">Time</th><th scope="col" style="padding:9px 13px;">Client</th><th scope="col" style="padding:9px 13px;">Service</th><th scope="col" style="padding:9px 13px; text-align:right;">Status</th>
+                            </tr></thead>
+                            <tbody>
+                                @foreach ($rows as $r)
+                                    <tr class="vtx-row">
+                                        <td style="padding:9px 13px; font-size:13px; color:#6a685f; font-variant-numeric:tabular-nums;">{{ $r['time'] }}</td>
+                                        <td style="padding:9px 13px; font-size:13.5px; font-weight:600;">{{ $r['client'] }}</td>
+                                        <td style="padding:9px 13px; font-size:13.5px; color:#45443e;">{{ $r['service'] }} · {{ $r['stylist'] }}</td>
+                                        <td style="padding:9px 13px; text-align:right;">
+                                            <span class="vtx-pill" style="border-color:{{ $r['kind'] === 'ok' ? '#bcd4bc' : ($r['kind'] === 'bad' ? '#e6c1c1' : '#dcdbd5') }}; color:{{ $r['kind'] === 'ok' ? '#2e6b34' : ($r['kind'] === 'bad' ? '#b03636' : '#6a685f') }};">{{ $r['status'] }}</span>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="g-label" style="color:#8a887e;">Buttons + pills</div>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                        <span class="vtx-btn vtx-btn-p">Confirm booking</span>
+                        <span class="vtx-btn vtx-btn-s">Reschedule</span>
+                        <span class="vtx-btn vtx-btn-d">Cancel booking</span>
+                        <span class="vtx-pill" style="border-color:#d9c6d3; color:#6b2e57;">New client</span>
+                    </div>
+
+                    <div class="g-label" style="color:#8a887e;">Form fields</div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; max-width:430px;">
+                        <div class="vtx-field">Amelia Hart</div>
+                        <div class="vtx-field" style="display:flex; justify-content:space-between;">Full colour <span style="opacity:.4;">▾</span></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="g-label" style="color:#8a887e;">Panel + modal</div>
+                    <div class="vtx-card" style="padding:14px;">
+                        <div class="hd" style="font-size:14px;">Next up</div>
+                        <p style="font-size:13px; color:#45443e; margin-top:6px; line-height:1.55;">Ruth Okafor · Full colour with Simone, 10:30 AM. Allergy on file.</p>
+                    </div>
+                    <div class="g-stage" style="background:rgb(22 21 15 / .45); padding:26px; margin-top:14px;">
+                        <div class="vtx-card" style="padding:18px; box-shadow:0 16px 40px rgb(22 21 15 / .2);">
+                            <div class="hd" style="font-size:15px;">Cancel this booking?</div>
+                            <p style="font-size:13px; color:#45443e; margin:7px 0 14px;">The client's appointment is removed and GoHighLevel is updated.</p>
+                            <div style="display:flex; gap:8px; justify-content:flex-end;">
+                                <span class="vtx-btn vtx-btn-s">Keep it</span>
+                                <span class="vtx-btn vtx-btn-d">Cancel booking</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="g-label" style="color:#8a887e;">Nav treatment</div>
+                    <div class="vtx-nav" style="padding:7px; max-width:200px;">
                         @foreach ($nav as $i => $n)<a class="{{ $i === 0 ? 'on' : '' }}">{{ $n }}</a>@endforeach
                     </div>
                 </div>
