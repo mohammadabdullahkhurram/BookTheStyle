@@ -698,15 +698,27 @@ new #[Title('Salon settings')] class extends Component {
         Flux::toast(variant: 'success', text: __('Logo removed.'));
     }
 
-    /** AA-style contrast warning for the picked brand colours (widget CTA is white-on-accent). */
+    /**
+     * AA-style contrast guidance for the picked brand colours. Body text on
+     * the branded surface is always DERIVED to the readable side (light or
+     * dark family, by WCAG contrast) — the two pairings a salon can still
+     * break are text ON the accent, and the accent against the background.
+     */
     #[Computed]
     public function brandingContrastWarning(): ?string
     {
         $accent = $this->accent ?: '#824C71';
+        $surface = $this->brandSurface ?: WidgetBranding::DEFAULT_SURFACE;
+        $hex = fn (string $value): bool => preg_match('/^#[0-9a-fA-F]{6}$/', $value) === 1;
 
-        if (preg_match('/^#[0-9a-fA-F]{6}$/', $accent) === 1
-            && WidgetBranding::contrast($accent, '#FFFFFF') < 4.5) {
-            return __('The accent is light — white button text on it falls below 4.5:1 contrast. Consider a deeper shade.');
+        if ($hex($accent)
+            && WidgetBranding::contrast($accent, '#FFFFFF') < 4.5
+            && WidgetBranding::contrast($accent, '#1C1B1A') < 4.5) {
+            return __('The accent is a mid tone — neither white nor dark text reads on it at 4.5:1. Consider a lighter or deeper shade.');
+        }
+
+        if ($hex($accent) && $hex($surface) && WidgetBranding::contrast($accent, $surface) < 2) {
+            return __('The accent nearly disappears against the background color — selected dates and time buttons will be hard to see. Pick a stronger pairing.');
         }
 
         return null;

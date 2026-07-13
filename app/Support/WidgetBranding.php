@@ -61,7 +61,13 @@ final class WidgetBranding
      * The widget theme for a salon (optionally with a validated ?accent=
      * override, which beats the stored accent — existing behaviour).
      *
-     * @return array{accent: array{accent: string, hover: string, tint: string, ink: string}, secondary: string, surface: string, font: array{key: string, label: string, display: string, body: string}, logo_url: string|null}
+     * `mode` is DERIVED from the branded surface so the widget stays readable
+     * on whatever background the salon sets: the foreground family (ink /
+     * muted / faint / hairlines / raised cells) flips between light-on-dark
+     * and dark-on-light by WCAG contrast, and `accent_ink` is the readable
+     * text colour ON the accent (button fills, the selected calendar day).
+     *
+     * @return array{accent: array{accent: string, hover: string, tint: string, ink: string}, secondary: string, surface: string, font: array{key: string, label: string, display: string, body: string}, logo_url: string|null, mode: array{scheme: string, ink: string, muted: string, faint: string, line: string, cell: string, accent_ink: string}}
      */
     public static function for(Salon $salon, ?string $accentOverride = null): array
     {
@@ -76,11 +82,12 @@ final class WidgetBranding
 
         $logoPath = is_string($branding['logo_path'] ?? null) ? $branding['logo_path'] : null;
         $font = self::FONTS[$fontKey];
+        $surface = self::hexOr($branding['surface'] ?? null, self::DEFAULT_SURFACE);
 
         return [
             'accent' => $accent,
             'secondary' => self::hexOr($branding['secondary'] ?? null, self::DEFAULT_SECONDARY),
-            'surface' => self::hexOr($branding['surface'] ?? null, self::DEFAULT_SURFACE),
+            'surface' => $surface,
             'font' => [
                 'key' => $fontKey,
                 'label' => $font['label'],
@@ -90,6 +97,27 @@ final class WidgetBranding
             'logo_url' => $logoPath !== null && Storage::disk('public')->exists($logoPath)
                 ? Storage::disk('public')->url($logoPath)
                 : null,
+            'mode' => self::mode($surface, $accent['accent']),
+        ];
+    }
+
+    /**
+     * @return array{scheme: string, ink: string, muted: string, faint: string, line: string, cell: string, accent_ink: string}
+     */
+    private static function mode(string $surface, string $accent): array
+    {
+        $dark = self::contrast($surface, '#FFFFFF') >= self::contrast($surface, '#1C1B1A');
+
+        return [
+            'scheme' => $dark ? 'dark' : 'light',
+            'ink' => $dark ? '#FFFFFF' : '#1C1B1A',
+            'muted' => $dark ? 'rgb(255 255 255 / .74)' : 'rgb(28 27 26 / .68)',
+            'faint' => $dark ? 'rgb(255 255 255 / .42)' : 'rgb(28 27 26 / .38)',
+            'line' => $dark ? 'rgb(255 255 255 / .16)' : 'rgb(28 27 26 / .12)',
+            'cell' => $dark ? 'rgb(255 255 255 / .07)' : 'rgb(255 255 255 / .72)',
+            'accent_ink' => self::contrast($accent, '#FFFFFF') >= self::contrast($accent, '#1C1B1A')
+                ? '#FFFFFF'
+                : '#1C1B1A',
         ];
     }
 

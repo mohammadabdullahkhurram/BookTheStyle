@@ -104,16 +104,30 @@ it('backfills sensible defaults for salons with no branding at all', function ()
     expect($theme['accent']['accent'])->toBe('#824C71'); // the app's plum
 });
 
-it('warns when the accent is too light for white button text', function () {
+it('warns only for brand pairings the derived foreground cannot rescue', function () {
     $salon = Salon::factory()->create();
     $owner = salonOwnerOf($salon);
 
     $component = Livewire::actingAs($owner)->test('pages::salon.settings', ['salon' => $salon]);
 
-    $component->set('accent', '#E8C9DD'); // pale pink — white-on-it fails AA
+    // Mid grey: NEITHER white nor dark text reaches 4.5:1 on it.
+    $component->set('accent', '#7F7F7F');
     expect($component->instance()->brandingContrastWarning)->not->toBeNull();
 
-    $component->set('accent', '#824C71');
+    // Pale pink on pale paper: text ON it is fine (dark ink is derived),
+    // but it nearly vanishes AGAINST the background — pairing warning.
+    $component->set('accent', '#E8C9DD');
+    expect($component->instance()->brandingContrastWarning)->not->toBeNull();
+
+    // A strong accent on the default paper: readable both ways, no warning.
+    $component->set('accent', '#2F5D7C');
+    expect($component->instance()->brandingContrastWarning)->toBeNull();
+
+    // Accent nearly identical to the background: selected states vanish.
+    $component->set('accent', '#824C71')->set('brandSurface', '#8A5578');
+    expect($component->instance()->brandingContrastWarning)->not->toBeNull();
+
+    $component->set('brandSurface', '');
     expect($component->instance()->brandingContrastWarning)->toBeNull();
 });
 

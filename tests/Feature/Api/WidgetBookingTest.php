@@ -454,26 +454,58 @@ it('rejects a manual assignment of a stylist who does not perform that service',
 // Inline availability calendar + month endpoint
 // ---------------------------------------------------------------------------
 
-it('renders the inline branded calendar and gradient backdrop — no native date input', function () {
+it('renders the solid branded split container with the inline calendar — no native date input', function () {
     [$salon] = widgetSalon();
 
     $response = $this->get(route('salon.widget', $salon))->assertOk();
 
     // The OS date field is gone; our always-visible calendar replaces it.
     expect($response->getContent())->not->toContain('type="date"');
-    $response->assertSee('bts-cal-grid', false)
+    $response
+        // One rounded shell filled with the SOLID branded surface, split into
+        // the info pane (logo/summary/stylist) and the scheduling pane.
+        ->assertSee('class="wb-shell"', false)
+        ->assertSee('background: var(--wb-surface)', false)
+        ->assertSee('border-radius: 24px', false)
+        ->assertSee('class="wb-info"', false)
+        ->assertSee('class="wb-book"', false)
+        ->assertSee('border-right: 1px solid var(--wb-line)', false)  // desktop divider
+        ->assertSee('border-bottom: 1px solid var(--wb-line)', false) // stacked divider
+        ->assertSee('Select date &amp; time', false)
+        // The calendar: 7-column grid, accent-filled selected day, accent-
+        // tinted available days, accent-bordered time-slot buttons.
+        ->assertSee('bts-cal-grid', false)
         ->assertSee('grid-template-columns: repeat(7, minmax(0, 1fr))', false)
         ->assertSee("wb-day[aria-pressed='true'] { background: var(--accent)", false)
+        ->assertSee('color-mix(in srgb, var(--accent) 16%, transparent)', false)
+        ->assertSee('color-mix(in srgb, var(--accent) 70%, transparent)', false)
         ->assertSee('api\/widget\/month', false)
-        // The fixed backdrop layer the glass blurs over, tinted per brand.
-        ->assertSee('class="wb-backdrop"', false)
-        ->assertSee('color-mix(in srgb, var(--accent) 18%, var(--wb-surface))', false)
-        ->assertSee('color-mix(in srgb, var(--wb-secondary) 22%, var(--wb-surface))', false)
         // The calendar window: today through the booking horizon (salon tz).
         ->assertSee('"2026-06-22"', false)
+        // Times are labelled with the salon's timezone.
+        ->assertSee('Times shown in', false)
         // Manual mode is present but opt-in.
         ->assertSee('Choose stylists per service', false)
         ->assertSee('bts-manual-rows', false);
+});
+
+it('derives a readable foreground for whatever background the brand sets', function () {
+    [$salon] = widgetSalon();
+
+    // Deep navy brand background → the light-on-dark family.
+    $salon->update(['branding' => ['surface' => '#1F2A44']]);
+    $this->get(route('salon.widget', $salon))
+        ->assertOk()
+        ->assertSee('--wb-surface: #1F2A44', false)
+        ->assertSee('--wb-ink: #FFFFFF', false);
+
+    // Warm paper (the default family) → dark-on-light.
+    $salon->update(['branding' => null]);
+    $this->get(route('salon.widget', $salon))
+        ->assertOk()
+        ->assertSee('--wb-ink: #1C1B1A', false)
+        // White text on the plum accent for filled states.
+        ->assertSee('--wb-accent-ink: #FFFFFF', false);
 });
 
 it('reports which dates of a month fit the WHOLE visit — past, closed and full days excluded', function () {
@@ -564,6 +596,6 @@ it('renders the widget with sensible defaults when no branding is set', function
         ->assertSee('--wb-secondary: '.WidgetBranding::DEFAULT_SECONDARY, false)
         ->assertSee('--wb-surface: '.WidgetBranding::DEFAULT_SURFACE, false)
         ->assertSee("--wb-display: 'Fraunces'", false)
-        ->assertSee('wb-duet', false)   // Duet split layout
-        ->assertSee('wb-glass', false); // Vitrine glass surfaces
+        ->assertSee('wb-shell', false)  // one branded rounded container
+        ->assertSee('wb-info', false);  // split info pane
 });

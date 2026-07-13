@@ -1,9 +1,14 @@
 {{--
     The embeddable public booking page — the salon's ONLY customer-facing
-    booking surface. Vitrine liquid-glass visual language over a Duet split
-    layout: a branded summary pane beside the active step on desktop,
-    stacking to a single column (compact summary bar) on phones. Themed per
-    salon by WidgetBranding (logo, accent set, secondary, surface, font).
+    booking surface. One cohesive branded container (the reference look): a
+    generously rounded shell filled with the salon's SOLID branded background,
+    split by a hairline divider into an info pane (logo, salon name, running
+    selection summary, stylist selector) and a scheduling pane (inline
+    availability calendar + time slots). Every colour is branding-driven —
+    the surface fills the shell, the accent drives selected/available states
+    and slot borders, and the foreground family (ink/muted/faint/lines/cells)
+    is DERIVED from the surface by WCAG contrast (WidgetBranding::mode), so
+    the widget reads light-on-dark or dark-on-light as the brand demands.
 
     Self-contained: token CSS via the compiled stylesheet, self-hosted fonts,
     and a dependency-free inline script — no Livewire, no session, nothing
@@ -11,7 +16,7 @@
     its rendered height to the parent (widget.js) for auto-resizing.
 
     Receives from WidgetController@page: $salon, $branding, $catalogue,
-    $currency, $preselectService, $widgetToken, $maxDate.
+    $currency, $preselectService, $widgetToken, $minDate, $maxDate.
 --}}
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
@@ -30,192 +35,187 @@
             --accent-ink: {{ $branding['accent']['ink'] }};
             --wb-secondary: {{ $branding['secondary'] }};
             --wb-surface: {{ $branding['surface'] }};
+            --wb-ink: {{ $branding['mode']['ink'] }};
+            --wb-muted: {{ $branding['mode']['muted'] }};
+            --wb-faint: {{ $branding['mode']['faint'] }};
+            --wb-line: {{ $branding['mode']['line'] }};
+            --wb-cell: {{ $branding['mode']['cell'] }};
+            --wb-accent-ink: {{ $branding['mode']['accent_ink'] }};
             --wb-display: {!! $branding['font']['display'] !!};
             --wb-body: {!! $branding['font']['body'] !!};
         }
 
-        /* ── Vitrine: liquid glass over a branded gradient backdrop ── */
-        body { font-family: var(--wb-body); background-color: var(--wb-surface); }
-        /* A body background with attachment:fixed silently fails to paint
-           inside the auto-resizing embed iframe (WebKit), leaving the glass
-           floating on flat white — so the scenery is its own fixed layer:
-           brand-tinted gradient washes plus two soft colour blooms the
-           panels' backdrop-filter actually has something to blur. */
-        .wb-backdrop {
-            position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none;
-            background:
-                radial-gradient(60% 55% at 10% 0%, color-mix(in srgb, var(--accent) 18%, var(--wb-surface)), transparent 62%),
-                radial-gradient(55% 48% at 94% 6%, color-mix(in srgb, var(--wb-secondary) 22%, var(--wb-surface)), transparent 60%),
-                radial-gradient(70% 55% at 50% 108%, color-mix(in srgb, var(--accent) 13%, var(--wb-surface)), transparent 62%),
-                var(--wb-surface);
+        /* ── One rounded, solid-branded container (host page shows around it) ── */
+        body { font-family: var(--wb-body); background: transparent; color: var(--wb-ink); }
+        .wb-shell {
+            display: grid;
+            background: var(--wb-surface);
+            color: var(--wb-ink);
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 16px 44px rgb(12 12 18 / .16), 0 2px 8px rgb(12 12 18 / .08);
         }
-        .wb-backdrop::before, .wb-backdrop::after { content: ''; position: absolute; border-radius: 999px; filter: blur(52px); }
-        .wb-backdrop::before { width: 30rem; height: 30rem; left: -10rem; top: -12rem; background: color-mix(in srgb, var(--accent) 32%, transparent); }
-        .wb-backdrop::after { width: 24rem; height: 24rem; right: -8rem; top: 30%; background: color-mix(in srgb, var(--wb-secondary) 30%, transparent); }
+        .wb-info { padding: 26px 22px; }
+        .wb-book { padding: 22px; }
+        /* Duet split with a hairline divider from 820px; stacked (info on top) below. */
+        @media (min-width: 820px) {
+            .wb-shell { grid-template-columns: 292px minmax(0, 1fr); }
+            .wb-info { border-right: 1px solid var(--wb-line); }
+        }
+        @media (max-width: 819.98px) {
+            .wb-info { border-bottom: 1px solid var(--wb-line); }
+        }
+
         .wb-display { font-family: var(--wb-display); }
-        .wb-glass {
-            background: rgb(255 255 255 / .46);
-            -webkit-backdrop-filter: blur(20px) saturate(1.5);
-            backdrop-filter: blur(20px) saturate(1.5);
-            border: 1px solid rgb(255 255 255 / .7);
-            border-radius: 20px;
-            box-shadow: inset 0 1px 0 rgb(255 255 255 / .9), 0 12px 36px rgb(40 25 40 / .14);
+        .wb-muted { color: var(--wb-muted); }
+        .wb-faint { color: var(--wb-faint); }
+        .wb-overline {
+            font-size: 11.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+            color: color-mix(in srgb, var(--accent) 60%, var(--wb-ink));
         }
+        .wb-logo { max-height: 56px; max-width: 190px; width: auto; object-fit: contain; margin-bottom: 14px; }
+
+        /* Rows / options: raised cells on the branded surface. */
         .wb-opt {
             display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px;
             border-radius: 14px; padding: 12px 14px; text-align: start; font-size: 15px; font-weight: 600;
-            background: rgb(255 255 255 / .48);
-            border: 1.5px solid rgb(255 255 255 / .7);
-            box-shadow: inset 0 1px 0 rgb(255 255 255 / .8);
+            color: var(--wb-ink);
+            background: var(--wb-cell);
+            border: 1.5px solid var(--wb-line);
             transition: border-color .15s ease, background-color .15s ease;
             cursor: pointer; min-height: 48px;
         }
-        .wb-opt:hover { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+        .wb-opt:hover { border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
         .wb-opt[aria-pressed='true'] {
             border-color: var(--accent);
-            background: color-mix(in srgb, var(--accent) 12%, rgb(255 255 255 / .6));
+            background: color-mix(in srgb, var(--accent) 16%, var(--wb-surface));
         }
+
+        /* Time slots: accent-bordered rounded buttons (the reference look). */
         .wb-chip {
-            border-radius: 12px; padding: 9px 13px; font-size: 14px; font-weight: 600;
-            background: rgb(255 255 255 / .48); border: 1.5px solid rgb(255 255 255 / .7);
-            box-shadow: inset 0 1px 0 rgb(255 255 255 / .8); cursor: pointer; min-height: 44px;
-            transition: border-color .15s ease;
+            border-radius: 12px; padding: 10px 14px; font-size: 14px; font-weight: 600;
+            color: var(--wb-ink); background: transparent; cursor: pointer; min-height: 44px;
+            border: 1.5px solid color-mix(in srgb, var(--accent) 70%, transparent);
+            transition: background-color .15s ease, border-color .15s ease;
         }
-        .wb-chip:hover { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+        .wb-chip:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); border-color: var(--accent); }
+
         .wb-field {
-            width: 100%; min-height: 48px; border-radius: 12px; padding: 10px 13px; font-size: 15px;
-            background: rgb(255 255 255 / .72); border: 1.5px solid rgb(255 255 255 / .85);
-            box-shadow: inset 0 1px 0 rgb(255 255 255 / .9); color: var(--color-body);
+            width: 100%; min-height: 48px; border-radius: 11px; padding: 10px 13px; font-size: 15px;
+            color: var(--wb-ink); background: var(--wb-cell); border: 1.5px solid var(--wb-line);
         }
         .wb-field:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+        .wb-field:disabled { opacity: .55; }
+        select.wb-field option { color: #1C1B1A; background: #FFFFFF; }
+
         .wb-cta {
             display: flex; width: 100%; min-height: 48px; align-items: center; justify-content: center;
-            border-radius: 99px; font-size: 15px; font-weight: 600; color: #fff; cursor: pointer;
-            background: var(--accent); border: 1px solid rgb(255 255 255 / .35);
-            box-shadow: inset 0 1px 0 rgb(255 255 255 / .3), 0 8px 22px color-mix(in srgb, var(--accent) 38%, transparent);
+            border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer;
+            color: var(--wb-accent-ink); background: var(--accent); border: 1px solid transparent;
+            box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 35%, transparent);
             transition: background-color .15s ease;
         }
         .wb-cta:hover { background: var(--accent-hover); }
         .wb-cta:disabled { opacity: .5; pointer-events: none; }
         .wb-ghost {
             display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 8px;
-            border-radius: 99px; padding: 0 18px; font-size: 14px; font-weight: 600; cursor: pointer;
-            background: rgb(255 255 255 / .55); border: 1.5px solid rgb(255 255 255 / .8);
-            -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
-            box-shadow: inset 0 1px 0 rgb(255 255 255 / .85); color: var(--color-body);
+            border-radius: 11px; padding: 0 18px; font-size: 14px; font-weight: 600; cursor: pointer;
+            color: var(--wb-muted); background: transparent; border: 1.5px solid var(--wb-line);
         }
-        .wb-overline {
-            font-size: 11.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
-            color: var(--accent-ink);
-        }
-        .wb-sumline { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; padding: 7px 0; }
-        .wb-sumline + .wb-sumline { border-top: 1px solid rgb(255 255 255 / .6); }
+        .wb-ghost:hover { color: var(--wb-ink); border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
 
-        /* ── Inline availability calendar (replaces the native date input) ── */
-        .wb-cal {
-            border-radius: 16px; padding: 12px;
-            background: rgb(255 255 255 / .42);
-            border: 1.5px solid rgb(255 255 255 / .7);
-            box-shadow: inset 0 1px 0 rgb(255 255 255 / .8);
-        }
-        .wb-cal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+        .wb-sumline { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; padding: 7px 0; }
+        .wb-sumline + .wb-sumline { border-top: 1px solid var(--wb-line); }
+
+        /* ── Inline availability calendar (no native date input) ── */
+        .wb-cal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
         .wb-cal-nav {
             display: flex; min-width: 40px; min-height: 40px; align-items: center; justify-content: center;
-            border-radius: 10px; cursor: pointer; color: var(--color-body);
-            background: rgb(255 255 255 / .55); border: 1.5px solid rgb(255 255 255 / .75);
-            box-shadow: inset 0 1px 0 rgb(255 255 255 / .8); transition: border-color .15s ease;
+            border-radius: 10px; cursor: pointer; color: var(--wb-ink);
+            background: var(--wb-cell); border: 1.5px solid var(--wb-line);
+            transition: border-color .15s ease;
         }
-        .wb-cal-nav:hover { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+        .wb-cal-nav:hover { border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
         .wb-cal-nav:disabled { opacity: .35; pointer-events: none; }
         .wb-cal-dow, .wb-cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
         .wb-cal-dow span {
             padding: 4px 0; text-align: center; font-size: 11px; font-weight: 600;
-            letter-spacing: .08em; text-transform: uppercase; color: var(--color-secondary);
+            letter-spacing: .08em; text-transform: uppercase; color: var(--wb-faint);
         }
         .wb-cal-grid[aria-busy='true'] { opacity: .55; }
-        /* Available vs not is never colour-alone: open days are raised glass
-           tiles (semibold, accent dot); closed days are flat, regular, faint. */
+        /* Available vs not is never colour-alone: open days are accent-tinted
+           circles (semibold, accent dot); closed days are flat, regular, faint. */
         .wb-day {
             position: relative; display: flex; align-items: center; justify-content: center;
-            min-height: 42px; width: 100%; border-radius: 10px; font-size: 14px; font-weight: 400;
-            color: var(--color-faint); background: transparent; border: 1.5px solid transparent; cursor: default;
+            min-height: 42px; width: 100%; border-radius: 99px; font-size: 14px; font-weight: 400;
+            color: var(--wb-faint); background: transparent; border: 1.5px solid transparent; cursor: default;
         }
         .wb-day[data-available='true'] {
-            font-weight: 600; color: var(--color-ink); cursor: pointer;
-            background: rgb(255 255 255 / .55); border-color: rgb(255 255 255 / .75);
-            box-shadow: inset 0 1px 0 rgb(255 255 255 / .8); transition: border-color .15s ease;
+            font-weight: 600; color: var(--wb-ink); cursor: pointer;
+            background: color-mix(in srgb, var(--accent) 16%, transparent);
+            transition: border-color .15s ease;
         }
         .wb-day[data-available='true']::after {
             content: ''; position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%);
             width: 4px; height: 4px; border-radius: 99px; background: var(--accent);
         }
-        .wb-day[data-available='true']:hover { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
-        .wb-day[aria-pressed='true'] { background: var(--accent); border-color: var(--accent); color: #fff; }
-        .wb-day[aria-pressed='true']::after { background: #fff; }
-        .wb-day:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+        .wb-day[data-available='true']:hover { border-color: var(--accent); }
+        .wb-day[aria-pressed='true'] { background: var(--accent); border-color: var(--accent); color: var(--wb-accent-ink); font-weight: 700; }
+        .wb-day[aria-pressed='true']::after { background: var(--wb-accent-ink); }
+        .wb-day:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-        /* ── Duet: split from 760px; single column (summary bar first) below ── */
-        .wb-duet { display: grid; gap: 16px; align-items: start; }
-        @media (min-width: 760px) {
-            .wb-duet { grid-template-columns: 260px minmax(0, 1fr); gap: 20px; }
-            .wb-pane-summary { position: sticky; top: 16px; }
-        }
         @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
     </style>
 </head>
-<body class="text-ink antialiased">
-    <div class="wb-backdrop" aria-hidden="true"></div>
-    <main class="mx-auto w-full max-w-4xl p-4 sm:p-6" id="bts-widget"
+<body class="antialiased">
+    <main class="mx-auto w-full max-w-5xl p-3 sm:p-5" id="bts-widget"
           data-salon="{{ $salon->name }}"
           data-preselect="{{ $preselectService ?? '' }}">
 
-        <div class="wb-duet">
-            {{-- ── Duet pane 1: branded summary/context ── --}}
-            <aside class="wb-pane-summary wb-glass p-5" aria-label="{{ __('Booking summary') }}">
+        <div class="wb-shell">
+            {{-- ── Info pane: brand, running summary, stylist selector ── --}}
+            <aside class="wb-info" aria-label="{{ __('Booking summary') }}">
                 @if ($branding['logo_url'])
-                    <img src="{{ $branding['logo_url'] }}" alt="{{ $salon->name }}" class="mb-3 max-h-12 w-auto max-w-[180px] object-contain" />
+                    <img src="{{ $branding['logo_url'] }}" alt="{{ $salon->name }}" class="wb-logo" />
                 @endif
                 <p class="wb-overline">{{ __('Book an appointment') }}</p>
                 <h1 class="wb-display mt-1 text-[21px] font-semibold leading-tight">{{ $salon->name }}</h1>
 
                 <div id="bts-summary" class="mt-4 hidden">
                     <div id="bts-summary-lines"></div>
-                    <div class="wb-sumline" id="bts-summary-total" style="font-weight:600; border-top: 1.5px solid rgb(255 255 255 / .8);"></div>
+                    <div class="wb-sumline" id="bts-summary-total" style="font-weight:600; border-top: 1.5px solid var(--wb-line);"></div>
                 </div>
-                <p id="bts-summary-empty" class="mt-4 text-[13.5px] text-secondary">{{ __('Choose one or more services to begin.') }}</p>
+                <p id="bts-summary-empty" class="wb-muted mt-4 text-[13.5px]">{{ __('Choose one or more services to begin.') }}</p>
+
+                <div id="bts-stylist-box" hidden class="mt-5">
+                    <label class="wb-muted block text-[13px] font-semibold" for="bts-stylist">{{ __('Stylist') }}</label>
+                    <select id="bts-stylist" class="wb-field mt-1"></select>
+                    <p id="bts-team-note" class="wb-muted mt-2 hidden text-[12.5px]">{{ __("No single stylist offers everything you picked — we'll arrange your services back to back with the team.") }}</p>
+                    {{-- Manual mode: an explicit stylist per service, opt-in via the select --}}
+                    <div id="bts-manual" hidden class="mt-3 grid gap-3">
+                        <div id="bts-manual-rows" class="grid gap-3"></div>
+                    </div>
+                </div>
             </aside>
 
-            {{-- ── Duet pane 2: the active step ── --}}
-            <div>
-                <div id="bts-error" class="mb-3 hidden rounded-[12px] px-3 py-2.5 text-[14px]" style="background:rgb(248 227 227 / .9);color:#A23A3A" role="alert"></div>
+            {{-- ── Scheduling pane: the active step ── --}}
+            <div class="wb-book">
+                <div id="bts-error" class="mb-3 hidden rounded-[12px] px-3 py-2.5 text-[14px]" style="background:#F8E3E3;color:#A23A3A" role="alert"></div>
 
                 {{-- Step 1: services (multi-select) --}}
-                <section data-step="service" class="wb-glass p-5">
+                <section data-step="service">
                     <h2 class="wb-display text-[17px] font-semibold">{{ __('Choose your services') }}</h2>
-                    <p class="mt-0.5 text-[13.5px] text-secondary">{{ __('Pick one or more — they run back to back in one visit.') }}</p>
+                    <p class="wb-muted mt-0.5 text-[13.5px]">{{ __('Pick one or more — they run back to back in one visit.') }}</p>
                     <div id="bts-services" class="mt-3 grid gap-2"></div>
-                    <p class="mt-3 hidden text-[14px] text-secondary" id="bts-no-services">{{ __('Online booking is not available right now. Please contact the salon directly.') }}</p>
+                    <p class="wb-muted mt-3 hidden text-[14px]" id="bts-no-services">{{ __('Online booking is not available right now. Please contact the salon directly.') }}</p>
                     <button type="button" id="bts-continue" class="wb-cta mt-4" hidden></button>
                 </section>
 
-                {{-- Step 2: stylist — auto (one stylist / team) or manual per service --}}
-                <section data-step="stylist" hidden class="wb-glass p-5">
-                    <h2 class="wb-display text-[17px] font-semibold">{{ __('Choose a stylist') }}</h2>
-                    <p class="mt-0.5 text-[13.5px] text-secondary" id="bts-stylist-hint">{{ __('One stylist takes your whole visit when possible.') }}</p>
-                    <div id="bts-stylists" class="mt-3 grid gap-2"></div>
-                    {{-- Manual mode is an opt-in, so casual bookers never see it --}}
-                    <button type="button" id="bts-manual-toggle" class="wb-ghost mt-3" hidden aria-expanded="false">{{ __('Choose stylists per service') }}</button>
-                    <div id="bts-manual" hidden class="mt-3 grid gap-3">
-                        <div id="bts-manual-rows" class="grid gap-3"></div>
-                        <button type="button" id="bts-manual-continue" class="wb-cta">{{ __('See available times') }}</button>
-                    </div>
-                </section>
-
-                {{-- Step 3: date + time — inline availability calendar, no native picker --}}
-                <section data-step="time" hidden class="wb-glass p-5">
-                    <h2 class="wb-display text-[17px] font-semibold">{{ __('Pick a date and time') }}</h2>
-                    <p class="mt-0.5 text-[13.5px] text-secondary">{{ __('Days that fit your whole visit are highlighted.') }}</p>
-                    <div id="bts-cal" class="wb-cal mt-3">
+                {{-- Step 2: date + time — inline availability calendar, no native picker --}}
+                <section data-step="time" hidden>
+                    <h2 class="wb-display text-[17px] font-semibold">{{ __('Select date & time') }}</h2>
+                    <p class="wb-muted mt-0.5 text-[13.5px]">{{ __('Days that fit your whole visit are highlighted.') }}</p>
+                    <div id="bts-cal" class="mt-3">
                         <div class="wb-cal-head">
                             <button type="button" id="bts-cal-prev" class="wb-cal-nav" aria-label="{{ __('Previous month') }}">
                                 <svg viewBox="0 0 20 20" fill="currentColor" class="size-5" aria-hidden="true"><path fill-rule="evenodd" d="M12.79 5.23a.75.75 0 0 1-.02 1.06L8.832 10l3.938 3.71a.75.75 0 1 1-1.04 1.08l-4.5-4.25a.75.75 0 0 1 0-1.08l4.5-4.25a.75.75 0 0 1 1.06.02Z" clip-rule="evenodd"/></svg>
@@ -228,29 +228,30 @@
                         <div id="bts-cal-dow" class="wb-cal-dow" aria-hidden="true"></div>
                         <div id="bts-cal-grid" class="wb-cal-grid" role="group" aria-label="{{ __('Choose a date') }}"></div>
                     </div>
-                    <p id="bts-day-label" class="mt-3 hidden text-[13px] font-semibold text-secondary"></p>
+                    <p id="bts-day-label" class="wb-muted mt-3 hidden text-[13px] font-semibold"></p>
                     <div id="bts-slots" class="mt-2 flex flex-wrap gap-2" aria-live="polite"></div>
-                    <p id="bts-slots-empty" class="mt-2 hidden text-[14px] text-secondary">{{ __('No open times fit the whole visit that day — try another date.') }}</p>
+                    <p id="bts-slots-empty" class="wb-muted mt-2 hidden text-[14px]">{{ __('No open times fit the whole visit that day — try another date.') }}</p>
+                    <p class="wb-faint mt-3 text-[12.5px]">{{ __('Times shown in :timezone', ['timezone' => $salon->timezone]) }}</p>
                 </section>
 
-                {{-- Step 4: details --}}
-                <section data-step="details" hidden class="wb-glass p-5">
+                {{-- Step 3: details --}}
+                <section data-step="details" hidden>
                     <h2 class="wb-display text-[17px] font-semibold">{{ __('Your details') }}</h2>
                     <form id="bts-form" class="mt-3 grid gap-3" novalidate>
                         <div>
-                            <label class="block text-[13px] font-semibold text-secondary" for="bts-name">{{ __('Name') }}</label>
+                            <label class="wb-muted block text-[13px] font-semibold" for="bts-name">{{ __('Name') }}</label>
                             <input id="bts-name" name="name" required autocomplete="name" class="wb-field mt-1">
                         </div>
                         <div>
-                            <label class="block text-[13px] font-semibold text-secondary" for="bts-phone">{{ __('Phone') }}</label>
+                            <label class="wb-muted block text-[13px] font-semibold" for="bts-phone">{{ __('Phone') }}</label>
                             <input id="bts-phone" name="phone" type="tel" required autocomplete="tel" class="wb-field mt-1">
                         </div>
                         <div>
-                            <label class="block text-[13px] font-semibold text-secondary" for="bts-email">{{ __('Email (optional)') }}</label>
+                            <label class="wb-muted block text-[13px] font-semibold" for="bts-email">{{ __('Email (optional)') }}</label>
                             <input id="bts-email" name="email" type="email" autocomplete="email" class="wb-field mt-1">
                         </div>
                         <div>
-                            <label class="block text-[13px] font-semibold text-secondary" for="bts-notes">{{ __('Notes (optional)') }}</label>
+                            <label class="wb-muted block text-[13px] font-semibold" for="bts-notes">{{ __('Notes (optional)') }}</label>
                             <textarea id="bts-notes" name="notes" rows="2" maxlength="500" class="wb-field mt-1"></textarea>
                         </div>
                         {{-- Honeypot: hidden from humans; anything typed here fails the bot gate. --}}
@@ -262,14 +263,14 @@
                     </form>
                 </section>
 
-                {{-- Step 5: confirmed --}}
-                <section data-step="confirmed" hidden class="wb-glass p-5">
+                {{-- Step 4: confirmed --}}
+                <section data-step="confirmed" hidden>
                     <div class="mx-auto flex size-12 items-center justify-center rounded-full"
-                         style="background: color-mix(in srgb, var(--accent) 14%, rgb(255 255 255 / .7)); color: var(--accent-ink); box-shadow: inset 0 1px 0 rgb(255 255 255 / .9);">
+                         style="background: color-mix(in srgb, var(--accent) 18%, var(--wb-surface)); color: var(--wb-ink);">
                         <svg viewBox="0 0 20 20" fill="currentColor" class="size-6" aria-hidden="true"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7A1 1 0 1 1 4.7 8.3l3.8 3.8 6.8-6.8a1 1 0 0 1 1.4 0Z" clip-rule="evenodd"/></svg>
                     </div>
                     <h2 class="wb-display mt-3 text-center text-[19px] font-semibold">{{ __("You're booked") }}</h2>
-                    <p class="mt-1 text-center text-[14px] text-secondary" id="bts-confirmation"></p>
+                    <p class="wb-muted mt-1 text-center text-[14px]" id="bts-confirmation"></p>
                     <button type="button" id="bts-again" class="wb-ghost mx-auto mt-4 flex">{{ __('Book another appointment') }}</button>
                 </section>
 
@@ -303,7 +304,6 @@
             continueOne: @json(__('Continue with 1 service')),
             continueMany: @json(__('Continue with :count services')),
             min: @json(__('min')),
-            services: @json(__('Services')),
             stylist: @json(__('Stylist')),
             when: @json(__('When')),
             total: @json(__('Estimated total')),
@@ -312,9 +312,7 @@
             unavailable: @json(__('unavailable')),
             timesFor: @json(__('Open times for :date')),
             anyStylist: @json(__('Any available')),
-            teamNote: @json(__("No single stylist offers everything you picked — we'll arrange your services back to back with the team.")),
-            manualOn: @json(__('Choose stylists per service')),
-            manualOff: @json(__('Let us arrange it instead')),
+            manual: @json(__('Choose stylists per service')),
         };
 
         var state = { step: 'service', services: [], stylist: 'any', mode: 'auto', assignments: {}, date: null, slot: null };
@@ -343,6 +341,8 @@
             state.step = step;
             steps.forEach(function (el) { el.hidden = el.getAttribute('data-step') !== step; });
             $('bts-footer').hidden = step === 'service' || step === 'confirmed';
+            // The staffing is settled once details are being entered.
+            $('bts-stylist').disabled = step === 'details' || step === 'confirmed';
             renderSummary();
             error('');
             postHeight();
@@ -365,7 +365,7 @@
             b.appendChild(span);
             if (sub) {
                 var s = document.createElement('span');
-                s.className = 'shrink-0 text-[13px] font-normal text-secondary';
+                s.className = 'wb-muted shrink-0 text-[13px] font-normal';
                 s.textContent = sub;
                 b.appendChild(s);
             }
@@ -373,7 +373,7 @@
             return b;
         }
 
-        // -- Duet summary pane (all chosen services, combined time + price) --
+        // -- info-pane summary (all chosen services, staffing, time, price) --
         function renderSummary() {
             var lines = $('bts-summary-lines');
             lines.textContent = '';
@@ -391,7 +391,7 @@
                 var name = document.createElement('span');
                 name.textContent = service.name;
                 var meta = document.createElement('span');
-                meta.className = 'text-secondary';
+                meta.className = 'wb-muted';
                 var leg = legs && legs[index];
                 meta.textContent = leg
                     ? leg.time + ' · ' + leg.stylist
@@ -401,24 +401,13 @@
                 lines.appendChild(row);
             });
 
-            if ((state.mode === 'auto' && state.stylist !== 'any') || state.slot) {
-                var who = document.createElement('div');
-                who.className = 'wb-sumline';
-                var lbl = document.createElement('span');
-                lbl.textContent = I18N.stylist;
-                var val = document.createElement('span');
-                val.className = 'text-secondary';
-                val.textContent = state.slot ? state.slot.stylist : stylistName(state.stylist) || I18N.any;
-                who.appendChild(lbl); who.appendChild(val);
-                lines.appendChild(who);
-            }
             if (state.slot) {
                 var when = document.createElement('div');
                 when.className = 'wb-sumline';
                 var wl = document.createElement('span');
                 wl.textContent = I18N.when;
                 var wv = document.createElement('span');
-                wv.className = 'text-secondary';
+                wv.className = 'wb-muted';
                 wv.textContent = state.slot.spoken;
                 when.appendChild(wl); when.appendChild(wv);
                 lines.appendChild(when);
@@ -440,15 +429,6 @@
                 + (unpriced ? ' · ' + I18N.varies : '');
             total.appendChild(tl);
             total.appendChild(tv);
-        }
-
-        function stylistName(id) {
-            if (id === 'any') { return null; }
-            var found = null;
-            state.services.forEach(function (service) {
-                service.stylists.forEach(function (s) { if (String(s.id) === String(id)) { found = s.name; } });
-            });
-            return found;
         }
 
         // -- step 1: services (multi-select) --------------------------------
@@ -481,10 +461,11 @@
             state.assignments = {};
             state.slot = null;
             renderServices();
+            renderStylistSelect();
             renderSummary();
         }
 
-        // -- step 2: stylists — qualified for EVERY selected service ---------
+        // -- info pane: the stylist selector (auto / named / manual) ----------
         function sharedStylists() {
             if (!state.services.length) { return []; }
             return state.services[0].stylists.filter(function (stylist) {
@@ -494,39 +475,51 @@
             });
         }
 
-        function renderStylists() {
-            var wrap = $('bts-stylists');
-            wrap.textContent = '';
+        function renderStylistSelect() {
+            var box = $('bts-stylist-box');
+            box.hidden = state.services.length === 0;
+            if (box.hidden) { return; }
+
+            var select = $('bts-stylist');
+            select.textContent = '';
             var shared = sharedStylists();
+
+            var any = document.createElement('option');
+            any.value = 'any';
+            any.textContent = I18N.any;
+            select.appendChild(any);
+            shared.forEach(function (stylist) {
+                var opt = document.createElement('option');
+                opt.value = String(stylist.id);
+                opt.textContent = stylist.name;
+                select.appendChild(opt);
+            });
+            if (state.services.length > 1) {
+                var manual = document.createElement('option');
+                manual.value = '__manual';
+                manual.textContent = I18N.manual;
+                select.appendChild(manual);
+            }
+
+            select.value = state.mode === 'manual' ? '__manual' : String(state.stylist);
+            if (select.selectedIndex < 0) { select.value = 'any'; }
 
             // No single stylist covers the whole selection: auto composes a
             // back-to-back team arrangement — say so instead of refusing.
-            $('bts-stylist-hint').textContent = shared.length || state.services.length < 2
-                ? @json(__('One stylist takes your whole visit when possible.'))
-                : I18N.teamNote;
+            $('bts-team-note').classList.toggle('hidden', !(state.services.length > 1 && !shared.length && state.mode !== 'manual'));
 
-            wrap.appendChild(option(I18N.any, null, function () { pickStylist('any'); }, state.mode === 'auto' && state.stylist === 'any'));
-            shared.forEach(function (stylist) {
-                wrap.appendChild(option(stylist.name, null, function () { pickStylist(String(stylist.id)); }, state.mode === 'auto' && String(state.stylist) === String(stylist.id)));
-            });
-
-            var toggle = $('bts-manual-toggle');
-            toggle.hidden = state.services.length < 2;
-            toggle.textContent = state.mode === 'manual' ? I18N.manualOff : I18N.manualOn;
-            toggle.setAttribute('aria-expanded', state.mode === 'manual' ? 'true' : 'false');
             $('bts-manual').hidden = state.mode !== 'manual';
             if (state.mode === 'manual') { renderManualRows(); }
             postHeight();
         }
 
-        // -- manual mode: an explicit stylist per service ----------------------
         function renderManualRows() {
             var rows = $('bts-manual-rows');
             rows.textContent = '';
             state.services.forEach(function (service) {
                 var row = document.createElement('div');
                 var label = document.createElement('label');
-                label.className = 'block text-[13px] font-semibold text-secondary';
+                label.className = 'wb-muted block text-[13px] font-semibold';
                 label.setAttribute('for', 'bts-assign-' + service.id);
                 label.textContent = service.name;
                 var select = document.createElement('select');
@@ -543,18 +536,36 @@
                     select.appendChild(opt);
                 });
                 select.value = state.assignments[service.id] || 'any';
-                select.addEventListener('change', function () { state.assignments[service.id] = select.value; });
+                select.addEventListener('change', function () {
+                    state.assignments[service.id] = select.value;
+                    staffingChanged();
+                });
                 row.appendChild(label);
                 row.appendChild(select);
                 rows.appendChild(row);
             });
         }
 
-        function pickStylist(id) {
-            state.mode = 'auto';
-            state.stylist = id;
-            openTimeStep();
+        // Any staffing change invalidates the chosen slot; refresh the
+        // calendar when the scheduling step is on screen.
+        function staffingChanged() {
+            state.slot = null;
+            state.date = null;
+            renderSummary();
+            if (state.step === 'time') { openTimeStep(); }
         }
+
+        $('bts-stylist').addEventListener('change', function () {
+            var value = $('bts-stylist').value;
+            if (value === '__manual') {
+                state.mode = 'manual';
+            } else {
+                state.mode = 'auto';
+                state.stylist = value;
+            }
+            renderStylistSelect();
+            staffingChanged();
+        });
 
         function openTimeStep() {
             state.slot = null;
@@ -566,9 +577,9 @@
             openCalendar();
         }
 
-        // -- step 3: inline availability calendar -----------------------------
+        // -- step 2: inline availability calendar -----------------------------
         // One month endpoint call paints the whole grid (cached per services +
-        // stylist + month); only days the FULL visit fits are selectable.
+        // staffing + month); only days the FULL visit fits are selectable.
         var cal = { month: MIN_DATE.slice(0, 7), avail: {}, focus: null, refocus: false };
 
         function pad2(n) { return (n < 10 ? '0' : '') + n; }
@@ -707,7 +718,7 @@
         $('bts-cal-prev').addEventListener('click', function () { cal.month = monthAdd(cal.month, -1); cal.focus = cal.month + '-01'; loadMonth(); });
         $('bts-cal-next').addEventListener('click', function () { cal.month = monthAdd(cal.month, 1); cal.focus = cal.month + '-01'; loadMonth(); });
 
-        // -- step 3b: the selected day's full-visit slots ----------------------
+        // -- step 2b: the selected day's full-visit slots ----------------------
         function servicesQuery() {
             var query = state.services.map(function (s) { return 'services[]=' + encodeURIComponent(s.id); }).join('&');
             if (state.mode === 'manual') {
@@ -762,7 +773,7 @@
             postHeight();
         }
 
-        // -- step 4: submit the whole visit ------------------------------------
+        // -- step 3: submit the whole visit ------------------------------------
         function submit(event) {
             event.preventDefault();
             var name = $('bts-name').value.trim();
@@ -806,26 +817,11 @@
         }
 
         // -- wiring -----------------------------------------------------------
-        $('bts-continue').addEventListener('click', function () {
-            renderStylists();
-            show('stylist');
-        });
-        $('bts-manual-toggle').addEventListener('click', function () {
-            state.mode = state.mode === 'manual' ? 'auto' : 'manual';
-            renderStylists();
-        });
-        $('bts-manual-continue').addEventListener('click', function () {
-            state.services.forEach(function (service) {
-                var select = document.getElementById('bts-assign-' + service.id);
-                state.assignments[service.id] = select ? select.value : 'any';
-            });
-            openTimeStep();
-        });
+        $('bts-continue').addEventListener('click', openTimeStep);
         $('bts-form').addEventListener('submit', submit);
         $('bts-back').addEventListener('click', function () {
             if (state.step === 'details') { show('time'); }
-            else if (state.step === 'time') { show('stylist'); }
-            else if (state.step === 'stylist') { show('service'); renderServices(); }
+            else if (state.step === 'time') { show('service'); renderServices(); }
         });
         $('bts-again').addEventListener('click', function () {
             state.services = []; state.slot = null; state.stylist = 'any'; state.date = null;
@@ -834,21 +830,23 @@
             $('bts-slots').textContent = '';
             $('bts-day-label').classList.add('hidden');
             renderServices();
+            renderStylistSelect();
             show('service');
         });
 
         renderServices();
+        renderStylistSelect();
         renderSummary();
 
-        // Deep-link: ?service=ID preselects it and jumps to the stylist step.
+        // Deep-link: ?service=ID preselects it and jumps straight to scheduling.
         var preselect = document.getElementById('bts-widget').getAttribute('data-preselect');
         if (preselect) {
             var found = CATALOGUE.find(function (s) { return String(s.id) === preselect; });
             if (found) {
                 state.services = [found];
                 renderServices();
-                renderStylists();
-                show('stylist');
+                renderStylistSelect();
+                openTimeStep();
             }
         }
     })();
