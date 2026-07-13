@@ -1,14 +1,20 @@
 {{--
     The embeddable public booking page — the salon's ONLY customer-facing
-    booking surface. One cohesive branded container (the reference look): a
-    generously rounded shell filled with the salon's SOLID branded background,
-    split by a hairline divider into an info pane (logo, salon name, running
-    selection summary, stylist selector) and a scheduling pane (inline
-    availability calendar + time slots). Every colour is branding-driven —
-    the surface fills the shell, the accent drives selected/available states
-    and slot borders, and the foreground family (ink/muted/faint/lines/cells)
-    is DERIVED from the surface by WCAG contrast (WidgetBranding::mode), so
-    the widget reads light-on-dark or dark-on-light as the brand demands.
+    booking surface. Visual language: one cohesive branded container (owner-
+    approved reference look) — a generously rounded shell filled with the
+    salon's SOLID branded background, split by a hairline divider into the
+    info pane and the scheduling pane, all colours branding-driven with the
+    foreground family DERIVED from the surface by WCAG contrast
+    (WidgetBranding::mode).
+
+    Flow: a PER-SERVICE loop. The right pane repeats service → stylist for
+    THAT service → date & time for THAT service (inline availability
+    calendar, that service's duration with that stylist); each added service
+    is its own independently-timed appointment (gaps allowed, nothing forced
+    back-to-back). After each addition: "Add another service" or "Finalize
+    booking" → client details → confirmation. The LEFT pane is the live
+    running summary of the visit (each added service with its stylist and
+    time, removable, plus running totals).
 
     Self-contained: token CSS via the compiled stylesheet, self-hosted fonts,
     and a dependency-free inline script — no Livewire, no session, nothing
@@ -105,8 +111,6 @@
             color: var(--wb-ink); background: var(--wb-cell); border: 1.5px solid var(--wb-line);
         }
         .wb-field:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-        .wb-field:disabled { opacity: .55; }
-        select.wb-field option { color: #1C1B1A; background: #FFFFFF; }
 
         .wb-cta {
             display: flex; width: 100%; min-height: 48px; align-items: center; justify-content: center;
@@ -124,8 +128,19 @@
         }
         .wb-ghost:hover { color: var(--wb-ink); border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
 
+        /* Live visit summary: one row per ADDED service, removable. */
+        .wb-item { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 10px 0; }
+        .wb-item + .wb-item { border-top: 1px solid var(--wb-line); }
+        .wb-item-name { font-size: 13.5px; font-weight: 600; }
+        .wb-item-meta { margin-top: 2px; font-size: 12.5px; color: var(--wb-muted); }
+        .wb-remove {
+            display: flex; min-width: 34px; min-height: 34px; align-items: center; justify-content: center;
+            border-radius: 9px; cursor: pointer; color: var(--wb-muted);
+            background: transparent; border: 1.5px solid var(--wb-line);
+        }
+        .wb-remove:hover { color: var(--wb-ink); border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
+
         .wb-sumline { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; padding: 7px 0; }
-        .wb-sumline + .wb-sumline { border-top: 1px solid var(--wb-line); }
 
         /* ── Inline availability calendar (no native date input) ── */
         .wb-cal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
@@ -173,48 +188,45 @@
           data-preselect="{{ $preselectService ?? '' }}">
 
         <div class="wb-shell">
-            {{-- ── Info pane: brand, running summary, stylist selector ── --}}
-            <aside class="wb-info" aria-label="{{ __('Booking summary') }}">
+            {{-- ── Info pane: brand + the LIVE running summary of the visit ── --}}
+            <aside class="wb-info" aria-label="{{ __('Visit summary') }}">
                 @if ($branding['logo_url'])
                     <img src="{{ $branding['logo_url'] }}" alt="{{ $salon->name }}" class="wb-logo" />
                 @endif
                 <p class="wb-overline">{{ __('Book an appointment') }}</p>
                 <h1 class="wb-display mt-1 text-[21px] font-semibold leading-tight">{{ $salon->name }}</h1>
 
-                <div id="bts-summary" class="mt-4 hidden">
-                    <div id="bts-summary-lines"></div>
+                <div id="bts-items" class="mt-4 hidden" aria-live="polite">
+                    <p class="wb-muted text-[12px] font-semibold uppercase tracking-wide">{{ __('Your visit') }}</p>
+                    <div id="bts-item-lines" class="mt-1"></div>
                     <div class="wb-sumline" id="bts-summary-total" style="font-weight:600; border-top: 1.5px solid var(--wb-line);"></div>
                 </div>
-                <p id="bts-summary-empty" class="wb-muted mt-4 text-[13.5px]">{{ __('Choose one or more services to begin.') }}</p>
-
-                <div id="bts-stylist-box" hidden class="mt-5">
-                    <label class="wb-muted block text-[13px] font-semibold" for="bts-stylist">{{ __('Stylist') }}</label>
-                    <select id="bts-stylist" class="wb-field mt-1"></select>
-                    <p id="bts-team-note" class="wb-muted mt-2 hidden text-[12.5px]">{{ __("No single stylist offers everything you picked — we'll arrange your services back to back with the team.") }}</p>
-                    {{-- Manual mode: an explicit stylist per service, opt-in via the select --}}
-                    <div id="bts-manual" hidden class="mt-3 grid gap-3">
-                        <div id="bts-manual-rows" class="grid gap-3"></div>
-                    </div>
-                </div>
+                <p id="bts-summary-empty" class="wb-muted mt-4 text-[13.5px]">{{ __('Choose a service to begin. Each service gets its own stylist and time.') }}</p>
             </aside>
 
-            {{-- ── Scheduling pane: the active step ── --}}
+            {{-- ── Scheduling pane: the per-service loop ── --}}
             <div class="wb-book">
                 <div id="bts-error" class="mb-3 hidden rounded-[12px] px-3 py-2.5 text-[14px]" style="background:#F8E3E3;color:#A23A3A" role="alert"></div>
 
-                {{-- Step 1: services (multi-select) --}}
+                {{-- Loop step 1: pick a service --}}
                 <section data-step="service">
-                    <h2 class="wb-display text-[17px] font-semibold">{{ __('Choose your services') }}</h2>
-                    <p class="wb-muted mt-0.5 text-[13.5px]">{{ __('Pick one or more — they run back to back in one visit.') }}</p>
+                    <h2 class="wb-display text-[17px] font-semibold" id="bts-service-heading">{{ __('Choose a service') }}</h2>
+                    <p class="wb-muted mt-0.5 text-[13.5px]">{{ __('Each service gets its own stylist and its own time — you can add several.') }}</p>
                     <div id="bts-services" class="mt-3 grid gap-2"></div>
                     <p class="wb-muted mt-3 hidden text-[14px]" id="bts-no-services">{{ __('Online booking is not available right now. Please contact the salon directly.') }}</p>
-                    <button type="button" id="bts-continue" class="wb-cta mt-4" hidden></button>
                 </section>
 
-                {{-- Step 2: date + time — inline availability calendar, no native picker --}}
+                {{-- Loop step 2: pick THIS service's stylist --}}
+                <section data-step="stylist" hidden>
+                    <h2 class="wb-display text-[17px] font-semibold">{{ __('Choose a stylist') }}</h2>
+                    <p class="wb-muted mt-0.5 text-[13.5px]" id="bts-stylist-sub"></p>
+                    <div id="bts-stylists" class="mt-3 grid gap-2"></div>
+                </section>
+
+                {{-- Loop step 3: pick THIS service's date & time --}}
                 <section data-step="time" hidden>
                     <h2 class="wb-display text-[17px] font-semibold">{{ __('Select date & time') }}</h2>
-                    <p class="wb-muted mt-0.5 text-[13.5px]">{{ __('Days that fit your whole visit are highlighted.') }}</p>
+                    <p class="wb-muted mt-0.5 text-[13.5px]" id="bts-time-sub"></p>
                     <div id="bts-cal" class="mt-3">
                         <div class="wb-cal-head">
                             <button type="button" id="bts-cal-prev" class="wb-cal-nav" aria-label="{{ __('Previous month') }}">
@@ -230,11 +242,21 @@
                     </div>
                     <p id="bts-day-label" class="wb-muted mt-3 hidden text-[13px] font-semibold"></p>
                     <div id="bts-slots" class="mt-2 flex flex-wrap gap-2" aria-live="polite"></div>
-                    <p id="bts-slots-empty" class="wb-muted mt-2 hidden text-[14px]">{{ __('No open times fit the whole visit that day — try another date.') }}</p>
+                    <p id="bts-slots-empty" class="wb-muted mt-2 hidden text-[14px]">{{ __('No open times for this service that day — try another date.') }}</p>
                     <p class="wb-faint mt-3 text-[12.5px]">{{ __('Times shown in :timezone', ['timezone' => $salon->timezone]) }}</p>
                 </section>
 
-                {{-- Step 3: details --}}
+                {{-- Loop step 4: added — extend the visit or finalize --}}
+                <section data-step="added" hidden>
+                    <h2 class="wb-display text-[17px] font-semibold" id="bts-added-title"></h2>
+                    <p class="wb-muted mt-0.5 text-[13.5px]">{{ __('Add more services to this visit, or finalize your booking when you are ready.') }}</p>
+                    <div class="mt-4 grid gap-2">
+                        <button type="button" id="bts-finalize" class="wb-cta">{{ __('Finalize booking') }}</button>
+                        <button type="button" id="bts-add-more" class="wb-ghost w-full">{{ __('Add another service') }}</button>
+                    </div>
+                </section>
+
+                {{-- Details --}}
                 <section data-step="details" hidden>
                     <h2 class="wb-display text-[17px] font-semibold">{{ __('Your details') }}</h2>
                     <form id="bts-form" class="mt-3 grid gap-3" novalidate>
@@ -263,7 +285,7 @@
                     </form>
                 </section>
 
-                {{-- Step 4: confirmed --}}
+                {{-- Confirmed --}}
                 <section data-step="confirmed" hidden>
                     <div class="mx-auto flex size-12 items-center justify-center rounded-full"
                          style="background: color-mix(in srgb, var(--accent) 18%, var(--wb-surface)); color: var(--wb-ink);">
@@ -299,23 +321,21 @@
             any: @json(__('Any available stylist')),
             loading: @json(__('Finding open times…')),
             failed: @json(__('Something went wrong. Please try again.')),
-            taken: @json(__('That time was just taken — pick another:')),
             required: @json(__('Name and phone are required.')),
-            continueOne: @json(__('Continue with 1 service')),
-            continueMany: @json(__('Continue with :count services')),
             min: @json(__('min')),
-            stylist: @json(__('Stylist')),
-            when: @json(__('When')),
             total: @json(__('Estimated total')),
             varies: @json(__('some prices vary')),
             available: @json(__('available')),
             unavailable: @json(__('unavailable')),
             timesFor: @json(__('Open times for :date')),
-            anyStylist: @json(__('Any available')),
-            manual: @json(__('Choose stylists per service')),
+            chooseService: @json(__('Choose a service')),
+            addAnother: @json(__('Add another service')),
+            forService: @json(__('For :service · :minutes min')),
+            added: @json(__(':service added')),
+            removeItem: @json(__('Remove :service')),
         };
 
-        var state = { step: 'service', services: [], stylist: 'any', mode: 'auto', assignments: {}, date: null, slot: null };
+        var state = { step: 'service', items: [], draft: null };
         var $ = function (id) { return document.getElementById(id); };
         var steps = document.querySelectorAll('[data-step]');
 
@@ -340,9 +360,7 @@
         function show(step) {
             state.step = step;
             steps.forEach(function (el) { el.hidden = el.getAttribute('data-step') !== step; });
-            $('bts-footer').hidden = step === 'service' || step === 'confirmed';
-            // The staffing is settled once details are being entered.
-            $('bts-stylist').disabled = step === 'details' || step === 'confirmed';
+            $('bts-footer').hidden = step === 'service' || step === 'added' || step === 'confirmed';
             renderSummary();
             error('');
             postHeight();
@@ -373,51 +391,51 @@
             return b;
         }
 
-        // -- info-pane summary (all chosen services, staffing, time, price) --
-        function renderSummary() {
-            var lines = $('bts-summary-lines');
-            lines.textContent = '';
-            var hasContent = state.services.length > 0;
-            $('bts-summary').classList.toggle('hidden', !hasContent);
-            $('bts-summary-empty').classList.toggle('hidden', hasContent);
-            if (!hasContent) { return; }
+        function shortWhen(slot) {
+            var d = localDate(slot.date);
+            return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+                + ' · ' + slot.time + ' · ' + slot.stylist;
+        }
 
-            // With a chosen slot, each service line names ITS stylist and leg
-            // time — the arrangement reads at a glance ("9:00 AM · Maya").
-            var legs = state.slot && state.slot.stylists ? state.slot.stylists : null;
-            state.services.forEach(function (service, index) {
+        // -- info pane: the LIVE running summary of the visit ------------------
+        function renderSummary() {
+            var lines = $('bts-item-lines');
+            lines.textContent = '';
+            var hasItems = state.items.length > 0;
+            $('bts-items').classList.toggle('hidden', !hasItems);
+            $('bts-summary-empty').classList.toggle('hidden', hasItems);
+            if (!hasItems) { return; }
+
+            state.items.forEach(function (item, index) {
                 var row = document.createElement('div');
-                row.className = 'wb-sumline';
-                var name = document.createElement('span');
-                name.textContent = service.name;
-                var meta = document.createElement('span');
-                meta.className = 'wb-muted';
-                var leg = legs && legs[index];
-                meta.textContent = leg
-                    ? leg.time + ' · ' + leg.stylist
-                    : service.duration_minutes + ' ' + I18N.min + (service.price ? ' · ' + service.price : '');
-                row.appendChild(name);
-                row.appendChild(meta);
+                row.className = 'wb-item';
+                var text = document.createElement('div');
+                var name = document.createElement('div');
+                name.className = 'wb-item-name';
+                name.textContent = item.service.name;
+                var meta = document.createElement('div');
+                meta.className = 'wb-item-meta';
+                meta.textContent = shortWhen(item.slot)
+                    + ' · ' + item.slot.duration_minutes + ' ' + I18N.min
+                    + (item.service.price ? ' · ' + item.service.price : '');
+                text.appendChild(name);
+                text.appendChild(meta);
+
+                var remove = document.createElement('button');
+                remove.type = 'button';
+                remove.className = 'wb-remove';
+                remove.setAttribute('aria-label', I18N.removeItem.replace(':service', item.service.name));
+                remove.textContent = '×';
+                remove.addEventListener('click', function () { removeItem(index); });
+
+                row.appendChild(text);
+                row.appendChild(remove);
                 lines.appendChild(row);
             });
 
-            if (state.slot) {
-                var when = document.createElement('div');
-                when.className = 'wb-sumline';
-                var wl = document.createElement('span');
-                wl.textContent = I18N.when;
-                var wv = document.createElement('span');
-                wv.className = 'wb-muted';
-                wv.textContent = state.slot.spoken;
-                when.appendChild(wl); when.appendChild(wv);
-                lines.appendChild(when);
-            }
-
-            var minutes = state.slot
-                ? state.slot.duration_minutes
-                : state.services.reduce(function (sum, s) { return sum + s.duration_minutes; }, 0);
-            var pricedCents = state.services.reduce(function (sum, s) { return sum + (s.price_cents || 0); }, 0);
-            var unpriced = state.services.some(function (s) { return s.price_cents === null; });
+            var minutes = state.items.reduce(function (sum, item) { return sum + item.slot.duration_minutes; }, 0);
+            var pricedCents = state.items.reduce(function (sum, item) { return sum + (item.service.price_cents || 0); }, 0);
+            var unpriced = state.items.some(function (item) { return item.service.price_cents === null; });
 
             var total = $('bts-summary-total');
             total.textContent = '';
@@ -431,7 +449,23 @@
             total.appendChild(tv);
         }
 
-        // -- step 1: services (multi-select) --------------------------------
+        function removeItem(index) {
+            state.items.splice(index, 1);
+            renderSummary();
+            postHeight();
+            if (!state.items.length && (state.step === 'added' || state.step === 'details')) {
+                startService();
+            }
+        }
+
+        // -- loop step 1: pick a service ---------------------------------------
+        function startService() {
+            state.draft = null;
+            $('bts-service-heading').textContent = state.items.length ? I18N.addAnother : I18N.chooseService;
+            renderServices();
+            show('service');
+        }
+
         function renderServices() {
             var wrap = $('bts-services');
             wrap.textContent = '';
@@ -440,150 +474,58 @@
                 return;
             }
             CATALOGUE.forEach(function (service) {
-                var selected = state.services.some(function (s) { return s.id === service.id; });
                 var sub = service.duration_minutes + ' ' + I18N.min + (service.price ? ' · ' + service.price : '');
-                wrap.appendChild(option(service.name, sub, function () { toggleService(service); }, selected));
+                wrap.appendChild(option(service.name, sub, function () { pickService(service); }, false));
             });
-            var next = $('bts-continue');
-            next.hidden = state.services.length === 0;
-            next.textContent = state.services.length === 1
-                ? I18N.continueOne
-                : I18N.continueMany.replace(':count', String(state.services.length));
             postHeight();
         }
 
-        function toggleService(service) {
-            var index = state.services.findIndex(function (s) { return s.id === service.id; });
-            if (index >= 0) { state.services.splice(index, 1); }
-            else { state.services.push(service); }
-            state.stylist = 'any';
-            state.mode = 'auto';
-            state.assignments = {};
-            state.slot = null;
-            renderServices();
-            renderStylistSelect();
-            renderSummary();
+        function pickService(service) {
+            state.draft = { service: service, stylist: 'any' };
+            renderStylists();
+            show('stylist');
         }
 
-        // -- info pane: the stylist selector (auto / named / manual) ----------
-        function sharedStylists() {
-            if (!state.services.length) { return []; }
-            return state.services[0].stylists.filter(function (stylist) {
-                return state.services.every(function (service) {
-                    return service.stylists.some(function (s) { return s.id === stylist.id; });
-                });
+        // -- loop step 2: THIS service's stylist -------------------------------
+        function renderStylists() {
+            $('bts-stylist-sub').textContent = I18N.forService
+                .replace(':service', state.draft.service.name)
+                .replace(':minutes', String(state.draft.service.duration_minutes));
+
+            var wrap = $('bts-stylists');
+            wrap.textContent = '';
+            wrap.appendChild(option(I18N.any, null, function () { pickStylist('any'); }, false));
+            state.draft.service.stylists.forEach(function (stylist) {
+                wrap.appendChild(option(stylist.name, null, function () { pickStylist(String(stylist.id)); }, false));
             });
-        }
-
-        function renderStylistSelect() {
-            var box = $('bts-stylist-box');
-            box.hidden = state.services.length === 0;
-            if (box.hidden) { return; }
-
-            var select = $('bts-stylist');
-            select.textContent = '';
-            var shared = sharedStylists();
-
-            var any = document.createElement('option');
-            any.value = 'any';
-            any.textContent = I18N.any;
-            select.appendChild(any);
-            shared.forEach(function (stylist) {
-                var opt = document.createElement('option');
-                opt.value = String(stylist.id);
-                opt.textContent = stylist.name;
-                select.appendChild(opt);
-            });
-            if (state.services.length > 1) {
-                var manual = document.createElement('option');
-                manual.value = '__manual';
-                manual.textContent = I18N.manual;
-                select.appendChild(manual);
-            }
-
-            select.value = state.mode === 'manual' ? '__manual' : String(state.stylist);
-            if (select.selectedIndex < 0) { select.value = 'any'; }
-
-            // No single stylist covers the whole selection: auto composes a
-            // back-to-back team arrangement — say so instead of refusing.
-            $('bts-team-note').classList.toggle('hidden', !(state.services.length > 1 && !shared.length && state.mode !== 'manual'));
-
-            $('bts-manual').hidden = state.mode !== 'manual';
-            if (state.mode === 'manual') { renderManualRows(); }
             postHeight();
         }
 
-        function renderManualRows() {
-            var rows = $('bts-manual-rows');
-            rows.textContent = '';
-            state.services.forEach(function (service) {
-                var row = document.createElement('div');
-                var label = document.createElement('label');
-                label.className = 'wb-muted block text-[13px] font-semibold';
-                label.setAttribute('for', 'bts-assign-' + service.id);
-                label.textContent = service.name;
-                var select = document.createElement('select');
-                select.className = 'wb-field mt-1';
-                select.id = 'bts-assign-' + service.id;
-                var any = document.createElement('option');
-                any.value = 'any';
-                any.textContent = I18N.anyStylist;
-                select.appendChild(any);
-                service.stylists.forEach(function (stylist) {
-                    var opt = document.createElement('option');
-                    opt.value = String(stylist.id);
-                    opt.textContent = stylist.name;
-                    select.appendChild(opt);
-                });
-                select.value = state.assignments[service.id] || 'any';
-                select.addEventListener('change', function () {
-                    state.assignments[service.id] = select.value;
-                    staffingChanged();
-                });
-                row.appendChild(label);
-                row.appendChild(select);
-                rows.appendChild(row);
-            });
-        }
-
-        // Any staffing change invalidates the chosen slot; refresh the
-        // calendar when the scheduling step is on screen.
-        function staffingChanged() {
-            state.slot = null;
-            state.date = null;
-            renderSummary();
-            if (state.step === 'time') { openTimeStep(); }
-        }
-
-        $('bts-stylist').addEventListener('change', function () {
-            var value = $('bts-stylist').value;
-            if (value === '__manual') {
-                state.mode = 'manual';
-            } else {
-                state.mode = 'auto';
-                state.stylist = value;
-            }
-            renderStylistSelect();
-            staffingChanged();
-        });
-
-        function openTimeStep() {
-            state.slot = null;
-            state.date = null;
+        function pickStylist(id) {
+            state.draft.stylist = id;
+            $('bts-time-sub').textContent = I18N.forService
+                .replace(':service', state.draft.service.name)
+                .replace(':minutes', String(state.draft.service.duration_minutes));
             $('bts-slots').textContent = '';
             $('bts-slots-empty').classList.add('hidden');
             $('bts-day-label').classList.add('hidden');
+            state.date = null;
             show('time');
             openCalendar();
         }
 
-        // -- step 2: inline availability calendar -----------------------------
-        // One month endpoint call paints the whole grid (cached per services +
-        // staffing + month); only days the FULL visit fits are selectable.
+        // -- loop step 3: inline availability calendar for THIS service --------
+        // One month endpoint call paints the whole grid (cached per service +
+        // stylist + month); only days with an opening for THIS service's
+        // duration with THIS stylist are selectable.
         var cal = { month: MIN_DATE.slice(0, 7), avail: {}, focus: null, refocus: false };
 
         function pad2(n) { return (n < 10 ? '0' : '') + n; }
-        function calKey(month) { return servicesQuery() + '|' + month; }
+        function itemQuery() {
+            return 'service=' + encodeURIComponent(state.draft.service.id)
+                + '&stylist=' + encodeURIComponent(state.draft.stylist);
+        }
+        function calKey(month) { return itemQuery() + '|' + month; }
         function monthAdd(month, delta) {
             var y = +month.slice(0, 4), m = +month.slice(5, 7) - 1 + delta;
             return (y + Math.floor(m / 12)) + '-' + pad2(((m % 12) + 12) % 12 + 1);
@@ -596,8 +538,8 @@
         }
 
         function openCalendar() {
-            cal.month = state.date ? state.date.slice(0, 7) : MIN_DATE.slice(0, 7);
-            cal.focus = state.date || MIN_DATE;
+            cal.month = MIN_DATE.slice(0, 7);
+            cal.focus = MIN_DATE;
             loadMonth();
         }
 
@@ -606,7 +548,7 @@
             if (cal.avail[key]) { renderCalendar(cal.avail[key]); return; }
             renderCalendar(null); // greyed skeleton while the month loads
 
-            var url = API.month + '?' + servicesQuery() + '&month=' + encodeURIComponent(month);
+            var url = API.month + '?' + itemQuery() + '&month=' + encodeURIComponent(month);
 
             fetch(url, { headers: { Accept: 'application/json' } })
                 .then(function (r) { return r.json(); })
@@ -685,7 +627,6 @@
             setTabStop(btn);
             if (btn.getAttribute('data-available') !== 'true') { return; }
             state.date = cal.focus;
-            state.slot = null;
             Array.prototype.forEach.call(document.querySelectorAll('#bts-cal-grid .wb-day'), function (el) {
                 el.setAttribute('aria-pressed', el.getAttribute('data-date') === state.date ? 'true' : 'false');
             });
@@ -718,20 +659,7 @@
         $('bts-cal-prev').addEventListener('click', function () { cal.month = monthAdd(cal.month, -1); cal.focus = cal.month + '-01'; loadMonth(); });
         $('bts-cal-next').addEventListener('click', function () { cal.month = monthAdd(cal.month, 1); cal.focus = cal.month + '-01'; loadMonth(); });
 
-        // -- step 2b: the selected day's full-visit slots ----------------------
-        function servicesQuery() {
-            var query = state.services.map(function (s) { return 'services[]=' + encodeURIComponent(s.id); }).join('&');
-            if (state.mode === 'manual') {
-                // Per-service assignment, aligned with services[] order.
-                query += '&' + state.services.map(function (s) {
-                    return 'stylists[]=' + encodeURIComponent(state.assignments[s.id] || 'any');
-                }).join('&');
-            } else {
-                query += '&stylist=' + encodeURIComponent(state.stylist);
-            }
-            return query;
-        }
-
+        // -- the selected day's slots for THIS service --------------------------
         function loadSlots() {
             var wrap = $('bts-slots');
             wrap.textContent = I18N.loading;
@@ -740,7 +668,7 @@
             label.textContent = I18N.timesFor.replace(':date', prettyDate(state.date));
             label.classList.remove('hidden');
 
-            var url = API.availability + '?' + servicesQuery() + '&date=' + encodeURIComponent(state.date);
+            var url = API.availability + '?' + itemQuery() + '&date=' + encodeURIComponent(state.date);
 
             fetch(url, { headers: { Accept: 'application/json' } })
                 .then(function (r) { return r.json(); })
@@ -751,29 +679,46 @@
                 .catch(function () { wrap.textContent = ''; error(I18N.failed); });
         }
 
+        // Guard: hide a slot whose stylist already has an OVERLAPPING service
+        // in this in-progress visit (the server re-validates at finalize too).
+        function clashesWithVisit(slot) {
+            var start = Date.parse(slot.starts_at);
+            var end = start + slot.duration_minutes * 60000;
+            return state.items.some(function (item) {
+                if (item.slot.stylist_id !== slot.stylist_id) { return false; }
+                var s = Date.parse(item.slot.starts_at);
+                var e = s + item.slot.duration_minutes * 60000;
+                return start < e && s < end;
+            });
+        }
+
         function renderSlots(slots) {
+            var open = slots.filter(function (slot) { return !clashesWithVisit(slot); });
             var wrap = $('bts-slots');
             wrap.textContent = '';
-            $('bts-slots-empty').classList.toggle('hidden', slots.length > 0);
-            slots.forEach(function (slot) {
+            $('bts-slots-empty').classList.toggle('hidden', open.length > 0);
+            open.forEach(function (slot) {
                 var b = document.createElement('button');
                 b.type = 'button';
                 b.className = 'wb-chip';
-                // Name the staffing whenever it wasn't a single explicit pick
-                // ("Maya + Sarah" for a composed team visit).
-                var named = state.mode === 'manual' || state.stylist === 'any' || slot.multi_stylist;
-                b.textContent = slot.time + (named ? ' · ' + slot.stylist : '');
-                b.addEventListener('click', function () {
-                    state.slot = slot;
-                    show('details');
-                    $('bts-name').focus();
-                });
+                b.textContent = slot.time + (state.draft.stylist === 'any' ? ' · ' + slot.stylist : '');
+                b.addEventListener('click', function () { addItem(slot); });
                 wrap.appendChild(b);
             });
             postHeight();
         }
 
-        // -- step 3: submit the whole visit ------------------------------------
+        // -- loop step 4: service added — extend or finalize ---------------------
+        function addItem(slot) {
+            state.items.push({ service: state.draft.service, slot: slot });
+            state.draft = null;
+            state.date = null;
+            $('bts-added-title').textContent = I18N.added.replace(':service', state.items[state.items.length - 1].service.name);
+            renderSummary();
+            show('added');
+        }
+
+        // -- finalize: client details, then the whole visit ----------------------
         function submit(event) {
             event.preventDefault();
             var name = $('bts-name').value.trim();
@@ -787,12 +732,16 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
                 body: JSON.stringify({
-                    // Submit the offered arrangement verbatim: services and
-                    // their per-leg stylists from the chosen slot, aligned.
-                    services: state.slot.stylists.map(function (a) { return a.service_id; }),
-                    stylists: state.slot.stylists.map(function (a) { return String(a.stylist_id); }),
-                    date: state.slot.date,
-                    time: state.slot.time,
+                    // Each added service exactly as scheduled: its own stylist
+                    // (resolved per slot, even for "any") and its own start.
+                    items: state.items.map(function (item) {
+                        return {
+                            service: item.service.id,
+                            stylist: String(item.slot.stylist_id),
+                            date: item.slot.date,
+                            time: item.slot.time,
+                        };
+                    }),
                     client: { name: name, phone: phone, email: $('bts-email').value.trim() || null },
                     notes: $('bts-notes').value.trim() || null,
                     token: TOKEN,
@@ -805,10 +754,11 @@
                     if (result.status === 201 && result.data.success) {
                         $('bts-confirmation').textContent = result.data.message;
                         show('confirmed');
-                    } else if (result.status === 409 && result.data.alternatives) {
-                        show('time');
-                        renderSlots(result.data.alternatives);
-                        error(I18N.taken);
+                    } else if (result.status === 409 && result.data.conflicts) {
+                        // Name the service(s) that need a new time; the summary
+                        // keeps everything so only those need re-picking.
+                        show('added');
+                        error(result.data.message || I18N.failed);
                     } else {
                         error(result.data.message || I18N.failed);
                     }
@@ -817,37 +767,30 @@
         }
 
         // -- wiring -----------------------------------------------------------
-        $('bts-continue').addEventListener('click', openTimeStep);
+        $('bts-add-more').addEventListener('click', startService);
+        $('bts-finalize').addEventListener('click', function () { show('details'); $('bts-name').focus(); });
         $('bts-form').addEventListener('submit', submit);
         $('bts-back').addEventListener('click', function () {
-            if (state.step === 'details') { show('time'); }
-            else if (state.step === 'time') { show('service'); renderServices(); }
+            if (state.step === 'details') { show('added'); }
+            else if (state.step === 'time') { renderStylists(); show('stylist'); }
+            else if (state.step === 'stylist') { startService(); }
         });
         $('bts-again').addEventListener('click', function () {
-            state.services = []; state.slot = null; state.stylist = 'any'; state.date = null;
-            state.mode = 'auto'; state.assignments = {};
+            state.items = []; state.draft = null; state.date = null;
             $('bts-form').reset();
             $('bts-slots').textContent = '';
             $('bts-day-label').classList.add('hidden');
-            renderServices();
-            renderStylistSelect();
-            show('service');
+            startService();
         });
 
-        renderServices();
-        renderStylistSelect();
+        startService();
         renderSummary();
 
-        // Deep-link: ?service=ID preselects it and jumps straight to scheduling.
+        // Deep-link: ?service=ID preselects it and jumps to its stylist step.
         var preselect = document.getElementById('bts-widget').getAttribute('data-preselect');
         if (preselect) {
             var found = CATALOGUE.find(function (s) { return String(s.id) === preselect; });
-            if (found) {
-                state.services = [found];
-                renderServices();
-                renderStylistSelect();
-                openTimeStep();
-            }
+            if (found) { pickService(found); }
         }
     })();
     </script>

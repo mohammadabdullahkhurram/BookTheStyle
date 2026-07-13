@@ -217,14 +217,23 @@ class WidgetController extends Controller
 
         try {
             $input = $request->validate([
-                'service' => ['required_without:services', 'integer'],
-                'services' => ['required_without:service', 'array', 'min:1', 'max:6'],
+                // Three visit shapes: the per-service loop (`items`, each with
+                // its own stylist + start), the back-to-back multi-select
+                // (`services[]` + one date/time), or the legacy single
+                // `service`.
+                'items' => ['required_without_all:service,services', 'array', 'min:1', 'max:6'],
+                'items.*.service' => ['required_with:items', 'integer'],
+                'items.*.stylist' => ['nullable', 'string', 'max:60'],
+                'items.*.date' => ['required_with:items', 'string', 'max:40'],
+                'items.*.time' => ['required_with:items', 'string', 'max:20'],
+                'service' => ['required_without_all:services,items', 'integer'],
+                'services' => ['required_without_all:service,items', 'array', 'min:1', 'max:6'],
                 'services.*' => ['integer'],
                 'stylist' => ['nullable', 'string', 'max:40'],
                 'stylists' => ['nullable', 'array', 'max:6'],
                 'stylists.*' => ['nullable', 'string', 'max:60'],
-                'date' => ['required', 'string', 'max:40'],
-                'time' => ['required', 'string', 'max:20'],
+                'date' => ['required_without:items', 'string', 'max:40'],
+                'time' => ['required_without:items', 'string', 'max:20'],
                 'client' => ['required', 'array'],
                 'client.name' => ['required', 'string', 'max:255'],
                 'client.phone' => ['required', 'string', 'max:50'],
@@ -253,6 +262,26 @@ class WidgetController extends Controller
         }
 
         try {
+            if (array_key_exists('items', $input) && is_array($input['items'])) {
+                $result = $this->api->createItinerary(
+                    $salon,
+                    [
+                        'items' => array_values(array_map(fn (array $item): array => [
+                            'service' => (int) $item['service'],
+                            'stylist' => $item['stylist'] ?? null,
+                            'date' => $item['date'],
+                            'time' => $item['time'],
+                        ], $input['items'])),
+                        'client' => $input['client'],
+                        'notes' => $input['notes'] ?? null,
+                    ],
+                    BookingSource::WebWidget,
+                    BookedByType::WebWidget,
+                );
+
+                return response()->json($result, $result['success'] ? 201 : 409);
+            }
+
             [$serviceIds, $assigned] = $this->visitSelection($input);
 
             $result = $this->api->createVisit(

@@ -259,6 +259,205 @@ class VoiceBookingApi
     }
 
     /**
+     * Book a visit of INDEPENDENTLY-TIMED appointments — the widget's
+     * per-service loop. Each item names its service, its own stylist (or
+     * "any") and its OWN start; gaps between items are fine, nothing is
+     * forced back-to-back. One booking per service linked by the visit
+     * group, through the same CreateBooking path (per-item explicit starts,
+     * locked re-validation, internal same-stylist overlap rejection, GHL
+     * push per booking).
+     *
+     * "any" resolves per item to a qualified stylist who is free at that
+     * item's start AND clear of the visit's own other items. A refusal names
+     * the exact items that need a new time (`conflicts`), both before
+     * booking and after losing a race under lock.
+     *
+     * @param  array{items: list<array{service: int|string, stylist?: string|int|null, date?: string|null, time?: string|null}>, client: array{name: string, phone?: string|null, email?: string|null}, notes?: string|null}  $input
+     * @return array<string, mixed>
+     */
+    public function createItinerary(
+        Salon $salon,
+        array $input,
+        BookingSource $source = BookingSource::WebWidget,
+        BookedByType $bookedBy = BookedByType::WebWidget,
+    ): array {
+        if ($input['items'] === []) {
+            throw ApiError::validation(__('Choose at least one service.'), 'no_services');
+        }
+
+        // Parse every item (service, qualified stylists, start) BEFORE any
+        // availability checks, so an idempotent replay of an already-booked
+        // visit is recognised instead of reading its own slots as taken.
+        $parsed = [];
+        foreach ($input['items'] as $index => $item) {
+            $service = $this->resolveService($salon, $item['service']);
+            $parsed[] = [
+                'index' => $index,
+                'service' => $service,
+                'qualified' => $this->resolveStylists($salon, $service, $item['stylist'] ?? null),
+                'start' => $this->resolveStart($salon, $item),
+            ];
+        }
+
+        $client = $this->resolveClient($salon, $input['client'], null);
+
+        // Idempotent retry: same client, same first service at the same start.
+        $existing = $salon->bookings()
+            ->where('client_id', $client->id)
+            ->where('status', '!=', BookingStatus::Cancelled->value)
+            ->whereHas('items', fn ($q) => $q
+                ->where('service_id', $parsed[0]['service']->id)
+                ->where('starts_at', $parsed[0]['start']->utc()))
+            ->first();
+
+        if ($existing !== null) {
+            return $this->visitConfirmation($salon, $existing->id, $this->persistedChain($salon, $existing), $parsed[0]['start'], idempotent: true);
+        }
+
+        // Now pick each item's stylist: free at that start and clear of the
+        // visit's OWN other items.
+        $legs = [];
+        $used = [];
+        $conflicts = [];
+
+        foreach ($parsed as $entry) {
+            $index = $entry['index'];
+            $service = $entry['service'];
+            $qualified = $entry['qualified'];
+            $start = $entry['start'];
+
+            $chosen = null;
+            $blocked = 0;
+
+            if ($this->engine->offerable($salon, $start)) {
+                foreach ($qualified as $stylist) {
+                    $minutes = $this->resolver->resolve($salon, $service, $stylist->id)->blockedMinutes();
+                    $end = $start->addMinutes($minutes);
+
+                    if ($this->overlapsAny($used[$stylist->id] ?? [], $start, $end)) {
+                        continue;
+                    }
+                    if (! $this->engine->isAvailable($salon, $stylist->id, $start, $minutes)) {
+                        continue;
+                    }
+
+                    $chosen = $stylist;
+                    $blocked = $minutes;
+                    break;
+                }
+            }
+
+            if ($chosen === null) {
+                $conflicts[] = [
+                    'index' => $index,
+                    'service' => $service->name,
+                    'message' => __(':service needs a new time — that slot is no longer available.', ['service' => $service->name]),
+                ];
+
+                continue;
+            }
+
+            $used[$chosen->id][] = [$start, $start->addMinutes($blocked)];
+            $legs[] = ['service' => $service, 'stylist' => $chosen, 'start' => $start];
+        }
+
+        if ($conflicts !== [] || $legs === []) {
+            return $this->itineraryConflict($conflicts !== [] ? $conflicts : [[
+                'index' => 0,
+                'service' => $parsed[0]['service']->name,
+                'message' => __('The visit could not be booked as scheduled. Adjust a time and try again.'),
+            ]]);
+        }
+
+        try {
+            $booking = $this->createBooking->handle(null, $salon, [
+                'client' => ['id' => $client->id],
+                // Explicit per-item starts: CreateBooking re-validates each
+                // under lock and rejects same-stylist internal overlaps.
+                'items' => array_map(fn (array $leg): array => [
+                    'service_id' => (int) $leg['service']->id,
+                    'stylist_id' => (int) $leg['stylist']->id,
+                    'start' => $leg['start']->format('Y-m-d H:i'),
+                ], $legs),
+                'start' => $legs[0]['start']->format('Y-m-d H:i'),
+                'notes' => isset($input['notes']) ? mb_substr((string) $input['notes'], 0, 1000) : null,
+            ], $source, $bookedBy);
+        } catch (ValidationException $e) {
+            // Lost a race under lock — re-check each leg to NAME the ones
+            // that now need a new time.
+            Log::info('Booking API itinerary refused by engine', [
+                'category' => 'engine',
+                'salon_id' => $salon->id,
+                'service_ids' => collect($legs)->map(fn (array $leg): int => (int) $leg['service']->id)->all(),
+                'errors' => array_keys($e->errors()),
+            ]);
+
+            $conflicts = [];
+            foreach ($legs as $index => $leg) {
+                $minutes = $this->resolver->resolve($salon, $leg['service'], $leg['stylist']->id)->blockedMinutes();
+
+                if (! $this->engine->isAvailable($salon, $leg['stylist']->id, $leg['start'], $minutes)) {
+                    $conflicts[] = [
+                        'index' => $index,
+                        'service' => $leg['service']->name,
+                        'message' => __(':service needs a new time — that slot is no longer available.', ['service' => $leg['service']->name]),
+                    ];
+                }
+            }
+
+            return $this->itineraryConflict($conflicts !== [] ? $conflicts : [[
+                'index' => 0,
+                'service' => $legs[0]['service']->name,
+                'message' => __('The visit could not be booked as scheduled. Adjust a time and try again.'),
+            ]]);
+        }
+
+        Log::info('Booking API created itinerary', [
+            'category' => 'engine',
+            'salon_id' => $salon->id,
+            'booking_id' => $booking->id,
+            'service_ids' => collect($legs)->map(fn (array $leg): int => (int) $leg['service']->id)->all(),
+            'stylist_ids' => collect($legs)->map(fn (array $leg): int => (int) $leg['stylist']->id)->unique()->values()->all(),
+        ]);
+
+        $legLabels = array_map(fn (array $leg): array => [
+            'service' => $leg['service']->name,
+            'stylist' => $leg['stylist']->name,
+            'time' => $leg['start']->setTimezone($salon->timezone)->format('D, M j · g:i A'),
+        ], $legs);
+
+        return $this->visitConfirmation($salon, $booking->id, $legLabels, $legs[0]['start']);
+    }
+
+    /**
+     * @param  non-empty-list<array{index: int, service: string, message: string}>  $conflicts
+     * @return array<string, mixed>
+     */
+    private function itineraryConflict(array $conflicts): array
+    {
+        return [
+            'success' => false,
+            'error' => 'slot_unavailable',
+            'conflicts' => $conflicts,
+            'message' => __('Some times are no longer available: :services. Pick new times for them.', [
+                'services' => collect($conflicts)->pluck('service')->unique()->join(', '),
+            ]),
+        ];
+    }
+
+    /** @param  list<array{0: CarbonImmutable, 1: CarbonImmutable}>  $intervals */
+    private function overlapsAny(array $intervals, CarbonImmutable $start, CarbonImmutable $end): bool
+    {
+        foreach ($intervals as [$usedStart, $usedEnd]) {
+            if ($start->lt($usedEnd) && $usedStart->lt($end)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * The chain to book at a SPECIFIC start: a single shared stylist when one
      * is free for the whole block (preference order), else a composed
      * multi-stylist arrangement — the same order the slot search offers.

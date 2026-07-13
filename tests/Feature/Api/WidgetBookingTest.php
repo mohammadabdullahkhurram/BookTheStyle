@@ -451,6 +451,111 @@ it('rejects a manual assignment of a stylist who does not perform that service',
 });
 
 // ---------------------------------------------------------------------------
+// Itineraries: the per-service loop (independently timed appointments)
+// ---------------------------------------------------------------------------
+
+/** A valid items-shaped book payload (per-service loop finalize). */
+function itineraryPayload(Salon $salon, array $items): array
+{
+    return [
+        'items' => $items,
+        'client' => ['name' => 'Loop Lucy', 'phone' => '+15550302'],
+        'token' => widgetToken($salon),
+        'website' => '',
+    ];
+}
+
+it('books independently timed appointments — own stylist and own start each, gaps allowed', function () {
+    [$salon, $stylistA, $haircut] = widgetSalon();
+    $stylistB = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
+    $colour = serviceFor($salon, $stylistB, 120);
+    $colour->update(['name' => 'Full colour']);
+
+    // Haircut with A at 10, colour with B at 2 — a 3-hour gap, NOT back-to-back.
+    $payload = itineraryPayload($salon, [
+        ['service' => $haircut->id, 'stylist' => (string) $stylistA->id, 'date' => '2026-06-22', 'time' => '10:00 AM'],
+        ['service' => $colour->id, 'stylist' => (string) $stylistB->id, 'date' => '2026-06-22', 'time' => '2:00 PM'],
+    ]);
+
+    $response = $this->postJson(route('salon.widget.book', ['salon' => $salon]), $payload)->assertCreated();
+    expect($response->json('confirmation.services'))->toBe(['Haircut', 'Full colour']);
+    expect($response->json('message'))->toContain('10:00 AM')->toContain('2:00 PM');
+
+    $bookings = $salon->bookings()->with('items')->get();
+    expect($bookings)->toHaveCount(2);
+    expect($bookings->pluck('visit_group_id')->unique())->toHaveCount(1);
+    expect($bookings->pluck('visit_group_id')->first())->not->toBeNull();
+
+    $items = $bookings->flatMap->items->sortBy('starts_at')->values();
+    expect($items[0]->starts_at->setTimezone($salon->timezone)->format('H:i'))->toBe('10:00');
+    expect($items[1]->starts_at->setTimezone($salon->timezone)->format('H:i'))->toBe('14:00');
+    expect($items->pluck('stylist_id')->all())->toBe([$stylistA->id, $stylistB->id]);
+    Bus::assertDispatched(SyncBookingToGhl::class, 2);
+
+    // Idempotent replay: the same visit again returns the same booking.
+    $this->postJson(route('salon.widget.book', ['salon' => $salon]), $payload)
+        ->assertCreated()
+        ->assertJsonPath('idempotent', true);
+    expect($salon->bookings()->count())->toBe(2);
+});
+
+it('rejects the same stylist double-booked across overlapping items, naming the service', function () {
+    [$salon, $stylist, $haircut] = widgetSalon();
+    $colour = serviceFor($salon, $stylist, 120);
+    $colour->update(['name' => 'Full colour']);
+
+    // Maya cuts 10:00–11:00; a 10:30 colour with Maya overlaps her own visit.
+    $response = $this->postJson(route('salon.widget.book', ['salon' => $salon]), itineraryPayload($salon, [
+        ['service' => $haircut->id, 'stylist' => (string) $stylist->id, 'date' => '2026-06-22', 'time' => '10:00 AM'],
+        ['service' => $colour->id, 'stylist' => (string) $stylist->id, 'date' => '2026-06-22', 'time' => '10:30 AM'],
+    ]))->assertStatus(409);
+
+    expect($response->json('error'))->toBe('slot_unavailable');
+    expect($response->json('conflicts.0.index'))->toBe(1);
+    expect($response->json('conflicts.0.service'))->toBe('Full colour');
+    expect($salon->bookings()->count())->toBe(0);
+});
+
+it('re-validates every item at finalize and flags exactly the one that lost its slot', function () {
+    [$salon, $stylistA, $haircut] = widgetSalon();
+    $stylistB = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
+    $colour = serviceFor($salon, $stylistB, 120);
+    $colour->update(['name' => 'Full colour']);
+
+    // Someone books B at 2 PM between slot display and finalize.
+    makeBooking($salon, salonOwnerOf($salon), $stylistB, $colour, '2026-06-22 14:00', 'Race winner');
+
+    $response = $this->postJson(route('salon.widget.book', ['salon' => $salon]), itineraryPayload($salon, [
+        ['service' => $haircut->id, 'stylist' => (string) $stylistA->id, 'date' => '2026-06-22', 'time' => '10:00 AM'],
+        ['service' => $colour->id, 'stylist' => (string) $stylistB->id, 'date' => '2026-06-22', 'time' => '2:00 PM'],
+    ]))->assertStatus(409);
+
+    expect($response->json('conflicts'))->toHaveCount(1);
+    expect($response->json('conflicts.0.index'))->toBe(1);
+    expect($response->json('conflicts.0.service'))->toBe('Full colour');
+    expect($response->json('message'))->toContain('Full colour');
+    // Nothing partial: the haircut was NOT booked either.
+    expect($salon->bookings()->where('client_id', '!=', null)->whereHas('client', fn ($q) => $q->where('name', 'Loop Lucy'))->count())->toBe(0);
+});
+
+it('resolves "any" per item around the visit\'s own other items', function () {
+    [$salon, $stylistA, $haircut] = widgetSalon();
+    $stylistB = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
+    $haircut->stylists()->attach($stylistB->id, ['salon_id' => $salon->id]);
+
+    // Two haircuts at the SAME time with "any": two different stylists.
+    $this->postJson(route('salon.widget.book', ['salon' => $salon]), itineraryPayload($salon, [
+        ['service' => $haircut->id, 'stylist' => 'any', 'date' => '2026-06-22', 'time' => '10:00 AM'],
+        ['service' => $haircut->id, 'stylist' => 'any', 'date' => '2026-06-22', 'time' => '10:00 AM'],
+    ]))->assertCreated();
+
+    $items = $salon->bookings()->with('items')->get()->flatMap->items;
+    expect($items)->toHaveCount(2);
+    expect($items->pluck('stylist_id')->sort()->values()->all())->toBe(collect([$stylistA->id, $stylistB->id])->sort()->values()->all());
+    expect($items->pluck('starts_at')->unique())->toHaveCount(1);
+});
+
+// ---------------------------------------------------------------------------
 // Inline availability calendar + month endpoint
 // ---------------------------------------------------------------------------
 
@@ -484,9 +589,13 @@ it('renders the solid branded split container with the inline calendar — no na
         ->assertSee('"2026-06-22"', false)
         // Times are labelled with the salon's timezone.
         ->assertSee('Times shown in', false)
-        // Manual mode is present but opt-in.
-        ->assertSee('Choose stylists per service', false)
-        ->assertSee('bts-manual-rows', false);
+        // The per-service loop: add-another + finalize live on the right;
+        // the left pane carries the live, removable visit summary.
+        ->assertSee('Finalize booking', false)
+        ->assertSee('Add another service', false)
+        ->assertSee('bts-item-lines', false)
+        ->assertSee('wb-remove', false)
+        ->assertSee('Your visit', false);
 });
 
 it('derives a readable foreground for whatever background the brand sets', function () {
