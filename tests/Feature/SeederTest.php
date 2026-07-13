@@ -55,7 +55,7 @@ it('shows the seeded agency owner an empty salon picker with the console entry',
 
     $this->actingAs($owner)->get(route('dashboard'))
         ->assertOk()
-        ->assertSee('Agency console')
+        ->assertSee('Agency dashboard')
         ->assertSee('No salons yet');
 });
 

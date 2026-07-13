@@ -6,7 +6,7 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
-new #[Title('Agency console')] class extends Component {
+new #[Title('Dashboard')] class extends Component {
     public function mount(): void
     {
         $this->authorize('accessConsole', $this->agency());

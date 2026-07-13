@@ -51,8 +51,8 @@
             <a href="{{ route('agency.overview') }}" wire:navigate
                class="flex items-center justify-between rounded-xl border border-accent/30 bg-accent-soft p-5 transition hover:border-accent">
                 <div>
-                    <flux:heading class="font-serif text-accent">{{ __('Agency console') }}</flux:heading>
-                    <flux:text class="text-sm text-secondary">{{ __('Manage salons and agency users.') }}</flux:text>
+                    <flux:heading class="font-serif text-accent">{{ __('Agency dashboard') }}</flux:heading>
+                    <flux:text class="text-sm text-secondary">{{ __('Salons, reporting, and users across the agency.') }}</flux:text>
                 </div>
                 <flux:icon.arrow-right class="text-accent" />
             </a>

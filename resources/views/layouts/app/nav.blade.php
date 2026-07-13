@@ -104,15 +104,47 @@
             <span x-show="!collapsed" x-cloak>{{ __('Salons') }}</span>
         </a>
         @if ($user?->isAgencyOperator())
+            {{-- Agency console nav: Dashboard → Salons → Reporting → Users. --}}
             <a href="{{ route('agency.overview') }}" wire:navigate @click="mobileNav = false"
-               aria-label="{{ __('Agency console') }}" :title="collapsed ? '{{ __('Agency console') }}' : null"
-               class="bts-nav-item {{ request()->routeIs('agency.*') ? 'bts-nav-item-active' : '' }}">
+               aria-label="{{ __('Dashboard') }}" :title="collapsed ? '{{ __('Dashboard') }}' : null"
+               class="bts-nav-item {{ request()->routeIs('agency.overview') ? 'bts-nav-item-active' : '' }}">
                 <flux:icon.building-office-2 variant="micro" class="shrink-0" />
-                <span x-show="!collapsed" x-cloak>{{ __('Agency console') }}</span>
+                <span x-show="!collapsed" x-cloak>{{ __('Dashboard') }}</span>
+            </a>
+            <a href="{{ route('agency.salons.index') }}" wire:navigate @click="mobileNav = false"
+               aria-label="{{ __('Salons') }}" :title="collapsed ? '{{ __('Salons') }}' : null"
+               class="bts-nav-item {{ request()->routeIs('agency.salons.*') ? 'bts-nav-item-active' : '' }}">
+                <flux:icon.scissors variant="micro" class="shrink-0" />
+                <span x-show="!collapsed" x-cloak>{{ __('Salons') }}</span>
+            </a>
+            <a href="{{ route('agency.reports') }}" wire:navigate @click="mobileNav = false"
+               aria-label="{{ __('Reporting') }}" :title="collapsed ? '{{ __('Reporting') }}' : null"
+               class="bts-nav-item {{ request()->routeIs('agency.reports') ? 'bts-nav-item-active' : '' }}">
+                <flux:icon.chart-bar variant="micro" class="shrink-0" />
+                <span x-show="!collapsed" x-cloak>{{ __('Reporting') }}</span>
+            </a>
+            <a href="{{ route('agency.users.index') }}" wire:navigate @click="mobileNav = false"
+               aria-label="{{ __('Users') }}" :title="collapsed ? '{{ __('Users') }}' : null"
+               class="bts-nav-item {{ request()->routeIs('agency.users.*') ? 'bts-nav-item-active' : '' }}">
+                <flux:icon.users variant="micro" class="shrink-0" />
+                <span x-show="!collapsed" x-cloak>{{ __('Users') }}</span>
             </a>
         @endif
     @endif
 </nav>
+
+{{-- New salon: the agency's primary action, pinned under its nav. --}}
+@if (! $salon && $user?->isAgencyOperator())
+    <div class="px-3 pb-1">
+        <a href="{{ route('agency.salons.create') }}" wire:navigate @click="mobileNav = false"
+           aria-label="{{ __('New salon') }}" :title="collapsed ? '{{ __('New salon') }}' : null"
+           class="bts-btn bts-btn-primary w-full"
+           :class="collapsed ? '!px-0' : ''">
+            <flux:icon.plus variant="micro" class="shrink-0" />
+            <span x-show="!collapsed" x-cloak>{{ __('New salon') }}</span>
+        </a>
+    </div>
+@endif
 
 {{-- New booking (salon context) --}}
 @if ($salon)
@@ -131,6 +163,15 @@
 
 {{-- Settings --}}
 <nav class="px-3 pb-2 pt-1" aria-label="{{ __('Settings') }}">
+    {{-- My calendar: every salon member's own iCal feed (personal, not admin). --}}
+    @if ($salon)
+        <a href="{{ route('salon.account', $salon) }}" wire:navigate @click="mobileNav = false"
+           aria-label="{{ __('My calendar') }}" :title="collapsed ? '{{ __('My calendar') }}' : null"
+           class="bts-nav-item {{ request()->routeIs('salon.account') ? 'bts-nav-item-active' : '' }}">
+            <flux:icon.calendar variant="micro" class="shrink-0" />
+            <span x-show="!collapsed" x-cloak>{{ __('My calendar') }}</span>
+        </a>
+    @endif
     {{-- Setup wizard: managers, until the salon is marked live. --}}
     @if ($salon && $user?->can('manage', $salon) && $salon->onboarded_at === null)
         <a href="{{ route('salon.onboarding', $salon) }}" wire:navigate @click="mobileNav = false"

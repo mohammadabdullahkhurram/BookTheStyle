@@ -39,5 +39,5 @@ it('renders the dashboard for an agency operator and a salon staff member', func
     $salon = Salon::factory()->for($agency)->create();
     $owner = User::factory()->create(['agency_id' => $agency->id, 'agency_role' => AgencyRole::Owner]);
 
-    $this->actingAs($owner)->get(route('dashboard'))->assertOk()->assertSee('Agency console');
+    $this->actingAs($owner)->get(route('dashboard'))->assertOk()->assertSee('Agency dashboard');
 });

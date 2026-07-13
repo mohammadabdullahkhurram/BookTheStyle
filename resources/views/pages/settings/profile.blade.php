@@ -55,7 +55,8 @@ new #[Title('Profile settings')] class extends Component {
 
         <livewire:pages::settings.stylist-bio />
 
-        <livewire:pages::settings.calendar-feed />
+        {{-- The personal calendar feed lives salon-side now (My calendar in
+             each salon) — it belongs to a member's day-to-day salon context. --}}
 
         <livewire:pages::settings.delete-user-form />
     </x-pages::settings.layout>

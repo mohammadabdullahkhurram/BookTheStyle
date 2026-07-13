@@ -68,6 +68,7 @@ Route::domain($app)->middleware(['auth'])->group(function () {
         Route::livewire('salons', 'pages::agency.salons.index')->name('salons.index');
         Route::livewire('salons/create', 'pages::agency.salons.create')->name('salons.create');
         Route::livewire('salons/{salon}/edit', 'pages::agency.salons.edit')->name('salons.edit');
+        Route::livewire('reports', 'pages::agency.reports')->name('reports');
         Route::livewire('users', 'pages::agency.users.index')->name('users.index');
         Route::livewire('users/create', 'pages::agency.users.create')->name('users.create');
         Route::livewire('users/{user}/edit', 'pages::agency.users.edit')->name('users.edit');
@@ -167,6 +168,7 @@ Route::domain('{salon}.'.$central)->middleware(['auth', 'resolve.salon'])->group
     Route::livewire('reports', 'pages::salon.reports')->name('salon.reports');
     Route::livewire('settings', 'pages::salon.settings')->name('salon.settings');
     Route::livewire('widgets', 'pages::salon.widgets')->name('salon.widgets');
+    Route::livewire('account', 'pages::salon.account')->name('salon.account');
     // TEMPORARY: design-direction gallery (owner/admin) — removed once a
     // direction is chosen and rolled out app-wide.
     Route::livewire('ui-ux', 'pages::salon.uiux')->name('salon.uiux');

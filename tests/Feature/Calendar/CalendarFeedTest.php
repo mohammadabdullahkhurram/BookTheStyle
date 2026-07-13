@@ -259,10 +259,24 @@ it('lets a user generate, view and revoke their feed from the account panel', fu
     $this->get($url)->assertNotFound();
 });
 
-it('shows the personal calendar panel on the profile page', function () {
+it('hosts the personal calendar panel salon-side (My calendar), not on the profile page', function () {
     $salon = Salon::factory()->create();
-    $this->actingAs(stylistOf($salon))
+    $stylist = stylistOf($salon);
+
+    // Moved OUT of the account/profile settings on the app host…
+    $this->actingAs($stylist)
         ->get(route('profile.edit'))
         ->assertOk()
+        ->assertDontSee('Personal calendar');
+
+    // …and INTO the salon-side My calendar page, open to every member.
+    $this->actingAs($stylist)
+        ->get(route('salon.account', $salon))
+        ->assertOk()
+        ->assertSee('My calendar')
         ->assertSee('Personal calendar');
+
+    // Non-members never reach it (membership enforced by ResolveSalon).
+    $outsider = stylistOf(Salon::factory()->create());
+    $this->actingAs($outsider)->get(route('salon.account', $salon))->assertForbidden();
 });
