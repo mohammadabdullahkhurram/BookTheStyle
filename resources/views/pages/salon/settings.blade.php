@@ -25,12 +25,16 @@ use App\Support\Money;
 use App\Support\SalonProfile;
 use Flux\Flux;
 use Illuminate\Validation\Rule;
+use App\Support\WidgetBranding;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 new #[Title('Salon settings')] class extends Component {
+    use WithFileUploads;
+
     public Salon $salon;
 
     #[Validate('boolean')]
@@ -57,6 +61,18 @@ new #[Title('Salon settings')] class extends Component {
 
     #[Validate('nullable|regex:/^#[0-9a-fA-F]{6}$/')]
     public string $accent = '';
+
+    // Widget branding (settings → Branding): colours, font, and logo upload.
+    #[Validate('nullable|regex:/^#[0-9a-fA-F]{6}$/')]
+    public string $brandSecondary = '';
+
+    #[Validate('nullable|regex:/^#[0-9a-fA-F]{6}$/')]
+    public string $brandSurface = '';
+
+    public string $brandFont = '';
+
+    /** @var \Livewire\Features\SupportFileUploads\TemporaryUploadedFile|null */
+    public $logo = null;
 
     /** @var array<string, bool> */
     public array $flags = [];
@@ -148,6 +164,9 @@ new #[Title('Salon settings')] class extends Component {
         $this->auto_complete = $salon->auto_complete;
 
         $this->accent = $salon->accentColor() ?? '';
+        $this->brandSecondary = $salon->branding['secondary'] ?? '';
+        $this->brandSurface = $salon->branding['surface'] ?? '';
+        $this->brandFont = $salon->branding['font'] ?? WidgetBranding::DEFAULT_FONT;
 
         foreach (array_keys($this->catalog()) as $key) {
             $this->flags[$key] = $salon->hasFeature($key);
@@ -643,12 +662,54 @@ new #[Title('Salon settings')] class extends Component {
 
         $this->validate([
             'accent' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'brandSecondary' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'brandSurface' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'brandFont' => ['nullable', 'in:'.implode(',', array_keys(WidgetBranding::FONTS))],
+            'logo' => ['nullable', 'image', 'mimes:png,jpg,jpeg,webp,svg', 'max:1024'],
         ]);
 
-        $action->handle($this->salon, ['accent' => $this->accent ?: null]);
+        $data = [
+            'accent' => $this->accent ?: null,
+            'secondary' => $this->brandSecondary ?: null,
+            'surface' => $this->brandSurface ?: null,
+            'font' => $this->brandFont ?: null,
+        ];
+
+        if ($this->logo !== null) {
+            $data['logo_path'] = $this->logo->store('branding/'.$this->salon->id, 'public');
+        }
+
+        $action->handle($this->salon, $data);
+        $this->logo = null;
         $this->salon->refresh();
 
         Flux::toast(variant: 'success', text: __('Branding saved.'));
+    }
+
+    /** Remove the uploaded widget logo (the file is deleted too). */
+    public function removeLogo(UpdateBranding $action): void
+    {
+        $this->authorize('manage', $this->salon);
+
+        $action->handle($this->salon, ['remove_logo' => true]);
+        $this->logo = null;
+        $this->salon->refresh();
+
+        Flux::toast(variant: 'success', text: __('Logo removed.'));
+    }
+
+    /** AA-style contrast warning for the picked brand colours (widget CTA is white-on-accent). */
+    #[Computed]
+    public function brandingContrastWarning(): ?string
+    {
+        $accent = $this->accent ?: '#824C71';
+
+        if (preg_match('/^#[0-9a-fA-F]{6}$/', $accent) === 1
+            && WidgetBranding::contrast($accent, '#FFFFFF') < 4.5) {
+            return __('The accent is light — white button text on it falls below 4.5:1 contrast. Consider a deeper shade.');
+        }
+
+        return null;
     }
 
     /**
@@ -867,8 +928,46 @@ new #[Title('Salon settings')] class extends Component {
                     </div>
                 </div>
 
-                <flux:input wire:model="accent" :label="__('Accent color')" :description="__('Hex color, e.g. #824C71. Sets this salon\'s brand accent.')" placeholder="#824C71" />
-                <div><x-ui.button type="submit">{{ __('Save branding') }}</x-ui.button></div>
+                <flux:input wire:model="accent" :label="__('Accent color')" :description="__('Hex color, e.g. #824C71. Sets this salon\'s brand accent — the widget\'s buttons and highlights.')" placeholder="#824C71" />
+
+                @if ($this->brandingContrastWarning)
+                    <p class="rounded-[10px] px-3 py-2 text-[13.5px]" style="background:#FBEFD6;color:#8A5A1E">{{ $this->brandingContrastWarning }}</p>
+                @endif
+
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <flux:input wire:model="brandSecondary" :label="__('Secondary color')" :description="__('A warm supporting tint in the widget backdrop. Blank = the default clay.')" placeholder="{{ \App\Support\WidgetBranding::DEFAULT_SECONDARY }}" />
+                    <flux:input wire:model="brandSurface" :label="__('Background color')" :description="__('The widget\'s base surface. Blank = the default warm paper.')" placeholder="{{ \App\Support\WidgetBranding::DEFAULT_SURFACE }}" />
+                </div>
+
+                <flux:select wire:model="brandFont" :label="__('Widget font')" :description="__('The type the booking widget renders in.')">
+                    @foreach (\App\Support\WidgetBranding::FONTS as $key => $font)
+                        <flux:select.option value="{{ $key }}">{{ $font['label'] }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+
+                {{-- Logo: upload with preview; used on the booking widget. --}}
+                <div class="flex flex-col gap-2">
+                    <div class="bts-field-label">{{ __('Logo') }}</div>
+                    @php($brandingTheme = \App\Support\WidgetBranding::for($salon))
+                    @if ($logo && $logo->isPreviewable())
+                        <img src="{{ $logo->temporaryUrl() }}" alt="{{ __('Logo preview') }}" class="max-h-14 w-auto max-w-[220px] rounded-[8px] border border-border object-contain p-1" />
+                        <p class="text-[12.5px] text-faint">{{ __('Preview — save to apply.') }}</p>
+                    @elseif ($brandingTheme['logo_url'])
+                        <div class="flex items-center gap-3">
+                            <img src="{{ $brandingTheme['logo_url'] }}" alt="{{ __('Current logo') }}" class="max-h-14 w-auto max-w-[220px] rounded-[8px] border border-border object-contain p-1" />
+                            <button type="button" wire:click="removeLogo"
+                                    wire:confirm="{{ __('Remove the logo? The widget shows the salon name alone until a new one is uploaded.') }}"
+                                    class="text-[13px] font-medium text-secondary transition hover:text-danger">{{ __('Remove') }}</button>
+                        </div>
+                    @endif
+                    <input type="file" wire:model="logo" accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                           class="text-[14px] file:mr-3 file:rounded-[9px] file:border file:border-input-border file:bg-field file:px-3 file:py-1.5 file:text-[13px] file:font-semibold file:text-body" />
+                    <p class="text-[12.5px] text-faint">{{ __('PNG, JPG, WebP or SVG, up to 1 MB. Shown at the top of your booking widget.') }}</p>
+                    @error('logo') <p class="text-[13px] text-danger">{{ $message }}</p> @enderror
+                    <div wire:loading wire:target="logo" class="text-[12.5px] text-faint">{{ __('Uploading…') }}</div>
+                </div>
+
+                <div><x-ui.button type="submit" loading="saveBranding">{{ __('Save branding') }}</x-ui.button></div>
             </form>
         </x-ui.card>
 

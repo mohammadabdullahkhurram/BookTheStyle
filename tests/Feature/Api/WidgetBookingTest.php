@@ -8,10 +8,13 @@ use App\Models\Salon;
 use App\Models\SalonMembership;
 use App\Models\Service;
 use App\Models\User;
+use App\Support\WidgetBranding;
 use Carbon\CarbonImmutable;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Storage;
 
 /*
 | The embeddable public booking widget: slug-scoped public endpoints over the
@@ -114,7 +117,7 @@ it('lists only the salon own bookable services with public fields', function () 
     expect($response->json('salon'))->toBe(['name' => $salonA->name, 'timezone' => $salonA->timezone]);
     expect(collect($response->json('services'))->pluck('name')->all())->toBe(['Haircut']);
     expect($response->json('services.0.price'))->toBe('$45');
-    expect(array_keys($response->json('services.0')))->toBe(['id', 'name', 'duration_minutes', 'price', 'stylists']);
+    expect(array_keys($response->json('services.0')))->toBe(['id', 'name', 'duration_minutes', 'price', 'price_cents', 'stylists']);
     expect(array_keys($response->json('services.0.stylists.0')))->toBe(['id', 'name']);
     expect($response->content())->not->toContain('Beard trim');
 });
@@ -242,4 +245,134 @@ it('shows the embed snippets with the salon slug in settings', function () {
         ->assertSee('data-bookthestyle-salon="'.$salon->slug.'"')
         ->assertSee(route('widget.script'))
         ->assertSee(route('salon.widget', $salon));
+});
+
+// ---------------------------------------------------------------------------
+// Multi-service visits (Vitrine × Duet widget)
+// ---------------------------------------------------------------------------
+
+it('computes availability for the FULL multi-service visit — no under-booking', function () {
+    [$salon, $stylist] = widgetSalon(); // Haircut, 60 min, Mon 9–5
+    $colour = serviceFor($salon, $stylist, 120);
+    $colour->update(['name' => 'Full colour', 'price_cents' => 9500]);
+
+    // A 60-min blocker at 14:00 leaves free stretches 9–14 and 15–17.
+    makeBooking($salon, salonOwnerOf($salon), $stylist, $salon->services()->where('name', 'Haircut')->firstOrFail(), '2026-06-22 14:00', 'Blocker');
+
+    config(['booking_api.max_slots_per_day' => 50]);
+
+    $ids = $salon->services()->pluck('id')->all();
+    $query = http_build_query(['stylist' => 'any', 'date' => '2026-06-22']);
+    foreach ($ids as $id) {
+        $query .= '&services[]='.$id;
+    }
+
+    $times = collect($this->getJson(route('salon.widget.availability', ['salon' => $salon]).'?'.$query)
+        ->assertOk()
+        ->json('slots'))->pluck('time');
+
+    // The 3-hour visit fits only when it ENDS by 14:00 (9:00–11:00 starts).
+    expect($times)->toContain('9:00 AM');
+    expect($times)->toContain('11:00 AM');
+    // A single service would fit at these — the whole visit does not.
+    expect($times)->not->toContain('12:00 PM');
+    expect($times)->not->toContain('1:00 PM');
+    expect($times)->not->toContain('3:00 PM'); // would run past close
+
+    // The offered duration is the combined visit length.
+    $response = $this->getJson(route('salon.widget.availability', ['salon' => $salon]).'?'.$query)->json();
+    expect($response['slots'][0]['duration_minutes'])->toBe(180);
+});
+
+it('books a multi-service visit through the engine: back-to-back items, one visit group, GHL push', function () {
+    [$salon, $stylist, $haircut] = widgetSalon();
+    $colour = serviceFor($salon, $stylist, 120);
+    $colour->update(['name' => 'Full colour']);
+
+    $payload = widgetPayload($salon, ['services' => [$haircut->id, $colour->id], 'time' => '9:00 AM']);
+    unset($payload['service']);
+
+    $this->postJson(route('salon.widget.book', ['salon' => $salon]), $payload)->assertCreated()
+        ->assertJsonPath('success', true)
+        ->assertJsonPath('confirmation.services', ['Haircut', 'Full colour']);
+
+    // One visit: a booking per service, linked by the visit group, laid
+    // back-to-back with the same stylist.
+    $bookings = $salon->bookings()->with('items')->get();
+    expect($bookings)->toHaveCount(2);
+    expect($bookings->pluck('visit_group_id')->unique())->toHaveCount(1);
+    expect($bookings->pluck('visit_group_id')->first())->not->toBeNull();
+
+    $items = $bookings->flatMap->items->sortBy('starts_at')->values();
+    expect($items[0]->starts_at->setTimezone($salon->timezone)->format('H:i'))->toBe('09:00');
+    expect($items[1]->starts_at->setTimezone($salon->timezone)->format('H:i'))->toBe('10:00');
+    expect($items->pluck('stylist_id')->unique()->all())->toBe([$stylist->id]);
+
+    expect($bookings->first()->source)->toBe(BookingSource::WebWidget);
+    Bus::assertDispatched(SyncBookingToGhl::class, 2);
+});
+
+it('refuses a multi-service slot that only fits the first service', function () {
+    [$salon, $stylist, $haircut] = widgetSalon();
+    $colour = serviceFor($salon, $stylist, 120);
+
+    // 3:00 PM: the 60-min haircut fits, the 3-hour visit runs past 5 PM close.
+    $payload = widgetPayload($salon, ['services' => [$haircut->id, $colour->id], 'time' => '3:00 PM']);
+    unset($payload['service']);
+
+    $this->postJson(route('salon.widget.book', ['salon' => $salon]), $payload)->assertStatus(409)
+        ->assertJsonPath('success', false)
+        ->assertJsonPath('error', 'slot_unavailable');
+
+    expect($salon->bookings()->count())->toBe(0);
+});
+
+it('rejects a service combination no single stylist can perform', function () {
+    [$salon, $stylist, $haircut] = widgetSalon();
+    $other = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
+    $onlyOther = serviceFor($salon, $other, 30); // only the second stylist
+
+    $query = 'services[]='.$haircut->id.'&services[]='.$onlyOther->id.'&stylist=any&date=2026-06-22';
+
+    $this->getJson(route('salon.widget.availability', ['salon' => $salon]).'?'.$query)
+        ->assertStatus(422)
+        ->assertJsonPath('error', 'no_shared_stylist');
+});
+
+// ---------------------------------------------------------------------------
+// Branding on the widget page
+// ---------------------------------------------------------------------------
+
+it('themes the widget page from the salon branding by slug', function () {
+    [$salon] = widgetSalon();
+    Storage::fake('public');
+    $path = UploadedFile::fake()->image('logo.png', 300, 100)->store('branding/'.$salon->id, 'public');
+
+    $salon->update(['branding' => [
+        'accent' => '#2F5D7C',
+        'secondary' => '#C2A15A',
+        'surface' => '#F2EFE9',
+        'font' => 'modern',
+        'logo_path' => $path,
+    ]]);
+
+    $this->get(route('salon.widget', $salon))
+        ->assertOk()
+        ->assertSee('--accent: #2F5D7C', false)
+        ->assertSee('--wb-secondary: #C2A15A', false)
+        ->assertSee('--wb-surface: #F2EFE9', false)
+        ->assertSee("--wb-display: 'Schibsted Grotesk'", false)
+        ->assertSee('/storage/'.$path, false);
+});
+
+it('renders the widget with sensible defaults when no branding is set', function () {
+    [$salon] = widgetSalon();
+
+    $this->get(route('salon.widget', $salon))
+        ->assertOk()
+        ->assertSee('--wb-secondary: '.WidgetBranding::DEFAULT_SECONDARY, false)
+        ->assertSee('--wb-surface: '.WidgetBranding::DEFAULT_SURFACE, false)
+        ->assertSee("--wb-display: 'Fraunces'", false)
+        ->assertSee('wb-duet', false)   // Duet split layout
+        ->assertSee('wb-glass', false); // Vitrine glass surfaces
 });

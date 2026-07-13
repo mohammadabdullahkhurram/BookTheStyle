@@ -11,6 +11,7 @@ use App\Services\BookingApi\ApiError;
 use App\Services\BookingApi\VoiceBookingApi;
 use App\Support\AccentPalette;
 use App\Support\Money;
+use App\Support\WidgetBranding;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -47,8 +48,11 @@ class WidgetController extends Controller
 
         return response()->view('widget.page', [
             'salon' => $salon,
-            'accent' => AccentPalette::resolve($this->accentOverride($request) ?? $salon->accentColor()),
+            // Full widget branding (accent set, secondary, surface, font,
+            // logo), with the validated ?accent= override still honoured.
+            'branding' => WidgetBranding::for($salon, $this->accentOverride($request)),
             'catalogue' => $this->catalogue($salon),
+            'currency' => $salon->currency,
             'preselectService' => ctype_digit((string) $request->query('service')) ? (int) $request->query('service') : null,
             'widgetToken' => $this->issueToken($salon),
             'maxDate' => now($salon->timezone)
@@ -82,7 +86,7 @@ class WidgetController extends Controller
      * stylist performs — name, base duration, display price, and the
      * qualified stylists. Nothing else is ever public.
      *
-     * @return list<array{id: int, name: string, duration_minutes: int, price: string|null, stylists: non-empty-array<int, array{id: int, name: string}>}>
+     * @return list<array{id: int, name: string, duration_minutes: int, price: string|null, price_cents: int|null, stylists: non-empty-array<int, array{id: int, name: string}>}>
      */
     private function catalogue(Salon $salon): array
     {
@@ -110,6 +114,9 @@ class WidgetController extends Controller
                     'name' => $service->name,
                     'duration_minutes' => (int) $service->duration_min,
                     'price' => Money::format($service->price_cents, $salon->currency),
+                    // Raw cents so the widget can sum a running visit total
+                    // client-side (display prices are already public).
+                    'price_cents' => $service->price_cents !== null ? (int) $service->price_cents : null,
                     'stylists' => $stylists,
                 ];
             })
@@ -117,19 +124,29 @@ class WidgetController extends Controller
             ->all());
     }
 
-    /** Open slots for one service/stylist/date — straight from the shared engine. */
+    /**
+     * Open slots for a visit (one OR MORE services) on a date — straight from
+     * the shared engine, always for the FULL visit span. Accepts the legacy
+     * single `service` param or the multi-select `services[]`.
+     */
     public function availability(Request $request, string $salon): JsonResponse
     {
         $salon = $this->salon($salon);
 
         try {
             $input = $request->validate([
-                'service' => ['required', 'integer'],
+                'service' => ['required_without:services', 'integer'],
+                'services' => ['required_without:service', 'array', 'min:1', 'max:6'],
+                'services.*' => ['integer'],
                 'stylist' => ['nullable', 'string', 'max:40'],
                 'date' => ['required', 'string', 'max:40'],
             ]);
 
-            return response()->json($this->api->availability($salon, $input));
+            return response()->json($this->api->visitAvailability($salon, [
+                'services' => $this->serviceIds($input),
+                'stylist' => $input['stylist'] ?? null,
+                'date' => $input['date'],
+            ]));
         } catch (ApiError $e) {
             return $this->refused($salon, 'availability', $e);
         } catch (ValidationException $e) {
@@ -144,7 +161,9 @@ class WidgetController extends Controller
 
         try {
             $input = $request->validate([
-                'service' => ['required', 'integer'],
+                'service' => ['required_without:services', 'integer'],
+                'services' => ['required_without:service', 'array', 'min:1', 'max:6'],
+                'services.*' => ['integer'],
                 'stylist' => ['nullable', 'string', 'max:40'],
                 'date' => ['required', 'string', 'max:40'],
                 'time' => ['required', 'string', 'max:20'],
@@ -176,10 +195,10 @@ class WidgetController extends Controller
         }
 
         try {
-            $result = $this->api->create(
+            $result = $this->api->createVisit(
                 $salon,
                 [
-                    'service' => (int) $input['service'],
+                    'services' => $this->serviceIds($input),
                     'stylist' => $input['stylist'] ?? null,
                     'date' => $input['date'],
                     'time' => $input['time'],
@@ -194,6 +213,22 @@ class WidgetController extends Controller
         } catch (ApiError $e) {
             return $this->refused($salon, 'book', $e);
         }
+    }
+
+    /**
+     * The requested visit's service ids: `services[]` (multi-select), or the
+     * legacy single `service` wrapped as a one-item visit.
+     *
+     * @param  array<string, mixed>  $input
+     * @return list<int>
+     */
+    private function serviceIds(array $input): array
+    {
+        $ids = array_key_exists('services', $input) && is_array($input['services'])
+            ? $input['services']
+            : [$input['service']];
+
+        return array_values(array_unique(array_map(fn ($id): int => (int) $id, $ids)));
     }
 
     // -- Bot gate -----------------------------------------------------------

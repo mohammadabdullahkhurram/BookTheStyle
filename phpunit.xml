@@ -18,6 +18,9 @@
         </include>
     </source>
     <php>
+        <!-- The suite renders several very large views (the temporary design
+             galleries); the CLI default 128M is too tight for the full run. -->
+        <ini name="memory_limit" value="512M"/>
         <env name="APP_ENV" value="testing"/>
         <!-- Mirror local dev: a registrable loopback domain (lvh.me -> 127.0.0.1,
              wildcard subdomains) so the session cookie is shareable across
