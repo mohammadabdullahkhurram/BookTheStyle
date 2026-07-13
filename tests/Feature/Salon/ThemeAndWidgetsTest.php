@@ -160,16 +160,47 @@ it('removes the UI/UX gallery: no route, no nav item, no page', function () {
 });
 
 // ---------------------------------------------------------------------------
-// Agency console = Glacier
+// Agency console = the BRAND (landing) palette
 // ---------------------------------------------------------------------------
 
-it('renders the agency console under Glacier', function () {
+it('renders the agency console under the BRAND palette, not Glacier', function () {
     $agency = Agency::factory()->create();
     $owner = User::factory()->create(['agency_id' => $agency->id, 'agency_role' => AgencyRole::Owner]);
 
-    $this->actingAs($owner)->get(route('agency.overview'))
-        ->assertOk()
-        ->assertSee('data-theme="glacier"', false);
+    foreach (['agency.overview', 'agency.salons.index', 'agency.reports', 'agency.users.index'] as $routeName) {
+        $this->actingAs($owner)->get(route($routeName))
+            ->assertOk()
+            ->assertSee('data-theme="brand"', false)
+            ->assertDontSee('data-theme="glacier"', false);
+    }
+});
+
+it('captures the EXACT landing palette as the brand theme: base tokens on white, AA throughout', function () {
+    // The landing page is built on the base token set — assert the brand
+    // block only lifts the ground to white, and that the base values it
+    // inherits are the landing's exact colours.
+    $css = file_get_contents(resource_path('css/app.css'));
+    expect($css)->toContain("body[data-theme='brand']")
+        ->toContain("body[data-theme='brand'] .bts-glass-panel")
+        ->toContain('0 24px 60px rgb(28 27 26 / 0.1)') // the landing card shadow
+        ->toContain('--accent: #824c71')   // landing accent (base token)
+        ->toContain('--color-ink: #211c18')
+        ->toContain('--color-body: #57504a');
+
+    // AA on the white brand ground.
+    $contrast = fn (string $a, string $b): float => WidgetBranding::contrast($a, $b);
+    foreach (['#211C18', '#57504A', '#6C645C', '#746C62'] as $text) {
+        expect($contrast($text, '#FFFFFF'))->toBeGreaterThanOrEqual(4.5);
+    }
+    expect($contrast('#FFFFFF', '#824C71'))->toBeGreaterThanOrEqual(4.5); // buttons
+    expect($contrast('#6B3358', '#F5EAF0'))->toBeGreaterThanOrEqual(4.5); // tint pills
+
+    // Brand is context-applied (front door + agency), never picker-offered.
+    expect(ThemeRegistry::THEMES['brand']['status'])->toBe('available');
+    expect(ThemeRegistry::selectable('brand', ThemeRegistry::SCOPE_APP))->toBeFalse();
+    expect(ThemeRegistry::selectable('brand', ThemeRegistry::SCOPE_WIDGET))->toBeFalse();
+    // Glacier stays a registry option, just no longer wired to the agency.
+    expect(ThemeRegistry::THEMES['glacier']['status'])->toBe('available');
 });
 
 // ---------------------------------------------------------------------------

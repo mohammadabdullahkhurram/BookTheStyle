@@ -34,11 +34,19 @@ it('renders lumen on the proof routes for CLASSIC salons only', function () {
     expect(LumenTheme::ROUTES)->toBe(['salon.show', 'salon.appointments.all']);
 });
 
-it('renders the login page under Marble — the app standard outside a salon', function () {
+it('renders the auth screens under the BRAND (landing) palette, not the salon theme', function () {
+    // Every auth screen shares the one auth layout, so the front door — the
+    // login, password reset, invite accept, 2FA challenge — matches the
+    // public landing palette rather than any salon app theme.
     $this->get(route('login'))
         ->assertOk()
-        ->assertSee('data-theme="marble"', false)
-        ->assertSee('bts-glass-panel', false); // the panel restyles per theme
+        ->assertSee('data-theme="brand"', false)
+        ->assertDontSee('data-theme="marble"', false)
+        ->assertSee('bts-glass-panel', false); // the landing-card panel
+
+    $this->get(route('password.request'))
+        ->assertOk()
+        ->assertSee('data-theme="brand"', false);
 });
 
 it('ships the lumen token layer: light glass spec, warm mesh, AA-verified blends', function () {

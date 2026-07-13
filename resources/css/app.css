@@ -369,6 +369,40 @@
     }
 
     /* ────────────────────────────────────────────────────────────────────
+       BRAND — the public landing palette (ThemeRegistry key 'brand'), used
+       by every auth screen and the agency console so the front door and the
+       operator side match the marketing site EXACTLY. The landing page is
+       built on the BASE token set — plum accent #824C71 (hover #6D3C5E,
+       tint #F5EAF0, ink #6B3358), ink #211C18, body #57504A, secondary
+       #6C645C, faint #746C62, sand borders #EAE4DB, Fraunces display — on a
+       clean WHITE ground (the landing body is bg-card, not paper). So this
+       block only lifts the ground to white and gives panels the landing's
+       card treatment. AA on white: ink 16.9 / body 7.9 / secondary 5.8 /
+       faint 5.2; white 6.5 on the plum.
+       ──────────────────────────────────────────────────────────────────── */
+    body[data-theme='brand'] {
+        --color-paper: #ffffff;
+        --color-app: #ffffff;
+    }
+    /* The landing's hero card: white, hairline sand border, the landing's
+       big soft shadow (0 24px 60px @ 10% ink) — used by the auth panel. */
+    body[data-theme='brand'] .bts-glass-panel {
+        background-color: var(--color-card);
+        border: 1px solid var(--color-border);
+        border-radius: 20px;
+        box-shadow: 0 24px 60px rgb(28 27 26 / 0.1);
+        padding: 2rem;
+    }
+    body[data-theme='brand'] .bts-stat {
+        border-top: 0;
+        background-color: var(--color-card);
+        border: 1px solid var(--color-border);
+        border-radius: 16px;
+        box-shadow: 0 12px 32px rgb(28 27 26 / 0.06);
+        padding: 16px 18px;
+    }
+
+    /* ────────────────────────────────────────────────────────────────────
        GLACIER — full liquid glass (ThemeRegistry key 'glacier'; gallery
        direction 11). The AGENCY console language: colour blooms under
        frosted glass chrome. AA: ink 14.0:1 / body 7.0:1 / faint 5.3:1 on

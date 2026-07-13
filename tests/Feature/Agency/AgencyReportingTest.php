@@ -152,7 +152,7 @@ it('gates agency reporting to the console: agency operators in, salon staff out'
     $this->actingAs(reportingAgencyOwner($agency))->get(route('agency.reports'))
         ->assertOk()
         ->assertSee('Reporting')
-        ->assertSee('data-theme="glacier"', false); // Glacier on the agency shell
+        ->assertSee('data-theme="brand"', false); // the landing palette on the agency shell
 
     // Salon staff (no agency role) never reach agency reporting.
     $this->actingAs(salonOwnerOf($salon))->get(route('agency.reports'))->assertForbidden();

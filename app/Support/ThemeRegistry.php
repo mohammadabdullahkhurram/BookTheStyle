@@ -50,9 +50,16 @@ final class ThemeRegistry
             'scopes' => [self::SCOPE_APP],
             'swatches' => ['#F6F5F3', '#824C71', '#1C1B1A'],
         ],
+        'brand' => [
+            'name' => 'Brand',
+            'description' => 'The public landing palette: the classic plum-and-umber token set on clean white — the front door and the agency console.',
+            'status' => 'available',
+            'scopes' => [self::SCOPE_AGENCY],
+            'swatches' => ['#FFFFFF', '#824C71', '#211C18'],
+        ],
         'glacier' => [
             'name' => 'Glacier',
-            'description' => 'Full liquid glass over soft colour blooms — the agency console language.',
+            'description' => 'Full liquid glass over soft colour blooms.',
             'status' => 'available',
             'scopes' => [self::SCOPE_AGENCY],
             'swatches' => ['#F3F1EE', '#824C71', '#5B92BD'],
