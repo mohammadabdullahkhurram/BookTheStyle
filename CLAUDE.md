@@ -23,6 +23,7 @@ BookTheStyle — a multi-tenant salon booking platform. One **agency** operates 
 7. **GHL:** you may web-search the current GHL API docs, but verify against live docs and surface assumptions — never hardcode unverified endpoints.
 8. **You may commit and push to GitHub. You may NOT deploy** — Hostinger deploys are manual and triggered by the owner.
 9. **No public self-registration.** Staff are created by admins: invite → temporary password → forced change on first login.
+10. **Never reset the database.** `migrate:fresh`, `migrate:refresh`, `db:wipe` and any other destructive reset are FORBIDDEN in prompts, scripts, docs and workflows — only additive `php artisan migrate`. The owner's local data (salon, GHL setup, widgets) must survive every migration; data changes in migrations are additive/backfill-safe, never drop-and-recreate. To restore demo data, run `php artisan db:seed --class=DemoSalonSeeder` (additive, idempotent).
 
 ## Architecture conventions
 - Tenancy tables: `agencies`, `salons`, `users`, `salon_memberships`. Salon-scoped models use a `BelongsToSalon` trait + global scope; a `ResolveSalon` middleware sets the active salon (route/session) and enforces membership.
