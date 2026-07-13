@@ -3,7 +3,7 @@
     <head>
         @include('partials.head')
     </head>
-    <body class="min-h-screen bg-paper text-ink antialiased" @if (\App\Support\LumenTheme::active()) data-theme="lumen" @endif>
+    <body class="min-h-screen bg-paper text-ink antialiased" @if ($bodyTheme = \App\Support\AppTheme::current(null)) data-theme="{{ $bodyTheme }}" @endif>
         <div class="relative flex min-h-svh flex-col items-center justify-center gap-8 p-6 md:p-10">
             {{-- Warm boutique wash: a plum glow from above, a faint blush
                  rising from below — both token-driven, purely decorative. --}}

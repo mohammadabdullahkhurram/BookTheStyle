@@ -5,19 +5,16 @@ namespace App\Support;
 use Illuminate\Support\Facades\Route;
 
 /**
- * The "lumen" light liquid-glass language, currently proving itself on a
- * small set of screens before an app-wide rollout. A route on the list
- * renders with data-theme="lumen" on <body>, which activates the warm
- * gradient backdrop, glass chrome, widget stats, and glass overlays in
- * app.css. Scoped to <body> (not <html>) so wire:navigate — which swaps the
- * body element — always carries the right theme between lumen and plain
- * pages. Light mode only.
+ * The "lumen" light liquid-glass language. The app-wide rollout it was
+ * proving for chose MARBLE instead, so lumen survives only as part of the
+ * CLASSIC theme: a Classic salon's proof routes still render exactly as
+ * they did pre-rollout (see AppTheme). Body-scoped so wire:navigate — which
+ * swaps the body element — always carries the right theme. Light mode only.
  */
 final class LumenTheme
 {
-    /** @var list<string> route names rendered in the lumen language */
+    /** @var list<string> route names rendered in the lumen language (Classic salons) */
     public const ROUTES = [
-        'login',
         'salon.show',
         'salon.appointments.all',
     ];

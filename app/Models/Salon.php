@@ -52,6 +52,17 @@ class Salon extends Model
     /** @use HasFactory<SalonFactory> */
     use HasFactory;
 
+    /**
+     * Marble is the app standard for every NEW salon. A model-level default
+     * (not a column-default change: altering the column would rebuild the
+     * table on SQLite and cascade-wipe child rows through the FKs).
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'app_theme' => 'marble',
+    ];
+
     protected $fillable = [
         'agency_id',
         'name',

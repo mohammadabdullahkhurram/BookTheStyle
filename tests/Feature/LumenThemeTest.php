@@ -4,38 +4,41 @@ use App\Models\Salon;
 use App\Support\LumenTheme;
 
 /*
-| The lumen light liquid-glass language, proving on a small route list
-| before app-wide rollout. Proof routes render data-theme="lumen" on <body>
-| (body-scoped so wire:navigate swaps carry it); everything else stays on
-| the plain light language. Glass is chrome/overlay/widget-only and every
-| glass blend is AA-verified for the text on it.
+| The lumen light liquid-glass language survives as part of the CLASSIC
+| theme: a Classic salon's proof routes render exactly as they did before
+| the Marble rollout. Marble salons (the default) and the login page render
+| Marble instead.
 */
 
-it('renders the lumen theme on exactly the proof routes', function () {
-    $salon = Salon::factory()->create();
-    $owner = salonOwnerOf($salon);
+it('renders lumen on the proof routes for CLASSIC salons only', function () {
+    $classic = Salon::factory()->create(['app_theme' => 'classic']);
+    $owner = salonOwnerOf($classic);
 
-    // Proof screens carry the glass language.
-    $this->actingAs($owner)->get(route('salon.show', $salon))
+    // Classic proof screens keep the glass language — the pre-Marble look.
+    $this->actingAs($owner)->get(route('salon.show', $classic))
         ->assertOk()->assertSee('data-theme="lumen"', false);
-    $this->get(route('salon.appointments.all', $salon))
+    $this->get(route('salon.appointments.all', $classic))
         ->assertOk()->assertSee('data-theme="lumen"', false);
 
-    // Everything else stays plain.
-    $this->get(route('salon.clients', $salon))
-        ->assertOk()->assertDontSee('data-theme="lumen"', false);
-    $this->get(route('salon.services', $salon))
-        ->assertOk()->assertDontSee('data-theme="lumen"', false);
+    // Classic non-proof screens stay plain (the base token set).
+    $this->get(route('salon.clients', $classic))
+        ->assertOk()->assertDontSee('data-theme=', false);
+
+    // A Marble salon (the default) renders Marble on the same routes.
+    $marble = Salon::factory()->create();
+    $marbleOwner = salonOwnerOf($marble);
+    $this->actingAs($marbleOwner)->get(route('salon.show', $marble))
+        ->assertOk()->assertSee('data-theme="marble"', false)
+        ->assertDontSee('data-theme="lumen"', false);
+
+    expect(LumenTheme::ROUTES)->toBe(['salon.show', 'salon.appointments.all']);
 });
 
-it('renders the login showcase with the glass panel', function () {
+it('renders the login page under Marble — the app standard outside a salon', function () {
     $this->get(route('login'))
         ->assertOk()
-        ->assertSee('data-theme="lumen"', false)
-        ->assertSee('bts-glass-panel', false);
-
-    // Route list is the single source of truth.
-    expect(LumenTheme::ROUTES)->toContain('login', 'salon.show', 'salon.appointments.all');
+        ->assertSee('data-theme="marble"', false)
+        ->assertSee('bts-glass-panel', false); // the panel restyles per theme
 });
 
 it('ships the lumen token layer: light glass spec, warm mesh, AA-verified blends', function () {
@@ -59,16 +62,16 @@ it('ships the lumen token layer: light glass spec, warm mesh, AA-verified blends
         ->not->toContain("data-theme='noir'");
 });
 
-it('keeps the glass chrome markers on the layout without breaking the responsive contract', function () {
+it('keeps the chrome markers on the layout without breaking the responsive contract', function () {
     $salon = Salon::factory()->create();
     $owner = salonOwnerOf($salon);
 
     $response = $this->actingAs($owner)->get(route('salon.show', $salon))->assertOk();
 
-    // Sidebar, mobile top bar, and nav drawer are chrome (glass under lumen)…
+    // Sidebar, mobile top bar, and nav drawer are chrome (theme-restyled)…
     expect(substr_count($response->getContent(), 'bts-chrome'))->toBeGreaterThanOrEqual(3);
 
-    // …and the Batch 2 responsive classes are intact.
+    // …and the Batch 2 responsive classes are intact under Marble.
     $response->assertSee('hidden h-svh shrink-0 flex-col border-e border-border bg-card transition-[width] duration-200 lg:flex', false);
     $response->assertSee('aria-label="Open navigation"', false);
 });

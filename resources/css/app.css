@@ -309,6 +309,65 @@
         --shadow-overlay: 0 4px 0 #f2e2cd, 0 18px 40px rgb(74 56 46 / 0.12);
     }
 
+    /* Marble's component voice — every screen inherits these through the
+       shared primitives, so the whole app re-skins from here alone. Cream
+       surfaces, 2px sand borders, and the pressed-clay drop edge; buttons
+       press down physically. All pairings AA (see the token comment). */
+    body[data-theme='marble'] .bts-chrome {
+        background-color: var(--color-card);
+    }
+    body[data-theme='marble'] .bts-surface {
+        background-color: var(--color-card);
+        border-width: 2px;
+        box-shadow: 0 3px 0 var(--color-border);
+    }
+    body[data-theme='marble'] .bts-stat {
+        border-top: 0;
+        background-color: var(--color-card);
+        border: 2px solid var(--color-border);
+        border-radius: var(--radius-stat);
+        box-shadow: 0 3px 0 var(--color-border);
+        padding: 16px 18px;
+    }
+    body[data-theme='marble'] .bts-glass-panel {
+        background-color: var(--color-card);
+        border: 2px solid var(--color-border);
+        border-radius: var(--radius-modal);
+        box-shadow: 0 4px 0 var(--color-border), 0 14px 34px rgb(74 56 46 / 0.08);
+        padding: 2rem;
+    }
+    body[data-theme='marble'] .bts-btn-primary {
+        box-shadow: 0 3px 0 var(--accent-hover);
+    }
+    body[data-theme='marble'] .bts-btn-primary:active {
+        transform: translateY(2px);
+        box-shadow: 0 1px 0 var(--accent-hover);
+    }
+    body[data-theme='marble'] .bts-btn-secondary,
+    body[data-theme='marble'] .bts-btn-danger {
+        background-color: var(--color-card);
+        box-shadow: 0 2px 0 var(--color-border);
+    }
+    body[data-theme='marble'] .bts-card {
+        background-color: var(--color-card);
+        border-width: 2px;
+        box-shadow: 0 3px 0 var(--color-border);
+    }
+    body[data-theme='marble'] dialog {
+        background-color: var(--color-card);
+        border: 2px solid var(--color-border);
+        box-shadow: var(--shadow-overlay);
+    }
+    body[data-theme='marble'] dialog::backdrop,
+    body[data-theme='marble'] .bts-scrim {
+        background-color: rgb(74 56 46 / 0.32);
+    }
+    @media (prefers-reduced-motion: reduce) {
+        body[data-theme='marble'] .bts-btn-primary:active {
+            transform: none;
+        }
+    }
+
     /* ────────────────────────────────────────────────────────────────────
        GLACIER — full liquid glass (ThemeRegistry key 'glacier'; gallery
        direction 11). The AGENCY console language: colour blooms under

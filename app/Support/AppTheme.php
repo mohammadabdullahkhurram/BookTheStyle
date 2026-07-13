@@ -11,9 +11,12 @@ use Illuminate\Support\Facades\Route;
  *
  *   1. The AGENCY console always renders Glacier — the cross-salon admin
  *      area is visually distinct from every salon app.
- *   2. A salon that picked an app theme (Settings → Branding) renders it
- *      across its salon pages.
- *   3. Otherwise the standing Lumen proof-route list, then the plain look.
+ *   2. A salon renders its picked app theme (Settings → Branding; Marble is
+ *      the default). Classic = null = the base token set, exactly the
+ *      original look — including the standing Lumen glass on its proof
+ *      routes, so a Classic salon reproduces the pre-Marble app verbatim.
+ *   3. Outside any salon/agency context (login, the salon picker, account
+ *      settings) the app standard applies: Marble.
  */
 final class AppTheme
 {
@@ -25,10 +28,11 @@ final class AppTheme
             return 'glacier';
         }
 
-        if ($salon !== null && ($theme = ThemeRegistry::bodyTheme($salon->app_theme)) !== null) {
-            return $theme;
+        if ($salon !== null) {
+            return ThemeRegistry::bodyTheme($salon->app_theme)
+                ?? (LumenTheme::active() ? 'lumen' : null);
         }
 
-        return LumenTheme::active() ? 'lumen' : null;
+        return ThemeRegistry::DEFAULT_APP;
     }
 }

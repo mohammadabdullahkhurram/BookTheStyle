@@ -23,6 +23,9 @@ class SalonFactory extends Factory
             'slug' => fake()->unique()->slug(2, false).'-'.fake()->unique()->numberBetween(1000, 9_999_999),
             'timezone' => 'America/New_York',
             'branding' => null,
+            // Mirrors the migration default (factories mirror column defaults
+            // so in-memory models match freshly-inserted rows).
+            'app_theme' => 'marble',
             // Business + contact profile (international-friendly values).
             'legal_business_name' => fake()->company().' LLC',
             'business_email' => fake()->unique()->companyEmail(),

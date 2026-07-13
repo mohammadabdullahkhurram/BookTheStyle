@@ -15,7 +15,8 @@
 
 {{-- A restrained surface: hairline border, flat. Reach for whitespace and
      .bts-rule dividers first — a card is for content that genuinely needs
-     lifting off the page, and never nests inside another card. --}}
-<div {{ $attributes->merge(['class' => "{$rounded} border border-border bg-card {$padding}"]) }}>
+     lifting off the page, and never nests inside another card. bts-surface
+     is the theme hook: Marble turns it into the chunky pressed-clay tile. --}}
+<div {{ $attributes->merge(['class' => "bts-surface {$rounded} border border-border bg-card {$padding}"]) }}>
     {{ $slot }}
 </div>

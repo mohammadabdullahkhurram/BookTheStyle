@@ -6,10 +6,12 @@ use App\Models\Salon;
 use App\Models\User;
 use App\Models\Widget;
 use App\Support\ThemeRegistry;
+use App\Support\WidgetBranding;
 use App\Support\WidgetTypeRegistry;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
@@ -25,24 +27,30 @@ use Livewire\Livewire;
 // Theme registry
 // ---------------------------------------------------------------------------
 
-it('registers Marble and Glacier as available and locks the coming-soon themes', function () {
+it('registers Marble (the default), Classic and Glacier as available; coming-soon stays locked', function () {
     expect(ThemeRegistry::THEMES['marble']['status'])->toBe('available');
+    expect(ThemeRegistry::THEMES['classic']['status'])->toBe('available');
     expect(ThemeRegistry::THEMES['glacier']['status'])->toBe('available');
+    expect(ThemeRegistry::DEFAULT_APP)->toBe('marble');
 
     $comingSoon = collect(ThemeRegistry::THEMES)->where('status', 'coming_soon');
     expect($comingSoon->count())->toBeGreaterThanOrEqual(3);
 
     expect(ThemeRegistry::selectable('marble', ThemeRegistry::SCOPE_APP))->toBeTrue();
     expect(ThemeRegistry::selectable('marble', ThemeRegistry::SCOPE_WIDGET))->toBeTrue();
-    // Glacier is the AGENCY language — not offered as a widget theme.
+    expect(ThemeRegistry::selectable('classic', ThemeRegistry::SCOPE_APP))->toBeTrue();
+    // Glacier is the AGENCY console language — never picker-offered.
     expect(ThemeRegistry::selectable('glacier', ThemeRegistry::SCOPE_WIDGET))->toBeFalse();
+    expect(ThemeRegistry::selectable('glacier', ThemeRegistry::SCOPE_APP))->toBeFalse();
     // Locked and unknown keys are never selectable anywhere.
     foreach ($comingSoon->keys() as $key) {
         expect(ThemeRegistry::selectable($key, ThemeRegistry::SCOPE_APP))->toBeFalse();
     }
     expect(ThemeRegistry::selectable('does-not-exist', ThemeRegistry::SCOPE_APP))->toBeFalse();
 
-    // data-theme values: default = none; retired/locked keys = none.
+    // data-theme values: Classic (and the pre-rollout stored 'default', and
+    // locked keys) render the BASE token set — the original look — as null.
+    expect(ThemeRegistry::bodyTheme('classic'))->toBeNull();
     expect(ThemeRegistry::bodyTheme('default'))->toBeNull();
     expect(ThemeRegistry::bodyTheme('marble'))->toBe('marble');
     expect(ThemeRegistry::bodyTheme('velvet'))->toBeNull();
@@ -62,19 +70,30 @@ it('ships real token blocks for Marble and Glacier in the stylesheet', function 
 // Salon app theme (Settings → Branding)
 // ---------------------------------------------------------------------------
 
-it('lets a manager pick an available app theme and renders the salon under it', function () {
+it('defaults salons to Marble and lets a manager switch to Classic and back', function () {
     $salon = Salon::factory()->create();
     $owner = salonOwnerOf($salon);
 
+    // Marble is the default — no choice needed.
+    expect($salon->app_theme)->toBe('marble');
+    $this->actingAs($owner)->get(route('salon.settings', $salon))
+        ->assertOk()
+        ->assertSee('data-theme="marble"', false);
+
+    // Classic reproduces the original look: the BASE token set, no attribute.
+    Livewire::actingAs($owner)
+        ->test('pages::salon.settings', ['salon' => $salon])
+        ->call('saveAppTheme', 'classic');
+    expect($salon->fresh()->app_theme)->toBe('classic');
+    $this->actingAs($owner)->get(route('salon.settings', $salon))
+        ->assertOk()
+        ->assertDontSee('data-theme=', false);
+
+    // And back to Marble.
     Livewire::actingAs($owner)
         ->test('pages::salon.settings', ['salon' => $salon])
         ->call('saveAppTheme', 'marble');
-
     expect($salon->fresh()->app_theme)->toBe('marble');
-
-    $this->actingAs($owner)->get(route('salon.show', $salon))
-        ->assertOk()
-        ->assertSee('data-theme="marble"', false);
 });
 
 it('refuses coming-soon and unknown app themes', function () {
@@ -84,23 +103,60 @@ it('refuses coming-soon and unknown app themes', function () {
     $component = Livewire::actingAs($owner)->test('pages::salon.settings', ['salon' => $salon]);
 
     $component->call('saveAppTheme', 'velvet');
-    expect($salon->fresh()->app_theme)->toBe('default');
+    expect($salon->fresh()->app_theme)->toBe('marble');
 
     $component->call('saveAppTheme', 'nope');
-    expect($salon->fresh()->app_theme)->toBe('default');
+    expect($salon->fresh()->app_theme)->toBe('marble');
 
-    // The picker shows the locked previews but no button for them.
-    $component->assertSee('Coming soon')->assertSee('Velvet');
+    // The picker shows Marble + Classic live and the locked previews.
+    $component->assertSee('Coming soon')->assertSee('Velvet')->assertSee('Classic');
 });
 
-it('renders the default salon look with no data-theme when no theme is chosen', function () {
-    $salon = Salon::factory()->create();
+it('renders Marble across the salon app by default — every screen, one theme', function () {
+    $salon = bookingSalon();
     $owner = salonOwnerOf($salon);
+    $this->actingAs($owner);
 
-    // salon.show is a lumen proof route; settings is not.
-    $this->actingAs($owner)->get(route('salon.settings', $salon))
+    foreach (['salon.show', 'salon.calendar', 'salon.appointments', 'salon.clients', 'salon.services', 'salon.staff', 'salon.availability', 'salon.reports', 'salon.settings', 'salon.widgets', 'salon.account'] as $routeName) {
+        $this->get(route($routeName, $salon))
+            ->assertOk()
+            ->assertSee('data-theme="marble"', false);
+    }
+});
+
+it('holds WCAG AA under Marble: every text token on its surfaces, white on the coral', function () {
+    $contrast = fn (string $a, string $b): float => WidgetBranding::contrast($a, $b);
+
+    // Text ramp on Marble paper (#FFF8EF) and card (#FFFDF8).
+    foreach (['#FFF8EF', '#FFFDF8'] as $surface) {
+        expect($contrast('#4A382E', $surface))->toBeGreaterThanOrEqual(4.5); // ink
+        expect($contrast('#6B5546', $surface))->toBeGreaterThanOrEqual(4.5); // body
+        expect($contrast('#7A6250', $surface))->toBeGreaterThanOrEqual(4.5); // secondary
+        expect($contrast('#846D5A', $surface))->toBeGreaterThanOrEqual(4.5); // faint (real content)
+    }
+    // Actions: white on the coral accent; accent ink on the butter tint.
+    expect($contrast('#FFFFFF', '#BC4A28'))->toBeGreaterThanOrEqual(4.5);
+    expect($contrast('#9C3F22', '#FBE9D7'))->toBeGreaterThanOrEqual(4.5);
+
+    // And the shipped CSS carries exactly these values.
+    $css = file_get_contents(resource_path('css/app.css'));
+    foreach (['#4a382e', '#6b5546', '#7a6250', '#846d5a', '#bc4a28', '#fbe9d7'] as $hex) {
+        expect($css)->toContain($hex);
+    }
+    // The component voice ships too: pressed-clay surfaces + button press.
+    expect($css)->toContain("body[data-theme='marble'] .bts-surface")
+        ->toContain("body[data-theme='marble'] .bts-btn-primary:active")
+        ->toContain("body[data-theme='marble'] dialog");
+});
+
+it('removes the UI/UX gallery: no route, no nav item, no page', function () {
+    expect(Route::has('salon.uiux'))->toBeFalse();
+    expect(file_exists(resource_path('views/pages/salon/uiux.blade.php')))->toBeFalse();
+
+    $salon = Salon::factory()->create();
+    $this->actingAs(salonOwnerOf($salon))->get(route('salon.show', $salon))
         ->assertOk()
-        ->assertDontSee('data-theme="marble"', false);
+        ->assertDontSee('aria-label="UI/UX"', false);
 });
 
 // ---------------------------------------------------------------------------

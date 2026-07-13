@@ -23,31 +23,38 @@ final class ThemeRegistry
 
     public const SCOPE_WIDGET = 'widget';
 
-    public const DEFAULT_APP = 'default';
+    /** The agency console's language — applied by route, never picker-chosen. */
+    public const SCOPE_AGENCY = 'agency';
+
+    /** Renders as the BASE token set: no data-theme attribute at all. */
+    public const CLASSIC = 'classic';
+
+    /** The salon app's standard theme going forward. */
+    public const DEFAULT_APP = 'marble';
 
     /**
      * @var array<string, array{name: string, description: string, status: string, scopes: list<string>, swatches: list<string>}>
      */
     public const THEMES = [
-        'default' => [
-            'name' => 'Classic',
-            'description' => 'The current BookTheStyle look — warm paper, plum accent, quiet editorial calm.',
-            'status' => 'available',
-            'scopes' => [self::SCOPE_APP],
-            'swatches' => ['#F6F5F3', '#824C71', '#1C1B1A'],
-        ],
         'marble' => [
             'name' => 'Marble',
-            'description' => 'Warm and story-book human: butter cream surfaces, coral energy, chunky rounded shapes.',
+            'description' => 'Warm and story-book human: butter cream surfaces, coral energy, chunky rounded shapes. The BookTheStyle standard.',
             'status' => 'available',
             'scopes' => [self::SCOPE_APP, self::SCOPE_WIDGET],
             'swatches' => ['#FFF8EF', '#BC4A28', '#F7D774'],
+        ],
+        'classic' => [
+            'name' => 'Classic',
+            'description' => 'The original BookTheStyle look — warm paper, plum accent, quiet editorial calm.',
+            'status' => 'available',
+            'scopes' => [self::SCOPE_APP],
+            'swatches' => ['#F6F5F3', '#824C71', '#1C1B1A'],
         ],
         'glacier' => [
             'name' => 'Glacier',
             'description' => 'Full liquid glass over soft colour blooms — the agency console language.',
             'status' => 'available',
-            'scopes' => [self::SCOPE_APP],
+            'scopes' => [self::SCOPE_AGENCY],
             'swatches' => ['#F3F1EE', '#824C71', '#5B92BD'],
         ],
         'velvet' => [
@@ -101,10 +108,14 @@ final class ThemeRegistry
         return $themes;
     }
 
-    /** The data-theme attribute value for a key — null for the default look. */
+    /**
+     * The data-theme attribute value for a key. Classic (and any unknown or
+     * retired key, including the pre-rollout stored value 'default') renders
+     * the BASE token set — no attribute — which IS the original look.
+     */
     public static function bodyTheme(?string $key): ?string
     {
-        return $key !== null && $key !== self::DEFAULT_APP && ($mode = self::THEMES[$key] ?? null) !== null && $mode['status'] === 'available'
+        return $key !== null && $key !== self::CLASSIC && ($mode = self::THEMES[$key] ?? null) !== null && $mode['status'] === 'available'
             ? $key
             : null;
     }
