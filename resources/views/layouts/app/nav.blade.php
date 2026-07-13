@@ -79,6 +79,14 @@
                 <flux:icon.chart-bar variant="micro" class="shrink-0" />
                 <span x-show="!collapsed" x-cloak>{{ __('Reports') }}</span>
             </a>
+            {{-- TEMPORARY: widget-design gallery — removed once a design is
+                 chosen and applied to the real widget. --}}
+            <a href="{{ route('salon.widgetdesigns', $salon) }}" wire:navigate @click="mobileNav = false"
+               aria-label="{{ __('Widget designs') }}" :title="collapsed ? '{{ __('Widget designs') }}' : null"
+               class="bts-nav-item {{ request()->routeIs('salon.widgetdesigns') ? 'bts-nav-item-active' : '' }}">
+                <flux:icon.rectangle-group variant="micro" class="shrink-0" />
+                <span x-show="!collapsed" x-cloak>{{ __('Widget designs') }}</span>
+            </a>
             {{-- TEMPORARY: design-direction gallery — removed once a
                  direction is chosen and rolled out app-wide. --}}
             <a href="{{ route('salon.uiux', $salon) }}" wire:navigate @click="mobileNav = false"
