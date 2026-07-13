@@ -35,23 +35,31 @@
         }
 
         /* ── Vitrine: liquid glass over a branded gradient backdrop ── */
-        body {
-            font-family: var(--wb-body);
-            background-color: var(--wb-surface);
-            background-image:
-                radial-gradient(34rem 22rem at 8% -8%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 58%),
-                radial-gradient(30rem 20rem at 92% 0%, color-mix(in srgb, var(--wb-secondary) 20%, transparent), transparent 58%),
-                radial-gradient(38rem 26rem at 50% 115%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 60%);
-            background-attachment: fixed;
+        body { font-family: var(--wb-body); background-color: var(--wb-surface); }
+        /* A body background with attachment:fixed silently fails to paint
+           inside the auto-resizing embed iframe (WebKit), leaving the glass
+           floating on flat white — so the scenery is its own fixed layer:
+           brand-tinted gradient washes plus two soft colour blooms the
+           panels' backdrop-filter actually has something to blur. */
+        .wb-backdrop {
+            position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none;
+            background:
+                radial-gradient(60% 55% at 10% 0%, color-mix(in srgb, var(--accent) 18%, var(--wb-surface)), transparent 62%),
+                radial-gradient(55% 48% at 94% 6%, color-mix(in srgb, var(--wb-secondary) 22%, var(--wb-surface)), transparent 60%),
+                radial-gradient(70% 55% at 50% 108%, color-mix(in srgb, var(--accent) 13%, var(--wb-surface)), transparent 62%),
+                var(--wb-surface);
         }
+        .wb-backdrop::before, .wb-backdrop::after { content: ''; position: absolute; border-radius: 999px; filter: blur(52px); }
+        .wb-backdrop::before { width: 30rem; height: 30rem; left: -10rem; top: -12rem; background: color-mix(in srgb, var(--accent) 32%, transparent); }
+        .wb-backdrop::after { width: 24rem; height: 24rem; right: -8rem; top: 30%; background: color-mix(in srgb, var(--wb-secondary) 30%, transparent); }
         .wb-display { font-family: var(--wb-display); }
         .wb-glass {
-            background: rgb(255 255 255 / .5);
+            background: rgb(255 255 255 / .46);
             -webkit-backdrop-filter: blur(20px) saturate(1.5);
             backdrop-filter: blur(20px) saturate(1.5);
             border: 1px solid rgb(255 255 255 / .7);
             border-radius: 20px;
-            box-shadow: inset 0 1px 0 rgb(255 255 255 / .9), 0 10px 32px rgb(40 25 40 / .12);
+            box-shadow: inset 0 1px 0 rgb(255 255 255 / .9), 0 12px 36px rgb(40 25 40 / .14);
         }
         .wb-opt {
             display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px;
@@ -103,6 +111,49 @@
         .wb-sumline { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; padding: 7px 0; }
         .wb-sumline + .wb-sumline { border-top: 1px solid rgb(255 255 255 / .6); }
 
+        /* ── Inline availability calendar (replaces the native date input) ── */
+        .wb-cal {
+            border-radius: 16px; padding: 12px;
+            background: rgb(255 255 255 / .42);
+            border: 1.5px solid rgb(255 255 255 / .7);
+            box-shadow: inset 0 1px 0 rgb(255 255 255 / .8);
+        }
+        .wb-cal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+        .wb-cal-nav {
+            display: flex; min-width: 40px; min-height: 40px; align-items: center; justify-content: center;
+            border-radius: 10px; cursor: pointer; color: var(--color-body);
+            background: rgb(255 255 255 / .55); border: 1.5px solid rgb(255 255 255 / .75);
+            box-shadow: inset 0 1px 0 rgb(255 255 255 / .8); transition: border-color .15s ease;
+        }
+        .wb-cal-nav:hover { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+        .wb-cal-nav:disabled { opacity: .35; pointer-events: none; }
+        .wb-cal-dow, .wb-cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+        .wb-cal-dow span {
+            padding: 4px 0; text-align: center; font-size: 11px; font-weight: 600;
+            letter-spacing: .08em; text-transform: uppercase; color: var(--color-secondary);
+        }
+        .wb-cal-grid[aria-busy='true'] { opacity: .55; }
+        /* Available vs not is never colour-alone: open days are raised glass
+           tiles (semibold, accent dot); closed days are flat, regular, faint. */
+        .wb-day {
+            position: relative; display: flex; align-items: center; justify-content: center;
+            min-height: 42px; width: 100%; border-radius: 10px; font-size: 14px; font-weight: 400;
+            color: var(--color-faint); background: transparent; border: 1.5px solid transparent; cursor: default;
+        }
+        .wb-day[data-available='true'] {
+            font-weight: 600; color: var(--color-ink); cursor: pointer;
+            background: rgb(255 255 255 / .55); border-color: rgb(255 255 255 / .75);
+            box-shadow: inset 0 1px 0 rgb(255 255 255 / .8); transition: border-color .15s ease;
+        }
+        .wb-day[data-available='true']::after {
+            content: ''; position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%);
+            width: 4px; height: 4px; border-radius: 99px; background: var(--accent);
+        }
+        .wb-day[data-available='true']:hover { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+        .wb-day[aria-pressed='true'] { background: var(--accent); border-color: var(--accent); color: #fff; }
+        .wb-day[aria-pressed='true']::after { background: #fff; }
+        .wb-day:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
         /* ── Duet: split from 760px; single column (summary bar first) below ── */
         .wb-duet { display: grid; gap: 16px; align-items: start; }
         @media (min-width: 760px) {
@@ -113,6 +164,7 @@
     </style>
 </head>
 <body class="text-ink antialiased">
+    <div class="wb-backdrop" aria-hidden="true"></div>
     <main class="mx-auto w-full max-w-4xl p-4 sm:p-6" id="bts-widget"
           data-salon="{{ $salon->name }}"
           data-preselect="{{ $preselectService ?? '' }}">
@@ -153,13 +205,25 @@
                     <div id="bts-stylists" class="mt-3 grid gap-2"></div>
                 </section>
 
-                {{-- Step 3: date + time --}}
+                {{-- Step 3: date + time — inline availability calendar, no native picker --}}
                 <section data-step="time" hidden class="wb-glass p-5">
                     <h2 class="wb-display text-[17px] font-semibold">{{ __('Pick a date and time') }}</h2>
-                    <label class="mt-2 block text-[13px] font-semibold text-secondary" for="bts-date">{{ __('Date') }}</label>
-                    <input type="date" id="bts-date" class="wb-field mt-1"
-                           min="{{ now($salon->timezone)->format('Y-m-d') }}" max="{{ $maxDate }}">
-                    <div id="bts-slots" class="mt-3 flex flex-wrap gap-2" aria-live="polite"></div>
+                    <p class="mt-0.5 text-[13.5px] text-secondary">{{ __('Days that fit your whole visit are highlighted.') }}</p>
+                    <div id="bts-cal" class="wb-cal mt-3">
+                        <div class="wb-cal-head">
+                            <button type="button" id="bts-cal-prev" class="wb-cal-nav" aria-label="{{ __('Previous month') }}">
+                                <svg viewBox="0 0 20 20" fill="currentColor" class="size-5" aria-hidden="true"><path fill-rule="evenodd" d="M12.79 5.23a.75.75 0 0 1-.02 1.06L8.832 10l3.938 3.71a.75.75 0 1 1-1.04 1.08l-4.5-4.25a.75.75 0 0 1 0-1.08l4.5-4.25a.75.75 0 0 1 1.06.02Z" clip-rule="evenodd"/></svg>
+                            </button>
+                            <h3 id="bts-cal-title" class="wb-display text-[15px] font-semibold" aria-live="polite"></h3>
+                            <button type="button" id="bts-cal-next" class="wb-cal-nav" aria-label="{{ __('Next month') }}">
+                                <svg viewBox="0 0 20 20" fill="currentColor" class="size-5" aria-hidden="true"><path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z" clip-rule="evenodd"/></svg>
+                            </button>
+                        </div>
+                        <div id="bts-cal-dow" class="wb-cal-dow" aria-hidden="true"></div>
+                        <div id="bts-cal-grid" class="wb-cal-grid" role="group" aria-label="{{ __('Choose a date') }}"></div>
+                    </div>
+                    <p id="bts-day-label" class="mt-3 hidden text-[13px] font-semibold text-secondary"></p>
+                    <div id="bts-slots" class="mt-2 flex flex-wrap gap-2" aria-live="polite"></div>
                     <p id="bts-slots-empty" class="mt-2 hidden text-[14px] text-secondary">{{ __('No open times fit the whole visit that day — try another date.') }}</p>
                 </section>
 
@@ -217,8 +281,11 @@
         var CATALOGUE = @json($catalogue);
         var TOKEN = @json($widgetToken);
         var CURRENCY = @json($currency);
+        var MIN_DATE = @json($minDate);
+        var MAX_DATE = @json($maxDate);
         var API = {
             availability: @json(route('salon.widget.availability', ['salon' => $salon->slug])),
+            month: @json(route('salon.widget.month', ['salon' => $salon->slug])),
             book: @json(route('salon.widget.book', ['salon' => $salon->slug])),
         };
         var I18N = {
@@ -236,6 +303,9 @@
             total: @json(__('Estimated total')),
             varies: @json(__('some prices vary')),
             noShared: @json(__('No single stylist offers that combination — remove a service and try again.')),
+            available: @json(__('available')),
+            unavailable: @json(__('unavailable')),
+            timesFor: @json(__('Open times for :date')),
         };
 
         var state = { step: 'service', services: [], stylist: 'any', date: null, slot: null };
@@ -425,11 +495,159 @@
         function pickStylist(id) {
             state.stylist = id;
             state.slot = null;
+            state.date = null;
+            $('bts-slots').textContent = '';
+            $('bts-slots-empty').classList.add('hidden');
+            $('bts-day-label').classList.add('hidden');
             show('time');
-            if ($('bts-date').value) { loadSlots(); }
+            openCalendar();
         }
 
-        // -- step 3: full-visit slots ----------------------------------------
+        // -- step 3: inline availability calendar -----------------------------
+        // One month endpoint call paints the whole grid (cached per services +
+        // stylist + month); only days the FULL visit fits are selectable.
+        var cal = { month: MIN_DATE.slice(0, 7), avail: {}, focus: null, refocus: false };
+
+        function pad2(n) { return (n < 10 ? '0' : '') + n; }
+        function calKey(month) { return servicesQuery() + '|' + state.stylist + '|' + month; }
+        function monthAdd(month, delta) {
+            var y = +month.slice(0, 4), m = +month.slice(5, 7) - 1 + delta;
+            return (y + Math.floor(m / 12)) + '-' + pad2(((m % 12) + 12) % 12 + 1);
+        }
+        function localDate(date) {
+            return new Date(+date.slice(0, 4), +date.slice(5, 7) - 1, +date.slice(8, 10));
+        }
+        function prettyDate(date) {
+            return localDate(date).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+        }
+
+        function openCalendar() {
+            cal.month = state.date ? state.date.slice(0, 7) : MIN_DATE.slice(0, 7);
+            cal.focus = state.date || MIN_DATE;
+            loadMonth();
+        }
+
+        function loadMonth() {
+            var month = cal.month, key = calKey(month);
+            if (cal.avail[key]) { renderCalendar(cal.avail[key]); return; }
+            renderCalendar(null); // greyed skeleton while the month loads
+
+            var url = API.month
+                + '?' + servicesQuery()
+                + '&stylist=' + encodeURIComponent(state.stylist)
+                + '&month=' + encodeURIComponent(month);
+
+            fetch(url, { headers: { Accept: 'application/json' } })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data.success === false) { error(data.message || I18N.failed); return; }
+                    cal.avail[key] = data.dates || [];
+                    if (cal.month === month) { renderCalendar(cal.avail[key]); }
+                })
+                .catch(function () { error(I18N.failed); });
+        }
+
+        function renderCalendar(dates) {
+            var y = +cal.month.slice(0, 4), m = +cal.month.slice(5, 7);
+            $('bts-cal-title').textContent = new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+            $('bts-cal-prev').disabled = cal.month <= MIN_DATE.slice(0, 7);
+            $('bts-cal-next').disabled = cal.month >= MAX_DATE.slice(0, 7);
+
+            var dow = $('bts-cal-dow');
+            if (!dow.childNodes.length) {
+                for (var i = 0; i < 7; i++) {
+                    var label = document.createElement('span');
+                    // Aug 2 2021 was a Monday — Monday-first weekday initials.
+                    label.textContent = new Date(2021, 7, 2 + i).toLocaleDateString(undefined, { weekday: 'short' }).slice(0, 2);
+                    dow.appendChild(label);
+                }
+            }
+
+            var grid = $('bts-cal-grid');
+            grid.textContent = '';
+            grid.setAttribute('aria-busy', dates === null ? 'true' : 'false');
+            var open = dates || [];
+            var lead = (new Date(y, m - 1, 1).getDay() + 6) % 7; // Monday-first offset
+            var days = new Date(y, m, 0).getDate();
+
+            for (var blank = 0; blank < lead; blank++) { grid.appendChild(document.createElement('span')); }
+
+            for (var d = 1; d <= days; d++) {
+                var date = cal.month + '-' + pad2(d);
+                var available = dates !== null && open.indexOf(date) >= 0 && date >= MIN_DATE && date <= MAX_DATE;
+                var b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'wb-day';
+                b.textContent = String(d);
+                b.setAttribute('data-date', date);
+                b.setAttribute('data-available', available ? 'true' : 'false');
+                if (!available) { b.setAttribute('aria-disabled', 'true'); }
+                b.setAttribute('aria-pressed', state.date === date ? 'true' : 'false');
+                b.setAttribute('aria-label', prettyDate(date) + ' — ' + (available ? I18N.available : I18N.unavailable));
+                b.setAttribute('tabindex', date === cal.focus ? '0' : '-1');
+                b.addEventListener('click', dayClick);
+                grid.appendChild(b);
+            }
+
+            // Exactly one tab stop: the focus date, else the first open day.
+            if (!grid.querySelector('[tabindex="0"]')) {
+                var fallback = grid.querySelector('[data-available="true"]') || grid.querySelector('.wb-day');
+                if (fallback) { fallback.setAttribute('tabindex', '0'); cal.focus = fallback.getAttribute('data-date'); }
+            }
+            if (cal.refocus && dates !== null) {
+                var target = grid.querySelector('[data-date="' + cal.focus + '"]');
+                if (target) { target.focus(); }
+                cal.refocus = false;
+            }
+            postHeight();
+        }
+
+        function setTabStop(btn) {
+            var current = $('bts-cal-grid').querySelectorAll('[tabindex="0"]');
+            Array.prototype.forEach.call(current, function (el) { el.setAttribute('tabindex', '-1'); });
+            btn.setAttribute('tabindex', '0');
+        }
+
+        function dayClick(event) {
+            var btn = event.currentTarget;
+            cal.focus = btn.getAttribute('data-date');
+            setTabStop(btn);
+            if (btn.getAttribute('data-available') !== 'true') { return; }
+            state.date = cal.focus;
+            state.slot = null;
+            Array.prototype.forEach.call(document.querySelectorAll('#bts-cal-grid .wb-day'), function (el) {
+                el.setAttribute('aria-pressed', el.getAttribute('data-date') === state.date ? 'true' : 'false');
+            });
+            loadSlots();
+        }
+
+        // Arrow keys roam the grid (crossing month edges pages the calendar);
+        // Enter/Space activate via the buttons' native click.
+        $('bts-cal-grid').addEventListener('keydown', function (event) {
+            var delta = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[event.key];
+            if (!delta || !cal.focus) { return; }
+            event.preventDefault();
+
+            var next = localDate(cal.focus);
+            next.setDate(next.getDate() + delta);
+            var date = next.getFullYear() + '-' + pad2(next.getMonth() + 1) + '-' + pad2(next.getDate());
+            if (date < MIN_DATE || date > MAX_DATE) { return; }
+
+            cal.focus = date;
+            if (date.slice(0, 7) !== cal.month) {
+                cal.month = date.slice(0, 7);
+                cal.refocus = true;
+                loadMonth();
+                return;
+            }
+            var btn = $('bts-cal-grid').querySelector('[data-date="' + date + '"]');
+            if (btn) { setTabStop(btn); btn.focus(); }
+        });
+
+        $('bts-cal-prev').addEventListener('click', function () { cal.month = monthAdd(cal.month, -1); cal.focus = cal.month + '-01'; loadMonth(); });
+        $('bts-cal-next').addEventListener('click', function () { cal.month = monthAdd(cal.month, 1); cal.focus = cal.month + '-01'; loadMonth(); });
+
+        // -- step 3b: the selected day's full-visit slots ----------------------
         function servicesQuery() {
             return state.services.map(function (s) { return 'services[]=' + encodeURIComponent(s.id); }).join('&');
         }
@@ -438,7 +656,9 @@
             var wrap = $('bts-slots');
             wrap.textContent = I18N.loading;
             $('bts-slots-empty').classList.add('hidden');
-            state.date = $('bts-date').value;
+            var label = $('bts-day-label');
+            label.textContent = I18N.timesFor.replace(':date', prettyDate(state.date));
+            label.classList.remove('hidden');
 
             var url = API.availability
                 + '?' + servicesQuery()
@@ -519,7 +739,6 @@
             renderStylists();
             show('stylist');
         });
-        $('bts-date').addEventListener('change', loadSlots);
         $('bts-form').addEventListener('submit', submit);
         $('bts-back').addEventListener('click', function () {
             if (state.step === 'details') { show('time'); }
@@ -527,10 +746,10 @@
             else if (state.step === 'stylist') { show('service'); renderServices(); }
         });
         $('bts-again').addEventListener('click', function () {
-            state.services = []; state.slot = null; state.stylist = 'any';
+            state.services = []; state.slot = null; state.stylist = 'any'; state.date = null;
             $('bts-form').reset();
             $('bts-slots').textContent = '';
-            $('bts-date').value = '';
+            $('bts-day-label').classList.add('hidden');
             renderServices();
             show('service');
         });

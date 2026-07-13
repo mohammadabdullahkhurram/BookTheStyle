@@ -137,6 +137,7 @@ Route::domain('{salon}.'.$central)->middleware('throttle:widget-api')->group(fun
     Route::prefix('api/widget')->group(function () {
         Route::get('services', [WidgetController::class, 'services'])->name('salon.widget.services');
         Route::get('availability', [WidgetController::class, 'availability'])->name('salon.widget.availability');
+        Route::get('month', [WidgetController::class, 'month'])->name('salon.widget.month');
         Route::post('book', [WidgetController::class, 'book'])->name('salon.widget.book');
     });
 });

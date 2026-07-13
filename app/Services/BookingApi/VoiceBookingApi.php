@@ -254,6 +254,39 @@ class VoiceBookingApi
     }
 
     /**
+     * The dates in [from, to] with at least ONE slot where the whole visit
+     * fits — the widget's month calendar. One engine pass per stylist per
+     * day, short-circuiting the remaining stylists as soon as a day has any
+     * opening; per-stylist blocked minutes are resolved once up front.
+     *
+     * @param  array{services: list<int|string>, stylist?: string|int|null}  $input
+     * @return array{dates: list<string>, timezone: string}
+     */
+    public function visitAvailableDates(Salon $salon, array $input, CarbonImmutable $from, CarbonImmutable $to): array
+    {
+        $services = $this->resolveVisitServices($salon, $input['services']);
+        $stylists = $this->resolveVisitStylists($salon, $services, $input['stylist'] ?? null);
+
+        $blockedByStylist = [];
+        foreach ($stylists as $stylist) {
+            $blockedByStylist[$stylist->id] = $this->visitBlockedMinutes($salon, $services, $stylist);
+        }
+
+        $dates = [];
+        // Hard cap: a calendar month view plus its leading/trailing edges.
+        for ($day = $from, $i = 0; $day->lte($to) && $i < 42; $day = $day->addDay(), $i++) {
+            foreach ($stylists as $stylist) {
+                if ($this->engine->slotsFor($salon, $stylist->id, $blockedByStylist[$stylist->id], $day) !== []) {
+                    $dates[] = $day->format('Y-m-d');
+                    break;
+                }
+            }
+        }
+
+        return ['dates' => $dates, 'timezone' => $salon->timezone];
+    }
+
+    /**
      * Resolve 1..N distinct services for a visit (ids or names, deduped).
      *
      * @param  list<int|string>  $refs

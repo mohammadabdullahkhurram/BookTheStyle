@@ -340,6 +340,83 @@ it('rejects a service combination no single stylist can perform', function () {
 });
 
 // ---------------------------------------------------------------------------
+// Inline availability calendar + month endpoint
+// ---------------------------------------------------------------------------
+
+it('renders the inline branded calendar and gradient backdrop — no native date input', function () {
+    [$salon] = widgetSalon();
+
+    $response = $this->get(route('salon.widget', $salon))->assertOk();
+
+    // The OS date field is gone; our always-visible calendar replaces it.
+    expect($response->getContent())->not->toContain('type="date"');
+    $response->assertSee('bts-cal-grid', false)
+        ->assertSee('grid-template-columns: repeat(7, minmax(0, 1fr))', false)
+        ->assertSee("wb-day[aria-pressed='true'] { background: var(--accent)", false)
+        ->assertSee('api\/widget\/month', false)
+        // The fixed backdrop layer the glass blurs over, tinted per brand.
+        ->assertSee('class="wb-backdrop"', false)
+        ->assertSee('color-mix(in srgb, var(--accent) 18%, var(--wb-surface))', false)
+        ->assertSee('color-mix(in srgb, var(--wb-secondary) 22%, var(--wb-surface))', false)
+        // The calendar window: today through the booking horizon (salon tz).
+        ->assertSee('"2026-06-22"', false);
+});
+
+it('reports which dates of a month fit the WHOLE visit — past, closed and full days excluded', function () {
+    [$salon, $stylist, $haircut] = widgetSalon(); // Haircut 60 min, Monday 9–5 only
+    $colour = serviceFor($salon, $stylist, 120);
+
+    // Fully book Monday the 29th (9–5): no visit of any length fits.
+    foreach (range(9, 16) as $hour) {
+        makeBooking($salon, salonOwnerOf($salon), $stylist, $haircut, sprintf('2026-06-29 %02d:00', $hour), 'Blocker');
+    }
+
+    $query = 'services[]='.$haircut->id.'&services[]='.$colour->id.'&stylist=any&month=2026-06';
+    $dates = $this->getJson(route('salon.widget.month', ['salon' => $salon]).'?'.$query)
+        ->assertOk()
+        ->assertJsonPath('success', true)
+        ->json('dates');
+
+    expect($dates)->toContain('2026-06-22');        // today still has room
+    expect($dates)->not->toContain('2026-06-29');   // fully booked
+    expect($dates)->not->toContain('2026-06-15');   // past Monday
+    expect($dates)->not->toContain('2026-06-23');   // Tuesday — no working hours
+});
+
+it('excludes a date where the multi-service visit cannot fit even though one service could', function () {
+    [$salon, $stylist, $haircut] = widgetSalon();
+    $colour = serviceFor($salon, $stylist, 120);
+
+    // Monday 6 July: booked solid from 10:00 — only a 60-min stretch (9–10) left.
+    foreach (range(10, 16) as $hour) {
+        makeBooking($salon, salonOwnerOf($salon), $stylist, $haircut, sprintf('2026-07-06 %02d:00', $hour), 'Blocker');
+    }
+
+    $base = route('salon.widget.month', ['salon' => $salon]);
+
+    $solo = $this->getJson($base.'?services[]='.$haircut->id.'&stylist=any&month=2026-07')->assertOk()->json('dates');
+    expect($solo)->toContain('2026-07-06'); // the haircut alone fits at 9:00
+
+    $combo = $this->getJson($base.'?services[]='.$haircut->id.'&services[]='.$colour->id.'&stylist=any&month=2026-07')
+        ->assertOk()->json('dates');
+    expect($combo)->not->toContain('2026-07-06'); // the 3-hour visit does not
+});
+
+it('validates the month parameter and returns no dates for months outside the window', function () {
+    [$salon, , $haircut] = widgetSalon();
+    $base = route('salon.widget.month', ['salon' => $salon]);
+
+    $this->getJson($base.'?services[]='.$haircut->id.'&month=junk')
+        ->assertStatus(422)
+        ->assertJsonPath('error', 'invalid_request');
+
+    // An all-past month is clamped away server-side: empty, never an error.
+    $this->getJson($base.'?services[]='.$haircut->id.'&month=2026-01')
+        ->assertOk()
+        ->assertJsonPath('dates', []);
+});
+
+// ---------------------------------------------------------------------------
 // Branding on the widget page
 // ---------------------------------------------------------------------------
 

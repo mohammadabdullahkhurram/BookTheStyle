@@ -12,6 +12,7 @@ use App\Services\BookingApi\VoiceBookingApi;
 use App\Support\AccentPalette;
 use App\Support\Money;
 use App\Support\WidgetBranding;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -55,6 +56,7 @@ class WidgetController extends Controller
             'currency' => $salon->currency,
             'preselectService' => ctype_digit((string) $request->query('service')) ? (int) $request->query('service') : null,
             'widgetToken' => $this->issueToken($salon),
+            'minDate' => now($salon->timezone)->format('Y-m-d'),
             'maxDate' => now($salon->timezone)
                 ->addDays(min((int) config('booking_api.widget_days_ahead'), $salon->max_advance_days))
                 ->format('Y-m-d'),
@@ -149,6 +151,50 @@ class WidgetController extends Controller
             ]));
         } catch (ApiError $e) {
             return $this->refused($salon, 'availability', $e);
+        } catch (ValidationException $e) {
+            return $this->invalid($e);
+        }
+    }
+
+    /**
+     * Which dates of a calendar month can host the WHOLE visit — feeds the
+     * widget's inline calendar. The window is clamped to [today, booking
+     * horizon] in the salon's timezone, so past days and days beyond the
+     * salon's advance limit are never offered; one engine sweep serves the
+     * whole month (no per-day round-trips from the browser).
+     */
+    public function month(Request $request, string $salon): JsonResponse
+    {
+        $salon = $this->salon($salon);
+
+        try {
+            $input = $request->validate([
+                'service' => ['required_without:services', 'integer'],
+                'services' => ['required_without:service', 'array', 'min:1', 'max:6'],
+                'services.*' => ['integer'],
+                'stylist' => ['nullable', 'string', 'max:40'],
+                'month' => ['required', 'string', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
+            ]);
+
+            $today = CarbonImmutable::now($salon->timezone)->startOfDay();
+            $horizon = $today->addDays(min((int) config('booking_api.widget_days_ahead'), $salon->max_advance_days));
+            $monthStart = CarbonImmutable::createFromFormat('!Y-m', $input['month'], $salon->timezone);
+
+            $from = $monthStart->max($today);
+            $to = $monthStart->endOfMonth()->startOfDay()->min($horizon);
+
+            if ($from->gt($to)) {
+                return response()->json(['success' => true, 'month' => $input['month'], 'dates' => [], 'timezone' => $salon->timezone]);
+            }
+
+            $result = $this->api->visitAvailableDates($salon, [
+                'services' => $this->serviceIds($input),
+                'stylist' => $input['stylist'] ?? null,
+            ], $from, $to);
+
+            return response()->json(['success' => true, 'month' => $input['month']] + $result);
+        } catch (ApiError $e) {
+            return $this->refused($salon, 'month', $e);
         } catch (ValidationException $e) {
             return $this->invalid($e);
         }
