@@ -686,6 +686,28 @@ new #[Title('Salon settings')] class extends Component {
         Flux::toast(variant: 'success', text: __('Branding saved.'));
     }
 
+    /**
+     * Pick this salon's APP theme (Settings → Branding). Only registry
+     * themes that are available in the app scope are selectable — the
+     * coming-soon cards are locked previews.
+     */
+    public function saveAppTheme(string $key): void
+    {
+        $this->authorize('manage', $this->salon);
+
+        if (! \App\Support\ThemeRegistry::selectable($key, \App\Support\ThemeRegistry::SCOPE_APP)) {
+            Flux::toast(variant: 'danger', text: __('That theme is not available yet.'));
+
+            return;
+        }
+
+        $this->salon->update(['app_theme' => $key]);
+        $this->salon->refresh();
+
+        Flux::toast(variant: 'success', text: __('App theme updated.'));
+        $this->redirect(route('salon.settings', $this->salon).'#branding', navigate: false);
+    }
+
     /** Remove the uploaded widget logo (the file is deleted too). */
     public function removeLogo(UpdateBranding $action): void
     {
@@ -796,7 +818,7 @@ new #[Title('Salon settings')] class extends Component {
              instead of matching no panel (blank page); back/forward work via
              the hashchange listener. --}}
         <div x-data="{
-                 tabs: ['general', 'policy', 'features', 'branding', 'widget'@can('manageGhlConnection', $salon), 'integrations'@endcan],
+                 tabs: ['general', 'policy', 'features', 'branding'@can('manageGhlConnection', $salon), 'integrations'@endcan],
                  tab: 'general',
                  resolve(hash) { return this.tabs.includes(hash) ? hash : 'general' },
                  pick(name) { this.tab = name; window.location.hash = name },
@@ -814,8 +836,8 @@ new #[Title('Salon settings')] class extends Component {
                             class="bts-nav-item shrink-0 text-left" :class="tab === 'features' && 'bts-nav-item-active'">{{ __('Features') }}</button>
                     <button type="button" x-on:click="pick('branding')" :aria-current="tab === 'branding' ? 'page' : null"
                             class="bts-nav-item shrink-0 text-left" :class="tab === 'branding' && 'bts-nav-item-active'">{{ __('Branding') }}</button>
-                    <button type="button" x-on:click="pick('widget')" :aria-current="tab === 'widget' ? 'page' : null"
-                            class="bts-nav-item shrink-0 text-left" :class="tab === 'widget' && 'bts-nav-item-active'">{{ __('Booking widget') }}</button>
+                    <a href="{{ route('salon.widgets', $salon) }}" wire:navigate
+                       class="bts-nav-item shrink-0 text-left">{{ __('Widgets ↗') }}</a>
                     @can('manageGhlConnection', $salon)
                         <button type="button" x-on:click="pick('integrations')" :aria-current="tab === 'integrations' ? 'page' : null"
                                 class="bts-nav-item shrink-0 text-left" :class="tab === 'integrations' && 'bts-nav-item-active'">{{ __('Integrations') }}</button>
@@ -983,6 +1005,50 @@ new #[Title('Salon settings')] class extends Component {
             </form>
         </x-ui.card>
 
+        {{-- App theme: which design language this salon's app renders in.
+             Live themes are selectable cards; coming-soon ones are locked
+             previews. Booking-widget theming lives per widget, in Widgets. --}}
+        <x-ui.card class="flex flex-col gap-5">
+            <div>
+                <h2 class="bts-card-title">{{ __('App theme') }}</h2>
+                <p class="mt-1 text-[14px] text-secondary">{{ __('The design language your salon app renders in. Your booking widgets have their own theme, set per widget in Widgets.') }}</p>
+            </div>
+            <div class="grid gap-3 sm:grid-cols-2">
+                @foreach (\App\Support\ThemeRegistry::picker(\App\Support\ThemeRegistry::SCOPE_APP) as $themeKey => $theme)
+                    @if ($theme['status'] === 'available')
+                        <button type="button" wire:click="saveAppTheme('{{ $themeKey }}')"
+                                aria-pressed="{{ $salon->app_theme === $themeKey ? 'true' : 'false' }}"
+                                class="flex flex-col gap-2 rounded-[14px] border p-4 text-left transition {{ $salon->app_theme === $themeKey ? 'border-accent bg-accent-tint' : 'border-input-border bg-field hover:border-faint' }}">
+                            <span class="flex items-center gap-1.5" aria-hidden="true">
+                                @foreach ($theme['swatches'] as $swatch)
+                                    <span class="size-5 rounded-full border border-border" style="background-color: {{ $swatch }}"></span>
+                                @endforeach
+                            </span>
+                            <span class="text-[15px] font-semibold text-ink">{{ $theme['name'] }}
+                                @if ($salon->app_theme === $themeKey)
+                                    <span class="ms-1 text-[12px] font-semibold text-accent-ink">{{ __('· Active') }}</span>
+                                @endif
+                            </span>
+                            <span class="text-[13px] text-secondary">{{ $theme['description'] }}</span>
+                        </button>
+                    @else
+                        <div class="relative overflow-hidden rounded-[14px] border border-border bg-field p-4" aria-disabled="true">
+                            <div class="blur-[2px] opacity-60" aria-hidden="true">
+                                <span class="flex items-center gap-1.5">
+                                    @foreach ($theme['swatches'] as $swatch)
+                                        <span class="size-5 rounded-full border border-border" style="background-color: {{ $swatch }}"></span>
+                                    @endforeach
+                                </span>
+                                <p class="mt-2 text-[15px] font-semibold text-ink">{{ $theme['name'] }}</p>
+                                <p class="text-[13px] text-secondary">{{ $theme['description'] }}</p>
+                            </div>
+                            <span class="absolute right-3 top-3 rounded-full bg-muted px-2.5 py-1 text-[11.5px] font-semibold uppercase tracking-wide text-secondary">{{ __('Coming soon') }}</span>
+                        </div>
+                    @endif
+                @endforeach
+            </div>
+        </x-ui.card>
+
         </section>
 
         {{-- Features. --}}
@@ -1002,45 +1068,6 @@ new #[Title('Salon settings')] class extends Component {
 
         </section>
 
-        {{-- Booking widget: embed code for the salon's own website. --}}
-        <section x-show="tab === 'widget'" x-cloak class="flex flex-col gap-6">
-        <x-ui.card class="flex flex-col gap-5">
-            <h2 class="bts-card-title">{{ __('Booking widget') }}</h2>
-            <p class="text-[14px] text-secondary">
-                {{ __('A booking form clients use on YOUR website — paste one of the snippets below into any site builder (Wix, WordPress, Squarespace…). Visitors pick a service, stylist and time, and the booking lands here like any other, tagged "Booking widget".') }}
-            </p>
-
-            <div class="flex flex-wrap items-center gap-2">
-                <a href="{{ route('salon.widget', $salon) }}" target="_blank" rel="noopener" class="bts-btn bts-btn-secondary bts-btn-sm">{{ __('Preview the widget') }}</a>
-            </div>
-
-            {{-- Inline php directives only — the block form's closing marker
-                 would mis-pair with this file's earlier inline directives when
-                 Blade extracts raw blocks. 'script' is spliced so the literal
-                 tag never appears in this single-file component. --}}
-            @php($tag = 'scr'.'ipt')
-            @php($scriptSnippet = '<div data-bookthestyle-salon="'.$salon->slug.'"></div>'.PHP_EOL.'<'.$tag.' src="'.route('widget.script').'" async></'.$tag.'>')
-            @php($iframeSnippet = '<iframe src="'.route('salon.widget', $salon).'" style="width:100%;border:0;min-height:640px" title="Book an appointment"></iframe>')
-
-            <div class="flex flex-col gap-2">
-                <h3 class="text-[14px] font-semibold text-ink">{{ __('Recommended: script embed (auto-sizes to content)') }}</h3>
-                <x-ui.copy-field :label="__('Paste where the form should appear')" :value="$scriptSnippet" />
-            </div>
-
-            <div class="flex flex-col gap-2">
-                <h3 class="text-[14px] font-semibold text-ink">{{ __('Alternative: plain iframe') }}</h3>
-                <x-ui.copy-field :label="__('For builders that only accept an iframe')" :value="$iframeSnippet" />
-            </div>
-
-            <div class="rounded-[11px] bg-muted px-3 py-2.5 text-[13px] text-body">
-                <p class="font-semibold text-ink">{{ __('Options (script embed)') }}</p>
-                <ul class="mt-1 list-disc space-y-1 ps-4">
-                    <li>{{ __('data-accent="#RRGGBB" — override the widget accent (defaults to your branding accent).') }}</li>
-                    <li>{{ __('data-service="ID" — pre-select a service and skip straight to stylist choice.') }}</li>
-                </ul>
-            </div>
-        </x-ui.card>
-        </section>
 
         {{-- Integrations: GoHighLevel connection, mapping, inbound webhook. --}}
         <section x-show="tab === 'integrations'" x-cloak class="flex flex-col gap-6">

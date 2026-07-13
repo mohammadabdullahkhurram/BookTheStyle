@@ -133,7 +133,7 @@ require __DIR__.'/settings.php';
 | The loader script external sites embed is served from the app host below.
 */
 Route::domain('{salon}.'.$central)->middleware('throttle:widget-api')->group(function () {
-    Route::get('widget', [WidgetController::class, 'page'])->name('salon.widget');
+    Route::get('widget/{widget?}', [WidgetController::class, 'page'])->name('salon.widget');
     Route::prefix('api/widget')->group(function () {
         Route::get('services', [WidgetController::class, 'services'])->name('salon.widget.services');
         Route::get('availability', [WidgetController::class, 'availability'])->name('salon.widget.availability');
@@ -166,6 +166,7 @@ Route::domain('{salon}.'.$central)->middleware(['auth', 'resolve.salon'])->group
     Route::livewire('availability', 'pages::salon.availability.index')->name('salon.availability');
     Route::livewire('reports', 'pages::salon.reports')->name('salon.reports');
     Route::livewire('settings', 'pages::salon.settings')->name('salon.settings');
+    Route::livewire('widgets', 'pages::salon.widgets')->name('salon.widgets');
     // TEMPORARY: design-direction gallery (owner/admin) — removed once a
     // direction is chosen and rolled out app-wide.
     Route::livewire('ui-ux', 'pages::salon.uiux')->name('salon.uiux');

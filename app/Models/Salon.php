@@ -81,6 +81,7 @@ class Salon extends Model
         'auto_no_show_grace_minutes',
         'auto_complete',
         'feature_flags',
+        'app_theme',
     ];
 
     protected function casts(): array
@@ -177,6 +178,30 @@ class Salon extends Model
     public function services(): HasMany
     {
         return $this->hasMany(Service::class);
+    }
+
+    /**
+     * @return HasMany<Widget, $this>
+     */
+    public function widgets(): HasMany
+    {
+        return $this->hasMany(Widget::class);
+    }
+
+    /**
+     * The salon's first booking widget — created on demand so pre-widgets
+     * embeds and fresh salons always resolve to a real row. Branding stays
+     * null: a widget without its own overrides inherits the salon's live.
+     */
+    public function defaultWidget(): Widget
+    {
+        return $this->widgets()->orderBy('id')->first()
+            ?? $this->widgets()->create([
+                'name' => __('Booking widget'),
+                'public_id' => Widget::newPublicId(),
+                'branding' => null,
+                'theme' => 'marble',
+            ]);
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Salon;
+use App\Models\Widget;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -69,11 +70,18 @@ final class WidgetBranding
      *
      * @return array{accent: array{accent: string, hover: string, tint: string, ink: string}, secondary: string, surface: string, font: array{key: string, label: string, display: string, body: string}, logo_url: string|null, mode: array{scheme: string, ink: string, muted: string, faint: string, line: string, cell: string, accent_ink: string}}
      */
-    public static function for(Salon $salon, ?string $accentOverride = null): array
+    public static function for(Salon $salon, ?string $accentOverride = null, ?Widget $widget = null): array
     {
-        $branding = $salon->branding ?? [];
+        // A widget's own branding overrides the salon's, key by key — the
+        // salon branding acts as the shared default for every widget.
+        $branding = array_merge(
+            $salon->branding ?? [],
+            array_filter($widget->branding ?? [], fn (mixed $value): bool => $value !== null && $value !== ''),
+        );
 
-        $accent = AccentPalette::resolve($accentOverride ?? $salon->accentColor())
+        $storedAccent = is_string($branding['accent'] ?? null) ? $branding['accent'] : null;
+
+        $accent = AccentPalette::resolve($accentOverride ?? $storedAccent ?? $salon->accentColor())
             ?? AccentPalette::PRESETS['violet'];
 
         $fontKey = is_string($branding['font'] ?? null) && isset(self::FONTS[$branding['font']])

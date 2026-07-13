@@ -42,16 +42,27 @@ class WidgetController extends Controller
 {
     public function __construct(private VoiceBookingApi $api) {}
 
-    /** The self-contained booking page the embed iframe loads. */
-    public function page(Request $request, string $salon): Response
+    /**
+     * The self-contained booking page the embed iframe loads. A widget
+     * public id in the path picks ONE of the salon's widgets (each has its
+     * own branding + theme); without one, the salon's default widget renders
+     * — so pre-multi-widget embeds keep working unchanged.
+     */
+    public function page(Request $request, string $salon, ?string $widget = null): Response
     {
         $salon = $this->salon($salon);
 
+        $widgetModel = $widget !== null
+            ? $salon->widgets()->where('public_id', $widget)->firstOrFail()
+            : $salon->defaultWidget();
+
         return response()->view('widget.page', [
             'salon' => $salon,
+            'widget' => $widgetModel,
             // Full widget branding (accent set, secondary, surface, font,
-            // logo), with the validated ?accent= override still honoured.
-            'branding' => WidgetBranding::for($salon, $this->accentOverride($request)),
+            // logo) — the WIDGET's own values over the salon defaults, with
+            // the validated ?accent= override still honoured.
+            'branding' => WidgetBranding::for($salon, $this->accentOverride($request), $widgetModel),
             'catalogue' => $this->catalogue($salon),
             'currency' => $salon->currency,
             'preselectService' => ctype_digit((string) $request->query('service')) ? (int) $request->query('service') : null,

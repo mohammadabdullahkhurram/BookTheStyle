@@ -182,9 +182,10 @@
         @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
     </style>
 </head>
-<body class="antialiased">
+<body class="antialiased" data-theme="{{ $widget->themeKey() }}">
     <main class="mx-auto w-full max-w-5xl p-3 sm:p-5" id="bts-widget"
           data-salon="{{ $salon->name }}"
+          data-widget="{{ $widget->public_id }}"
           data-preselect="{{ $preselectService ?? '' }}">
 
         <div class="wb-shell">

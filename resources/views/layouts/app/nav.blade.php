@@ -141,6 +141,12 @@
         </a>
     @endif
     @if ($salon && $user?->can('manage', $salon))
+        <a href="{{ route('salon.widgets', $salon) }}" wire:navigate @click="mobileNav = false"
+           aria-label="{{ __('Widgets') }}" :title="collapsed ? '{{ __('Widgets') }}' : null"
+           class="bts-nav-item {{ request()->routeIs('salon.widgets') ? 'bts-nav-item-active' : '' }}">
+            <flux:icon.code-bracket-square variant="micro" class="shrink-0" />
+            <span x-show="!collapsed" x-cloak>{{ __('Widgets') }}</span>
+        </a>
         <a href="{{ route('salon.settings', $salon) }}" wire:navigate @click="mobileNav = false"
            aria-label="{{ __('Settings') }}" :title="collapsed ? '{{ __('Settings') }}' : null"
            class="bts-nav-item {{ request()->routeIs('salon.settings') ? 'bts-nav-item-active' : '' }}">

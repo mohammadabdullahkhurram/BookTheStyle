@@ -235,16 +235,23 @@ it('serves the loader script with the resize handler', function () {
         ->toContain('iframe');
 });
 
-it('shows the embed snippets with the salon slug in settings', function () {
+it('shows the per-widget embed snippets in the Widgets area (moved out of settings)', function () {
     [$salon] = widgetSalon();
     $owner = User::factory()->create();
     SalonMembership::factory()->for($owner)->for($salon)->owner()->create();
     $this->actingAs($owner);
 
+    $widget = $salon->defaultWidget();
+
+    Livewire\Livewire::test('pages::salon.widgets', ['salon' => $salon])
+        ->assertSee($salon->slug)
+        ->assertSee($widget->public_id)
+        ->assertSee(route('widget.script'));
+
+    // Settings no longer carries the embed tab — it points to Widgets.
     Livewire\Livewire::test('pages::salon.settings', ['salon' => $salon])
-        ->assertSee('data-bookthestyle-salon="'.$salon->slug.'"')
-        ->assertSee(route('widget.script'))
-        ->assertSee(route('salon.widget', $salon));
+        ->assertDontSee('data-bookthestyle-salon', false)
+        ->assertSee(route('salon.widgets', $salon));
 });
 
 // ---------------------------------------------------------------------------

@@ -19,6 +19,9 @@
 
         var origin = SCHEME + '://' + slug + '.' + DOMAIN;
         var src = origin + '/widget';
+        // Optional specific widget (multi-widget salons): its public id.
+        var widget = (container.getAttribute('data-bookthestyle-widget') || '').trim().toLowerCase();
+        if (/^[a-z0-9]{6,32}$/.test(widget)) { src += '/' + widget; }
         var params = [];
         var accent = container.getAttribute('data-accent');
         var service = container.getAttribute('data-service');

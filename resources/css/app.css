@@ -253,6 +253,130 @@
         box-shadow: var(--glass-highlight), 0 8px 26px rgb(63 47 38 / 0.09);
     }
 
+    /* ────────────────────────────────────────────────────────────────────
+       MARBLE — the Marblism theme (ThemeRegistry key 'marble'; gallery
+       direction 12). Warm, story-book human: butter-cream paper, coral
+       energy, chunky rounded shapes with the pressed-clay drop edge. A
+       THEME = new values for the same tokens; the app-wide component
+       refinement lands in the rollout step. AA: ink 10.5:1 / body 6.6:1 /
+       secondary 5.4:1 / faint 4.6:1 on paper; white 5.1:1 on the coral.
+       ──────────────────────────────────────────────────────────────────── */
+    body[data-theme='marble'] {
+        --color-paper: #fff8ef;
+        --color-app: #fff8ef;
+        --color-card: #fffdf8;
+        --color-surface: #fffdf8;
+        --color-muted: #f7ecd9;
+        --color-field: #fffdf8;
+        --color-sidebar-dark: #3a2b21;
+
+        --color-ink: #4a382e;
+        --color-body: #6b5546;
+        --color-secondary: #7a6250;
+        --color-faint: #846d5a;
+        --color-fainter: #c9b394;
+        --color-placeholder: #b39a7d;
+
+        --color-border: #f2e2cd;
+        --color-input-border: #ecd8bc;
+        --color-divider: #f7ecd9;
+        --color-row: #f7ecd9;
+
+        /* Coral accent set (deepened from the gallery's #F08A5D for AA
+           white-on-accent); butter #F7D774 is Marble's secondary voice. */
+        --accent: #bc4a28;
+        --accent-hover: #a13d1f;
+        --accent-tint: #fbe9d7;
+        --accent-ink: #9c3f22;
+        --focus-ring: #bc4a28;
+
+        /* Chunky rounded geometry + the pressed-clay edge. */
+        --radius-sm: 12px;
+        --radius-md: 14px;
+        --radius-lg: 14px;
+        --radius-xl: 16px;
+        --radius-2xl: 20px;
+        --radius-3xl: 22px;
+        --radius-chip: 12px;
+        --radius-input: 14px;
+        --radius-button: 99px;
+        --radius-nav: 14px;
+        --radius-stat: 18px;
+        --radius-list: 20px;
+        --radius-modal: 22px;
+        --shadow-card: 0 3px 0 #f2e2cd;
+        --shadow-button: 0 3px 0 rgb(74 56 46 / 0.18);
+        --shadow-overlay: 0 4px 0 #f2e2cd, 0 18px 40px rgb(74 56 46 / 0.12);
+    }
+
+    /* ────────────────────────────────────────────────────────────────────
+       GLACIER — full liquid glass (ThemeRegistry key 'glacier'; gallery
+       direction 11). The AGENCY console language: colour blooms under
+       frosted glass chrome. AA: ink 14.0:1 / body 7.0:1 / faint 5.3:1 on
+       the backdrop base; plum stays the accent (white 6.5:1).
+       ──────────────────────────────────────────────────────────────────── */
+    body[data-theme='glacier'] {
+        --color-paper: #f3f1ee;
+        --color-app: #f3f1ee;
+        --color-ink: #262126;
+        --color-body: #57504f;
+        --color-secondary: #625a5c;
+        --color-faint: #6d6068;
+
+        --glass-bg: rgb(255 255 255 / 0.42);
+        --glass-strong: rgb(255 255 255 / 0.9);
+        --glass-border: rgb(255 255 255 / 0.65);
+        --glass-highlight: inset 0 1px 0 rgb(255 255 255 / 0.9);
+        --glass-shadow: 0 10px 34px rgb(63 47 70 / 0.12);
+        --glass-blur: 22px;
+        --scrim: rgb(38 33 38 / 0.3);
+
+        /* The glacier blooms: plum, sky, and amber under the glass. */
+        background-color: var(--color-paper);
+        background-image:
+            radial-gradient(46rem 30rem at 8% -10%, rgb(130 76 113 / 0.28), transparent 58%),
+            radial-gradient(42rem 28rem at 92% -4%, rgb(91 146 189 / 0.26), transparent 58%),
+            radial-gradient(52rem 34rem at 45% 115%, rgb(212 154 78 / 0.22), transparent 60%);
+        background-attachment: fixed;
+    }
+
+    body[data-theme='glacier'] .bts-chrome {
+        background-color: var(--glass-bg);
+        border-color: var(--glass-border);
+        box-shadow: var(--glass-highlight), inset 1px 0 0 rgb(255 255 255 / 0.4);
+        -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.6);
+        backdrop-filter: blur(var(--glass-blur)) saturate(1.6);
+    }
+
+    body[data-theme='glacier'] .bts-stat {
+        border-top: 0;
+        background-color: var(--glass-bg);
+        border: 1px solid var(--glass-border);
+        border-radius: 20px;
+        box-shadow: var(--glass-highlight), var(--glass-shadow);
+        padding: 16px 18px;
+        -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.6);
+        backdrop-filter: blur(var(--glass-blur)) saturate(1.6);
+        transition: box-shadow 0.2s ease, transform 0.2s ease;
+    }
+    body[data-theme='glacier'] .bts-stat:hover {
+        transform: translateY(-2px);
+    }
+
+    body[data-theme='glacier'] dialog {
+        background-color: rgb(255 255 255 / 0.6);
+        border: 1px solid var(--glass-border);
+        box-shadow: var(--glass-highlight), 0 20px 50px rgb(63 47 70 / 0.18);
+        -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
+        backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
+    }
+    body[data-theme='glacier'] dialog::backdrop {
+        background-color: var(--scrim);
+    }
+    body[data-theme='glacier'] .bts-scrim {
+        background-color: var(--scrim);
+    }
+
     *,
     ::after,
     ::before,
