@@ -198,6 +198,7 @@ class Salon extends Model
         return $this->widgets()->orderBy('id')->first()
             ?? $this->widgets()->create([
                 'name' => __('Booking widget'),
+                'type' => 'booking',
                 'public_id' => Widget::newPublicId(),
                 'branding' => null,
                 'theme' => 'marble',

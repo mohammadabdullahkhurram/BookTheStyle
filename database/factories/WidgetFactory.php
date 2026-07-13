@@ -18,6 +18,7 @@ class WidgetFactory extends Factory
         return [
             'salon_id' => Salon::factory(),
             'name' => 'Booking widget',
+            'type' => 'booking',
             'public_id' => Widget::newPublicId(),
             'branding' => null,
             'theme' => 'marble',

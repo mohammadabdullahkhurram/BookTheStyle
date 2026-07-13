@@ -24,6 +24,9 @@ new #[Title('Widgets')] class extends Component {
 
     public int $selectedId = 0;
 
+    /** The "which type of widget?" modal shown before creating one. */
+    public bool $showTypePicker = false;
+
     public string $name = '';
 
     public string $accent = '';
@@ -58,17 +61,30 @@ new #[Title('Widgets')] class extends Component {
         $this->resetErrorBag();
     }
 
-    public function createWidget(): void
+    /**
+     * Create a widget of a picked TYPE (the type-picker modal's choice).
+     * Only registry-available types are creatable — the coming-soon cards
+     * are locked previews, and the guard holds server-side too.
+     */
+    public function createWidget(string $type = \App\Support\WidgetTypeRegistry::DEFAULT): void
     {
         $this->authorize('manage', $this->salon);
 
+        if (! \App\Support\WidgetTypeRegistry::selectable($type)) {
+            Flux::toast(variant: 'danger', text: __('That widget type is not available yet.'));
+
+            return;
+        }
+
         $widget = $this->salon->widgets()->create([
             'name' => __('New widget'),
+            'type' => $type,
             'public_id' => Widget::newPublicId(),
             'branding' => null,
             'theme' => 'marble',
         ]);
 
+        $this->showTypePicker = false;
         $this->select($widget->id);
         Flux::toast(variant: 'success', text: __('Widget created — name it and set its look.'));
     }
@@ -184,16 +200,20 @@ new #[Title('Widgets')] class extends Component {
     </div>
 
     <div class="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
-        {{-- Widget list --}}
+        {{-- Widget list: name + its TYPE, so mixed-type lists read at a glance --}}
         <nav aria-label="{{ __('Your widgets') }}" class="flex flex-col gap-1">
             @foreach ($widgets as $widget)
                 <button type="button" wire:click="select({{ $widget->id }})"
                         aria-current="{{ $widget->id === $selectedId ? 'page' : 'false' }}"
-                        class="bts-nav-item text-left {{ $widget->id === $selectedId ? 'bts-nav-item-active' : '' }}">
-                    {{ $widget->name }}
+                        class="bts-nav-item flex-col !items-start gap-0.5 text-left {{ $widget->id === $selectedId ? 'bts-nav-item-active' : '' }}">
+                    <span class="block">{{ $widget->name }}</span>
+                    <span class="flex items-center gap-1 text-[12px] font-medium text-faint">
+                        <flux:icon :name="\App\Support\WidgetTypeRegistry::icon($widget->type)" variant="micro" class="size-3.5 shrink-0" />
+                        {{ __(\App\Support\WidgetTypeRegistry::name($widget->type)) }}
+                    </span>
                 </button>
             @endforeach
-            <button type="button" wire:click="createWidget" class="bts-nav-item text-left text-accent-ink">
+            <button type="button" wire:click="$set('showTypePicker', true)" class="bts-nav-item text-left text-accent-ink">
                 + {{ __('New widget') }}
             </button>
         </nav>
@@ -328,4 +348,33 @@ new #[Title('Widgets')] class extends Component {
             @endif
         </div>
     </div>
+
+    {{-- Type picker: the first step of creating a widget. Available types
+         are selectable cards; coming-soon ones are locked previews (same
+         pattern as the theme pickers). --}}
+    <x-ui.modal wire:model="showTypePicker" class="max-w-xl"
+                :heading="__('What kind of widget?')"
+                :subheading="__('Each type embeds on your website with its own look and its own code.')">
+        <div class="grid gap-3 sm:grid-cols-2">
+            @foreach (\App\Support\WidgetTypeRegistry::TYPES as $typeKey => $type)
+                @if ($type['status'] === 'available')
+                    <button type="button" wire:click="createWidget('{{ $typeKey }}')"
+                            class="flex flex-col gap-2 rounded-[14px] border border-input-border bg-field p-4 text-left transition hover:border-accent">
+                        <flux:icon :name="$type['icon']" class="size-6 text-accent" />
+                        <span class="text-[15px] font-semibold text-ink">{{ __($type['name']) }}</span>
+                        <span class="text-[13px] text-secondary">{{ __($type['description']) }}</span>
+                    </button>
+                @else
+                    <div class="relative overflow-hidden rounded-[14px] border border-border bg-field p-4" aria-disabled="true">
+                        <div class="blur-[2px] opacity-60" aria-hidden="true">
+                            <flux:icon :name="$type['icon']" class="size-6 text-faint" />
+                            <p class="mt-2 text-[15px] font-semibold text-ink">{{ __($type['name']) }}</p>
+                            <p class="text-[13px] text-secondary">{{ __($type['description']) }}</p>
+                        </div>
+                        <span class="absolute right-3 top-3 rounded-full bg-muted px-2.5 py-1 text-[11.5px] font-semibold uppercase tracking-wide text-secondary">{{ __('Coming soon') }}</span>
+                    </div>
+                @endif
+            @endforeach
+        </div>
+    </x-ui.modal>
 </div>

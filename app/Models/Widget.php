@@ -20,6 +20,7 @@ use Illuminate\Support\Str;
  * @property int $id
  * @property int $salon_id
  * @property string $name
+ * @property string $type
  * @property string $public_id
  * @property array<string, mixed>|null $branding
  * @property string $theme
@@ -29,7 +30,7 @@ class Widget extends Model
     /** @use HasFactory<WidgetFactory> */
     use BelongsToSalon, HasFactory;
 
-    protected $fillable = ['salon_id', 'name', 'public_id', 'branding', 'theme'];
+    protected $fillable = ['salon_id', 'name', 'type', 'public_id', 'branding', 'theme'];
 
     protected function casts(): array
     {

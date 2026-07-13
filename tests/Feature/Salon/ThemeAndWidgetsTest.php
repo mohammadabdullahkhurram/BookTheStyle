@@ -6,8 +6,10 @@ use App\Models\Salon;
 use App\Models\User;
 use App\Models\Widget;
 use App\Support\ThemeRegistry;
+use App\Support\WidgetTypeRegistry;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
@@ -230,6 +232,67 @@ it('sets a widget theme from the picker, refusing locked ones, and keeps at leas
     $component->call('deleteWidget', $second->id);
     expect($salon->widgets()->count())->toBe(1);
     Storage::disk('public')->assertMissing($path);
+});
+
+// ---------------------------------------------------------------------------
+// Widget TYPES: booking today; chat / lead form / reviews coming soon
+// ---------------------------------------------------------------------------
+
+it('registers widget types: Booking available, the rest locked coming-soon previews', function () {
+    expect(WidgetTypeRegistry::TYPES['booking']['status'])->toBe('available');
+
+    $comingSoon = collect(WidgetTypeRegistry::TYPES)->where('status', 'coming_soon');
+    expect($comingSoon->count())->toBeGreaterThanOrEqual(3);
+    expect($comingSoon->keys()->all())->toContain('chat');
+
+    expect(WidgetTypeRegistry::selectable('booking'))->toBeTrue();
+    expect(WidgetTypeRegistry::selectable('chat'))->toBeFalse();
+    expect(WidgetTypeRegistry::selectable('nope'))->toBeFalse();
+    expect(WidgetTypeRegistry::name('booking'))->toBe('Booking widget');
+});
+
+it('defaults every widget to the booking type — existing rows included', function () {
+    $salon = Salon::factory()->create();
+
+    // The default column value is the backfill: rows created without an
+    // explicit type (as all pre-types rows were) read as booking.
+    $id = DB::table('widgets')->insertGetId([
+        'salon_id' => $salon->id,
+        'name' => 'Legacy widget',
+        'public_id' => Widget::newPublicId(),
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    expect(Widget::query()->findOrFail($id)->type)->toBe('booking');
+    expect($salon->defaultWidget()->type)->toBe('booking');
+});
+
+it('creates widgets through the type picker: booking proceeds, coming-soon types are refused', function () {
+    $salon = Salon::factory()->create();
+    $owner = salonOwnerOf($salon);
+
+    $component = Livewire::actingAs($owner)->test('pages::salon.widgets', ['salon' => $salon]);
+
+    // The picker modal offers the types: booking selectable, the rest locked.
+    $component->set('showTypePicker', true)
+        ->assertSee('What kind of widget?')
+        ->assertSee('Chat widget')
+        ->assertSee('Coming soon');
+
+    // Coming-soon and unknown types never create anything.
+    $component->call('createWidget', 'chat');
+    $component->call('createWidget', 'bogus');
+    expect($salon->widgets()->count())->toBe(1); // the default only
+
+    // Booking proceeds into the normal config flow (modal closes, selected).
+    $component->call('createWidget', 'booking');
+    expect($salon->widgets()->count())->toBe(2);
+    expect($salon->widgets()->orderByDesc('id')->first()->type)->toBe('booking');
+    expect($component->get('showTypePicker'))->toBeFalse();
+
+    // The list labels each widget with its type.
+    $component->assertSee('Booking widget');
 });
 
 it('books through a specific widget exactly like before — the flow is widget-agnostic', function () {
