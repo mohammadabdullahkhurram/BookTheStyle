@@ -198,11 +198,17 @@
                     <button type="button" id="bts-continue" class="wb-cta mt-4" hidden></button>
                 </section>
 
-                {{-- Step 2: stylist --}}
+                {{-- Step 2: stylist — auto (one stylist / team) or manual per service --}}
                 <section data-step="stylist" hidden class="wb-glass p-5">
                     <h2 class="wb-display text-[17px] font-semibold">{{ __('Choose a stylist') }}</h2>
-                    <p class="mt-0.5 text-[13.5px] text-secondary">{{ __('One stylist takes your whole visit.') }}</p>
+                    <p class="mt-0.5 text-[13.5px] text-secondary" id="bts-stylist-hint">{{ __('One stylist takes your whole visit when possible.') }}</p>
                     <div id="bts-stylists" class="mt-3 grid gap-2"></div>
+                    {{-- Manual mode is an opt-in, so casual bookers never see it --}}
+                    <button type="button" id="bts-manual-toggle" class="wb-ghost mt-3" hidden aria-expanded="false">{{ __('Choose stylists per service') }}</button>
+                    <div id="bts-manual" hidden class="mt-3 grid gap-3">
+                        <div id="bts-manual-rows" class="grid gap-3"></div>
+                        <button type="button" id="bts-manual-continue" class="wb-cta">{{ __('See available times') }}</button>
+                    </div>
                 </section>
 
                 {{-- Step 3: date + time — inline availability calendar, no native picker --}}
@@ -302,13 +308,16 @@
             when: @json(__('When')),
             total: @json(__('Estimated total')),
             varies: @json(__('some prices vary')),
-            noShared: @json(__('No single stylist offers that combination — remove a service and try again.')),
             available: @json(__('available')),
             unavailable: @json(__('unavailable')),
             timesFor: @json(__('Open times for :date')),
+            anyStylist: @json(__('Any available')),
+            teamNote: @json(__("No single stylist offers everything you picked — we'll arrange your services back to back with the team.")),
+            manualOn: @json(__('Choose stylists per service')),
+            manualOff: @json(__('Let us arrange it instead')),
         };
 
-        var state = { step: 'service', services: [], stylist: 'any', date: null, slot: null };
+        var state = { step: 'service', services: [], stylist: 'any', mode: 'auto', assignments: {}, date: null, slot: null };
         var $ = function (id) { return document.getElementById(id); };
         var steps = document.querySelectorAll('[data-step]');
 
@@ -373,20 +382,26 @@
             $('bts-summary-empty').classList.toggle('hidden', hasContent);
             if (!hasContent) { return; }
 
-            state.services.forEach(function (service) {
+            // With a chosen slot, each service line names ITS stylist and leg
+            // time — the arrangement reads at a glance ("9:00 AM · Maya").
+            var legs = state.slot && state.slot.stylists ? state.slot.stylists : null;
+            state.services.forEach(function (service, index) {
                 var row = document.createElement('div');
                 row.className = 'wb-sumline';
                 var name = document.createElement('span');
                 name.textContent = service.name;
                 var meta = document.createElement('span');
                 meta.className = 'text-secondary';
-                meta.textContent = service.duration_minutes + ' ' + I18N.min + (service.price ? ' · ' + service.price : '');
+                var leg = legs && legs[index];
+                meta.textContent = leg
+                    ? leg.time + ' · ' + leg.stylist
+                    : service.duration_minutes + ' ' + I18N.min + (service.price ? ' · ' + service.price : '');
                 row.appendChild(name);
                 row.appendChild(meta);
                 lines.appendChild(row);
             });
 
-            if (state.stylist !== 'any' || state.slot) {
+            if ((state.mode === 'auto' && state.stylist !== 'any') || state.slot) {
                 var who = document.createElement('div');
                 who.className = 'wb-sumline';
                 var lbl = document.createElement('span');
@@ -462,6 +477,8 @@
             if (index >= 0) { state.services.splice(index, 1); }
             else { state.services.push(service); }
             state.stylist = 'any';
+            state.mode = 'auto';
+            state.assignments = {};
             state.slot = null;
             renderServices();
             renderSummary();
@@ -481,19 +498,65 @@
             var wrap = $('bts-stylists');
             wrap.textContent = '';
             var shared = sharedStylists();
-            if (!shared.length) {
-                error(I18N.noShared);
-                show('service');
-                return;
-            }
-            wrap.appendChild(option(I18N.any, null, function () { pickStylist('any'); }, state.stylist === 'any'));
+
+            // No single stylist covers the whole selection: auto composes a
+            // back-to-back team arrangement — say so instead of refusing.
+            $('bts-stylist-hint').textContent = shared.length || state.services.length < 2
+                ? @json(__('One stylist takes your whole visit when possible.'))
+                : I18N.teamNote;
+
+            wrap.appendChild(option(I18N.any, null, function () { pickStylist('any'); }, state.mode === 'auto' && state.stylist === 'any'));
             shared.forEach(function (stylist) {
-                wrap.appendChild(option(stylist.name, null, function () { pickStylist(String(stylist.id)); }, String(state.stylist) === String(stylist.id)));
+                wrap.appendChild(option(stylist.name, null, function () { pickStylist(String(stylist.id)); }, state.mode === 'auto' && String(state.stylist) === String(stylist.id)));
+            });
+
+            var toggle = $('bts-manual-toggle');
+            toggle.hidden = state.services.length < 2;
+            toggle.textContent = state.mode === 'manual' ? I18N.manualOff : I18N.manualOn;
+            toggle.setAttribute('aria-expanded', state.mode === 'manual' ? 'true' : 'false');
+            $('bts-manual').hidden = state.mode !== 'manual';
+            if (state.mode === 'manual') { renderManualRows(); }
+            postHeight();
+        }
+
+        // -- manual mode: an explicit stylist per service ----------------------
+        function renderManualRows() {
+            var rows = $('bts-manual-rows');
+            rows.textContent = '';
+            state.services.forEach(function (service) {
+                var row = document.createElement('div');
+                var label = document.createElement('label');
+                label.className = 'block text-[13px] font-semibold text-secondary';
+                label.setAttribute('for', 'bts-assign-' + service.id);
+                label.textContent = service.name;
+                var select = document.createElement('select');
+                select.className = 'wb-field mt-1';
+                select.id = 'bts-assign-' + service.id;
+                var any = document.createElement('option');
+                any.value = 'any';
+                any.textContent = I18N.anyStylist;
+                select.appendChild(any);
+                service.stylists.forEach(function (stylist) {
+                    var opt = document.createElement('option');
+                    opt.value = String(stylist.id);
+                    opt.textContent = stylist.name;
+                    select.appendChild(opt);
+                });
+                select.value = state.assignments[service.id] || 'any';
+                select.addEventListener('change', function () { state.assignments[service.id] = select.value; });
+                row.appendChild(label);
+                row.appendChild(select);
+                rows.appendChild(row);
             });
         }
 
         function pickStylist(id) {
+            state.mode = 'auto';
             state.stylist = id;
+            openTimeStep();
+        }
+
+        function openTimeStep() {
             state.slot = null;
             state.date = null;
             $('bts-slots').textContent = '';
@@ -509,7 +572,7 @@
         var cal = { month: MIN_DATE.slice(0, 7), avail: {}, focus: null, refocus: false };
 
         function pad2(n) { return (n < 10 ? '0' : '') + n; }
-        function calKey(month) { return servicesQuery() + '|' + state.stylist + '|' + month; }
+        function calKey(month) { return servicesQuery() + '|' + month; }
         function monthAdd(month, delta) {
             var y = +month.slice(0, 4), m = +month.slice(5, 7) - 1 + delta;
             return (y + Math.floor(m / 12)) + '-' + pad2(((m % 12) + 12) % 12 + 1);
@@ -532,10 +595,7 @@
             if (cal.avail[key]) { renderCalendar(cal.avail[key]); return; }
             renderCalendar(null); // greyed skeleton while the month loads
 
-            var url = API.month
-                + '?' + servicesQuery()
-                + '&stylist=' + encodeURIComponent(state.stylist)
-                + '&month=' + encodeURIComponent(month);
+            var url = API.month + '?' + servicesQuery() + '&month=' + encodeURIComponent(month);
 
             fetch(url, { headers: { Accept: 'application/json' } })
                 .then(function (r) { return r.json(); })
@@ -649,7 +709,16 @@
 
         // -- step 3b: the selected day's full-visit slots ----------------------
         function servicesQuery() {
-            return state.services.map(function (s) { return 'services[]=' + encodeURIComponent(s.id); }).join('&');
+            var query = state.services.map(function (s) { return 'services[]=' + encodeURIComponent(s.id); }).join('&');
+            if (state.mode === 'manual') {
+                // Per-service assignment, aligned with services[] order.
+                query += '&' + state.services.map(function (s) {
+                    return 'stylists[]=' + encodeURIComponent(state.assignments[s.id] || 'any');
+                }).join('&');
+            } else {
+                query += '&stylist=' + encodeURIComponent(state.stylist);
+            }
+            return query;
         }
 
         function loadSlots() {
@@ -660,10 +729,7 @@
             label.textContent = I18N.timesFor.replace(':date', prettyDate(state.date));
             label.classList.remove('hidden');
 
-            var url = API.availability
-                + '?' + servicesQuery()
-                + '&stylist=' + encodeURIComponent(state.stylist)
-                + '&date=' + encodeURIComponent(state.date);
+            var url = API.availability + '?' + servicesQuery() + '&date=' + encodeURIComponent(state.date);
 
             fetch(url, { headers: { Accept: 'application/json' } })
                 .then(function (r) { return r.json(); })
@@ -682,7 +748,10 @@
                 var b = document.createElement('button');
                 b.type = 'button';
                 b.className = 'wb-chip';
-                b.textContent = slot.time + (state.stylist === 'any' ? ' · ' + slot.stylist : '');
+                // Name the staffing whenever it wasn't a single explicit pick
+                // ("Maya + Sarah" for a composed team visit).
+                var named = state.mode === 'manual' || state.stylist === 'any' || slot.multi_stylist;
+                b.textContent = slot.time + (named ? ' · ' + slot.stylist : '');
                 b.addEventListener('click', function () {
                     state.slot = slot;
                     show('details');
@@ -707,8 +776,10 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
                 body: JSON.stringify({
-                    services: state.services.map(function (s) { return s.id; }),
-                    stylist: String(state.slot.stylist_id),
+                    // Submit the offered arrangement verbatim: services and
+                    // their per-leg stylists from the chosen slot, aligned.
+                    services: state.slot.stylists.map(function (a) { return a.service_id; }),
+                    stylists: state.slot.stylists.map(function (a) { return String(a.stylist_id); }),
                     date: state.slot.date,
                     time: state.slot.time,
                     client: { name: name, phone: phone, email: $('bts-email').value.trim() || null },
@@ -739,6 +810,17 @@
             renderStylists();
             show('stylist');
         });
+        $('bts-manual-toggle').addEventListener('click', function () {
+            state.mode = state.mode === 'manual' ? 'auto' : 'manual';
+            renderStylists();
+        });
+        $('bts-manual-continue').addEventListener('click', function () {
+            state.services.forEach(function (service) {
+                var select = document.getElementById('bts-assign-' + service.id);
+                state.assignments[service.id] = select ? select.value : 'any';
+            });
+            openTimeStep();
+        });
         $('bts-form').addEventListener('submit', submit);
         $('bts-back').addEventListener('click', function () {
             if (state.step === 'details') { show('time'); }
@@ -747,6 +829,7 @@
         });
         $('bts-again').addEventListener('click', function () {
             state.services = []; state.slot = null; state.stylist = 'any'; state.date = null;
+            state.mode = 'auto'; state.assignments = {};
             $('bts-form').reset();
             $('bts-slots').textContent = '';
             $('bts-day-label').classList.add('hidden');

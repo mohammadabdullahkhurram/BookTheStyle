@@ -7,11 +7,13 @@ use App\Actions\Clients\CreateClient;
 use App\Enums\BookedByType;
 use App\Enums\BookingSource;
 use App\Enums\BookingStatus;
+use App\Models\Booking;
 use App\Models\Client;
 use App\Models\Salon;
 use App\Models\Service;
 use App\Models\User;
 use App\Services\Booking\DurationResolver;
+use App\Services\Booking\ResolvedDuration;
 use App\Services\Booking\SlotEngine;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Log;
@@ -155,16 +157,16 @@ class VoiceBookingApi
      * buffers) fit one continuous free stretch — the exact layout
      * CreateBooking re-validates under lock. Never under-books.
      *
-     * @param  array{services: list<int|string>, stylist?: string|int|null, date?: string|null}  $input
+     * @param  array{services: list<int|string>, stylist?: string|int|null, stylists?: list<int|string|null>|null, date?: string|null}  $input
      * @return array<string, mixed>
      */
     public function visitAvailability(Salon $salon, array $input): array
     {
         $services = $this->resolveVisitServices($salon, $input['services']);
-        $stylists = $this->resolveVisitStylists($salon, $services, $input['stylist'] ?? null);
+        $candidates = $this->resolvePerServiceStylists($salon, $services, $input['stylist'] ?? null, $input['stylists'] ?? null);
         $days = $this->resolveDays($salon, $input['date'] ?? null, null);
 
-        $slots = $this->visitSlotsFor($salon, $services, $stylists, $days, (int) config('booking_api.max_slots_per_day'));
+        $slots = $this->visitSlotsFor($salon, $services, $candidates, $days, (int) config('booking_api.max_slots_per_day'));
 
         $names = collect($services)->pluck('name')->join(', ');
 
@@ -185,7 +187,7 @@ class VoiceBookingApi
      * items sequentially, re-validates each under lock, links them as one
      * visit group, and queues the GHL push.
      *
-     * @param  array{services: list<int|string>, stylist?: string|int|null, date?: string|null, time?: string|null, datetime?: string|null, client: array{name: string, phone?: string|null, email?: string|null}, notes?: string|null}  $input
+     * @param  array{services: list<int|string>, stylist?: string|int|null, stylists?: list<int|string|null>|null, date?: string|null, time?: string|null, datetime?: string|null, client: array{name: string, phone?: string|null, email?: string|null}, notes?: string|null}  $input
      * @return array<string, mixed>
      */
     public function createVisit(
@@ -195,7 +197,7 @@ class VoiceBookingApi
         BookedByType $bookedBy = BookedByType::WebWidget,
     ): array {
         $services = $this->resolveVisitServices($salon, $input['services']);
-        $stylists = $this->resolveVisitStylists($salon, $services, $input['stylist'] ?? null);
+        $candidates = $this->resolvePerServiceStylists($salon, $services, $input['stylist'] ?? null, $input['stylists'] ?? null);
         $start = $this->resolveStart($salon, $input);
         $client = $this->resolveClient($salon, $input['client'], null);
 
@@ -208,25 +210,28 @@ class VoiceBookingApi
             ->whereHas('items', fn ($q) => $q
                 ->where('service_id', $services[0]->id)
                 ->where('starts_at', $start->utc()))
-            ->with('items.stylist')
             ->first();
 
         if ($existing !== null) {
-            return $this->visitConfirmation($salon, $existing->id, $services, $existing->items->first()->stylist, $start, idempotent: true);
+            return $this->visitConfirmation($salon, $existing->id, $this->persistedChain($salon, $existing), $start, idempotent: true);
         }
 
-        $stylist = $this->pickVisitStylist($salon, $services, $stylists, $start);
+        $chain = $this->pickVisitChain($salon, $services, $candidates, $start);
 
-        if ($stylist === null) {
-            return $this->visitSlotTaken($salon, $services, $stylists, $start);
+        if ($chain === null) {
+            return $this->visitSlotTaken($salon, $services, $candidates, $start);
         }
 
         try {
             $booking = $this->createBooking->handle(null, $salon, [
                 'client' => ['id' => $client->id],
+                // Per-leg stylists; CreateBooking lays the items sequentially
+                // with the SAME per-stylist blocked-minutes cursor the chain
+                // was validated with, and re-validates each under lock.
                 'items' => array_map(
-                    fn (Service $s): array => ['service_id' => (int) $s->id, 'stylist_id' => (int) $stylist->id],
+                    fn (Service $s, array $leg): array => ['service_id' => (int) $s->id, 'stylist_id' => (int) $leg['stylist']->id],
                     $services,
+                    $chain,
                 ),
                 'start' => $start->format('Y-m-d H:i'),
                 'notes' => isset($input['notes']) ? mb_substr((string) $input['notes'], 0, 1000) : null,
@@ -239,7 +244,7 @@ class VoiceBookingApi
                 'errors' => array_keys($e->errors()),
             ]);
 
-            return $this->visitSlotTaken($salon, $services, $stylists, $start);
+            return $this->visitSlotTaken($salon, $services, $candidates, $start);
         }
 
         Log::info('Booking API created visit', [
@@ -247,10 +252,91 @@ class VoiceBookingApi
             'salon_id' => $salon->id,
             'booking_id' => $booking->id,
             'service_ids' => collect($services)->pluck('id')->all(),
-            'stylist_id' => $stylist->id,
+            'stylist_ids' => collect($chain)->map(fn (array $leg): int => (int) $leg['stylist']->id)->unique()->values()->all(),
         ]);
 
-        return $this->visitConfirmation($salon, $booking->id, $services, $stylist, $start);
+        return $this->visitConfirmation($salon, $booking->id, $this->confirmationLegs($salon, $services, $chain), $start);
+    }
+
+    /**
+     * The chain to book at a SPECIFIC start: a single shared stylist when one
+     * is free for the whole block (preference order), else a composed
+     * multi-stylist arrangement — the same order the slot search offers.
+     *
+     * @param  non-empty-list<Service>  $services
+     * @param  non-empty-list<non-empty-list<User>>  $candidates
+     * @return non-empty-list<array{stylist: User, start: CarbonImmutable, duration: ResolvedDuration}>|null
+     */
+    private function pickVisitChain(Salon $salon, array $services, array $candidates, CarbonImmutable $start): ?array
+    {
+        foreach ($this->sharedCandidates($candidates) as $stylist) {
+            $blocked = $this->visitBlockedMinutes($salon, $services, $stylist);
+
+            if ($this->engine->isAvailable($salon, $stylist->id, $start, $blocked)) {
+                return $this->singleChain($salon, $services, $stylist, $start->setTimezone($salon->timezone));
+            }
+        }
+
+        $day = $start->setTimezone($salon->timezone)->startOfDay();
+
+        $contexts = [];
+        $durations = [];
+        foreach ($candidates as $i => $stylists) {
+            foreach ($stylists as $stylist) {
+                $contexts[$stylist->id] ??= $this->engine->dayContext($salon, $stylist->id, $day);
+                $durations[$i][$stylist->id] = $this->resolver->resolve($salon, $services[$i], $stylist->id);
+            }
+        }
+
+        $chain = $this->chainAssign($salon, $services, $candidates, $contexts, $durations, $start->setTimezone($salon->timezone), 0, [], []);
+
+        return $chain === [] ? null : $chain;
+    }
+
+    /**
+     * Confirmation legs from a live chain: service + stylist names with each
+     * leg's local start.
+     *
+     * @param  non-empty-list<Service>  $services
+     * @param  non-empty-list<array{stylist: User, start: CarbonImmutable, duration: ResolvedDuration}>  $chain
+     * @return non-empty-list<array{service: string, stylist: string, time: string}>
+     */
+    private function confirmationLegs(Salon $salon, array $services, array $chain): array
+    {
+        return array_map(
+            fn (Service $service, array $leg): array => [
+                'service' => $service->name,
+                'stylist' => $leg['stylist']->name,
+                'time' => $leg['start']->setTimezone($salon->timezone)->format('g:i A'),
+            ],
+            $services,
+            $chain,
+        );
+    }
+
+    /**
+     * Confirmation legs for an already-persisted visit (idempotent retries):
+     * every booking in the visit group, earliest first.
+     *
+     * @return non-empty-list<array{service: string, stylist: string, time: string}>
+     */
+    private function persistedChain(Salon $salon, Booking $booking): array
+    {
+        $bookings = $booking->visit_group_id !== null
+            ? $salon->bookings()->where('visit_group_id', $booking->visit_group_id)->with('items.service', 'items.stylist')->get()
+            : collect([$booking->load('items.service', 'items.stylist')]);
+
+        $legs = $bookings
+            ->flatMap(fn (Booking $b) => $b->items)
+            ->sortBy('starts_at')
+            ->map(fn ($item): array => [
+                'service' => $item->service->name,
+                'stylist' => $item->stylist->name,
+                'time' => $item->starts_at->setTimezone($salon->timezone)->format('g:i A'),
+            ])
+            ->all();
+
+        return $legs === [] ? [['service' => '', 'stylist' => '', 'time' => '']] : array_values($legs);
     }
 
     /**
@@ -259,27 +345,41 @@ class VoiceBookingApi
      * day, short-circuiting the remaining stylists as soon as a day has any
      * opening; per-stylist blocked minutes are resolved once up front.
      *
-     * @param  array{services: list<int|string>, stylist?: string|int|null}  $input
+     * @param  array{services: list<int|string>, stylist?: string|int|null, stylists?: list<int|string|null>|null}  $input
      * @return array{dates: list<string>, timezone: string}
      */
     public function visitAvailableDates(Salon $salon, array $input, CarbonImmutable $from, CarbonImmutable $to): array
     {
         $services = $this->resolveVisitServices($salon, $input['services']);
-        $stylists = $this->resolveVisitStylists($salon, $services, $input['stylist'] ?? null);
+        $candidates = $this->resolvePerServiceStylists($salon, $services, $input['stylist'] ?? null, $input['stylists'] ?? null);
+        $shared = $this->sharedCandidates($candidates);
 
         $blockedByStylist = [];
-        foreach ($stylists as $stylist) {
+        foreach ($shared as $stylist) {
             $blockedByStylist[$stylist->id] = $this->visitBlockedMinutes($salon, $services, $stylist);
         }
 
         $dates = [];
         // Hard cap: a calendar month view plus its leading/trailing edges.
         for ($day = $from, $i = 0; $day->lte($to) && $i < 42; $day = $day->addDay(), $i++) {
-            foreach ($stylists as $stylist) {
+            $found = false;
+
+            foreach ($shared as $stylist) {
                 if ($this->engine->slotsFor($salon, $stylist->id, $blockedByStylist[$stylist->id], $day) !== []) {
-                    $dates[] = $day->format('Y-m-d');
+                    $found = true;
                     break;
                 }
+            }
+
+            // Same fallback order as the slot search: a day counts when a
+            // multi-stylist arrangement fits even though no one stylist can
+            // host the whole visit (stop at the first arrangement found).
+            if (! $found) {
+                $found = $this->arrangementSlotsFor($salon, $services, $candidates, $day, limit: 1) !== [];
+            }
+
+            if ($found) {
+                $dates[] = $day->format('Y-m-d');
             }
         }
 
@@ -308,24 +408,118 @@ class VoiceBookingApi
     }
 
     /**
-     * Stylists able to perform EVERY selected service (a widget visit keeps
-     * one stylist throughout), optionally narrowed to a requested one.
+     * The stylist CANDIDATES per service, parallel to $services. Three shapes:
+     *
+     * - Auto ("any"): every qualified stylist per service — the slot search
+     *   prefers one stylist for the whole visit and composes a back-to-back
+     *   multi-stylist arrangement only when no single stylist can host it.
+     * - Auto with a preferred stylist: the preferred one is pinned wherever
+     *   they qualify; services they don't perform keep all qualified
+     *   candidates (graceful fallback instead of a refusal).
+     * - Manual ($assigned, parallel to $services, id/name or "any" per line):
+     *   an explicit per-service pick is STRICT — it must be qualified for
+     *   that exact service, or the request is refused with the options.
      *
      * @param  non-empty-list<Service>  $services
-     * @return non-empty-list<User>
+     * @param  list<int|string|null>|null  $assigned
+     * @return non-empty-list<non-empty-list<User>>
      */
-    private function resolveVisitStylists(Salon $salon, array $services, string|int|null $ref): array
+    private function resolvePerServiceStylists(Salon $salon, array $services, string|int|null $preferred, ?array $assigned = null): array
     {
-        $perService = array_map(
-            fn (Service $s): array => collect($this->resolveStylists($salon, $s, null))->keyBy('id')->all(),
-            $services,
-        );
+        $isAny = function (string|int|null $ref): bool {
+            $term = mb_strtolower(trim((string) ($ref ?? '')));
 
-        $shared = array_values(array_filter(
-            $perService[0],
-            function (User $stylist) use ($perService): bool {
-                foreach ($perService as $qualified) {
-                    if (! isset($qualified[$stylist->id])) {
+            return $term === '' || $term === 'any' || $term === 'anyone' || $term === 'any available';
+        };
+
+        $candidates = [];
+
+        foreach ($services as $i => $service) {
+            /** @var non-empty-list<User> $qualified — resolveStylists throws no_stylists when empty */
+            $qualified = $this->resolveStylists($salon, $service, null);
+            $ref = $assigned !== null ? ($assigned[$i] ?? null) : $preferred;
+
+            if ($isAny($ref)) {
+                $candidates[] = $qualified;
+
+                continue;
+            }
+
+            $match = null;
+            $term = mb_strtolower(trim((string) $ref));
+            foreach ($qualified as $stylist) {
+                if ((is_numeric($ref) && (int) $stylist->id === (int) $ref)
+                    || str_contains(mb_strtolower($stylist->name), $term)) {
+                    $match = $stylist;
+                    break;
+                }
+            }
+
+            if ($match !== null) {
+                // Pinned first: the single-stylist pass and the arrangement
+                // search both try them before anyone else.
+                $candidates[] = $assigned !== null
+                    ? [$match]
+                    : array_merge([$match], array_values(array_filter($qualified, fn (User $u): bool => $u->id !== $match->id)));
+
+                continue;
+            }
+
+            if ($assigned !== null) {
+                throw ApiError::validation(
+                    __(':term does not perform :service. It can be taken by: :options.', [
+                        'term' => (string) $ref,
+                        'service' => $service->name,
+                        'options' => collect($qualified)->pluck('name')->join(', '),
+                    ]),
+                    'unknown_stylist',
+                    ['stylists' => collect($qualified)->pluck('name')->values()->all()],
+                );
+            }
+
+            // Auto + preferred stylist who doesn't perform this service:
+            // fall back to everyone qualified rather than refusing the visit.
+            $candidates[] = $qualified;
+        }
+
+        // A preferred stylist that matched NO service at all is a typo/unknown
+        // name — refuse with the real options instead of silently ignoring it.
+        if ($assigned === null && ! $isAny($preferred)) {
+            $term = mb_strtolower(trim((string) $preferred));
+            $union = collect($candidates)->flatten()->unique('id');
+            $known = $union->contains(fn (User $u): bool => (is_numeric($preferred) && (int) $u->id === (int) $preferred)
+                || str_contains(mb_strtolower($u->name), $term));
+
+            if (! $known) {
+                throw ApiError::validation(
+                    __(':term is not one of our stylists. The team: :options.', [
+                        'term' => (string) $preferred,
+                        'options' => $union->pluck('name')->join(', '),
+                    ]),
+                    'unknown_stylist',
+                    ['stylists' => $union->pluck('name')->values()->all()],
+                );
+            }
+        }
+
+        return $candidates;
+    }
+
+    /**
+     * Stylists present in EVERY service's candidate list (ordered by the
+     * first service's preference order) — the ones who can host the whole
+     * visit alone.
+     *
+     * @param  non-empty-list<non-empty-list<User>>  $candidates
+     * @return list<User>
+     */
+    private function sharedCandidates(array $candidates): array
+    {
+        return array_values(array_filter(
+            $candidates[0],
+            function (User $stylist) use ($candidates): bool {
+                foreach ($candidates as $qualified) {
+                    if (! collect($qualified)->contains(fn (User $u): bool => $u->id === $stylist->id)) {
                         return false;
                     }
                 }
@@ -333,34 +527,6 @@ class VoiceBookingApi
                 return true;
             },
         ));
-
-        if ($shared === []) {
-            throw ApiError::validation(
-                __('No single stylist offers all of those services together. Book them separately, or pick a different combination.'),
-                'no_shared_stylist',
-            );
-        }
-
-        $term = mb_strtolower(trim((string) ($ref ?? '')));
-        if ($term === '' || $term === 'any' || $term === 'anyone' || $term === 'any available') {
-            return $shared;
-        }
-
-        foreach ($shared as $stylist) {
-            if ((is_numeric($ref) && (int) $stylist->id === (int) $ref)
-                || str_contains(mb_strtolower($stylist->name), $term)) {
-                return [$stylist];
-            }
-        }
-
-        throw ApiError::validation(
-            __(':term cannot take the whole visit. It can be taken by: :options.', [
-                'term' => (string) $ref,
-                'options' => collect($shared)->pluck('name')->join(', '),
-            ]),
-            'unknown_stylist',
-            ['stylists' => collect($shared)->pluck('name')->values()->all()],
-        );
     }
 
     /**
@@ -375,52 +541,38 @@ class VoiceBookingApi
     }
 
     /**
-     * Summed client-facing minutes for the visit (what the customer sees).
+     * Slots where the WHOLE visit fits, capped per day. Per day: first the
+     * single-stylist pass (every shared candidate, deduped per start) — one
+     * stylist for the whole visit is always preferred; only when NO single
+     * stylist can host the visit that day does it compose back-to-back
+     * multi-stylist arrangements from the per-service candidates.
      *
      * @param  non-empty-list<Service>  $services
-     */
-    private function visitClientMinutes(Salon $salon, array $services, User $stylist): int
-    {
-        return (int) collect($services)
-            ->sum(fn (Service $s): int => $this->resolver->resolve($salon, $s, $stylist->id)->clientFacingMinutes());
-    }
-
-    /**
-     * Slots where the WHOLE visit fits, merged across the allowed stylists,
-     * deduped per start, capped per day — the multi-service twin of slotsFor.
-     *
-     * @param  non-empty-list<Service>  $services
-     * @param  non-empty-list<User>  $stylists
+     * @param  non-empty-list<non-empty-list<User>>  $candidates  parallel to $services
      * @param  list<CarbonImmutable>  $days
-     * @return list<array{starts_at: string, spoken: string, date: string, time: string, stylist_id: int, stylist: string, duration_minutes: int}>
+     * @return list<array<string, mixed>>
      */
-    private function visitSlotsFor(Salon $salon, array $services, array $stylists, array $days, int $perDayCap): array
+    private function visitSlotsFor(Salon $salon, array $services, array $candidates, array $days, int $perDayCap): array
     {
+        $shared = $this->sharedCandidates($candidates);
         $out = [];
 
         foreach ($days as $day) {
             $daySlots = [];
 
-            foreach ($stylists as $stylist) {
+            foreach ($shared as $stylist) {
                 $blocked = $this->visitBlockedMinutes($salon, $services, $stylist);
 
                 foreach ($this->engine->slotsFor($salon, $stylist->id, $blocked, $day) as $slot) {
                     $key = $slot->getTimestamp();
-                    if (isset($daySlots[$key])) {
-                        continue;
+                    if (! isset($daySlots[$key])) {
+                        $daySlots[$key] = $this->formatVisitSlot($salon, $services, $this->singleChain($salon, $services, $stylist, $slot), $slot);
                     }
-
-                    $local = $slot->setTimezone($salon->timezone);
-                    $daySlots[$key] = [
-                        'starts_at' => $local->toIso8601String(),
-                        'spoken' => $local->format('l, F j \a\t g:i A'),
-                        'date' => $local->format('Y-m-d'),
-                        'time' => $local->format('g:i A'),
-                        'stylist_id' => (int) $stylist->id,
-                        'stylist' => $stylist->name,
-                        'duration_minutes' => $this->visitClientMinutes($salon, $services, $stylist),
-                    ];
                 }
+            }
+
+            if ($daySlots === []) {
+                $daySlots = $this->arrangementSlotsFor($salon, $services, $candidates, $day);
             }
 
             ksort($daySlots);
@@ -431,30 +583,216 @@ class VoiceBookingApi
     }
 
     /**
+     * Multi-stylist arrangements for one day: every candidate start where the
+     * services chain back-to-back, each leg with a qualified stylist who is
+     * free for exactly that leg. Day shapes are fetched ONCE per stylist
+     * (SlotEngine::dayContext) and the chain search is pure in-memory
+     * interval math, so a whole month sweep stays cheap.
+     *
      * @param  non-empty-list<Service>  $services
-     * @param  non-empty-list<User>  $stylists
+     * @param  non-empty-list<non-empty-list<User>>  $candidates
+     * @return array<int, array<string, mixed>> keyed by start timestamp
      */
-    private function pickVisitStylist(Salon $salon, array $services, array $stylists, CarbonImmutable $start): ?User
+    private function arrangementSlotsFor(Salon $salon, array $services, array $candidates, CarbonImmutable $day, int $limit = PHP_INT_MAX): array
     {
-        foreach ($stylists as $stylist) {
-            $blocked = $this->visitBlockedMinutes($salon, $services, $stylist);
+        $contexts = [];
+        $durations = [];
+        foreach ($candidates as $i => $stylists) {
+            foreach ($stylists as $stylist) {
+                $contexts[$stylist->id] ??= $this->engine->dayContext($salon, $stylist->id, $day);
+                $durations[$i][$stylist->id] = $this->resolver->resolve($salon, $services[$i], $stylist->id);
+            }
+        }
 
-            if ($this->engine->isAvailable($salon, $stylist->id, $start, $blocked)) {
-                return $stylist;
+        // Candidate visit starts: the grid over the FIRST service's
+        // candidates' work windows, anchored at each window start (the same
+        // anchoring slotsFor uses).
+        $step = $this->engine->granularity();
+        $starts = [];
+        foreach ($candidates[0] as $stylist) {
+            foreach ($contexts[$stylist->id]['windows'] as [$windowStart, $windowEnd]) {
+                for ($t = $windowStart; $t->lt($windowEnd); $t = $t->addMinutes($step)) {
+                    $starts[$t->getTimestamp()] = $t;
+                }
+            }
+        }
+        ksort($starts);
+
+        $slots = [];
+        foreach ($starts as $ts => $start) {
+            if (! $this->engine->offerable($salon, $start)) {
+                continue;
+            }
+
+            $chain = $this->chainAssign($salon, $services, $candidates, $contexts, $durations, $start, 0, [], []);
+            if ($chain !== null && $chain !== []) {
+                $slots[$ts] = $this->formatVisitSlot($salon, $services, $chain, $start);
+                if (count($slots) >= $limit) {
+                    break;
+                }
+            }
+        }
+
+        return $slots;
+    }
+
+    /**
+     * Depth-first assignment of services (in order) to stylists from $cursor:
+     * each leg needs its stylist structurally free for [leg start, +blocked)
+     * AND clear of the legs already assigned to them in THIS chain. Prefers
+     * the previous leg's stylist (fewest handoffs), then candidate order.
+     * Returns the first complete chain, or null.
+     *
+     * @param  non-empty-list<Service>  $services
+     * @param  non-empty-list<non-empty-list<User>>  $candidates
+     * @param  array<int, array{windows: list<array{0: CarbonImmutable, 1: CarbonImmutable}>, free: list<array{0: CarbonImmutable, 1: CarbonImmutable}>}>  $contexts
+     * @param  array<int, array<int, ResolvedDuration>>  $durations
+     * @param  list<array{stylist: User, start: CarbonImmutable, duration: ResolvedDuration}>  $chain
+     * @param  array<int, list<array{0: CarbonImmutable, 1: CarbonImmutable}>>  $used  in-chain blocked intervals per stylist
+     * @return list<array{stylist: User, start: CarbonImmutable, duration: ResolvedDuration}>|null
+     */
+    private function chainAssign(Salon $salon, array $services, array $candidates, array $contexts, array $durations, CarbonImmutable $cursor, int $index, array $chain, array $used): ?array
+    {
+        if ($index === count($services)) {
+            return $chain;
+        }
+
+        $previousId = $chain !== [] ? $chain[count($chain) - 1]['stylist']->id : null;
+        $ordered = collect($candidates[$index])
+            ->sortBy(fn (User $u): int => $u->id === $previousId ? 0 : 1)
+            ->values();
+
+        foreach ($ordered as $stylist) {
+            $duration = $durations[$index][$stylist->id];
+            $end = $cursor->addMinutes($duration->blockedMinutes());
+
+            if (! $this->fitsFreeIntervals($contexts[$stylist->id]['free'], $cursor, $end)) {
+                continue;
+            }
+
+            $clashes = false;
+            foreach ($used[$stylist->id] ?? [] as [$usedStart, $usedEnd]) {
+                if ($cursor->lt($usedEnd) && $usedStart->lt($end)) {
+                    $clashes = true;
+                    break;
+                }
+            }
+            if ($clashes) {
+                continue;
+            }
+
+            $nextUsed = $used;
+            $nextUsed[$stylist->id] = array_merge($used[$stylist->id] ?? [], [[$cursor, $end]]);
+
+            $result = $this->chainAssign(
+                $salon, $services, $candidates, $contexts, $durations,
+                $end, $index + 1,
+                array_merge($chain, [['stylist' => $stylist, 'start' => $cursor, 'duration' => $duration]]),
+                $nextUsed,
+            );
+
+            if ($result !== null) {
+                return $result;
             }
         }
 
         return null;
     }
 
+    /** @param  list<array{0: CarbonImmutable, 1: CarbonImmutable}>  $free */
+    private function fitsFreeIntervals(array $free, CarbonImmutable $start, CarbonImmutable $end): bool
+    {
+        foreach ($free as [$freeStart, $freeEnd]) {
+            if ($start->gte($freeStart) && $end->lte($freeEnd)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /**
+     * The chain a single stylist hosting the whole visit produces (legs laid
+     * sequentially — exactly CreateBooking's cursor walk).
+     *
      * @param  non-empty-list<Service>  $services
+     * @return non-empty-list<array{stylist: User, start: CarbonImmutable, duration: ResolvedDuration}>
+     */
+    private function singleChain(Salon $salon, array $services, User $stylist, CarbonImmutable $start): array
+    {
+        $chain = [];
+        $cursor = $start;
+
+        foreach ($services as $service) {
+            $duration = $this->resolver->resolve($salon, $service, $stylist->id);
+            $chain[] = ['stylist' => $stylist, 'start' => $cursor, 'duration' => $duration];
+            $cursor = $cursor->addMinutes($duration->blockedMinutes());
+        }
+
+        return $chain;
+    }
+
+    /**
+     * The public slot payload for a visit chain: the usual start fields plus
+     * the per-service arrangement (who takes what, when) so callers can both
+     * SHOW the staffing and submit it back verbatim.
+     *
+     * @param  non-empty-list<Service>  $services
+     * @param  non-empty-list<array{stylist: User, start: CarbonImmutable, duration: ResolvedDuration}>  $chain
      * @return array<string, mixed>
      */
-    private function visitConfirmation(Salon $salon, int $bookingId, array $services, User $stylist, CarbonImmutable $start, bool $idempotent = false): array
+    private function formatVisitSlot(Salon $salon, array $services, array $chain, CarbonImmutable $start): array
+    {
+        $local = $start->setTimezone($salon->timezone);
+
+        $arrangement = [];
+        $minutes = 0;
+        foreach ($services as $i => $service) {
+            $leg = $chain[$i];
+            $legLocal = $leg['start']->setTimezone($salon->timezone);
+            $arrangement[] = [
+                'service_id' => (int) $service->id,
+                'service' => $service->name,
+                'stylist_id' => (int) $leg['stylist']->id,
+                'stylist' => $leg['stylist']->name,
+                'starts_at' => $legLocal->toIso8601String(),
+                'time' => $legLocal->format('g:i A'),
+            ];
+            $minutes += $leg['duration']->clientFacingMinutes();
+        }
+
+        $names = array_values(array_unique(array_column($arrangement, 'stylist')));
+
+        return [
+            'starts_at' => $local->toIso8601String(),
+            'spoken' => $local->format('l, F j \a\t g:i A'),
+            'date' => $local->format('Y-m-d'),
+            'time' => $local->format('g:i A'),
+            'stylist_id' => $arrangement[0]['stylist_id'],
+            'stylist' => implode(' + ', $names),
+            'duration_minutes' => $minutes,
+            'multi_stylist' => count($names) > 1,
+            'stylists' => $arrangement,
+        ];
+    }
+
+    /**
+     * @param  non-empty-list<array{service: string, stylist: string, time: string}>  $legs
+     * @return array<string, mixed>
+     */
+    private function visitConfirmation(Salon $salon, int $bookingId, array $legs, CarbonImmutable $start, bool $idempotent = false): array
     {
         $spoken = $start->setTimezone($salon->timezone)->format('l, F j \a\t g:i A');
-        $names = collect($services)->pluck('name')->join(', ');
+        $names = collect($legs)->pluck('service')->join(', ');
+        $stylistNames = collect($legs)->pluck('stylist')->unique()->values();
+
+        // One stylist reads as before; a composed visit spells out each leg
+        // ("Haircut with Maya (9:00 AM), then Full colour with Sarah (10:00 AM)").
+        $staffing = $stylistNames->count() <= 1
+            ? __(':service with :stylist', ['service' => $names, 'stylist' => $stylistNames->first() ?? ''])
+            : collect($legs)
+                ->map(fn (array $leg): string => __(':service with :stylist (:time)', $leg))
+                ->join(', '.__('then').' ');
 
         return [
             'success' => true,
@@ -462,15 +800,16 @@ class VoiceBookingApi
             'booking_id' => $bookingId,
             'confirmation' => [
                 'salon' => $salon->name,
-                'services' => collect($services)->pluck('name')->values()->all(),
+                'services' => collect($legs)->pluck('service')->values()->all(),
                 'service' => $names,
-                'stylist' => $stylist->name,
+                'stylist' => $stylistNames->join(' + '),
+                'arrangement' => $legs,
+                'multi_stylist' => $stylistNames->count() > 1,
                 'starts_at' => $start->setTimezone($salon->timezone)->toIso8601String(),
                 'spoken_time' => $spoken,
             ],
-            'message' => __("You're booked for :service with :stylist on :time at :salon.", [
-                'service' => $names,
-                'stylist' => $stylist->name,
+            'message' => __("You're booked for :staffing on :time at :salon.", [
+                'staffing' => $staffing,
                 'time' => $spoken,
                 'salon' => $salon->name,
             ]),
@@ -479,10 +818,10 @@ class VoiceBookingApi
 
     /**
      * @param  non-empty-list<Service>  $services
-     * @param  non-empty-list<User>  $stylists
+     * @param  non-empty-list<non-empty-list<User>>  $candidates
      * @return array<string, mixed>
      */
-    private function visitSlotTaken(Salon $salon, array $services, array $stylists, CarbonImmutable $start): array
+    private function visitSlotTaken(Salon $salon, array $services, array $candidates, CarbonImmutable $start): array
     {
         $days = [];
         $day = $start->setTimezone($salon->timezone)->startOfDay();
@@ -490,7 +829,7 @@ class VoiceBookingApi
             $days[] = $day->addDays($i);
         }
 
-        $alternatives = collect($this->visitSlotsFor($salon, $services, $stylists, $days, PHP_INT_MAX))
+        $alternatives = collect($this->visitSlotsFor($salon, $services, $candidates, $days, PHP_INT_MAX))
             ->filter(fn (array $slot): bool => CarbonImmutable::parse($slot['starts_at'])->gte($start->subMinutes(1)))
             ->take((int) config('booking_api.alternatives'))
             ->values()

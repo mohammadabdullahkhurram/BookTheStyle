@@ -141,12 +141,17 @@ class WidgetController extends Controller
                 'services' => ['required_without:service', 'array', 'min:1', 'max:6'],
                 'services.*' => ['integer'],
                 'stylist' => ['nullable', 'string', 'max:40'],
+                'stylists' => ['nullable', 'array', 'max:6'],
+                'stylists.*' => ['nullable', 'string', 'max:60'],
                 'date' => ['required', 'string', 'max:40'],
             ]);
 
+            [$serviceIds, $assigned] = $this->visitSelection($input);
+
             return response()->json($this->api->visitAvailability($salon, [
-                'services' => $this->serviceIds($input),
+                'services' => $serviceIds,
                 'stylist' => $input['stylist'] ?? null,
+                'stylists' => $assigned,
                 'date' => $input['date'],
             ]));
         } catch (ApiError $e) {
@@ -173,6 +178,8 @@ class WidgetController extends Controller
                 'services' => ['required_without:service', 'array', 'min:1', 'max:6'],
                 'services.*' => ['integer'],
                 'stylist' => ['nullable', 'string', 'max:40'],
+                'stylists' => ['nullable', 'array', 'max:6'],
+                'stylists.*' => ['nullable', 'string', 'max:60'],
                 'month' => ['required', 'string', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
             ]);
 
@@ -187,9 +194,12 @@ class WidgetController extends Controller
                 return response()->json(['success' => true, 'month' => $input['month'], 'dates' => [], 'timezone' => $salon->timezone]);
             }
 
+            [$serviceIds, $assigned] = $this->visitSelection($input);
+
             $result = $this->api->visitAvailableDates($salon, [
-                'services' => $this->serviceIds($input),
+                'services' => $serviceIds,
                 'stylist' => $input['stylist'] ?? null,
+                'stylists' => $assigned,
             ], $from, $to);
 
             return response()->json(['success' => true, 'month' => $input['month']] + $result);
@@ -211,6 +221,8 @@ class WidgetController extends Controller
                 'services' => ['required_without:service', 'array', 'min:1', 'max:6'],
                 'services.*' => ['integer'],
                 'stylist' => ['nullable', 'string', 'max:40'],
+                'stylists' => ['nullable', 'array', 'max:6'],
+                'stylists.*' => ['nullable', 'string', 'max:60'],
                 'date' => ['required', 'string', 'max:40'],
                 'time' => ['required', 'string', 'max:20'],
                 'client' => ['required', 'array'],
@@ -241,11 +253,14 @@ class WidgetController extends Controller
         }
 
         try {
+            [$serviceIds, $assigned] = $this->visitSelection($input);
+
             $result = $this->api->createVisit(
                 $salon,
                 [
-                    'services' => $this->serviceIds($input),
+                    'services' => $serviceIds,
                     'stylist' => $input['stylist'] ?? null,
+                    'stylists' => $assigned,
                     'date' => $input['date'],
                     'time' => $input['time'],
                     'client' => $input['client'],
@@ -262,19 +277,36 @@ class WidgetController extends Controller
     }
 
     /**
-     * The requested visit's service ids: `services[]` (multi-select), or the
-     * legacy single `service` wrapped as a one-item visit.
+     * The requested visit: `services[]` (multi-select) or the legacy single
+     * `service`, plus the optional per-service `stylists[]` assignment
+     * (manual mode) kept ALIGNED through de-duplication — dropping a repeated
+     * service drops its stylist entry too, so the arrays never desync.
      *
      * @param  array<string, mixed>  $input
-     * @return list<int>
+     * @return array{0: list<int>, 1: list<int|string|null>|null}
      */
-    private function serviceIds(array $input): array
+    private function visitSelection(array $input): array
     {
         $ids = array_key_exists('services', $input) && is_array($input['services'])
-            ? $input['services']
+            ? array_values($input['services'])
             : [$input['service']];
 
-        return array_values(array_unique(array_map(fn ($id): int => (int) $id, $ids)));
+        $assigned = array_key_exists('stylists', $input) && is_array($input['stylists'])
+            ? array_values($input['stylists'])
+            : null;
+
+        $services = [];
+        $stylists = [];
+        foreach ($ids as $i => $id) {
+            $id = (int) $id;
+            if (in_array($id, $services, true)) {
+                continue;
+            }
+            $services[] = $id;
+            $stylists[] = $assigned[$i] ?? null;
+        }
+
+        return [$services, $assigned === null ? null : $stylists];
     }
 
     // -- Bot gate -----------------------------------------------------------

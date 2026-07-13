@@ -92,6 +92,51 @@ class SlotEngine
     }
 
     /**
+     * The stylist's raw day shape — work windows, and the free sub-intervals
+     * left after breaks, time off and existing bookings — so callers composing
+     * MULTI-STYLIST visits can chain-check whole arrangements in memory (one
+     * context fetch per stylist per day) instead of re-querying per candidate
+     * start. Same sources and semantics as slotsFor.
+     *
+     * @return array{windows: list<array{0: CarbonImmutable, 1: CarbonImmutable}>, free: list<array{0: CarbonImmutable, 1: CarbonImmutable}>}
+     */
+    public function dayContext(Salon $salon, int $stylistUserId, CarbonImmutable|Carbon|string $date): array
+    {
+        $day = $this->resolveDay($salon, $date);
+        $weekday = $day->dayOfWeekIso - 1;
+
+        $overrides = $this->dateHoursOverrides($salon, $stylistUserId, $day);
+
+        $work = $overrides !== []
+            ? $overrides
+            : $this->windows($salon, $stylistUserId, $weekday, AvailabilityKind::Work, $day);
+
+        if ($work === []) {
+            return ['windows' => [], 'free' => []];
+        }
+
+        $busy = array_merge(
+            $overrides === [] ? $this->windows($salon, $stylistUserId, $weekday, AvailabilityKind::Break, $day) : [],
+            $this->timeOffIntervals($salon, $stylistUserId, $day),
+            $this->bookingIntervals($salon, $stylistUserId, $day),
+        );
+
+        return ['windows' => $work, 'free' => $this->subtract($work, $busy)];
+    }
+
+    /** The slot grid step, for callers generating candidate starts themselves. */
+    public function granularity(): int
+    {
+        return $this->granularityMinutes;
+    }
+
+    /** Whether the booking policy allows offering this start instant at all. */
+    public function offerable(Salon $salon, CarbonImmutable $start): bool
+    {
+        return $this->policy->slotIsOfferable($salon, $start);
+    }
+
+    /**
      * Whether a specific block [start, start+duration) is structurally bookable
      * for the stylist: fully inside one work window, clear of breaks, time off,
      * and existing bookings. Ignores temporal policy (checked separately).

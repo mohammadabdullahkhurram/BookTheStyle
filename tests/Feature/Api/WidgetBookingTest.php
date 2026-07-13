@@ -327,16 +327,127 @@ it('refuses a multi-service slot that only fits the first service', function () 
     expect($salon->bookings()->count())->toBe(0);
 });
 
-it('rejects a service combination no single stylist can perform', function () {
-    [$salon, $stylist, $haircut] = widgetSalon();
-    $other = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
-    $onlyOther = serviceFor($salon, $other, 30); // only the second stylist
+// ---------------------------------------------------------------------------
+// Multi-stylist arrangements (auto fallback + manual per-service)
+// ---------------------------------------------------------------------------
 
-    $query = 'services[]='.$haircut->id.'&services[]='.$onlyOther->id.'&stylist=any&date=2026-06-22';
+it('auto-arranges a back-to-back multi-stylist visit when no single stylist performs all services', function () {
+    [$salon, $stylist, $haircut] = widgetSalon(); // A: Haircut 60, Mon 9–5
+    $other = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
+    $colour = serviceFor($salon, $other, 30); // only stylist B performs it
+    $colour->update(['name' => 'Gloss']);
+
+    // Availability composes the team arrangement instead of refusing.
+    $query = 'services[]='.$haircut->id.'&services[]='.$colour->id.'&stylist=any&date=2026-06-22';
+    $slots = $this->getJson(route('salon.widget.availability', ['salon' => $salon]).'?'.$query)
+        ->assertOk()
+        ->json('slots');
+
+    $nine = collect($slots)->firstWhere('time', '9:00 AM');
+    expect($nine)->not->toBeNull();
+    expect($nine['multi_stylist'])->toBeTrue();
+    expect($nine['duration_minutes'])->toBe(90);
+    expect($nine['stylists'][0]['stylist_id'])->toBe($stylist->id);
+    expect($nine['stylists'][1]['stylist_id'])->toBe($other->id);
+    expect($nine['stylists'][1]['time'])->toBe('10:00 AM'); // back-to-back
+    expect($nine['stylist'])->toBe($stylist->name.' + '.$other->name);
+
+    // Booking that slot creates one visit: a booking per service, each with
+    // ITS OWN stylist, linked by the visit group, one GHL push per booking.
+    $payload = widgetPayload($salon, [
+        'services' => [$haircut->id, $colour->id],
+        'stylists' => [(string) $stylist->id, (string) $other->id],
+        'time' => '9:00 AM',
+    ]);
+    unset($payload['service'], $payload['stylist']);
+
+    $response = $this->postJson(route('salon.widget.book', ['salon' => $salon]), $payload)->assertCreated();
+    expect($response->json('confirmation.multi_stylist'))->toBeTrue();
+    expect($response->json('message'))->toContain('then');
+
+    $items = $salon->bookings()->with('items')->get()->flatMap->items->sortBy('starts_at')->values();
+    expect($salon->bookings()->pluck('visit_group_id')->unique())->toHaveCount(1);
+    expect($items->pluck('stylist_id')->all())->toBe([$stylist->id, $other->id]);
+    expect($items[1]->starts_at->setTimezone($salon->timezone)->format('H:i'))->toBe('10:00');
+    Bus::assertDispatched(SyncBookingToGhl::class, 2);
+});
+
+it('falls back to a team arrangement only on days the shared stylist cannot host the visit', function () {
+    [$salon, $shared, $haircut] = widgetSalon(); // shared stylist does Haircut
+    $colour = serviceFor($salon, $shared, 120);  // ...and Full colour
+    $helperA = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
+    $helperB = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
+    $haircut->stylists()->attach($helperA->id, ['salon_id' => $salon->id]);
+    $colour->stylists()->attach($helperB->id, ['salon_id' => $salon->id]);
+
+    // Fully book the shared stylist on the 22nd; the helpers stay free.
+    foreach (range(9, 16) as $hour) {
+        makeBooking($salon, salonOwnerOf($salon), $shared, $haircut, sprintf('2026-06-22 %02d:00', $hour), 'Blocker');
+    }
+
+    $query = 'services[]='.$haircut->id.'&services[]='.$colour->id.'&stylist=any';
+
+    $slots = $this->getJson(route('salon.widget.availability', ['salon' => $salon]).'?'.$query.'&date=2026-06-22')
+        ->assertOk()->json('slots');
+    expect($slots)->not->toBeEmpty();
+    expect(collect($slots)->every(fn (array $s): bool => $s['multi_stylist'] === true))->toBeTrue();
+
+    // A week later the shared stylist is free: one stylist takes the visit.
+    $nextWeek = $this->getJson(route('salon.widget.availability', ['salon' => $salon]).'?'.$query.'&date=2026-06-29')
+        ->assertOk()->json('slots');
+    expect(collect($nextWeek)->every(fn (array $s): bool => $s['multi_stylist'] === false))->toBeTrue();
+
+    // The month calendar counts the arrangement-only day as available.
+    $dates = $this->getJson(route('salon.widget.month', ['salon' => $salon]).'?'.$query.'&month=2026-06')
+        ->assertOk()->json('dates');
+    expect($dates)->toContain('2026-06-22');
+});
+
+it('computes availability for a MANUAL per-service assignment and books exactly that arrangement', function () {
+    [$salon, $stylistA, $haircut] = widgetSalon();
+    $stylistB = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
+    $colour = serviceFor($salon, $stylistB, 120);
+    $colour->update(['name' => 'Full colour']);
+    $haircut->stylists()->attach($stylistB->id, ['salon_id' => $salon->id]);
+    $colour->stylists()->attach($stylistA->id, ['salon_id' => $salon->id]);
+
+    // B is busy 10–11, so "A cuts, then B colours" cannot start at 9:00
+    // (B's leg would run 10:00–12:00) — but can start at 10:00.
+    makeBooking($salon, salonOwnerOf($salon), $stylistB, $haircut, '2026-06-22 10:00', 'Blocker');
+
+    $query = 'services[]='.$haircut->id.'&services[]='.$colour->id
+        .'&stylists[]='.$stylistA->id.'&stylists[]='.$stylistB->id;
+
+    $times = collect($this->getJson(route('salon.widget.availability', ['salon' => $salon]).'?'.$query.'&date=2026-06-22')
+        ->assertOk()->json('slots'))->pluck('time');
+    expect($times)->not->toContain('9:00 AM');
+    expect($times)->toContain('10:00 AM');
+
+    $payload = widgetPayload($salon, [
+        'services' => [$haircut->id, $colour->id],
+        'stylists' => [(string) $stylistA->id, (string) $stylistB->id],
+        'time' => '10:00 AM',
+    ]);
+    unset($payload['service'], $payload['stylist']);
+
+    $this->postJson(route('salon.widget.book', ['salon' => $salon]), $payload)->assertCreated();
+
+    $items = $salon->bookings()->whereNotNull('visit_group_id')->with('items')->get()->flatMap->items->sortBy('starts_at')->values();
+    expect($items->pluck('stylist_id')->all())->toBe([$stylistA->id, $stylistB->id]);
+    expect($items[0]->starts_at->setTimezone($salon->timezone)->format('H:i'))->toBe('10:00');
+    expect($items[1]->starts_at->setTimezone($salon->timezone)->format('H:i'))->toBe('11:00');
+});
+
+it('rejects a manual assignment of a stylist who does not perform that service', function () {
+    [$salon, $stylistA, $haircut] = widgetSalon();
+    $stylistB = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
+    serviceFor($salon, $stylistB, 30); // B exists but does NOT perform Haircut
+
+    $query = 'services[]='.$haircut->id.'&stylists[]='.$stylistB->id.'&date=2026-06-22';
 
     $this->getJson(route('salon.widget.availability', ['salon' => $salon]).'?'.$query)
         ->assertStatus(422)
-        ->assertJsonPath('error', 'no_shared_stylist');
+        ->assertJsonPath('error', 'unknown_stylist');
 });
 
 // ---------------------------------------------------------------------------
@@ -359,7 +470,10 @@ it('renders the inline branded calendar and gradient backdrop — no native date
         ->assertSee('color-mix(in srgb, var(--accent) 18%, var(--wb-surface))', false)
         ->assertSee('color-mix(in srgb, var(--wb-secondary) 22%, var(--wb-surface))', false)
         // The calendar window: today through the booking horizon (salon tz).
-        ->assertSee('"2026-06-22"', false);
+        ->assertSee('"2026-06-22"', false)
+        // Manual mode is present but opt-in.
+        ->assertSee('Choose stylists per service', false)
+        ->assertSee('bts-manual-rows', false);
 });
 
 it('reports which dates of a month fit the WHOLE visit — past, closed and full days excluded', function () {
