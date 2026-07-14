@@ -49,7 +49,6 @@ class SalonFactory extends Factory
             'auto_no_show' => false,
             'auto_no_show_grace_minutes' => 15,
             'auto_complete' => true,
-            'feature_flags' => null,
         ];
     }
 

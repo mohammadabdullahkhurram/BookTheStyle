@@ -67,13 +67,6 @@ new #[Title('Services')] class extends Component {
         return $this->salon->stylistUsers()->orderBy('name')->get(['users.id', 'name']);
     }
 
-    /** Per-stylist cleanup buffers are hidden until the salon enables the flag. */
-    #[Computed]
-    public function buffersEnabled(): bool
-    {
-        return $this->salon->hasFeature(\App\Services\Booking\DurationResolver::BUFFER_FLAG);
-    }
-
     public function create(CreateService $action, SyncServiceStylists $sync): void
     {
         $this->authorize('manageServices', $this->salon);
@@ -122,7 +115,7 @@ new #[Title('Services')] class extends Component {
             $buf = (string) ($buffers[$id] ?? '');
             $overrides[$id] = [
                 'duration_override' => $dur === '' ? null : max(5, min(600, (int) $dur)),
-                'buffer_override' => (! $this->buffersEnabled() || $buf === '') ? null : max(0, min(120, (int) $buf)),
+                'buffer_override' => $buf === '' ? null : max(0, min(120, (int) $buf)),
             ];
         }
 
@@ -237,7 +230,7 @@ new #[Title('Services')] class extends Component {
                     durations-model="durations"
                     buffers-model="buffers"
                     :placeholder-duration="$duration_min"
-                    :buffers-enabled="$this->buffersEnabled" />
+                    />
 
                 <div>
                     <x-ui.button type="submit" loading="create"><flux:icon.plus variant="micro" class="shrink-0" />{{ __('Add service') }}</x-ui.button>
@@ -316,7 +309,7 @@ new #[Title('Services')] class extends Component {
                 durations-model="editDurations"
                 buffers-model="editBuffers"
                 :placeholder-duration="$editDuration"
-                :buffers-enabled="$this->buffersEnabled" />
+                />
 
             <div class="flex justify-end gap-3">
                 <x-ui.button type="button" variant="secondary" wire:click="$set('showEdit', false)">{{ __('Cancel') }}</x-ui.button>

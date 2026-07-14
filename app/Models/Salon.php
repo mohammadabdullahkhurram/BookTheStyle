@@ -42,7 +42,6 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property bool $auto_no_show
  * @property int $auto_no_show_grace_minutes
  * @property bool $auto_complete
- * @property array<string, mixed>|null $feature_flags
  * @property string|null $api_token_hash
  * @property CarbonImmutable|null $api_token_generated_at
  * @property array<string, mixed>|null $onboarding
@@ -92,7 +91,6 @@ class Salon extends Model
         'auto_no_show',
         'auto_no_show_grace_minutes',
         'auto_complete',
-        'feature_flags',
         'app_theme',
     ];
 
@@ -104,7 +102,6 @@ class Salon extends Model
             'api_token_generated_at' => 'immutable_datetime',
             'onboarding' => 'array',
             'onboarded_at' => 'immutable_datetime',
-            'feature_flags' => 'array',
             'allow_walkins' => 'boolean',
             'allow_same_day' => 'boolean',
             'max_advance_days' => 'integer',
@@ -246,14 +243,6 @@ class Salon extends Model
             ->wherePivot('active', true)
             ->withPivot(['salon_role', 'staff_type', 'active'])
             ->withTimestamps();
-    }
-
-    /**
-     * Whether a given feature flag is enabled for this salon.
-     */
-    public function hasFeature(string $flag): bool
-    {
-        return (bool) (($this->feature_flags ?? [])[$flag] ?? false);
     }
 
     /**

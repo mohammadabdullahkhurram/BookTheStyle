@@ -7,7 +7,6 @@ use App\Models\Availability;
 use App\Models\Salon;
 use App\Models\StylistProfile;
 use App\Models\TimeOff;
-use App\Services\Booking\DurationResolver;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -193,9 +192,7 @@ class GhlAvailabilityPusher
 
         $slotDuration = max((int) $durations->max(), (int) $overrides->max('duration_override'));
 
-        $slotBuffer = $salon->hasFeature(DurationResolver::BUFFER_FLAG)
-            ? (int) $overrides->max('buffer_override')
-            : 0;
+        $slotBuffer = (int) $overrides->max('buffer_override');
 
         GhlClient::fromConnection($connection)->updateCalendar((string) $connection->calendar_id, [
             'slotDuration' => $slotDuration,

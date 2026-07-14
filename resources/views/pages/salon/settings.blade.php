@@ -6,7 +6,6 @@ use App\Actions\Salons\GenerateBookingApiToken;
 use App\Actions\Salons\UpdateBookingPolicy;
 use App\Actions\Salons\UpdateBranding;
 use App\Actions\Salons\UpdateCurrency;
-use App\Actions\Salons\UpdateFeatureFlags;
 use App\Actions\Salons\UpdateGhlConnection;
 use App\Actions\Salons\UpdateGhlStaffMapping;
 use App\Enums\StaffType;
@@ -65,9 +64,6 @@ new #[Title('Salon settings')] class extends Component {
     // Brand logo upload (settings → Branding).
     /** @var \Livewire\Features\SupportFileUploads\TemporaryUploadedFile|null */
     public $logo = null;
-
-    /** @var array<string, bool> */
-    public array $flags = [];
 
     // The salon's IANA timezone (General settings).
     public string $timezone = '';
@@ -156,10 +152,6 @@ new #[Title('Salon settings')] class extends Component {
         $this->auto_complete = $salon->auto_complete;
 
         $this->accent = $salon->accentColor() ?? '';
-
-        foreach (array_keys($this->catalog()) as $key) {
-            $this->flags[$key] = $salon->hasFeature($key);
-        }
 
         $this->timezone = $salon->timezone;
         $this->currency = $salon->currency;
@@ -557,18 +549,6 @@ new #[Title('Salon settings')] class extends Component {
     }
 
     /**
-     * @return array<string, string>
-     */
-    #[Computed]
-    public function catalog(): array
-    {
-        /** @var array<string, string> $features */
-        $features = config('salon_features', []);
-
-        return $features;
-    }
-
-    /**
      * @return list<string>
      */
     #[Computed]
@@ -741,20 +721,6 @@ new #[Title('Salon settings')] class extends Component {
         Flux::toast(variant: 'success', text: __('Business profile saved.'));
     }
 
-    public function saveFlags(UpdateFeatureFlags $action): void
-    {
-        $this->authorize('manage', $this->salon);
-
-        // Keep only known flags; coerce to bool.
-        $clean = [];
-        foreach (array_keys($this->catalog()) as $key) {
-            $clean[$key] = (bool) ($this->flags[$key] ?? false);
-        }
-
-        $action->handle($this->salon, $clean);
-
-        Flux::toast(variant: 'success', text: __('Feature flags saved.'));
-    }
 
     /**
      * Store the salon's GoHighLevel connection. Gated tighter than the rest of
@@ -796,7 +762,7 @@ new #[Title('Salon settings')] class extends Component {
              instead of matching no panel (blank page); back/forward work via
              the hashchange listener. --}}
         <div x-data="{
-                 tabs: ['general', 'policy', 'features', 'branding'@can('manageGhlConnection', $salon), 'integrations'@endcan],
+                 tabs: ['general', 'policy', 'branding'@can('manageGhlConnection', $salon), 'integrations'@endcan],
                  tab: 'general',
                  resolve(hash) { return this.tabs.includes(hash) ? hash : 'general' },
                  pick(name) { this.tab = name; window.location.hash = name },
@@ -810,8 +776,6 @@ new #[Title('Salon settings')] class extends Component {
                             class="bts-nav-item shrink-0 text-left" :class="tab === 'general' && 'bts-nav-item-active'">{{ __('General') }}</button>
                     <button type="button" x-on:click="pick('policy')" :aria-current="tab === 'policy' ? 'page' : null"
                             class="bts-nav-item shrink-0 text-left" :class="tab === 'policy' && 'bts-nav-item-active'">{{ __('Booking policy') }}</button>
-                    <button type="button" x-on:click="pick('features')" :aria-current="tab === 'features' ? 'page' : null"
-                            class="bts-nav-item shrink-0 text-left" :class="tab === 'features' && 'bts-nav-item-active'">{{ __('Features') }}</button>
                     <button type="button" x-on:click="pick('branding')" :aria-current="tab === 'branding' ? 'page' : null"
                             class="bts-nav-item shrink-0 text-left" :class="tab === 'branding' && 'bts-nav-item-active'">{{ __('Branding') }}</button>
                     @can('manageGhlConnection', $salon)
@@ -1015,23 +979,6 @@ new #[Title('Salon settings')] class extends Component {
                     @endif
                 @endforeach
             </div>
-        </x-ui.card>
-
-        </section>
-
-        {{-- Features. --}}
-        <section x-show="tab === 'features'" x-cloak class="flex flex-col gap-6">
-        <x-ui.card class="flex flex-col gap-5">
-            <h2 class="bts-card-title">{{ __('Feature flags') }}</h2>
-            <form wire:submit="saveFlags" class="flex flex-col gap-5">
-                <p class="text-[14px] text-secondary">{{ __('Per-salon toggles. Later phases read these to enable features for this salon.') }}</p>
-                <div class="flex flex-col gap-3">
-                    @foreach ($this->catalog as $key => $label)
-                        <flux:checkbox wire:model="flags.{{ $key }}" :label="__($label)" />
-                    @endforeach
-                </div>
-                <div><x-ui.button type="submit">{{ __('Save flags') }}</x-ui.button></div>
-            </form>
         </x-ui.card>
 
         </section>

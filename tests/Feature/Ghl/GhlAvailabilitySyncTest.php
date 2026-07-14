@@ -523,19 +523,13 @@ it('pushes worst-case slot settings: longest service duration, buffers only when
     avFakeGhl();
     $pusher = app(GhlAvailabilityPusher::class);
 
-    // Buffers dormant (flag off): duration is the max of defaults + overrides.
+    // Duration is the max of defaults + overrides, and the longest
+    // cleanup buffer applies unconditionally (buffers are always on).
     $pusher->pushCalendarSlotSettings($salon);
     Http::assertSent(fn ($r): bool => $r->method() === 'PUT'
         && str_ends_with($r->url(), '/calendars/cal_master')
         && $r['slotDuration'] === 75 && $r['slotDurationUnit'] === 'mins'
-        && $r['slotInterval'] === 15 && $r['slotBuffer'] === 0);
-
-    // Flag on: the longest cleanup buffer applies.
-    $salon->update(['feature_flags' => ['stylist_buffers' => true]]);
-    $pusher->pushCalendarSlotSettings($salon->fresh());
-    Http::assertSent(fn ($r): bool => $r->method() === 'PUT'
-        && str_ends_with($r->url(), '/calendars/cal_master')
-        && $r['slotBuffer'] === 20);
+        && $r['slotInterval'] === 15 && $r['slotBuffer'] === 20);
 });
 
 it('skips gracefully when unmapped or unconnected', function () {

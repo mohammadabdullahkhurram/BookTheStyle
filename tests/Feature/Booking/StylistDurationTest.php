@@ -59,19 +59,14 @@ it('resolves override vs default, null buffer to zero, blocked = service+buffer,
     expect([$r->serviceMinutes, $r->bufferMinutes, $r->blockedMinutes(), $r->clientFacingMinutes()])->toBe([45, 15, 60, 45]);
 });
 
-it('reads per-stylist pivot overrides, with buffers gated by the salon flag', function () {
+it('reads per-stylist pivot overrides — duration and buffer apply unconditionally', function () {
     $salon = bookingSalon();
     $stylist = stylistOf($salon);
     $service = serviceWith($salon, 30, [$stylist->id => ['duration' => 45, 'buffer' => 10]]);
 
-    // Flag off (default): override duration applies; buffer ignored (0).
+    // Both overrides apply for every salon — no flag, no opt-in.
     $r = app(DurationResolver::class)->resolve($salon, $service, $stylist->id);
     expect($r->serviceMinutes)->toBe(45);
-    expect($r->bufferMinutes)->toBe(0);
-
-    // Flag on: the buffer applies.
-    $salon->update(['feature_flags' => ['stylist_buffers' => true]]);
-    $r = app(DurationResolver::class)->resolve($salon->fresh(), $service, $stylist->id);
     expect($r->bufferMinutes)->toBe(10);
     expect($r->blockedMinutes())->toBe(55);
 });
@@ -143,7 +138,7 @@ it('labels each qualified stylist with their client-facing minutes, and picking 
 // --- Buffer blocks the stylist's time ---------------------------------------
 
 it('blocks the buffer so the next appointment cannot start during it, and shows it on the calendar', function () {
-    $salon = bookingSalon(['feature_flags' => ['stylist_buffers' => true]]);
+    $salon = bookingSalon();
     $stylist = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
     $service = serviceWith($salon, 30, [$stylist->id => ['duration' => 30, 'buffer' => 30]]); // blocked 60
     $owner = salonOwnerOf($salon);
@@ -192,7 +187,7 @@ it('sums each chosen stylist\'s resolved durations back-to-back across a multi-s
 });
 
 it('places the buffer before the next service in a multi-service booking', function () {
-    $salon = bookingSalon(['feature_flags' => ['stylist_buffers' => true]]);
+    $salon = bookingSalon();
     $stylist = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
     $s1 = serviceWith($salon, 30, [$stylist->id => ['duration' => 30, 'buffer' => 15]]);
     $s2 = serviceWith($salon, 30, [$stylist->id => ['duration' => 30]]);

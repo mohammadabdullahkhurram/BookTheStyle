@@ -14,15 +14,11 @@ use App\Models\ServiceStylist;
  *
  *   service_minutes = duration_override ?? service.duration
  *   buffer_minutes  = buffer_override ?? 0   (and 0 unless the salon's
- *                     stylist_buffers feature flag is on)
  *
  * Buffers stay hidden/disabled until a salon opts in via the flag; when off, the
- * engine treats buffer as 0 regardless of any stored override.
  */
 class DurationResolver
 {
-    public const BUFFER_FLAG = 'stylist_buffers';
-
     public function resolve(Salon $salon, Service $service, int $stylistId): ResolvedDuration
     {
         $pivot = ServiceStylist::query()
@@ -33,7 +29,7 @@ class DurationResolver
         return $this->from(
             $service->duration_min,
             $pivot?->duration_override,
-            $salon->hasFeature(self::BUFFER_FLAG) ? $pivot?->buffer_override : null,
+            $pivot?->buffer_override,
         );
     }
 

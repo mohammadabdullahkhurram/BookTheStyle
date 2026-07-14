@@ -65,18 +65,6 @@ it('saves + validates the booking policy through the settings screen', function 
         ->assertHasErrors(['max_advance_days']);
 });
 
-it('saves feature flags', function () {
-    $salon = Salon::factory()->create();
-    $this->actingAs(settingsOwner($salon));
-
-    Livewire::test('pages::salon.settings', ['salon' => $salon])
-        ->set('flags.online_booking', true)
-        ->call('saveFlags')
-        ->assertHasNoErrors();
-
-    expect($salon->fresh()->hasFeature('online_booking'))->toBeTrue();
-});
-
 it('saves + validates branding accent', function () {
     $salon = Salon::factory()->create();
     $this->actingAs(settingsOwner($salon));
@@ -115,14 +103,12 @@ it('renders the settings category navigation with every panel\'s fields present'
         // The nav categories…
         ->assertSee('General')
         ->assertSee('Booking policy')
-        ->assertSee('Features')
         ->assertSee('Branding')
         ->assertSee('Integrations')
         // …and each panel's content is on the page.
         ->assertSee('Business profile')
         ->assertSee('Salon timezone')
         ->assertSee('Allow walk-ins')
-        ->assertSee('Feature flags')
         ->assertSee('Accent color')
         ->assertSee('GoHighLevel connection');
 });
