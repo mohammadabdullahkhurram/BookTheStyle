@@ -275,9 +275,19 @@ new #[Title('Services')] class extends Component {
                             <td class="px-6 py-4">
                                 <div class="flex items-center justify-end gap-4">
                                     <button type="button" wire:click="startEdit({{ $service->id }})" class="text-[13px] font-semibold text-accent transition hover:text-accent-hover">{{ __('Edit') }}</button>
+                                    {{-- Themed confirm (replaces wire:confirm); reactivating commits without one, as before. --}}
                                     <button type="button"
-                                            @if ($service->active) wire:confirm="{{ __('Deactivate :service? Clients can no longer book it; existing bookings are unaffected.', ['service' => $service->name]) }}" @endif
-                                            wire:click="toggleActive({{ $service->id }})" class="text-[13px] font-medium text-secondary transition hover:text-ink">
+                                            @if ($service->active)
+                                                x-on:click="$store.confirm.ask({
+                                                    title: {{ Js::from(__('Deactivate service')) }},
+                                                    message: {{ Js::from(__('Deactivate :service? Clients can no longer book it; existing bookings are unaffected.', ['service' => $service->name])) }},
+                                                    confirmLabel: {{ Js::from(__('Deactivate')) }},
+                                                    danger: true,
+                                                }, () => $wire.toggleActive({{ $service->id }}))"
+                                            @else
+                                                wire:click="toggleActive({{ $service->id }})"
+                                            @endif
+                                            class="text-[13px] font-medium text-secondary transition hover:text-ink">
                                         {{ $service->active ? __('Deactivate') : __('Reactivate') }}
                                     </button>
                                 </div>

@@ -251,8 +251,14 @@ new #[Title('Widgets')] class extends Component {
                         @elseif (is_string($current->branding['logo_path'] ?? null) && $theme['logo_url'])
                             <div class="flex items-center gap-3">
                                 <img src="{{ $theme['logo_url'] }}" alt="{{ __('Current logo') }}" class="max-h-14 w-auto max-w-[220px] rounded-[8px] border border-border object-contain p-1" />
-                                <button type="button" wire:click="removeLogo"
-                                        wire:confirm="{{ __('Remove this widget\'s logo?') }}"
+                                {{-- Themed confirm (replaces wire:confirm). --}}
+                                <button type="button"
+                                        x-on:click="$store.confirm.ask({
+                                            title: {{ Js::from(__('Remove logo')) }},
+                                            message: {{ Js::from(__('Remove this widget\'s logo?')) }},
+                                            confirmLabel: {{ Js::from(__('Remove')) }},
+                                            danger: true,
+                                        }, () => $wire.removeLogo())"
                                         class="text-[13px] font-medium text-secondary transition hover:text-danger">{{ __('Remove') }}</button>
                             </div>
                         @elseif ($theme['logo_url'])
@@ -341,8 +347,14 @@ new #[Title('Widgets')] class extends Component {
 
             @if ($widgets->count() > 1)
                 <div>
-                    <button type="button" wire:click="deleteWidget({{ $current->id }})"
-                            wire:confirm="{{ __('Delete this widget? Sites embedding it stop showing a booking form. Existing bookings are kept.') }}"
+                    {{-- Themed confirm (replaces wire:confirm). --}}
+                    <button type="button"
+                            x-on:click="$store.confirm.ask({
+                                title: {{ Js::from(__('Delete widget')) }},
+                                message: {{ Js::from(__('Delete this widget? Sites embedding it stop showing a booking form. Existing bookings are kept.')) }},
+                                confirmLabel: {{ Js::from(__('Delete')) }},
+                                danger: true,
+                            }, () => $wire.deleteWidget({{ $current->id }}))"
                             class="text-[13.5px] font-medium text-secondary transition hover:text-danger">{{ __('Delete this widget') }}</button>
                 </div>
             @endif

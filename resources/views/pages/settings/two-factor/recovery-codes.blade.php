@@ -87,12 +87,12 @@ new class extends Component {
             </flux:button>
 
             @if (filled($recoveryCodes))
+                {{-- Themed confirm (replaces wire:confirm) — single-line Js::from, per the x-ui.confirm-modal recipe. --}}
                 <flux:button
                     x-show="showRecoveryCodes"
                     icon="arrow-path"
                     variant="filled"
-                    wire:confirm="{{ __('Generate new recovery codes? Your current codes stop working immediately — save the new set somewhere safe.') }}"
-                    wire:click="regenerateRecoveryCodes"
+                    x-on:click="$store.confirm.ask({ title: {{ Js::from(__('Regenerate recovery codes')) }}, message: {{ Js::from(__('Generate new recovery codes? Your current codes stop working immediately — save the new set somewhere safe.')) }}, confirmLabel: {{ Js::from(__('Regenerate')) }}, danger: false }, () => $wire.regenerateRecoveryCodes())"
                 >
                     {{ __('Regenerate codes') }}
                 </flux:button>

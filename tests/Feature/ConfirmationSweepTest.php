@@ -72,7 +72,8 @@ it('confirms service deactivation with consequence copy — but not reactivation
 
     Livewire::actingAs($owner)
         ->test('pages::salon.services.index', ['salon' => $salon])
-        ->assertSeeHtml('wire:confirm=')
+        ->assertSeeHtml('$store.confirm.ask')
+        ->assertDontSeeHtml('wire:confirm')
         ->assertSee('Clients can no longer book it; existing bookings are unaffected.');
 });
 
@@ -83,6 +84,8 @@ it('confirms staff password resets and deactivation with specific copy', functio
 
     Livewire::actingAs($owner)
         ->test('pages::salon.staff.index', ['salon' => $salon])
+        ->assertSeeHtml('$store.confirm.ask')
+        ->assertDontSeeHtml('wire:confirm')
         ->assertSee('password? Their current password stops working immediately')
         ->assertSee('They lose access to this salon; their bookings and history are kept.');
 });
@@ -119,6 +122,8 @@ it('confirms removing a date-specific availability entry (fires GHL sync)', func
         ->call('openPanel', $stylist->id)
         ->call('startEditing')
         ->set('panelTab', 'dates')
+        ->assertSeeHtml('$store.confirm.ask')
+        ->assertDontSeeHtml('wire:confirm')
         ->assertSee('Remove this date-specific entry?')
         ->assertSee('GoHighLevel availability is updated');
 });
@@ -135,6 +140,8 @@ it('confirms disabling 2FA and regenerating recovery codes', function () {
         ->withSession(['auth.password_confirmed_at' => time()])
         ->get(route('security.edit'))
         ->assertOk()
+        ->assertSee('$store.confirm.ask', false)
+        ->assertDontSee('wire:confirm', false)
         ->assertSee('Disable two-factor authentication? Your account will no longer require a second step')
         ->assertSee('Generate new recovery codes? Your current codes stop working immediately');
 });

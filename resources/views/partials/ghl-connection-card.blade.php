@@ -77,8 +77,8 @@
                     <span wire:loading.remove wire:target="testGhlConnection">{{ __('Test connection') }}</span>
                     <span wire:loading wire:target="testGhlConnection">{{ __('Testing…') }}</span>
                 </x-ui.button>
-                <x-ui.button type="button" variant="secondary" wire:click="disconnectGhl"
-                    wire:confirm="{{ __('Disconnect GoHighLevel? The stored token will be deleted. Stylist mappings are kept.') }}">
+                {{-- Themed confirm (replaces wire:confirm) — single-line Js::from, per the x-ui.confirm-modal recipe. --}}
+                <x-ui.button type="button" variant="secondary" x-on:click="$store.confirm.ask({ title: {{ Js::from(__('Disconnect GoHighLevel')) }}, message: {{ Js::from(__('Disconnect GoHighLevel? The stored token will be deleted. Stylist mappings are kept.')) }}, confirmLabel: {{ Js::from(__('Disconnect')) }}, danger: true }, () => $wire.disconnectGhl())">
                     {{ __('Disconnect') }}
                 </x-ui.button>
             @endif

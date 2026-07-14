@@ -218,9 +218,8 @@ new #[Title('Security settings')] class extends Component {
                             </flux:text>
 
                             <div class="flex justify-start">
-                                <x-ui.button variant="danger"
-                                    wire:confirm="{{ __('Disable two-factor authentication? Your account will no longer require a second step to sign in, and your recovery codes stop working.') }}"
-                                    wire:click="disable">{{ __('Disable 2FA') }}</x-ui.button>
+                                {{-- Themed confirm (replaces wire:confirm) — single-line Js::from, per the x-ui.confirm-modal recipe. --}}
+                                <x-ui.button variant="danger" x-on:click="$store.confirm.ask({ title: {{ Js::from(__('Disable 2FA')) }}, message: {{ Js::from(__('Disable two-factor authentication? Your account will no longer require a second step to sign in, and your recovery codes stop working.')) }}, confirmLabel: {{ Js::from(__('Disable')) }}, danger: true }, () => $wire.disable())">{{ __('Disable 2FA') }}</x-ui.button>
                             </div>
 
                             <livewire:pages::settings.two-factor.recovery-codes :$requiresConfirmation />

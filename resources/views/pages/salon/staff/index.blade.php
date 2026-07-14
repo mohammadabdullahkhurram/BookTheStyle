@@ -266,12 +266,27 @@ new #[Title('Staff')] class extends Component {
                                 <div class="flex items-center justify-end gap-4">
                                     @if ($this->canManageMembership($m))
                                         <button type="button" wire:click="startEdit({{ $m->id }})" class="text-[13px] font-semibold text-accent transition hover:text-accent-hover">{{ __('Edit') }}</button>
+                                        {{-- Themed confirms (replace wire:confirm); reactivating commits without one, as before. --}}
                                         <button type="button"
-                                                wire:confirm="{{ __('Reset :name\'s password? Their current password stops working immediately and a new temporary password is shown once.', ['name' => $m->user->name]) }}"
-                                                wire:click="resetPassword({{ $m->id }})" class="text-[13px] font-medium text-secondary transition hover:text-ink">{{ __('Reset password') }}</button>
+                                                x-on:click="$store.confirm.ask({
+                                                    title: {{ Js::from(__('Reset password')) }},
+                                                    message: {{ Js::from(__('Reset :name\'s password? Their current password stops working immediately and a new temporary password is shown once.', ['name' => $m->user->name])) }},
+                                                    confirmLabel: {{ Js::from(__('Reset')) }},
+                                                    danger: false,
+                                                }, () => $wire.resetPassword({{ $m->id }}))"
+                                                class="text-[13px] font-medium text-secondary transition hover:text-ink">{{ __('Reset password') }}</button>
                                         <button type="button"
-                                                @if ($m->active) wire:confirm="{{ __('Deactivate :name? They lose access to this salon; their bookings and history are kept.', ['name' => $m->user->name]) }}" @endif
-                                                wire:click="toggleActive({{ $m->id }})" class="text-[13px] font-medium text-secondary transition hover:text-ink">
+                                                @if ($m->active)
+                                                    x-on:click="$store.confirm.ask({
+                                                        title: {{ Js::from(__('Deactivate member')) }},
+                                                        message: {{ Js::from(__('Deactivate :name? They lose access to this salon; their bookings and history are kept.', ['name' => $m->user->name])) }},
+                                                        confirmLabel: {{ Js::from(__('Deactivate')) }},
+                                                        danger: true,
+                                                    }, () => $wire.toggleActive({{ $m->id }}))"
+                                                @else
+                                                    wire:click="toggleActive({{ $m->id }})"
+                                                @endif
+                                                class="text-[13px] font-medium text-secondary transition hover:text-ink">
                                             {{ $m->active ? __('Deactivate') : __('Reactivate') }}
                                         </button>
                                     @else

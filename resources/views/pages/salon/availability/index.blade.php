@@ -883,8 +883,14 @@ new #[Title('Availability')] class extends Component {
                                                         class="rounded-[9px] p-1.5 text-faint transition hover:bg-muted hover:text-accent" aria-label="{{ __('Edit this date') }}">
                                                     <flux:icon.pencil-square variant="micro" />
                                                 </button>
-                                                <button type="button" wire:click="removeTimeOff({{ $off->id }})" title="{{ __('Remove') }}"
-                                                        wire:confirm="{{ __('Remove this date-specific entry? The weekly schedule applies to that date again and GoHighLevel availability is updated.') }}"
+                                                {{-- Themed confirm (replaces wire:confirm). --}}
+                                                <button type="button" title="{{ __('Remove') }}"
+                                                        x-on:click="$store.confirm.ask({
+                                                            title: {{ Js::from(__('Remove this date')) }},
+                                                            message: {{ Js::from(__('Remove this date-specific entry? The weekly schedule applies to that date again and GoHighLevel availability is updated.')) }},
+                                                            confirmLabel: {{ Js::from(__('Remove')) }},
+                                                            danger: true,
+                                                        }, () => $wire.removeTimeOff({{ $off->id }}))"
                                                         class="rounded-[9px] p-1.5 text-faint transition hover:bg-muted hover:text-danger" aria-label="{{ __('Remove this date') }}">
                                                     <flux:icon.trash variant="micro" />
                                                 </button>

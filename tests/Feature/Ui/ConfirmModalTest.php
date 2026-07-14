@@ -7,9 +7,11 @@ use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
+use Symfony\Component\Finder\SplFileInfo;
 
 /*
 | Themed confirmation modal (x-ui.confirm-modal): the single in-app dialog that
@@ -209,10 +211,45 @@ it('salon settings logo removal, webhook rotation and token regeneration use the
         ->assertSee('Rotate the webhook secret? The current one stops working immediately.')
         ->assertSee('Regenerate the API token? The current token stops working immediately.');
 
-    // The ONLY wire:confirm left on the page is the GHL disconnect card —
-    // a later batch. Drop this to zero when that partial is converted.
-    expect(substr_count($page->html(), 'wire:confirm'))->toBe(1);
-    $page->assertSeeHtml('wire:confirm')->assertSee('Disconnect GoHighLevel?');
+    // Every confirm on the page is themed — including the GHL disconnect card.
+    expect(substr_count($page->html(), 'wire:confirm'))->toBe(0);
+    $page->assertSee('Disconnect GoHighLevel? The stored token will be deleted. Stylist mappings are kept.');
+});
+
+it('widget deletion uses the themed dialog', function () {
+    $salon = Salon::factory()->create();
+    $owner = salonOwnerOf($salon);
+    $salon->defaultWidget();
+
+    Livewire::actingAs($owner)
+        ->test('pages::salon.widgets', ['salon' => $salon])
+        // A second widget makes the "Delete this widget" action available.
+        ->call('createWidget')
+        ->assertSeeHtml('$store.confirm.ask')
+        ->assertDontSeeHtml('wire:confirm')
+        ->assertSee('Delete this widget? Sites embedding it stop showing a booking form. Existing bookings are kept.');
+});
+
+// ---------------------------------------------------------------------------
+// Repo-wide guard: no native confirms can sneak back in
+// ---------------------------------------------------------------------------
+
+it('leaves no native confirm in any view — every confirmation is the themed dialog', function () {
+    $offenders = collect(File::allFiles(resource_path('views')))
+        ->filter(fn (SplFileInfo $file) => str_ends_with($file->getFilename(), '.blade.php'))
+        ->filter(function (SplFileInfo $file) {
+            // Blade comments may MENTION wire:confirm (conversion notes, the
+            // component recipe) — only live template code counts.
+            $source = (string) preg_replace('/\{\{--.*?--\}\}/s', '', (string) file_get_contents($file->getPathname()));
+
+            return str_contains($source, 'wire:confirm')
+                || preg_match('/(?<![.\w$])confirm\(/', $source) === 1;
+        })
+        ->map(fn (SplFileInfo $file) => $file->getRelativePathname())
+        ->values()
+        ->all();
+
+    expect($offenders)->toBe([]);
 });
 
 it('onboarding token regeneration uses the themed dialog once a token exists', function () {
