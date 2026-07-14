@@ -4,6 +4,7 @@ use App\Enums\AgencyRole;
 use App\Models\Agency;
 use App\Models\Salon;
 use App\Models\User;
+use Illuminate\Support\Facades\Route;
 use Livewire\Livewire;
 
 /*
@@ -34,16 +35,17 @@ it('renders the full side nav with the user chip pinned and the scissor logo', f
     expect($css)->toContain('.bts-drawer-left .bts-nav-item');
 });
 
-it('has ONE agency Salons tab: Gallery by default, List via the toggle', function () {
+it('has ONE Salons surface — the picker — with Gallery default and a List toggle for managers', function () {
     $agency = Agency::factory()->create();
     $owner = User::factory()->create(['agency_id' => $agency->id, 'agency_role' => AgencyRole::Owner]);
     $active = Salon::factory()->for($agency)->create(['name' => 'Alpha Studio']);
     Salon::factory()->for($agency)->create(['name' => 'Beta Salon', 'active' => false]);
 
-    $component = Livewire::actingAs($owner)->test('pages::agency.salons.index');
+    $component = Livewire::actingAs($owner)->test('pages::dashboard');
 
-    // Gallery is the default: cards with the salon data + actions.
+    // Gallery is the default: the picker cards with the salon data + actions.
     $component->assertSet('view', 'gallery')
+        ->assertSee('Welcome back')
         ->assertSee('data-view="gallery"', false)
         ->assertSee('Alpha Studio')
         ->assertSee('Beta Salon')
@@ -59,6 +61,19 @@ it('has ONE agency Salons tab: Gallery by default, List via the toggle', functio
     // Actions still work from the page (deactivate confirms + toggles).
     $component->call('toggleActive', $active->id);
     expect($active->fresh()->active)->toBeFalse();
+
+    // The sidebar carries exactly ONE Salons entry (desktop + drawer render
+    // the shared nav once each), with the scissor icon, ordered after
+    // Dashboard; the retired duplicate route is gone.
+    $html = $this->actingAs($owner)->get(route('dashboard'))->assertOk()->getContent();
+    expect(substr_count($html, 'aria-label="Salons"'))->toBe(2);
+    expect(Route::has('agency.salons.index'))->toBeFalse();
+    $offset = 0;
+    foreach (['aria-label="Dashboard"', 'aria-label="Salons"', 'aria-label="Reporting"', 'aria-label="Users"', 'aria-label="New salon"'] as $needle) {
+        $position = strpos($html, $needle, $offset);
+        expect($position)->not->toBeFalse();
+        $offset = $position + 1;
+    }
 });
 
 it('keeps the Dashboard as a dashboard — the salon listing is not duplicated there', function () {
@@ -69,7 +84,7 @@ it('keeps the Dashboard as a dashboard — the salon listing is not duplicated t
     $response = $this->actingAs($owner)->get(route('agency.overview'))->assertOk();
 
     // Stat cards link out; no salons table on the dashboard anymore.
-    $response->assertSee(route('agency.salons.index'), false)
+    $response->assertSee(route('dashboard'), false)
         ->assertSee(route('agency.reports'), false)
         ->assertSee(route('agency.users.index'), false);
     expect($response->getContent())->not->toContain('<table');

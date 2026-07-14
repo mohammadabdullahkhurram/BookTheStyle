@@ -21,7 +21,6 @@ it('renders every agency + salon screen for an authorised operator', function ()
 
     // Agency console
     $this->get(route('agency.overview'))->assertOk();
-    $this->get(route('agency.salons.index'))->assertOk();
     $this->get(route('agency.salons.create'))->assertOk();
     $this->get(route('agency.salons.edit', $salon))->assertOk();
     $this->get(route('agency.users.index'))->assertOk();

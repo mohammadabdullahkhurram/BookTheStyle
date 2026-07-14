@@ -167,7 +167,7 @@ it('renders the agency console under the BRAND palette, not Glacier', function (
     $agency = Agency::factory()->create();
     $owner = User::factory()->create(['agency_id' => $agency->id, 'agency_role' => AgencyRole::Owner]);
 
-    foreach (['agency.overview', 'agency.salons.index', 'agency.reports', 'agency.users.index'] as $routeName) {
+    foreach (['agency.overview', 'agency.reports', 'agency.users.index'] as $routeName) {
         $this->actingAs($owner)->get(route($routeName))
             ->assertOk()
             ->assertSee('data-theme="brand"', false)

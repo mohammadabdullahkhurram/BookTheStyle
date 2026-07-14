@@ -283,7 +283,7 @@ new #[Title('Edit salon')] class extends Component {
 
             <div class="flex items-center gap-3">
                 <x-ui.button type="submit">{{ __('Save changes') }}</x-ui.button>
-                <x-ui.button variant="secondary" :href="route('agency.salons.index')" wire:navigate>{{ __('Back') }}</x-ui.button>
+                <x-ui.button variant="secondary" :href="route('dashboard')" wire:navigate>{{ __('Back') }}</x-ui.button>
             </div>
         </form>
         </x-ui.card>

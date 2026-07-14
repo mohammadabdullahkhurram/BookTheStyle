@@ -89,7 +89,7 @@ it('confirms salon deactivation from the agency console', function () {
     ]);
 
     $this->actingAs($owner)
-        ->get(route('agency.salons.index'))
+        ->get(route('dashboard'))
         ->assertOk()
         ->assertSee('All its staff lose access until it is reactivated. No data is deleted.');
 

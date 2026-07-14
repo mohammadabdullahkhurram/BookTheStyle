@@ -66,7 +66,7 @@ it('accepts a valid slug and persists it', function () {
         ->set('timezone', 'America/New_York')
         ->call('save')
         ->assertHasNoErrors()
-        ->assertRedirect(route('agency.salons.index'));
+        ->assertRedirect(route('dashboard'));
 
     expect(Salon::where('slug', 'glow-bar')->where('agency_id', $agency->id)->exists())->toBeTrue();
 });

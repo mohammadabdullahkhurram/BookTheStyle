@@ -133,7 +133,7 @@ new #[Title('New salon')] class extends Component {
 
         Flux::toast(variant: 'success', text: __('Salon ":name" created.', ['name' => $salon->name]));
 
-        $this->redirectRoute('agency.salons.index', navigate: true);
+        $this->redirectRoute('dashboard', navigate: true);
     }
 }; ?>
 
@@ -189,7 +189,7 @@ new #[Title('New salon')] class extends Component {
 
             <div class="flex items-center gap-3">
                 <x-ui.button type="submit">{{ __('Create salon') }}</x-ui.button>
-                <x-ui.button variant="secondary" :href="route('agency.salons.index')" wire:navigate>{{ __('Cancel') }}</x-ui.button>
+                <x-ui.button variant="secondary" :href="route('dashboard')" wire:navigate>{{ __('Cancel') }}</x-ui.button>
             </div>
         </form>
         </x-ui.card>

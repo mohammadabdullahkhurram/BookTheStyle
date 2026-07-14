@@ -97,7 +97,7 @@ it('wraps the Salons LIST view table in a scroll container (gallery is card-base
     $owner = responsiveAgencyOwner($salon);
 
     Livewire\Livewire::actingAs($owner)
-        ->test('pages::agency.salons.index')
+        ->test('pages::dashboard')
         ->set('view', 'list')
         ->assertSee('<div class="overflow-x-auto" tabindex="0">', false);
 });

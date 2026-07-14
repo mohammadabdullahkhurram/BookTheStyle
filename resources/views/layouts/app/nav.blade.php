@@ -91,23 +91,19 @@
             <span x-show="!collapsed" x-cloak>{{ __('Availability') }}</span>
         </a>
     @else
-        <a href="{{ route('dashboard') }}" wire:navigate @click="mobileNav = false"
-           aria-label="{{ __('Salons') }}" :title="collapsed ? '{{ __('Salons') }}' : null"
-           class="bts-nav-item {{ request()->routeIs('dashboard') ? 'bts-nav-item-active' : '' }}">
-            <flux:icon.squares-2x2 variant="micro" class="shrink-0" />
-            <span x-show="!collapsed" x-cloak>{{ __('Salons') }}</span>
-        </a>
         @if ($user?->isAgencyOperator())
-            {{-- Agency console nav: Dashboard → Salons → Reporting → Users. --}}
+            {{-- Agency console nav: Dashboard → Salons → Reporting → Users.
+                 ONE Salons entry — the salon picker (which carries the
+                 manage gallery/list for salon managers). --}}
             <a href="{{ route('agency.overview') }}" wire:navigate @click="mobileNav = false"
                aria-label="{{ __('Dashboard') }}" :title="collapsed ? '{{ __('Dashboard') }}' : null"
                class="bts-nav-item {{ request()->routeIs('agency.overview') ? 'bts-nav-item-active' : '' }}">
                 <flux:icon.building-office-2 variant="micro" class="shrink-0" />
                 <span x-show="!collapsed" x-cloak>{{ __('Dashboard') }}</span>
             </a>
-            <a href="{{ route('agency.salons.index') }}" wire:navigate @click="mobileNav = false"
+            <a href="{{ route('dashboard') }}" wire:navigate @click="mobileNav = false"
                aria-label="{{ __('Salons') }}" :title="collapsed ? '{{ __('Salons') }}' : null"
-               class="bts-nav-item {{ request()->routeIs('agency.salons.*') ? 'bts-nav-item-active' : '' }}">
+               class="bts-nav-item {{ request()->routeIs('dashboard') || request()->routeIs('agency.salons.*') ? 'bts-nav-item-active' : '' }}">
                 <flux:icon.scissors variant="micro" class="shrink-0" />
                 <span x-show="!collapsed" x-cloak>{{ __('Salons') }}</span>
             </a>
@@ -122,6 +118,14 @@
                class="bts-nav-item {{ request()->routeIs('agency.users.*') ? 'bts-nav-item-active' : '' }}">
                 <flux:icon.users variant="micro" class="shrink-0" />
                 <span x-show="!collapsed" x-cloak>{{ __('Users') }}</span>
+            </a>
+        @else
+            {{-- Salon staff on the central host: their salons to open. --}}
+            <a href="{{ route('dashboard') }}" wire:navigate @click="mobileNav = false"
+               aria-label="{{ __('Salons') }}" :title="collapsed ? '{{ __('Salons') }}' : null"
+               class="bts-nav-item {{ request()->routeIs('dashboard') ? 'bts-nav-item-active' : '' }}">
+                <flux:icon.scissors variant="micro" class="shrink-0" />
+                <span x-show="!collapsed" x-cloak>{{ __('Salons') }}</span>
             </a>
         @endif
     @endif

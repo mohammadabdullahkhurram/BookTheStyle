@@ -61,14 +61,14 @@ Route::domain($app)->middleware(['auth'])->group(function () {
     Route::get('password/change', [PasswordChangeController::class, 'show'])->name('password.change');
     Route::put('password/change', [PasswordChangeController::class, 'update'])->name('password.change.update');
 
-    // The salon picker / landing after login.
-    Route::view('dashboard', 'dashboard')->name('dashboard');
+    // The salon picker / landing after login — also the ONE Salons surface
+    // (agency salon-managers get the gallery/list toggle + edit/deactivate).
+    Route::livewire('dashboard', 'pages::dashboard')->name('dashboard');
 
     // Agency console (agency owners/admins). Each screen authorises against the
     // actor's own agency and rejects out-of-agency {salon}/{user} ids with 403.
     Route::prefix('agency')->name('agency.')->group(function () {
         Route::livewire('/', 'pages::agency.overview')->name('overview');
-        Route::livewire('salons', 'pages::agency.salons.index')->name('salons.index');
         Route::livewire('salons/create', 'pages::agency.salons.create')->name('salons.create');
         Route::livewire('salons/{salon}/edit', 'pages::agency.salons.edit')->name('salons.edit');
         Route::livewire('reports', 'pages::agency.reports')->name('reports');

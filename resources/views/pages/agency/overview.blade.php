@@ -42,7 +42,7 @@ new #[Title('Dashboard')] class extends Component {
          salon LISTING lives on the Salons tab (gallery/list) — not
          duplicated here. --}}
     <div class="grid gap-4 sm:grid-cols-3">
-        <a href="{{ route('agency.salons.index') }}" wire:navigate
+        <a href="{{ route('dashboard') }}" wire:navigate
            class="group rounded-[16px] border border-border bg-card p-[18px] shadow-card transition hover:border-accent">
             <div class="font-display text-[34px] font-bold leading-none text-ink">{{ $this->salons->count() }}</div>
             <div class="mt-2 text-[16px] font-semibold text-ink transition group-hover:text-accent">{{ __('Salons') }}</div>
