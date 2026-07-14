@@ -228,7 +228,8 @@
     body[data-theme='lumen'] dialog::backdrop {
         background-color: var(--scrim);
     }
-    body[data-theme='lumen'] .bts-scrim {
+    body[data-theme='lumen'] .bts-scrim,
+    body[data-theme='lumen'] .bts-confirm-dialog::backdrop {
         background-color: var(--scrim);
     }
 
@@ -349,7 +350,8 @@
         box-shadow: var(--shadow-overlay);
     }
     body[data-theme='marble'] dialog::backdrop,
-    body[data-theme='marble'] .bts-scrim {
+    body[data-theme='marble'] .bts-scrim,
+    body[data-theme='marble'] .bts-confirm-dialog::backdrop {
         background-color: rgb(74 56 46 / 0.32);
     }
     @media (prefers-reduced-motion: reduce) {
@@ -456,7 +458,8 @@
     body[data-theme='glacier'] dialog::backdrop {
         background-color: var(--scrim);
     }
-    body[data-theme='glacier'] .bts-scrim {
+    body[data-theme='glacier'] .bts-scrim,
+    body[data-theme='glacier'] .bts-confirm-dialog::backdrop {
         background-color: var(--scrim);
     }
 
@@ -582,6 +585,12 @@ select:focus[data-flux-control] {
     .bts-scrim {
         animation: bts-fade-in 0.2s ease-out;
     }
+    /* The confirm dialog's ::backdrop is its scrim (a native <dialog> has no
+       sibling scrim div); themes re-tint it next to their .bts-scrim rules. */
+    .bts-confirm-dialog::backdrop {
+        background-color: rgb(31 22 17 / 0.35);
+        animation: bts-fade-in 0.2s ease-out;
+    }
     @keyframes bts-slide-in-right {
         from { transform: translateX(100%); }
         to { transform: translateX(0); }
@@ -597,7 +606,8 @@ select:focus[data-flux-control] {
     @media (prefers-reduced-motion: reduce) {
         .bts-drawer,
         .bts-drawer-left,
-        .bts-scrim {
+        .bts-scrim,
+        .bts-confirm-dialog::backdrop {
             animation: none;
         }
     }

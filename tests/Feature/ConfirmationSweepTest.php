@@ -57,6 +57,9 @@ it('gates cancel and no-show behind confirmations in the calendar detail modal',
     Livewire::actingAs($owner)
         ->test('pages::salon.calendar', ['salon' => $salon])
         ->call('openBooking', $booking->id)
+        // Converted to the themed dialog (it top-layers above the detail modal).
+        ->assertSeeHtml('$store.confirm.ask')
+        ->assertDontSeeHtml('wire:confirm')
         ->assertSee('Cancel this booking?')
         ->assertSee('Mark this booking as a no-show?');
 });

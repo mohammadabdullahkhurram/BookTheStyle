@@ -402,9 +402,10 @@ new #[Title('Calendar')] class extends Component {
                                 @if ($next === \App\Enums\BookingStatus::Arrived)
                                     <x-ui.button size="sm" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')">{{ __($next->actionLabel()) }}</x-ui.button>
                                 @elseif ($next === \App\Enums\BookingStatus::Cancelled)
-                                    <button type="button" wire:confirm="{{ __($next->confirmMessage()) }}" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')" class="bts-btn bts-btn-sm border border-input-border bg-card text-danger hover:border-danger">{{ __($next->actionLabel()) }}</button>
+                                    {{-- Themed confirm (replaces wire:confirm) — the confirm <dialog> top-layers above this detail dialog. --}}
+                                    <button type="button" x-on:click="$store.confirm.ask({ title: {{ Js::from(__($next->actionLabel())) }}, message: {{ Js::from(__($next->confirmMessage())) }}, confirmLabel: {{ Js::from(__($next->actionLabel())) }}, danger: true }, () => $wire.changeStatus({{ $booking->id }}, {{ Js::from($next->value) }}))" class="bts-btn bts-btn-sm border border-input-border bg-card text-danger hover:border-danger">{{ __($next->actionLabel()) }}</button>
                                 @elseif ($next->confirmMessage())
-                                    <x-ui.button size="sm" variant="secondary" wire:confirm="{{ __($next->confirmMessage()) }}" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')">{{ __($next->actionLabel()) }}</x-ui.button>
+                                    <x-ui.button size="sm" variant="secondary" x-on:click="$store.confirm.ask({ title: {{ Js::from(__($next->actionLabel())) }}, message: {{ Js::from(__($next->confirmMessage())) }}, confirmLabel: {{ Js::from(__($next->actionLabel())) }}, danger: true }, () => $wire.changeStatus({{ $booking->id }}, {{ Js::from($next->value) }}))">{{ __($next->actionLabel()) }}</x-ui.button>
                                 @else
                                     <x-ui.button size="sm" variant="secondary" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')">{{ __($next->actionLabel()) }}</x-ui.button>
                                 @endif

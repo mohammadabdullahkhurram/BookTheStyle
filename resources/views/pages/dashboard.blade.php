@@ -168,9 +168,19 @@ new #[Title('Salons')] class extends Component {
                                 <td class="px-6 py-4">
                                     <div class="flex items-center justify-end gap-4">
                                         <a href="{{ route('agency.salons.edit', $salon) }}" wire:navigate class="text-[13px] font-semibold text-accent transition hover:text-accent-hover">{{ __('Edit') }}</a>
+                                        {{-- Themed confirm (replaces wire:confirm); reactivating commits without one, as before. --}}
                                         <button type="button"
-                                                @if ($salon->active) wire:confirm="{{ __('Deactivate :salon? All its staff lose access until it is reactivated. No data is deleted.', ['salon' => $salon->name]) }}" @endif
-                                                wire:click="toggleActive({{ $salon->id }})" class="text-[13px] font-medium text-secondary transition hover:text-ink">
+                                                @if ($salon->active)
+                                                    x-on:click="$store.confirm.ask({
+                                                        title: {{ Js::from(__('Deactivate salon')) }},
+                                                        message: {{ Js::from(__('Deactivate :salon? All its staff lose access until it is reactivated. No data is deleted.', ['salon' => $salon->name])) }},
+                                                        confirmLabel: {{ Js::from(__('Deactivate')) }},
+                                                        danger: true,
+                                                    }, () => $wire.toggleActive({{ $salon->id }}))"
+                                                @else
+                                                    wire:click="toggleActive({{ $salon->id }})"
+                                                @endif
+                                                class="text-[13px] font-medium text-secondary transition hover:text-ink">
                                             {{ $salon->active ? __('Deactivate') : __('Reactivate') }}
                                         </button>
                                     </div>
@@ -258,9 +268,19 @@ new #[Title('Salons')] class extends Component {
                         @if ($this->managesSalons)
                             <div class="flex items-center gap-4 border-t border-divider px-5 py-3">
                                 <a href="{{ route('agency.salons.edit', $salon) }}" wire:navigate class="text-[13px] font-semibold text-accent transition hover:text-accent-hover">{{ __('Edit') }}</a>
+                                {{-- Themed confirm (replaces wire:confirm); reactivating commits without one, as before. --}}
                                 <button type="button"
-                                        @if ($salon->active) wire:confirm="{{ __('Deactivate :salon? All its staff lose access until it is reactivated. No data is deleted.', ['salon' => $salon->name]) }}" @endif
-                                        wire:click="toggleActive({{ $salon->id }})" class="text-[13px] font-medium text-secondary transition hover:text-ink">
+                                        @if ($salon->active)
+                                            x-on:click="$store.confirm.ask({
+                                                title: {{ Js::from(__('Deactivate salon')) }},
+                                                message: {{ Js::from(__('Deactivate :salon? All its staff lose access until it is reactivated. No data is deleted.', ['salon' => $salon->name])) }},
+                                                confirmLabel: {{ Js::from(__('Deactivate')) }},
+                                                danger: true,
+                                            }, () => $wire.toggleActive({{ $salon->id }}))"
+                                        @else
+                                            wire:click="toggleActive({{ $salon->id }})"
+                                        @endif
+                                        class="text-[13px] font-medium text-secondary transition hover:text-ink">
                                     {{ $salon->active ? __('Deactivate') : __('Reactivate') }}
                                 </button>
                             </div>

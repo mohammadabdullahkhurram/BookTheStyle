@@ -921,8 +921,14 @@ new #[Title('Salon settings')] class extends Component {
                     @elseif ($brandingTheme['logo_url'])
                         <div class="flex items-center gap-3">
                             <img src="{{ $brandingTheme['logo_url'] }}" alt="{{ __('Current logo') }}" class="max-h-14 w-auto max-w-[220px] rounded-[8px] border border-border object-contain p-1" />
-                            <button type="button" wire:click="removeLogo"
-                                    wire:confirm="{{ __('Remove the logo? The widget shows the salon name alone until a new one is uploaded.') }}"
+                            {{-- Themed confirm (replaces wire:confirm). --}}
+                            <button type="button"
+                                    x-on:click="$store.confirm.ask({
+                                        title: {{ Js::from(__('Remove logo')) }},
+                                        message: {{ Js::from(__('Remove the logo? The widget shows the salon name alone until a new one is uploaded.')) }},
+                                        confirmLabel: {{ Js::from(__('Remove')) }},
+                                        danger: true,
+                                    }, () => $wire.removeLogo())"
                                     class="text-[13px] font-medium text-secondary transition hover:text-danger">{{ __('Remove') }}</button>
                         </div>
                     @endif
@@ -1149,8 +1155,8 @@ new #[Title('Salon settings')] class extends Component {
                     </div>
                     <div>
                         @if ($ghlWebhookSecret)
-                            <x-ui.button type="button" variant="secondary" wire:click="generateGhlWebhookSecret"
-                                wire:confirm="{{ __('Rotate the webhook secret? The current one stops working immediately.') }}">
+                            {{-- Themed confirm (replaces wire:confirm) — single-line Js::from, per the x-ui.confirm-modal recipe. --}}
+                            <x-ui.button type="button" variant="secondary" x-on:click="$store.confirm.ask({ title: {{ Js::from(__('Rotate webhook secret')) }}, message: {{ Js::from(__('Rotate the webhook secret? The current one stops working immediately.')) }}, confirmLabel: {{ Js::from(__('Rotate')) }}, danger: false }, () => $wire.generateGhlWebhookSecret())">
                                 {{ __('Rotate secret') }}
                             </x-ui.button>
                         @else
@@ -1267,9 +1273,16 @@ new #[Title('Salon settings')] class extends Component {
             @endif
 
             <div>
-                <x-ui.button type="button" variant="secondary" wire:click="generateApiToken" wire:confirm="{{ $salon->api_token_generated_at !== null ? __('Regenerate the API token? The current token stops working immediately.') : '' }}">
-                    {{ $salon->api_token_generated_at !== null ? __('Regenerate token') : __('Generate token') }}
-                </x-ui.button>
+                @if ($salon->api_token_generated_at !== null)
+                    {{-- Themed confirm (replaces wire:confirm); first generation commits without one, as before. --}}
+                    <x-ui.button type="button" variant="secondary" x-on:click="$store.confirm.ask({ title: {{ Js::from(__('Regenerate API token')) }}, message: {{ Js::from(__('Regenerate the API token? The current token stops working immediately.')) }}, confirmLabel: {{ Js::from(__('Regenerate')) }}, danger: false }, () => $wire.generateApiToken())">
+                        {{ __('Regenerate token') }}
+                    </x-ui.button>
+                @else
+                    <x-ui.button type="button" variant="secondary" wire:click="generateApiToken">
+                        {{ __('Generate token') }}
+                    </x-ui.button>
+                @endif
             </div>
 
             <p class="text-[12.5px] text-faint">

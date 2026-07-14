@@ -299,9 +299,18 @@ new #[Title('Edit salon')] class extends Component {
                     {{ $salon->active ? __('Hides the salon from staff. No data is deleted.') : __('Make the salon available to staff again.') }}
                 </p>
             </div>
+            {{-- Themed confirm (replaces wire:confirm); reactivating commits without one, as before. --}}
             <button type="button"
-                    @if ($salon->active) wire:confirm="{{ __('Deactivate :salon? All its staff lose access until it is reactivated. No data is deleted.', ['salon' => $salon->name]) }}" @endif
-                    wire:click="toggleActive"
+                    @if ($salon->active)
+                        x-on:click="$store.confirm.ask({
+                            title: {{ Js::from(__('Deactivate salon')) }},
+                            message: {{ Js::from(__('Deactivate :salon? All its staff lose access until it is reactivated. No data is deleted.', ['salon' => $salon->name])) }},
+                            confirmLabel: {{ Js::from(__('Deactivate')) }},
+                            danger: true,
+                        }, () => $wire.toggleActive())"
+                    @else
+                        wire:click="toggleActive"
+                    @endif
                     class="bts-btn bts-btn-sm shrink-0 {{ $salon->active ? 'border border-input-border bg-card text-danger hover:border-danger' : 'bts-btn-primary' }}">
                 {{ $salon->active ? __('Deactivate') : __('Reactivate') }}
             </button>

@@ -480,8 +480,18 @@ new #[Title('Salon setup')] class extends Component {
                         <p class="mt-4 text-[14px] text-ink">{{ __('A token exists (generated :when). The plaintext is not retrievable — regenerate if it was lost.', ['when' => $salon->api_token_generated_at?->diffForHumans() ?? __('earlier')]) }}</p>
                     @endif
 
-                    <button type="button" wire:click="generateApiToken" class="bts-btn bts-btn-primary mt-4"
-                            @if ($salon->api_token_hash !== null) wire:confirm="{{ __('Regenerate the API token? The current one stops working immediately — the GHL custom actions must be updated.') }}" @endif>
+                    {{-- Themed confirm (replaces wire:confirm); first generation commits without one, as before. --}}
+                    <button type="button" class="bts-btn bts-btn-primary mt-4"
+                            @if ($salon->api_token_hash !== null)
+                                x-on:click="$store.confirm.ask({
+                                    title: {{ Js::from(__('Regenerate API token')) }},
+                                    message: {{ Js::from(__('Regenerate the API token? The current one stops working immediately — the GHL custom actions must be updated.')) }},
+                                    confirmLabel: {{ Js::from(__('Regenerate')) }},
+                                    danger: false,
+                                }, () => $wire.generateApiToken())"
+                            @else
+                                wire:click="generateApiToken"
+                            @endif>
                         {{ $salon->api_token_hash !== null ? __('Regenerate token') : __('Generate token') }}
                     </button>
 

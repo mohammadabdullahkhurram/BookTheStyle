@@ -5,8 +5,15 @@
     it via $store.confirm.ask({...}, () => $wire.action()). Token-driven so
     it renders on-theme under Marble, Classic, and the agency palette.
     Danger is never colour-alone: the warning icon + the verb label carry it.
-    a11y: role="dialog" + aria-modal, labelled/described, x-trap moves focus
-    in (and restores it on close), Esc and the scrim cancel.
+
+    A native <dialog> opened with showModal(): it joins the browser top layer
+    ABOVE any already-open flux:modal (also a top-layer <dialog>), so confirms
+    launched from inside another dialog — e.g. the calendar booking detail —
+    stay visible and clickable. showModal() gives modal semantics (implicit
+    role=dialog + aria-modal), inerts the page behind, moves focus in and
+    restores it on close; Esc fires the native close (synced to the store),
+    the ::backdrop is the scrim and clicking it cancels; x-trap adds the
+    body-scroll lock.
 
     Converting a wire:confirm call site (this modal renders once, in
     layouts/app/sidebar — call sites only need the x-on:click):
@@ -23,15 +30,16 @@
     double quote inside the attribute value breaks the tag compiler — so use
     {{ Js::from(__('single-quoted copy')) }} and keep <x-…> attributes on one line.
 --}}
-<div x-data x-show="$store.confirm.show" x-cloak
-     class="fixed inset-0 z-[90] flex items-center justify-center p-4"
-     @keydown.escape.window="$store.confirm.show && $store.confirm.cancel()">
-    <div class="bts-scrim absolute inset-0" style="background-color: rgb(31 22 17 / 0.35);"
-         @click="$store.confirm.cancel()" aria-hidden="true"></div>
-
-    <div role="dialog" aria-modal="true" aria-labelledby="bts-confirm-title" aria-describedby="bts-confirm-message"
-         x-trap.noscroll="$store.confirm.show"
-         class="bts-surface relative w-full max-w-md rounded-[var(--radius-modal)] border border-border bg-card p-6 shadow-[var(--shadow-overlay)]">
+<dialog x-data
+        x-effect="$store.confirm.show ? ($el.open || $el.showModal()) : ($el.open && $el.close())"
+        @close="$store.confirm.show && $store.confirm.cancel()"
+        @click="$event.target === $el && $store.confirm.cancel()"
+        x-trap.noscroll="$store.confirm.show"
+        aria-labelledby="bts-confirm-title" aria-describedby="bts-confirm-message"
+        class="bts-confirm-dialog bts-surface m-auto w-full max-w-md rounded-[var(--radius-modal)] border border-border bg-card p-0 shadow-[var(--shadow-overlay)]">
+    {{-- Content wrapper takes the padding so backdrop clicks (target = the
+         <dialog> itself) are distinguishable from clicks inside the panel. --}}
+    <div class="p-6">
         <div class="flex items-start gap-4">
             {{-- Severity icon: warning triangle for danger, question mark otherwise. --}}
             <span class="flex size-11 shrink-0 items-center justify-center rounded-full"
@@ -59,4 +67,4 @@
                     @click="$store.confirm.proceed()" x-text="$store.confirm.confirmLabel"></button>
         </div>
     </div>
-</div>
+</dialog>

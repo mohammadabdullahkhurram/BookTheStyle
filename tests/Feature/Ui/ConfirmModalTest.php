@@ -1,10 +1,14 @@
 <?php
 
+use App\Enums\AgencyRole;
+use App\Models\Salon;
+use App\Models\SalonGhlConnection;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
 /*
@@ -25,21 +29,28 @@ afterEach(fn () => Carbon::setTestNow());
 // The component itself
 // ---------------------------------------------------------------------------
 
-it('renders an accessible dialog: role, aria wiring, focus trap, Esc + scrim cancel', function () {
+it('renders an accessible native dialog: showModal top layer, labelling, Esc + backdrop cancel', function () {
     $html = Blade::render('<x-ui.confirm-modal />');
 
     expect($html)
-        ->toContain('role="dialog"')
-        ->toContain('aria-modal="true"')
+        // A native <dialog> via showModal(): implicit role=dialog + aria-modal,
+        // and it joins the top layer ABOVE any open flux:modal (calendar detail).
+        ->toContain('<dialog')
+        ->toContain('$el.showModal()')
         ->toContain('aria-labelledby="bts-confirm-title"')
         ->toContain('aria-describedby="bts-confirm-message"')
         ->toContain('id="bts-confirm-title"')
         ->toContain('id="bts-confirm-message"')
-        // Focus moves in while open and restores on close.
+        // Body scroll lock while open; native dialog restores focus on close.
         ->toContain('x-trap.noscroll="$store.confirm.show"')
-        // Esc and the scrim both cancel.
-        ->toContain('@keydown.escape.window')
-        ->toContain('bts-scrim');
+        // Native close (Esc) syncs the store; clicking the ::backdrop cancels.
+        ->toContain('@close="$store.confirm.show && $store.confirm.cancel()"')
+        ->toContain('$event.target === $el && $store.confirm.cancel()')
+        ->toContain('bts-confirm-dialog');
+
+    // The ::backdrop is the themed scrim (a top-layer dialog has no scrim div).
+    expect(file_get_contents(resource_path('css/app.css')))
+        ->toContain('.bts-confirm-dialog::backdrop');
 });
 
 it('confirms and cancels through the store, and marks danger by more than colour', function () {
@@ -142,6 +153,80 @@ it('compiles the confirm payload — no raw Blade or @js survives to the browser
     'check-in' => 'pages::salon.appointments.index',
     'appointments' => 'pages::salon.appointments.all',
 ]);
+
+// ---------------------------------------------------------------------------
+// Converted call sites (batch A)
+// ---------------------------------------------------------------------------
+
+it('salon deactivation on the dashboard and agency edit uses the themed dialog', function () {
+    $salon = Salon::factory()->create();
+    $owner = User::factory()->create([
+        'agency_id' => $salon->agency_id,
+        'agency_role' => AgencyRole::Owner,
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertSee('$store.confirm.ask', false)
+        ->assertDontSee('wire:confirm', false)
+        ->assertSee('All its staff lose access until it is reactivated. No data is deleted.');
+
+    $this->get(route('agency.salons.edit', $salon))
+        ->assertOk()
+        ->assertSee('$store.confirm.ask', false)
+        ->assertDontSee('wire:confirm', false)
+        ->assertSee('All its staff lose access until it is reactivated. No data is deleted.');
+});
+
+it('calendar detail cancel / no-show buttons use the themed dialog', function () {
+    $salon = bookingSalon();
+    $owner = salonOwnerOf($salon);
+    $stylist = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
+    $booking = makeBooking($salon, $owner, $stylist, serviceFor($salon, $stylist, 60), '2026-06-22 10:00');
+
+    Livewire::actingAs($owner)
+        ->test('pages::salon.calendar', ['salon' => $salon])
+        ->call('openBooking', $booking->id)
+        ->assertSeeHtml('$store.confirm.ask')
+        ->assertDontSeeHtml('wire:confirm')
+        ->assertSee('Cancel this booking?')
+        ->assertSee('Mark this booking as a no-show?');
+});
+
+it('salon settings logo removal, webhook rotation and token regeneration use the themed dialog', function () {
+    Storage::fake('public');
+    Storage::disk('public')->put('branding/test/logo.png', 'png-bytes');
+    $salon = Salon::factory()->create(['branding' => ['logo_path' => 'branding/test/logo.png']]);
+    $owner = salonOwnerOf($salon);
+    SalonGhlConnection::factory()->for($salon)->create(['webhook_secret' => str_repeat('ab', 24)]);
+
+    $page = Livewire::actingAs($owner)
+        ->test('pages::salon.settings', ['salon' => $salon])
+        ->call('generateApiToken')
+        ->assertSeeHtml('$store.confirm.ask')
+        ->assertSee('Remove the logo? The widget shows the salon name alone until a new one is uploaded.')
+        ->assertSee('Rotate the webhook secret? The current one stops working immediately.')
+        ->assertSee('Regenerate the API token? The current token stops working immediately.');
+
+    // The ONLY wire:confirm left on the page is the GHL disconnect card —
+    // a later batch. Drop this to zero when that partial is converted.
+    expect(substr_count($page->html(), 'wire:confirm'))->toBe(1);
+    $page->assertSeeHtml('wire:confirm')->assertSee('Disconnect GoHighLevel?');
+});
+
+it('onboarding token regeneration uses the themed dialog once a token exists', function () {
+    $salon = bookingSalon();
+    $owner = salonOwnerOf($salon);
+
+    Livewire::actingAs($owner)
+        ->test('pages::salon.onboarding', ['salon' => $salon])
+        ->call('goTo', 'api_token')
+        ->call('generateApiToken')
+        ->assertDontSeeHtml('wire:confirm')
+        ->assertSeeHtml('$store.confirm.ask')
+        ->assertSee('Regenerate the API token? The current one stops working immediately — the GHL custom actions must be updated.');
+});
 
 // ---------------------------------------------------------------------------
 // Tenant isolation (unchanged by the conversion)
