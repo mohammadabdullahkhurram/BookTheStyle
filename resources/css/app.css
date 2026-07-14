@@ -67,7 +67,7 @@
     --color-accent-soft: var(--accent-tint);     /* legacy alias */
     --color-accent-ink: var(--accent-ink);
     --color-accent-content: var(--accent-ink);   /* Flux text-on-accent-tint */
-    --color-accent-foreground: #ffffff;
+    --color-accent-foreground: var(--accent-foreground, #ffffff);
 
     /* Status — semantic ink colors (stat numbers, dots). */
     --color-success: #3e5c3a;
@@ -126,29 +126,19 @@
 }
 
 @layer base {
-    /* Default accent = plum (the violet DNA, shifted warm and rich —
-       aubergine over blue-violet). Presets selectable via
-       <html data-accent="…">; a per-salon brand override sets these four
-       inline (head partial). White-on-accent 6.5:1; ink 8.0:1 on tint. */
+    /* Accent = the salon's BRAND, themed style-agnostically: every theme
+       declares its own default accent set, but the --brand-accent* slot
+       (emitted per salon by partials/head from Settings → Branding) wins on
+       top of whichever theme is active. Theme = style; accent = brand.
+       Default (no brand set, Classic style): the warm plum — white-on-
+       accent 6.5:1; ink 8.0:1 on tint. --accent-foreground is the READABLE
+       text colour on the accent (derived white/near-black per accent). */
     :root {
-        --accent: #824c71;
-        --accent-hover: #6d3c5e;
-        --accent-tint: #f5eaf0;
-        --accent-ink: #6b3358;
-    }
-
-    :root[data-accent='sage'] {
-        --accent: #5c7458;
-        --accent-hover: #4f6349;
-        --accent-tint: #e7eee5;
-        --accent-ink: #3e5c3a;
-    }
-
-    :root[data-accent='terracotta'] {
-        --accent: #c0613e;
-        --accent-hover: #a8502f;
-        --accent-tint: #f4e6dd;
-        --accent-ink: #8a431f;
+        --accent: var(--brand-accent, #824c71);
+        --accent-hover: var(--brand-accent-hover, #6d3c5e);
+        --accent-tint: var(--brand-accent-tint, #f5eaf0);
+        --accent-ink: var(--brand-accent-ink, #6b3358);
+        --accent-foreground: var(--brand-accent-foreground, #ffffff);
     }
 
     /* Keyboard-focus ring colour — a theme layer may retune it; plum accent
@@ -282,13 +272,13 @@
         --color-divider: #f7ecd9;
         --color-row: #f7ecd9;
 
-        /* Coral accent set (deepened from the gallery's #F08A5D for AA
-           white-on-accent); butter #F7D774 is Marble's secondary voice. */
-        --accent: #bc4a28;
-        --accent-hover: #a13d1f;
-        --accent-tint: #fbe9d7;
-        --accent-ink: #9c3f22;
-        --focus-ring: #bc4a28;
+        /* Marble's DEFAULT accent: coral (deepened from the gallery's
+           #F08A5D for AA white-on-accent); the salon's brand accent slots
+           in over it. Butter #F7D774 stays Marble's secondary voice. */
+        --accent: var(--brand-accent, #bc4a28);
+        --accent-hover: var(--brand-accent-hover, #a13d1f);
+        --accent-tint: var(--brand-accent-tint, #fbe9d7);
+        --accent-ink: var(--brand-accent-ink, #9c3f22);
 
         /* Chunky rounded geometry + the pressed-clay edge. */
         --radius-sm: 12px;
@@ -547,7 +537,7 @@ select:focus[data-flux-control] {
     }
     .bts-btn-primary {
         background-color: var(--accent);
-        color: #fff;
+        color: var(--accent-foreground, #fff);
         box-shadow: var(--shadow-button);
     }
     .bts-btn-primary:hover {

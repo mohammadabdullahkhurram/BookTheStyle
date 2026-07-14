@@ -248,10 +248,11 @@ it('shows the per-widget embed snippets in the Widgets area (moved out of settin
         ->assertSee($widget->public_id)
         ->assertSee(route('widget.script'));
 
-    // Settings no longer carries the embed tab — it points to Widgets.
+    // Settings no longer carries the embed tab (Widgets is its own
+    // top-level nav area — no link inside Settings either).
     Livewire\Livewire::test('pages::salon.settings', ['salon' => $salon])
         ->assertDontSee('data-bookthestyle-salon', false)
-        ->assertSee(route('salon.widgets', $salon));
+        ->assertDontSee('Widgets ↗');
 });
 
 // ---------------------------------------------------------------------------

@@ -61,7 +61,7 @@ it('ships real token blocks for Marble and Glacier in the stylesheet', function 
 
     expect($css)->toContain("body[data-theme='marble']");
     expect($css)->toContain('--color-paper: #fff8ef');
-    expect($css)->toContain('--accent: #bc4a28');
+    expect($css)->toContain('--accent: var(--brand-accent, #bc4a28)');
     expect($css)->toContain("body[data-theme='glacier']");
     expect($css)->toContain('rgb(91 146 189'); // the glacier sky bloom
 });
@@ -183,7 +183,7 @@ it('captures the EXACT landing palette as the brand theme: base tokens on white,
     expect($css)->toContain("body[data-theme='brand']")
         ->toContain("body[data-theme='brand'] .bts-glass-panel")
         ->toContain('0 24px 60px rgb(28 27 26 / 0.1)') // the landing card shadow
-        ->toContain('--accent: #824c71')   // landing accent (base token)
+        ->toContain('--accent: var(--brand-accent, #824c71)') // landing accent (base token, brand-slotted)
         ->toContain('--color-ink: #211c18')
         ->toContain('--color-body: #57504a');
 

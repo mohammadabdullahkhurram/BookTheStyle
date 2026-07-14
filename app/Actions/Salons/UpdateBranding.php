@@ -3,33 +3,28 @@
 namespace App\Actions\Salons;
 
 use App\Models\Salon;
-use App\Support\WidgetBranding;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * Update a salon's branding (salon settings → Branding): the brandable
- * accent, the widget's secondary/surface colours, the curated widget font,
- * and the uploaded logo. All stored additively in salons.branding JSON;
- * null/blank values clear back to the defaults. Replacing or removing the
- * logo deletes the previous file from the public disk.
+ * Update a salon's branding (salon settings → Branding): the brand ACCENT
+ * and the LOGO — the two salon-level brand controls. Widget-specific
+ * colours/fonts live per widget in the Widgets area; any legacy widget
+ * keys already stored in salons.branding are left untouched (they remain
+ * the widgets' inherited defaults). Stored additively in salons.branding
+ * JSON; blank clears back to the default. Replacing or removing the logo
+ * deletes the previous file from the public disk.
  */
 class UpdateBranding
 {
     /**
-     * @param  array{accent?: string|null, secondary?: string|null, surface?: string|null, font?: string|null, logo_path?: string|null, remove_logo?: bool}  $data
+     * @param  array{accent?: string|null, logo_path?: string|null, remove_logo?: bool}  $data
      */
     public function handle(Salon $salon, array $data): Salon
     {
         $branding = $salon->branding ?? [];
 
-        foreach (['accent', 'secondary', 'surface'] as $key) {
-            if (array_key_exists($key, $data)) {
-                $branding[$key] = ($data[$key] ?? '') !== '' ? $data[$key] : null;
-            }
-        }
-
-        if (array_key_exists('font', $data)) {
-            $branding['font'] = isset(WidgetBranding::FONTS[$data['font'] ?? '']) ? $data['font'] : null;
+        if (array_key_exists('accent', $data)) {
+            $branding['accent'] = ($data['accent'] ?? '') !== '' ? $data['accent'] : null;
         }
 
         $oldLogo = $branding['logo_path'] ?? null;

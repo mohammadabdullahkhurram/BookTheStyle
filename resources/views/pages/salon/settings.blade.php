@@ -59,18 +59,10 @@ new #[Title('Salon settings')] class extends Component {
     #[Validate('boolean')]
     public bool $auto_complete = true;
 
-    #[Validate('nullable|regex:/^#[0-9a-fA-F]{6}$/')]
+    #[Validate(['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'])]
     public string $accent = '';
 
-    // Widget branding (settings → Branding): colours, font, and logo upload.
-    #[Validate('nullable|regex:/^#[0-9a-fA-F]{6}$/')]
-    public string $brandSecondary = '';
-
-    #[Validate('nullable|regex:/^#[0-9a-fA-F]{6}$/')]
-    public string $brandSurface = '';
-
-    public string $brandFont = '';
-
+    // Brand logo upload (settings → Branding).
     /** @var \Livewire\Features\SupportFileUploads\TemporaryUploadedFile|null */
     public $logo = null;
 
@@ -164,9 +156,6 @@ new #[Title('Salon settings')] class extends Component {
         $this->auto_complete = $salon->auto_complete;
 
         $this->accent = $salon->accentColor() ?? '';
-        $this->brandSecondary = $salon->branding['secondary'] ?? '';
-        $this->brandSurface = $salon->branding['surface'] ?? '';
-        $this->brandFont = $salon->branding['font'] ?? WidgetBranding::DEFAULT_FONT;
 
         foreach (array_keys($this->catalog()) as $key) {
             $this->flags[$key] = $salon->hasFeature($key);
@@ -662,17 +651,11 @@ new #[Title('Salon settings')] class extends Component {
 
         $this->validate([
             'accent' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
-            'brandSecondary' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
-            'brandSurface' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
-            'brandFont' => ['nullable', 'in:'.implode(',', array_keys(WidgetBranding::FONTS))],
             'logo' => ['nullable', 'image', 'mimes:png,jpg,jpeg,webp,svg', 'max:1024'],
         ]);
 
         $data = [
             'accent' => $this->accent ?: null,
-            'secondary' => $this->brandSecondary ?: null,
-            'surface' => $this->brandSurface ?: null,
-            'font' => $this->brandFont ?: null,
         ];
 
         if ($this->logo !== null) {
@@ -730,17 +713,12 @@ new #[Title('Salon settings')] class extends Component {
     public function brandingContrastWarning(): ?string
     {
         $accent = $this->accent ?: '#824C71';
-        $surface = $this->brandSurface ?: WidgetBranding::DEFAULT_SURFACE;
         $hex = fn (string $value): bool => preg_match('/^#[0-9a-fA-F]{6}$/', $value) === 1;
 
         if ($hex($accent)
             && WidgetBranding::contrast($accent, '#FFFFFF') < 4.5
             && WidgetBranding::contrast($accent, '#1C1B1A') < 4.5) {
             return __('The accent is a mid tone — neither white nor dark text reads on it at 4.5:1. Consider a lighter or deeper shade.');
-        }
-
-        if ($hex($accent) && $hex($surface) && WidgetBranding::contrast($accent, $surface) < 2) {
-            return __('The accent nearly disappears against the background color — selected dates and time buttons will be hard to see. Pick a stronger pairing.');
         }
 
         return null;
@@ -836,8 +814,6 @@ new #[Title('Salon settings')] class extends Component {
                             class="bts-nav-item shrink-0 text-left" :class="tab === 'features' && 'bts-nav-item-active'">{{ __('Features') }}</button>
                     <button type="button" x-on:click="pick('branding')" :aria-current="tab === 'branding' ? 'page' : null"
                             class="bts-nav-item shrink-0 text-left" :class="tab === 'branding' && 'bts-nav-item-active'">{{ __('Branding') }}</button>
-                    <a href="{{ route('salon.widgets', $salon) }}" wire:navigate
-                       class="bts-nav-item shrink-0 text-left">{{ __('Widgets ↗') }}</a>
                     @can('manageGhlConnection', $salon)
                         <button type="button" x-on:click="pick('integrations')" :aria-current="tab === 'integrations' ? 'page' : null"
                                 class="bts-nav-item shrink-0 text-left" :class="tab === 'integrations' && 'bts-nav-item-active'">{{ __('Integrations') }}</button>
@@ -947,37 +923,29 @@ new #[Title('Salon settings')] class extends Component {
         <x-ui.card class="flex flex-col gap-5">
             <h2 class="bts-card-title">{{ __('Branding') }}</h2>
             <form wire:submit="saveBranding" class="flex flex-col gap-5">
-                {{-- Accent preset selector (violet / sage / terracotta). Picking one
-                     fills the hex below; a custom hex is still allowed. --}}
+                {{-- Accent: a colour-wheel swatch + hex, synced both ways.
+                     The swatch is the styled trigger; the picker itself is
+                     the OS colour wheel. --}}
                 <div>
-                    <div class="bts-field-label mb-2">{{ __('Accent preset') }}</div>
-                    <div class="flex flex-wrap gap-3">
-                        @foreach (\App\Support\AccentPalette::PRESETS as $presetName => $preset)
-                            @php($selected = strcasecmp($accent, $preset['accent']) === 0)
-                            <button type="button" wire:click="$set('accent', '{{ $preset['accent'] }}')"
-                                    class="flex items-center gap-2 rounded-[11px] border px-3.5 py-2 text-[14px] font-medium capitalize transition {{ $selected ? 'border-accent bg-accent-tint text-accent-ink' : 'border-input-border bg-field text-body hover:border-faint' }}">
-                                <span class="size-4 rounded-full" style="background-color: {{ $preset['accent'] }}"></span>{{ $presetName }}
-                            </button>
-                        @endforeach
+                    <div class="bts-field-label mb-2">{{ __('Accent color') }}</div>
+                    <div class="flex items-center gap-3" x-data>
+                        <label class="relative inline-flex size-11 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-input-border shadow-[inset_0_1px_2px_rgb(0_0_0/0.06)] transition hover:border-faint focus-within:outline focus-within:outline-2 focus-within:outline-[var(--focus-ring)] focus-within:outline-offset-2"
+                               style="background-color: {{ preg_match('/^#[0-9a-fA-F]{6}$/', $accent) ? $accent : '#824C71' }};">
+                            <input type="color" wire:model.live="accent"
+                                   value="{{ preg_match('/^#[0-9a-fA-F]{6}$/', $accent) ? $accent : '#824C71' }}"
+                                   aria-label="{{ __('Pick the accent color') }}"
+                                   class="absolute inset-0 size-full cursor-pointer opacity-0">
+                        </label>
+                        <div class="w-40">
+                            <flux:input wire:model.live.debounce.400ms="accent" placeholder="#824C71" aria-label="{{ __('Accent hex') }}" />
+                        </div>
                     </div>
+                    <p class="mt-2 text-[12.5px] text-faint">{{ __('Your brand color — buttons, highlights, and selected states across the app and your booking widgets, on top of whichever theme is active.') }}</p>
                 </div>
-
-                <flux:input wire:model="accent" :label="__('Accent color')" :description="__('Hex color, e.g. #824C71. Sets this salon\'s brand accent — the widget\'s buttons and highlights.')" placeholder="#824C71" />
 
                 @if ($this->brandingContrastWarning)
                     <p class="rounded-[10px] px-3 py-2 text-[13.5px]" style="background:#FBEFD6;color:#8A5A1E">{{ $this->brandingContrastWarning }}</p>
                 @endif
-
-                <div class="grid gap-4 sm:grid-cols-2">
-                    <flux:input wire:model="brandSecondary" :label="__('Secondary color')" :description="__('A warm supporting tint in the widget backdrop. Blank = the default clay.')" placeholder="{{ \App\Support\WidgetBranding::DEFAULT_SECONDARY }}" />
-                    <flux:input wire:model="brandSurface" :label="__('Background color')" :description="__('The widget\'s base surface. Blank = the default warm paper.')" placeholder="{{ \App\Support\WidgetBranding::DEFAULT_SURFACE }}" />
-                </div>
-
-                <flux:select wire:model="brandFont" :label="__('Widget font')" :description="__('The type the booking widget renders in.')">
-                    @foreach (\App\Support\WidgetBranding::FONTS as $key => $font)
-                        <flux:select.option value="{{ $key }}">{{ $font['label'] }}</flux:select.option>
-                    @endforeach
-                </flux:select>
 
                 {{-- Logo: upload with preview; used on the booking widget. --}}
                 <div class="flex flex-col gap-2">

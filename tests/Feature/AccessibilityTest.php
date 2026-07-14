@@ -28,8 +28,8 @@ it('ships AA-passing text tokens, a shared focus-visible ring, and reserves fain
         ->toContain('--color-faint: #746c62')          // 5.17:1 on card, 4.71:1 on paper (warm umber)
         ->not->toContain('--color-faint: #9c9890')     // the 2.87:1 original
         // Warm-boutique accent set: plum (6.5:1 with white text) + AA ink.
-        ->toContain('--accent: #824c71')
-        ->toContain('--accent-ink: #6b3358')
+        ->toContain('--accent: var(--brand-accent, #824c71)')
+        ->toContain('--accent-ink: var(--brand-accent-ink, #6b3358)')
         ->toContain('--color-blush-ink: #9c4f3f')      // 5.83:1 on card, 5.03:1 on its tint
         ->toContain(':focus-visible')
         // The shared ring reads the themable --focus-ring var (accent-plum

@@ -13,10 +13,12 @@
 
 @vite(['resources/css/app.css', 'resources/js/app.js'])
 
-{{-- Per-salon brandable accent: overrides the four swappable accent tokens on
-     salon-scoped pages (currentSalon is bound by ResolveSalon). A salon's chosen
-     accent (preset name or hex) resolves to accent / hover / tint / ink. --}}
+{{-- Per-salon brand accent: fills the theme-agnostic --brand-accent* slot
+     on salon-scoped pages (currentSalon is bound by ResolveSalon). Every
+     theme's accent variables read var(--brand-accent*, <theme default>), so
+     the salon's accent recolours WHICHEVER theme is active — Marble, Classic
+     or future ones — including the derived readable on-accent text. --}}
 @php($__accent = \App\Support\AccentPalette::resolve(app()->bound('currentSalon') ? app('currentSalon')?->accentColor() : null))
 @if ($__accent)
-    <style>:root{--accent: {{ $__accent['accent'] }};--accent-hover: {{ $__accent['hover'] }};--accent-tint: {{ $__accent['tint'] }};--accent-ink: {{ $__accent['ink'] }};}</style>
+    <style>:root{--brand-accent: {{ $__accent['accent'] }};--brand-accent-hover: {{ $__accent['hover'] }};--brand-accent-tint: {{ $__accent['tint'] }};--brand-accent-ink: {{ $__accent['ink'] }};--brand-accent-foreground: {{ $__accent['foreground'] }};}</style>
 @endif

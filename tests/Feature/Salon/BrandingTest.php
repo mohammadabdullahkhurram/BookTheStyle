@@ -13,52 +13,73 @@ use Livewire\Livewire;
 | the public booking widget per slug. Owner/admin only, tenant-scoped.
 */
 
-it('persists the full branding set: colours, font, and an uploaded logo', function () {
+it('persists the two brand controls — accent and logo — and drives app + widgets', function () {
     Storage::fake('public');
     $salon = Salon::factory()->create();
     $owner = salonOwnerOf($salon);
 
-    Livewire::actingAs($owner)
-        ->test('pages::salon.settings', ['salon' => $salon])
-        ->set('accent', '#2F5D7C')
-        ->set('brandSecondary', '#C2A15A')
-        ->set('brandSurface', '#F2EFE9')
-        ->set('brandFont', 'modern')
+    // The Branding surface is exactly TWO controls now: the colour-wheel +
+    // hex accent (no presets) and the logo. Widget colours/fonts live per
+    // widget in the Widgets area.
+    $component = Livewire::actingAs($owner)->test('pages::salon.settings', ['salon' => $salon]);
+    $component->assertSee('type="color"', false)
+        ->assertDontSee('Accent preset')
+        ->assertDontSee('Secondary color')
+        ->assertDontSee('Background color')
+        ->assertDontSee('Widget font')
+        ->assertDontSee('Widgets ↗');
+
+    $component->set('accent', '#2F5D7C')
         ->set('logo', UploadedFile::fake()->image('logo.png', 320, 120))
         ->call('saveBranding')
         ->assertHasNoErrors();
 
     $branding = $salon->fresh()->branding;
     expect($branding['accent'])->toBe('#2F5D7C');
-    expect($branding['secondary'])->toBe('#C2A15A');
-    expect($branding['surface'])->toBe('#F2EFE9');
-    expect($branding['font'])->toBe('modern');
     expect($branding['logo_path'])->toStartWith('branding/'.$salon->id.'/');
     Storage::disk('public')->assertExists($branding['logo_path']);
 
-    // The resolver hands the widget exactly this theme.
+    // The accent recolours the ACTIVE theme (Marble default) via the brand
+    // slot, with derived readable on-accent text…
+    $this->actingAs($owner)->get(route('salon.show', $salon->fresh()))
+        ->assertOk()
+        ->assertSee('data-theme="marble"', false)
+        ->assertSee('--brand-accent: #2F5D7C', false)
+        ->assertSee('--brand-accent-foreground: #FFFFFF', false);
+
+    // …and under Classic too (theme = style; accent = brand).
+    $salon->fresh()->update(['app_theme' => 'classic']);
+    $this->actingAs($owner)->get(route('salon.show', $salon->fresh()))
+        ->assertOk()
+        ->assertSee('--brand-accent: #2F5D7C', false);
+
+    // A PALE accent derives DARK on-accent text.
+    Livewire::actingAs($owner)->test('pages::salon.settings', ['salon' => $salon->fresh()])
+        ->set('accent', '#F2D8A0')->call('saveBranding')->assertHasNoErrors();
+    $this->actingAs($owner)->get(route('salon.show', $salon->fresh()))
+        ->assertSee('--brand-accent-foreground: #1C1B1A', false);
+
+    // The resolver hands widgets the salon accent by default…
     $theme = WidgetBranding::for($salon->fresh());
-    expect($theme['accent']['accent'])->toBe('#2F5D7C');
-    expect($theme['font']['key'])->toBe('modern');
+    expect($theme['accent']['accent'])->toBe('#F2D8A0');
     expect($theme['logo_url'])->toContain($branding['logo_path']);
+
+    // …and a specific widget can override it.
+    $widget = $salon->fresh()->defaultWidget();
+    $widget->update(['branding' => ['accent' => '#824C71']]);
+    expect(WidgetBranding::for($salon->fresh(), null, $widget->fresh())['accent']['accent'])->toBe('#824C71');
 });
 
-it('rejects invalid branding input: bad hexes, unknown fonts, non-image uploads', function () {
+it('rejects invalid branding input: bad hexes and non-image uploads', function () {
     Storage::fake('public');
     $salon = Salon::factory()->create();
     $owner = salonOwnerOf($salon);
 
     Livewire::actingAs($owner)
         ->test('pages::salon.settings', ['salon' => $salon])
-        ->set('brandSecondary', 'not-a-color')
+        ->set('accent', 'not-a-color')
         ->call('saveBranding')
-        ->assertHasErrors('brandSecondary');
-
-    Livewire::actingAs($owner)
-        ->test('pages::salon.settings', ['salon' => $salon])
-        ->set('brandFont', 'comic-sans')
-        ->call('saveBranding')
-        ->assertHasErrors('brandFont');
+        ->assertHasErrors('accent');
 
     Livewire::actingAs($owner)
         ->test('pages::salon.settings', ['salon' => $salon])
@@ -114,20 +135,12 @@ it('warns only for brand pairings the derived foreground cannot rescue', functio
     $component->set('accent', '#7F7F7F');
     expect($component->instance()->brandingContrastWarning)->not->toBeNull();
 
-    // Pale pink on pale paper: text ON it is fine (dark ink is derived),
-    // but it nearly vanishes AGAINST the background — pairing warning.
+    // Pale pink is FINE now — dark on-accent text is derived automatically.
     $component->set('accent', '#E8C9DD');
-    expect($component->instance()->brandingContrastWarning)->not->toBeNull();
-
-    // A strong accent on the default paper: readable both ways, no warning.
-    $component->set('accent', '#2F5D7C');
     expect($component->instance()->brandingContrastWarning)->toBeNull();
 
-    // Accent nearly identical to the background: selected states vanish.
-    $component->set('accent', '#824C71')->set('brandSurface', '#8A5578');
-    expect($component->instance()->brandingContrastWarning)->not->toBeNull();
-
-    $component->set('brandSurface', '');
+    // Any strong accent clears the warning — on-accent text is derived.
+    $component->set('accent', '#824C71');
     expect($component->instance()->brandingContrastWarning)->toBeNull();
 });
 

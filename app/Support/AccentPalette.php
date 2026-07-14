@@ -3,33 +3,36 @@
 namespace App\Support;
 
 /**
- * Resolves a salon's chosen accent into the four swappable accent tokens
- * (--accent / --accent-hover / --accent-tint / --accent-ink) used across the
- * design system. Violet is the default (set in CSS); a salon may pick one of
- * the named presets (violet / sage / terracotta) or any custom hex, which is
- * applied by overriding those four variables inline (see partials/head).
+ * Resolves a salon's chosen accent into the swappable accent tokens
+ * (--accent / --accent-hover / --accent-tint / --accent-ink plus the
+ * READABLE on-accent text colour). The salon accent rides the theme-
+ * agnostic --brand-accent* slot (see partials/head + app.css): every theme
+ * supplies its own DEFAULT accent and neutrals, and the brand slot wins on
+ * top of whichever theme is active — theme = style, accent = brand.
  *
  * Known preset hexes resolve to their exact DESIGN-TOKENS values; any other
- * valid hex derives hover / tint / ink by mixing toward black/white.
+ * valid hex derives hover / tint / ink by mixing toward black/white, and
+ * `foreground` picks white or near-black by WCAG contrast so buttons stay
+ * legible on any accent.
  */
 final class AccentPalette
 {
     /**
-     * @var array<string, array{accent: string, hover: string, tint: string, ink: string}>
+     * @var array<string, array{accent: string, hover: string, tint: string, ink: string, foreground: string}>
      */
     public const PRESETS = [
         // The default "violet" preset is the warm plum of the refreshed
         // visual language (white-on-accent 6.5:1, ink-on-tint 8.0:1).
-        'violet' => ['accent' => '#824C71', 'hover' => '#6D3C5E', 'tint' => '#F5EAF0', 'ink' => '#6B3358'],
-        'sage' => ['accent' => '#5C7458', 'hover' => '#4F6349', 'tint' => '#E7EEE5', 'ink' => '#3E5C3A'],
-        'terracotta' => ['accent' => '#C0613E', 'hover' => '#A8502F', 'tint' => '#F4E6DD', 'ink' => '#8A431F'],
+        'violet' => ['accent' => '#824C71', 'hover' => '#6D3C5E', 'tint' => '#F5EAF0', 'ink' => '#6B3358', 'foreground' => '#FFFFFF'],
+        'sage' => ['accent' => '#5C7458', 'hover' => '#4F6349', 'tint' => '#E7EEE5', 'ink' => '#3E5C3A', 'foreground' => '#FFFFFF'],
+        'terracotta' => ['accent' => '#C0613E', 'hover' => '#A8502F', 'tint' => '#F4E6DD', 'ink' => '#8A431F', 'foreground' => '#FFFFFF'],
     ];
 
     /**
-     * The four accent tokens for a salon's chosen accent, or null when there is
-     * no valid override (so the CSS default violet stands).
+     * The accent token set for a salon's chosen accent, or null when there
+     * is no valid override (so the active theme's own default stands).
      *
-     * @return array{accent: string, hover: string, tint: string, ink: string}|null
+     * @return array{accent: string, hover: string, tint: string, ink: string, foreground: string}|null
      */
     public static function resolve(?string $accent): ?array
     {
@@ -59,7 +62,37 @@ final class AccentPalette
             'hover' => self::mix($accent, '#000000', 0.14),
             'tint' => self::mix($accent, '#FFFFFF', 0.88),
             'ink' => self::mix($accent, '#000000', 0.30),
+            'foreground' => self::foreground($accent),
         ];
+    }
+
+    /**
+     * The readable text colour ON the accent (button labels, selected days):
+     * white or near-black, whichever carries the higher WCAG contrast.
+     */
+    public static function foreground(string $accent): string
+    {
+        return self::contrast($accent, '#FFFFFF') >= self::contrast($accent, '#1C1B1A')
+            ? '#FFFFFF'
+            : '#1C1B1A';
+    }
+
+    private static function contrast(string $a, string $b): float
+    {
+        [$la, $lb] = [self::luminance($a), self::luminance($b)];
+
+        return $la >= $lb ? ($la + 0.05) / ($lb + 0.05) : ($lb + 0.05) / ($la + 0.05);
+    }
+
+    private static function luminance(string $hex): float
+    {
+        [$r, $g, $b] = array_map(function (int $channel): float {
+            $c = $channel / 255;
+
+            return $c <= 0.04045 ? $c / 12.92 : (($c + 0.055) / 1.055) ** 2.4;
+        }, self::rgb($hex));
+
+        return 0.2126 * $r + 0.7152 * $g + 0.0722 * $b;
     }
 
     /**

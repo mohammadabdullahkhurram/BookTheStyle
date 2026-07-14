@@ -123,7 +123,7 @@ it('renders the settings category navigation with every panel\'s fields present'
         ->assertSee('Salon timezone')
         ->assertSee('Allow walk-ins')
         ->assertSee('Feature flags')
-        ->assertSee('Accent preset')
+        ->assertSee('Accent color')
         ->assertSee('GoHighLevel connection');
 });
 
