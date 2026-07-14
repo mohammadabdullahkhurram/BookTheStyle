@@ -43,31 +43,17 @@
                         <span class="text-[13px] text-faint">{{ __('30 min · video call') }}</span>
                     </div>
 
-                    {{-- GHL calendar embed slot ---------------------------------------
-                         Paste the GoHighLevel / LeadConnector booking iframe INSIDE
-                         #ghl-embed when the embed code is provided, e.g.:
-
-                           <iframe src="https://api.leadconnectorhq.com/widget/booking/XXXX"
-                                   style="width:100%;border:none;overflow:hidden"
-                                   scrolling="no" id="XXXX_booking"></iframe>
-                           <script src="https://link.msgsndr.com/js/form_embed.js"></script>
-
-                         The allowed iframe origin is set by REGISTER_EMBED_FRAME_SRC
-                         (config app.register_embed_frame_src) and added to this page's
-                         CSP frame-src by App\Http\Middleware\SecurityHeaders. --}}
-                    <div class="p-7">
-                        <div id="ghl-embed"
-                             class="flex min-h-[360px] flex-col items-center justify-center gap-3.5 rounded-[14px] border-2 border-dashed border-[#D6D3CB] bg-field p-6 text-center">
-                            <div class="flex size-[54px] items-center justify-center rounded-[15px] bg-accent-tint text-accent">
-                                <flux:icon.calendar variant="outline" class="size-6" />
-                            </div>
-                            <div class="font-display text-[16px] font-semibold text-body">{{ __('Calendar embed') }}</div>
-                            <div class="max-w-[320px] text-[13.5px] text-faint">{{ __('Your scheduling tool drops in here.') }}</div>
+                    {{-- Bluejaypro's live GHL booking calendar. The iframe
+                         origin is permitted by this host's CSP (SecurityHeaders:
+                         register_embed_frame_src + marketing_embed_src). --}}
+                    <div class="p-2 sm:p-4">
+                        <div id="ghl-embed">
+                            <iframe src="https://app.bluejaypro.com/widget/booking/me0hVAzF5a4VJqQ16UeX" style="width: 100%;border:none;overflow: hidden;min-height:640px" scrolling="no" id="3RXVqHja3OQPDp495XRn_1783979629218" title="{{ __('Book a call with Bluejaypro') }}"></iframe><br><script src="https://app.bluejaypro.com/js/form_embed.js" type="text/javascript"></script>
                         </div>
                     </div>
                 </div>
 
-                <p class="mx-auto mt-6 text-[13.5px] text-faint">{{ __('Prefer email? Reach us at hello@bookthestyle.com') }}</p>
+                <p class="mx-auto mt-6 text-[13.5px] text-faint">{{ __('Prefer email? Reach us at justin@bluejaypro.com') }}</p>
             </main>
         </div>
     </body>

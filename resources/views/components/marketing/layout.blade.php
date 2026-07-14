@@ -35,8 +35,8 @@
         {{-- Header / nav --}}
         <header class="border-b border-divider">
             <div class="mx-auto flex max-w-[1120px] items-center gap-5 px-6 py-5 sm:px-8">
-                <a href="{{ route('home') }}" class="flex items-baseline gap-2" aria-label="{{ __('Bluejaypro home') }}">
-                    <span class="font-display text-[22px] font-extrabold tracking-[-0.02em] text-ink">Bluejaypro</span>
+                <a href="{{ route('home') }}" class="flex items-center" aria-label="{{ __('Bluejaypro home') }}">
+                    <x-app-logo class="h-9" alt="BookTheStyle by Bluejaypro" />
                 </a>
 
                 <nav class="ms-4 hidden items-center gap-6 md:flex" aria-label="{{ __('Main') }}">
@@ -75,8 +75,8 @@
         <footer class="mt-20 border-t border-divider">
             <div class="mx-auto grid max-w-[1120px] gap-10 px-6 py-12 sm:px-8 md:grid-cols-3">
                 <div>
-                    <span class="font-display text-[20px] font-extrabold tracking-[-0.02em] text-ink">Bluejaypro</span>
-                    <p class="mt-3 max-w-[280px] text-[14px] leading-[1.6] text-body">{{ __('A marketing agency helping local businesses grow — bookings, CRM, and search.') }}</p>
+                    <x-app-logo class="h-7" alt="BookTheStyle by Bluejaypro" />
+                    <p class="mt-3 max-w-[280px] text-[14px] leading-[1.6] text-body">{{ __('Bluejaypro — a marketing agency helping local businesses grow: bookings, CRM, and search.') }}</p>
                 </div>
                 <div>
                     <h2 class="text-[13px] font-semibold uppercase tracking-[0.06em] text-secondary">{{ __('What we do') }}</h2>

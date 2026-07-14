@@ -30,8 +30,9 @@
     {{-- The three offerings --}}
     <section class="mx-auto max-w-[1040px] px-6 pt-[72px] sm:px-8">
         <h2 class="font-display text-center text-[30px] font-extrabold tracking-[-0.02em] text-ink sm:text-[36px]">{{ __('Three ways we grow local businesses') }}</h2>
-        <div class="mt-10 grid gap-7 sm:grid-cols-3">
-            <a href="{{ route('marketing.services') }}#bookthestyle" class="group rounded-[16px] border border-border bg-card p-6 shadow-card transition hover:border-accent">
+        {{-- Open editorial trio: icon anchors + whitespace, no boxes. --}}
+        <div class="mt-12 grid gap-x-10 gap-y-12 sm:grid-cols-3">
+            <a href="{{ route('marketing.services') }}#bookthestyle" class="group block">
                 <div class="mb-4 flex size-[46px] items-center justify-center rounded-[13px] bg-accent-tint text-accent">
                     <flux:icon.calendar-days variant="outline" class="size-6" />
                 </div>
@@ -39,7 +40,7 @@
                 <p class="mt-1.5 text-[14.5px] leading-[1.55] text-body">{{ __('The salon booking platform: an online booking widget, AI voice and phone booking, and GHL-synced scheduling for every chair.') }}</p>
                 <span class="mt-3 inline-block text-[14px] font-semibold text-accent">{{ __('Explore BookTheStyle') }}</span>
             </a>
-            <a href="{{ route('marketing.services') }}#loopflo" class="group rounded-[16px] border border-border bg-card p-6 shadow-card transition hover:border-accent">
+            <a href="{{ route('marketing.services') }}#loopflo" class="group block">
                 <div class="mb-4 flex size-[46px] items-center justify-center rounded-[13px] bg-accent-tint text-accent">
                     <flux:icon.arrow-path-rounded-square variant="outline" class="size-6" />
                 </div>
@@ -47,7 +48,7 @@
                 <p class="mt-1.5 text-[14.5px] leading-[1.55] text-body">{{ __('CRM management on GoHighLevel: pipelines, automations, follow-up, and reviews — set up and run for you.') }}</p>
                 <span class="mt-3 inline-block text-[14px] font-semibold text-accent">{{ __('Explore Loopflo') }}</span>
             </a>
-            <a href="{{ route('marketing.services') }}#seo" class="group rounded-[16px] border border-border bg-card p-6 shadow-card transition hover:border-accent">
+            <a href="{{ route('marketing.services') }}#seo" class="group block">
                 <div class="mb-4 flex size-[46px] items-center justify-center rounded-[13px] bg-accent-tint text-accent">
                     <flux:icon.magnifying-glass variant="outline" class="size-6" />
                 </div>
@@ -72,7 +73,7 @@
             <div>
                 @include('marketing.partials.mock-widget')
                 <p class="mt-3 text-center text-[13.5px] text-secondary">{{ __('The booking widget — live availability, in your brand.') }}</p>
-                <div class="mt-7 rounded-[16px] border border-border bg-card p-6 shadow-card">
+                <div class="mt-9 border-t border-divider pt-6">
                     <h3 class="font-display text-[17px] font-bold text-ink">{{ __('Answered by AI, booked for real') }}</h3>
                     <p class="mt-1.5 text-[14.5px] leading-[1.55] text-body">{{ __('Missed calls become bookings: the AI receptionist answers the phone, checks real availability, and books straight into the calendar.') }}</p>
                     <a href="{{ route('marketing.features') }}" class="mt-3 inline-block text-[14px] font-semibold text-accent transition hover:text-accent-hover">{{ __('All features') }}</a>

@@ -42,20 +42,20 @@
     <section id="loopflo" class="mx-auto max-w-[1040px] scroll-mt-8 px-6 pt-[72px] sm:px-8">
         <div class="grid items-center gap-10 md:grid-cols-2">
             <div class="order-2 md:order-1">
-                <div class="rounded-[20px] border border-border bg-card p-6" style="box-shadow: 0 24px 60px rgba(28,27,26,.10);">
+                <div>
                     <div class="text-[12px] font-semibold uppercase tracking-[0.06em] text-secondary">{{ __('A Loopflo week') }}</div>
-                    <div class="mt-4 flex flex-col gap-3">
+                    <div class="mt-2 flex flex-col divide-y divide-divider">
                         @foreach ([
-                            [__('New lead from Google'), __('Tagged, pipelined, first text sent in 90 seconds'), '#E7EFE4', '#3E5C3A'],
-                            [__('No-show recovery'), __('Automatic rebooking sequence — 2 of 3 recovered'), '#FBEFD6', '#8A5A1E'],
-                            [__('Review request'), __('Sent after every completed visit — 4.9 average'), '#EAE6FB', '#4B3F9E'],
-                        ] as [$title, $meta, $bg, $ink])
-                            <div class="rounded-[13px] border border-border px-4 py-3">
+                            [__('New lead from Google'), __('Tagged, pipelined, first text sent in 90 seconds'), '#3E5C3A'],
+                            [__('No-show recovery'), __('Automatic rebooking sequence — 2 of 3 recovered'), '#8A5A1E'],
+                            [__('Review request'), __('Sent after every completed visit — 4.9 average'), '#4B3F9E'],
+                        ] as [$title, $meta, $ink])
+                            <div class="py-4">
                                 <div class="flex items-center gap-2.5">
                                     <span class="size-[9px] rounded-full" style="background-color: {{ $ink }};"></span>
-                                    <span class="text-[14.5px] font-semibold text-ink">{{ $title }}</span>
+                                    <span class="text-[15px] font-semibold text-ink">{{ $title }}</span>
                                 </div>
-                                <p class="mt-1 text-[13.5px] text-body">{{ $meta }}</p>
+                                <p class="mt-1 ps-[19.5px] text-[13.5px] text-body">{{ $meta }}</p>
                             </div>
                         @endforeach
                     </div>
@@ -102,11 +102,11 @@
                 </div>
             </div>
             <div>
-                <div class="rounded-[20px] border border-border bg-card p-6" style="box-shadow: 0 24px 60px rgba(28,27,26,.10);">
+                <div>
                     <div class="text-[12px] font-semibold uppercase tracking-[0.06em] text-secondary">{{ __('Search: "hair salon near me"') }}</div>
-                    <div class="mt-4 flex flex-col gap-2.5">
+                    <div class="mt-2 flex flex-col divide-y divide-divider">
                         @foreach ([[__('Your salon'), '4.9', true], [__('Competitor A'), '4.4', false], [__('Competitor B'), '4.1', false]] as [$name, $stars, $you])
-                            <div class="flex items-center gap-3 rounded-[13px] border px-4 py-3 {{ $you ? 'border-accent bg-accent-tint' : 'border-border' }}">
+                            <div class="flex items-center gap-3 py-4 {{ $you ? 'rounded-[13px] bg-accent-tint px-4' : '' }}">
                                 <span class="text-[15px] font-semibold {{ $you ? 'text-accent-ink' : 'text-ink' }}">{{ $name }}</span>
                                 <div class="flex-1"></div>
                                 <span class="text-[13.5px] {{ $you ? 'font-semibold text-accent-ink' : 'text-secondary' }}">{{ $stars }} ★ {{ $you ? '· '.__('Top of the map pack') : '' }}</span>
