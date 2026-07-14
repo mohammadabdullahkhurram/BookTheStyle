@@ -15,42 +15,42 @@
         <p class="mt-3 text-center text-[13.5px] text-secondary">{{ __('The per-stylist day view — every chair in one calm column.') }}</p>
     </section>
 
-    {{-- Feature grid — open and editorial: icon anchors, hairline rules,
-         whitespace doing the structure. No boxes. --}}
+    {{-- Feature grid — icon-forward and scannable: a big icon anchor, the
+         name, one short line. The visuals above and below do the talking. --}}
     <section class="mx-auto max-w-[1040px] px-6 pt-[64px] sm:px-8">
-        <div class="grid gap-x-10 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+        <div class="grid gap-x-8 gap-y-11 text-center sm:grid-cols-3">
             @foreach ([
-                ['calendar-days', __('Online booking widget'), __('Paste one snippet on any website. Clients pick services, a stylist, and a real open time — multi-service visits included, each service with its own stylist and slot.')],
-                ['phone-arrow-down-left', __('AI voice and phone booking'), __('The AI receptionist answers calls, speaks your service menu, checks live availability, and books — twenty-four hours a day.')],
-                ['arrow-path', __('CRM sync'), __('Bookings, contacts, and reminders mirror to your CRM automatically. Staff calendars follow along through private feeds.')],
-                ['check-circle', __('One-tap check-in'), __('Arrived, in service, complete — the front desk moves clients through the day with single taps, and no-shows are tracked automatically.')],
-                ['users', __('The client book'), __('Allergies, colour formulas, preferred stylists, birthdays, and every visit — the details that make regulars feel known.')],
-                ['chart-bar', __('Reports that answer questions'), __('Bookings, no-show rate, estimated revenue, and the source mix — see exactly how many bookings the AI and the widget bring in.')],
-                ['clock', __('Real availability, always'), __('Per-stylist hours, breaks, time off, and buffers — the engine only ever offers times that genuinely fit.')],
-                ['paint-brush', __('Your brand, everywhere'), __('The widget carries your logo, colours, and type; the app itself comes in selectable themes.')],
-                ['calendar', __('Personal calendar feeds'), __('Every stylist can subscribe their own phone calendar to a private, read-only feed of their bookings.')],
+                ['calendar-days', __('Online booking widget'), __('Live availability on your own website.')],
+                ['phone-arrow-down-left', __('AI voice and phone booking'), __('The phone answers itself — and books.')],
+                ['arrow-path', __('CRM sync'), __('Contacts, reminders, and calendars in step.')],
+                ['check-circle', __('One-tap check-in'), __('Arrived, in service, complete — one tap each.')],
+                ['users', __('The client book'), __('Allergies, formulas, birthdays, history.')],
+                ['chart-bar', __('Reports'), __('See exactly what the AI and widget bring in.')],
+                ['clock', __('Real availability'), __('Hours, breaks, buffers — only true openings.')],
+                ['paint-brush', __('Your brand'), __('Your logo, colours, and type on the widget.')],
+                ['calendar', __('Personal calendar feeds'), __("Every stylist's bookings on their own phone.")],
             ] as [$icon, $title, $body])
-                <div class="border-t border-divider pt-5">
-                    <div class="mb-3.5 flex size-[42px] items-center justify-center rounded-[13px] bg-accent-tint text-accent">
-                        <flux:icon :name="$icon" variant="outline" class="size-5" />
+                <div class="flex flex-col items-center">
+                    <div class="mb-4 flex size-[58px] items-center justify-center rounded-[17px] bg-accent-tint text-accent">
+                        <flux:icon :name="$icon" variant="outline" class="size-7" />
                     </div>
-                    <h2 class="font-display text-[18px] font-bold text-ink">{{ $title }}</h2>
-                    <p class="mt-1.5 text-[14.5px] leading-[1.55] text-body">{{ $body }}</p>
+                    <h2 class="font-display text-[17px] font-bold text-ink">{{ $title }}</h2>
+                    <p class="mt-1 max-w-[240px] text-[13.5px] leading-[1.5] text-secondary">{{ $body }}</p>
                 </div>
             @endforeach
         </div>
     </section>
 
-    {{-- Widget + dashboard showcases --}}
+    {{-- Dashboard + widget showcases — the dashboard leads, larger. --}}
     <section class="mx-auto max-w-[1040px] px-6 pt-[72px] sm:px-8">
-        <div class="grid items-start gap-7 md:grid-cols-2">
+        <div class="grid items-start gap-8 md:grid-cols-[3fr_2fr]">
+            <div>
+                @include('marketing.partials.mock-dashboard')
+                <p class="mt-3 text-center text-[13.5px] text-secondary">{{ __('Today: the whole day — stats, check-in, and where bookings came from.') }}</p>
+            </div>
             <div>
                 @include('marketing.partials.mock-widget')
                 <p class="mt-3 text-center text-[13.5px] text-secondary">{{ __('The booking widget: live availability on your own site.') }}</p>
-            </div>
-            <div>
-                @include('marketing.partials.mock-dashboard')
-                <p class="mt-3 text-center text-[13.5px] text-secondary">{{ __('Today: the whole day, checked in with one tap.') }}</p>
             </div>
         </div>
     </section>

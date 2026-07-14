@@ -29,8 +29,8 @@
             </header>
 
             {{-- Intro + embed --}}
-            <main class="mx-auto w-full max-w-[840px] flex-1 px-6 pb-14 pt-6 text-center sm:px-8">
-                <h1 class="font-display text-[32px] font-extrabold leading-[1.08] tracking-[-0.02em] text-ink text-balance sm:text-[40px]">
+            <main class="mx-auto w-full max-w-[1080px] flex-1 px-6 pb-14 pt-6 text-center sm:px-8">
+                <h1 class="mx-auto max-w-[720px] font-display text-[32px] font-extrabold leading-[1.08] tracking-[-0.02em] text-ink text-balance sm:text-[40px]">
                     {{ __("Let's get your salon set up") }}
                 </h1>
                 <p class="mx-auto mt-4 max-w-[520px] text-[17px] leading-[1.55] text-body">

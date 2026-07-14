@@ -33,7 +33,7 @@
                 </div>
             </div>
 
-            <div class="flex flex-col gap-10">
+            <div>
                 {{-- Message form --}}
                 <div>
                     <h2 class="font-display text-[24px] font-extrabold tracking-[-0.02em] text-ink">{{ __('Send a message') }}</h2>
@@ -53,14 +53,14 @@
                         </p>
                     </div>
                 </div>
+            </div>
+        </div>
 
-                {{-- Book a call --}}
-                <div id="book" class="scroll-mt-8">
-                    <h2 class="font-display text-[24px] font-extrabold tracking-[-0.02em] text-ink">{{ __('Book a call') }}</h2>
-                    <div class="mt-5">
-                        @include('marketing.partials.embed-booking')
-                    </div>
-                </div>
+        {{-- Book a call — full width, under the details AND the form. --}}
+        <div id="book" class="scroll-mt-8 pt-14">
+            <h2 class="font-display text-[24px] font-extrabold tracking-[-0.02em] text-ink">{{ __('Book a call') }}</h2>
+            <div class="mt-5">
+                @include('marketing.partials.embed-booking')
             </div>
         </div>
     </section>
