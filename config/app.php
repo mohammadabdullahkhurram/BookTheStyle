@@ -88,6 +88,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Marketing-site embed origins (Bluejaypro GHL widgets)
+    |--------------------------------------------------------------------------
+    | The public marketing pages (apex) and the register host embed Bluejaypro's
+    | GoHighLevel widgets: the booking calendar iframe, the Google-reviews
+    | widget, and (later) a contact form. These origins are appended to
+    | frame-src / script-src / connect-src / img-src on those hosts ONLY —
+    | the app, agency and tenant hosts keep the strict policy.
+    */
+
+    'marketing_embed_src' => env(
+        'MARKETING_EMBED_SRC',
+        'https://app.bluejaypro.com https://*.leadconnectorhq.com https://*.msgsndr.com',
+    ),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |

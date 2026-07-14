@@ -50,6 +50,23 @@ class SecurityHeaders
             }
         }
 
+        // The public MARKETING hosts (the apex site and the register page)
+        // embed Bluejaypro's GHL widgets — the booking calendar, the Google
+        // reviews widget, and later a contact form. Those load an iframe AND
+        // a helper script (form_embed.js / review-widget.js) from the embed
+        // origins, so frame/script/connect/img widen there — and ONLY there;
+        // the app, agency and tenant hosts keep the strict policy.
+        $marketingHosts = [config('app.domain'), 'register.'.config('app.domain')];
+        if (in_array($request->getHost(), $marketingHosts, true)) {
+            $embed = trim((string) config('app.marketing_embed_src', ''));
+            if ($embed !== '') {
+                $frame .= ' '.$embed;
+                $script .= ' '.$embed;
+                $connect .= ' '.$embed;
+                $img .= ' '.$embed;
+            }
+        }
+
         // Local dev only: widen the allow-list to the origins a local browser
         // actually hits. These are NOT 'self' on a salon subdomain:
         //   - the Vite dev server (npm run dev) on a loopback host/port,

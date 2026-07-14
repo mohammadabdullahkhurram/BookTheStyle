@@ -20,7 +20,10 @@ $register = 'register.'.$central;   // public "book a call"
 | register.{domain}; "Log in" points at app.{domain}/login.
 */
 Route::domain($central)->group(function () {
-    Route::view('/', 'welcome')->name('home');
+    Route::view('/', 'marketing.home')->name('home');
+    Route::view('services', 'marketing.services')->name('marketing.services');
+    Route::view('features', 'marketing.features')->name('marketing.features');
+    Route::view('contact', 'marketing.contact')->name('marketing.contact');
 });
 
 /*

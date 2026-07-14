@@ -1,0 +1,2 @@
+{{-- Bluejaypro's live Google-reviews widget (CSP: app.marketing_embed_src). --}}
+<script type='text/javascript' src='https://app.bluejaypro.com/reputation/assets/review-widget.js'></script><iframe class='lc_reviews_widget' src='https://app.bluejaypro.com/reputation/widgets/review_widget/4Wis4URhfvUAp2SPLGYA' frameborder='0' scrolling='no' style='min-width: 100%; width: 100%;' title="{{ __('Google reviews for Bluejaypro') }}"></iframe>

@@ -86,17 +86,21 @@ it('still resolves a salon subdomain and rejects app/register as slugs', functio
     expect(ReservedSlugs::isReserved('register'))->toBeTrue();
 });
 
-it('adds the book-a-call embed frame-src only on the register host', function () {
-    $registerCsp = $this->get('http://'.registerHost().'/')
-        ->headers->get('Content-Security-Policy');
+it('adds the GHL embed origins only on the marketing hosts (register + apex)', function () {
+    // The register host and the apex marketing site both embed Bluejaypro's
+    // GHL widgets (booking calendar, reviews, contact form).
+    foreach (['http://'.registerHost().'/', 'http://'.apex().'/'] as $url) {
+        $csp = $this->get($url)->headers->get('Content-Security-Policy');
+        expect($csp)
+            ->toContain('frame-src')
+            ->toContain('leadconnectorhq.com')
+            ->toContain('https://app.bluejaypro.com');
+    }
 
-    expect($registerCsp)
-        ->toContain('frame-src')
-        ->toContain('leadconnectorhq.com'); // the configured embed origin
-
-    // Every other host keeps frame-src strict ('self'), no external embed origin.
-    $apexCsp = $this->get('http://'.apex().'/')->headers->get('Content-Security-Policy');
-    expect($apexCsp)
+    // The APP host keeps the strict policy — no external embed origin.
+    $appCsp = $this->get(route('login'))->headers->get('Content-Security-Policy');
+    expect($appCsp)
         ->toContain("frame-src 'self'")
-        ->not->toContain('leadconnectorhq');
+        ->not->toContain('leadconnectorhq')
+        ->not->toContain('bluejaypro.com');
 });
