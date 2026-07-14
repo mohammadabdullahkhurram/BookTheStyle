@@ -1,6 +1,6 @@
 <x-marketing.layout
     :title="'Services — Bluejaypro'"
-    :description="'BookTheStyle salon booking, Loopflo CRM management on GoHighLevel, and expert local SEO — what each does and why it works.'">
+    :description="'BookTheStyle salon booking, the Loopflo CRM, and expert local SEO — what each does and why it works.'">
 
     <section class="mx-auto max-w-[720px] px-6 pt-14 text-center sm:px-8">
         <h1 class="font-display text-[36px] font-extrabold leading-[1.06] tracking-[-0.02em] text-ink sm:text-[48px]">{{ __('What we do') }}</h1>
@@ -18,12 +18,12 @@
                 </div>
                 <h2 class="font-display text-[30px] font-extrabold tracking-[-0.02em] text-ink">BookTheStyle</h2>
                 <p class="mt-3 text-[16px] leading-[1.6] text-body">
-                    {{ __('The salon booking platform. Clients book through a widget on your website or by simply calling — the AI receptionist answers, checks live availability, and books. Everything lands on one per-stylist calendar, synced with GoHighLevel for reminders, and staff check clients in with a tap.') }}
+                    {{ __('The salon booking platform. Clients book through a widget on your website or by simply calling — the AI receptionist answers, checks live availability, and books. Everything lands on one per-stylist calendar, synced with your CRM for reminders, and staff check clients in with a tap.') }}
                 </p>
                 <ul class="mt-5 flex flex-col gap-2.5 text-[15px] text-body">
                     <li class="flex gap-2.5"><span class="mt-1 size-[7px] shrink-0 rounded-full bg-accent"></span>{{ __('Online booking widget with live, per-stylist availability') }}</li>
                     <li class="flex gap-2.5"><span class="mt-1 size-[7px] shrink-0 rounded-full bg-accent"></span>{{ __('AI voice and phone booking — missed calls become appointments') }}</li>
-                    <li class="flex gap-2.5"><span class="mt-1 size-[7px] shrink-0 rounded-full bg-accent"></span>{{ __('GHL-synced scheduling: reminders, contacts, and calendars stay in step') }}</li>
+                    <li class="flex gap-2.5"><span class="mt-1 size-[7px] shrink-0 rounded-full bg-accent"></span>{{ __('CRM-synced scheduling: reminders, contacts, and calendars stay in step') }}</li>
                     <li class="flex gap-2.5"><span class="mt-1 size-[7px] shrink-0 rounded-full bg-accent"></span>{{ __('Client book with allergies, formulas, and visit history') }}</li>
                     <li class="flex gap-2.5"><span class="mt-1 size-[7px] shrink-0 rounded-full bg-accent"></span>{{ __('Reports that show where every booking came from') }}</li>
                 </ul>
@@ -63,13 +63,13 @@
             </div>
             <div class="order-1 md:order-2">
                 <div class="mb-4 inline-flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-1.5 text-[13px] font-semibold text-secondary shadow-xs">
-                    <span class="size-[7px] rounded-full bg-accent"></span>{{ __('Service') }}
+                    <span class="size-[7px] rounded-full bg-accent"></span>{{ __('Product') }}
                 </div>
-                <h2 class="font-display text-[30px] font-extrabold tracking-[-0.02em] text-ink">Loopflo</h2>
+                <h2 class="font-display text-[30px] font-extrabold tracking-[-0.02em] text-ink">Loopflo CRM</h2>
                 <p class="mt-3 text-[16px] leading-[1.6] text-body">
-                    {{ __('CRM management on GoHighLevel, run for you. We build and maintain the pipelines, automations, and follow-up sequences that keep leads warm and clients coming back — you watch the calendar fill.') }}</p>
+                    {{ __('Our CRM product, run for you. Loopflo keeps every lead warm and every client coming back — we build and maintain the pipelines, automations, and follow-up sequences while you watch the calendar fill.') }}</p>
                 <ul class="mt-5 flex flex-col gap-2.5 text-[15px] text-body">
-                    <li class="flex gap-2.5"><span class="mt-1 size-[7px] shrink-0 rounded-full bg-accent"></span>{{ __('GoHighLevel setup, white-label CRM, and ongoing management') }}</li>
+                    <li class="flex gap-2.5"><span class="mt-1 size-[7px] shrink-0 rounded-full bg-accent"></span>{{ __('Full CRM setup, branded to your business, with ongoing management') }}</li>
                     <li class="flex gap-2.5"><span class="mt-1 size-[7px] shrink-0 rounded-full bg-accent"></span>{{ __('Lead pipelines and automated follow-up (text, email, voicemail)') }}</li>
                     <li class="flex gap-2.5"><span class="mt-1 size-[7px] shrink-0 rounded-full bg-accent"></span>{{ __('Review generation and reputation management') }}</li>
                     <li class="flex gap-2.5"><span class="mt-1 size-[7px] shrink-0 rounded-full bg-accent"></span>{{ __('Reactivation campaigns for quiet client lists') }}</li>
@@ -98,7 +98,7 @@
                 </ul>
                 <div class="mt-6 flex flex-wrap items-center gap-4">
                     <x-ui.button :href="route('book-call')">{{ __('Talk about SEO') }}</x-ui.button>
-                    <a href="tel:+19168948575" class="text-[14.5px] font-semibold text-accent transition hover:text-accent-hover">{{ __('SEO line: (916) 894-8575') }}</a>
+                    <a href="tel:+19168948575" class="text-[14.5px] font-semibold text-accent transition hover:text-accent-hover">(916) 894-8575</a>
                 </div>
             </div>
             <div>

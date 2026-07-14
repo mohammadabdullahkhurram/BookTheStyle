@@ -22,7 +22,7 @@
             @foreach ([
                 ['calendar-days', __('Online booking widget'), __('Paste one snippet on any website. Clients pick services, a stylist, and a real open time — multi-service visits included, each service with its own stylist and slot.')],
                 ['phone-arrow-down-left', __('AI voice and phone booking'), __('The AI receptionist answers calls, speaks your service menu, checks live availability, and books — twenty-four hours a day.')],
-                ['arrow-path', __('GoHighLevel sync'), __('Bookings, contacts, and reminders mirror to GHL automatically. Staff calendars follow along through private feeds.')],
+                ['arrow-path', __('CRM sync'), __('Bookings, contacts, and reminders mirror to your CRM automatically. Staff calendars follow along through private feeds.')],
                 ['check-circle', __('One-tap check-in'), __('Arrived, in service, complete — the front desk moves clients through the day with single taps, and no-shows are tracked automatically.')],
                 ['users', __('The client book'), __('Allergies, colour formulas, preferred stylists, birthdays, and every visit — the details that make regulars feel known.')],
                 ['chart-bar', __('Reports that answer questions'), __('Bookings, no-show rate, estimated revenue, and the source mix — see exactly how many bookings the AI and the widget bring in.')],
@@ -61,7 +61,7 @@
         <div class="mt-10 grid gap-x-14 gap-y-10 sm:grid-cols-2">
             <div class="border-t border-divider pt-5">
                 <h3 class="font-display text-[18px] font-bold text-ink">Loopflo</h3>
-                <p class="mt-1.5 text-[14.5px] leading-[1.55] text-body">{{ __('Managed CRM on GoHighLevel: automated follow-up, review generation, no-show recovery, and reactivation campaigns — built and run for you.') }}</p>
+                <p class="mt-1.5 text-[14.5px] leading-[1.55] text-body">{{ __('Our CRM product: automated follow-up, review generation, no-show recovery, and reactivation campaigns — set up and managed for you.') }}</p>
                 <a href="{{ route('marketing.services') }}#loopflo" class="mt-3 inline-block text-[14px] font-semibold text-accent transition hover:text-accent-hover">{{ __('About Loopflo') }}</a>
             </div>
             <div class="border-t border-divider pt-5">

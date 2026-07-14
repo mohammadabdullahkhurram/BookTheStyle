@@ -24,8 +24,10 @@ it('renders all four marketing pages with the shared nav and footer', function (
             ->assertSee('Skip to content')
             // …and the footer with the real contact details.
             ->assertSee('9447 Crystal Shore Ln')
-            ->assertSee('(279) 346-4889')
-            ->assertSee('justin@bluejaypro.com');
+            ->assertSee('(916) 894-8575')
+            ->assertSee('hello@bluejaypro.com')
+            // White-label: the underlying CRM vendor is never named publicly.
+            ->assertDontSee('GoHighLevel');
     }
 });
 
@@ -43,13 +45,14 @@ it('presents the three offerings with the BookTheStyle app showcases', function 
         ->assertSee('id="bookthestyle"', false)
         ->assertSee('id="loopflo"', false)
         ->assertSee('id="seo"', false)
-        ->assertSee('(916) 894-8575'); // the SEO line
+        ->assertSee('Loopflo CRM')
+        ->assertSee('Product');
 
     // Features: the deep product grid + both showcases.
     $this->get(route('marketing.features'))->assertOk()
         ->assertSee('AI voice and phone booking')
         ->assertSee('One-tap check-in')
-        ->assertSee('GoHighLevel sync')
+        ->assertSee('CRM sync')
         ->assertSee('app.bookthestyle.com/today', false);
 });
 
@@ -96,6 +99,10 @@ it('leaves the app, agency and tenant routing untouched', function () {
     $salon = Salon::factory()->create();
 
     $this->get(route('login'))->assertOk();
-    $this->get(route('book-call'))->assertOk();
+    // The book-a-call page carries the live embed and stays vendor-silent too.
+    $this->get(route('book-call'))->assertOk()
+        ->assertSee('https://app.bluejaypro.com/widget/booking/me0hVAzF5a4VJqQ16UeX', false)
+        ->assertSee('hello@bluejaypro.com')
+        ->assertDontSee('GoHighLevel');
     $this->actingAs(salonOwnerOf($salon))->get(route('salon.show', $salon))->assertOk();
 });

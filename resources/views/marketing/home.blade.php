@@ -1,6 +1,6 @@
 <x-marketing.layout
     :title="'Bluejaypro — booking, CRM and local SEO for local businesses'"
-    :description="'Bluejaypro helps local businesses grow: BookTheStyle salon booking, Loopflo CRM management, and expert local SEO.'">
+    :description="'Bluejaypro helps local businesses grow: BookTheStyle salon booking, the Loopflo CRM, and expert local SEO.'">
 
     {{-- Hero --}}
     <section class="relative overflow-hidden">
@@ -37,7 +37,7 @@
                     <flux:icon.calendar-days variant="outline" class="size-6" />
                 </div>
                 <h3 class="font-display text-[19px] font-bold text-ink transition group-hover:text-accent">BookTheStyle</h3>
-                <p class="mt-1.5 text-[14.5px] leading-[1.55] text-body">{{ __('The salon booking platform: an online booking widget, AI voice and phone booking, and GHL-synced scheduling for every chair.') }}</p>
+                <p class="mt-1.5 text-[14.5px] leading-[1.55] text-body">{{ __('The salon booking platform: an online booking widget, AI voice and phone booking, and CRM-synced scheduling for every chair.') }}</p>
                 <span class="mt-3 inline-block text-[14px] font-semibold text-accent">{{ __('Explore BookTheStyle') }}</span>
             </a>
             <a href="{{ route('marketing.services') }}#loopflo" class="group block">
@@ -45,7 +45,7 @@
                     <flux:icon.arrow-path-rounded-square variant="outline" class="size-6" />
                 </div>
                 <h3 class="font-display text-[19px] font-bold text-ink transition group-hover:text-accent">Loopflo</h3>
-                <p class="mt-1.5 text-[14.5px] leading-[1.55] text-body">{{ __('CRM management on GoHighLevel: pipelines, automations, follow-up, and reviews — set up and run for you.') }}</p>
+                <p class="mt-1.5 text-[14.5px] leading-[1.55] text-body">{{ __('Our CRM product: pipelines, automations, follow-up, and reviews — set up and managed for you.') }}</p>
                 <span class="mt-3 inline-block text-[14px] font-semibold text-accent">{{ __('Explore Loopflo') }}</span>
             </a>
             <a href="{{ route('marketing.services') }}#seo" class="group block">
@@ -101,8 +101,8 @@
         </div>
         <p class="mt-4 text-center text-[13.5px] text-secondary">
             {{ __('Prefer email or phone?') }}
-            <a href="mailto:justin@bluejaypro.com" class="font-semibold text-accent transition hover:text-accent-hover">justin@bluejaypro.com</a> ·
-            <a href="tel:+12793464889" class="font-semibold text-accent transition hover:text-accent-hover">(279) 346-4889</a> ·
+            <a href="mailto:hello@bluejaypro.com" class="font-semibold text-accent transition hover:text-accent-hover">hello@bluejaypro.com</a> ·
+            <a href="tel:+19168948575" class="font-semibold text-accent transition hover:text-accent-hover">(916) 894-8575</a> ·
             <a href="{{ route('book-call') }}" class="font-semibold text-accent transition hover:text-accent-hover">{{ __('Open the booking page') }}</a>
         </p>
     </section>

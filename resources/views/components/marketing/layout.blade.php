@@ -82,7 +82,7 @@
                     <h2 class="text-[13px] font-semibold uppercase tracking-[0.06em] text-secondary">{{ __('What we do') }}</h2>
                     <ul class="mt-3 flex flex-col gap-2 text-[14.5px]">
                         <li><a href="{{ route('marketing.services') }}#bookthestyle" class="text-body transition hover:text-accent">{{ __('BookTheStyle — salon booking') }}</a></li>
-                        <li><a href="{{ route('marketing.services') }}#loopflo" class="text-body transition hover:text-accent">{{ __('Loopflo — CRM management') }}</a></li>
+                        <li><a href="{{ route('marketing.services') }}#loopflo" class="text-body transition hover:text-accent">{{ __('Loopflo — the CRM') }}</a></li>
                         <li><a href="{{ route('marketing.services') }}#seo" class="text-body transition hover:text-accent">{{ __('Local SEO') }}</a></li>
                         <li><a href="{{ route('marketing.features') }}" class="text-body transition hover:text-accent">{{ __('Product features') }}</a></li>
                     </ul>
@@ -91,8 +91,8 @@
                     <h2 class="text-[13px] font-semibold uppercase tracking-[0.06em] text-secondary">{{ __('Contact') }}</h2>
                     <address class="mt-3 flex flex-col gap-2 text-[14.5px] not-italic text-body">
                         <span>9447 Crystal Shore Ln, Floor 2<br>Elk Grove, CA 95758</span>
-                        <a href="tel:+12793464889" class="transition hover:text-accent">(279) 346-4889</a>
-                        <a href="mailto:justin@bluejaypro.com" class="transition hover:text-accent">justin@bluejaypro.com</a>
+                        <a href="tel:+19168948575" class="transition hover:text-accent">(916) 894-8575</a>
+                        <a href="mailto:hello@bluejaypro.com" class="transition hover:text-accent">hello@bluejaypro.com</a>
                     </address>
                 </div>
             </div>

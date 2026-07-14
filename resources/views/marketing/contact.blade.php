@@ -22,15 +22,13 @@
                 <div class="py-6">
                     <h2 class="text-[13px] font-semibold uppercase tracking-[0.06em] text-secondary">{{ __('Call') }}</h2>
                     <p class="mt-2 text-[15px] leading-[1.7] text-body">
-                        <a href="tel:+12793464889" class="font-semibold text-accent transition hover:text-accent-hover">(279) 346-4889</a><br>
-                        <span class="text-[13.5px] text-secondary">{{ __('SEO enquiries:') }}</span>
                         <a href="tel:+19168948575" class="font-semibold text-accent transition hover:text-accent-hover">(916) 894-8575</a>
                     </p>
                 </div>
                 <div class="pt-6">
                     <h2 class="text-[13px] font-semibold uppercase tracking-[0.06em] text-secondary">{{ __('Write') }}</h2>
                     <p class="mt-2 text-[15px] text-body">
-                        <a href="mailto:justin@bluejaypro.com" class="font-semibold text-accent transition hover:text-accent-hover">justin@bluejaypro.com</a>
+                        <a href="mailto:hello@bluejaypro.com" class="font-semibold text-accent transition hover:text-accent-hover">hello@bluejaypro.com</a>
                     </p>
                 </div>
             </div>
@@ -50,7 +48,7 @@
                          class="mt-5 rounded-[20px] bg-field px-6 py-10 text-center">
                         <p class="text-[14.5px] text-secondary">
                             {{ __('Our contact form is on its way. Meanwhile, email') }}
-                            <a href="mailto:justin@bluejaypro.com" class="font-semibold text-accent transition hover:text-accent-hover">justin@bluejaypro.com</a>
+                            <a href="mailto:hello@bluejaypro.com" class="font-semibold text-accent transition hover:text-accent-hover">hello@bluejaypro.com</a>
                             {{ __('or book a call below.') }}
                         </p>
                     </div>

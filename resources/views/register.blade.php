@@ -14,7 +14,7 @@
         @vite(['resources/css/app.css'])
     </head>
     {{-- Public "book a call" page (register.{domain}). No auth, no tenant data.
-         It hosts a GoHighLevel / LeadConnector calendar embed. The page's CSP
+         It hosts a LeadConnector calendar embed. The page's CSP
          frame-src is widened (only on this host) via config('app.register_embed_
          frame_src') so the iframe is permitted once added. --}}
     <body class="min-h-screen bg-card text-ink antialiased">
@@ -53,7 +53,7 @@
                     </div>
                 </div>
 
-                <p class="mx-auto mt-6 text-[13.5px] text-faint">{{ __('Prefer email? Reach us at justin@bluejaypro.com') }}</p>
+                <p class="mx-auto mt-6 text-[13.5px] text-faint">{{ __('Prefer email? Reach us at hello@bluejaypro.com') }}</p>
             </main>
         </div>
     </body>
