@@ -60,8 +60,9 @@ new class extends Component {
                 <div class="flex flex-col gap-3" x-data="{ copiedInModal: false }">
                     <flux:input :label="__('Your subscribe link')" readonly value="{{ $subscribeUrl }}" />
                     <div class="flex flex-wrap gap-2">
+                        {{-- Js::from, not @js: Blade never compiles @js inside <x-…> tag attributes. --}}
                         <x-ui.button type="button" variant="secondary"
-                            x-on:click="navigator.clipboard.writeText(@js($subscribeUrl)); copiedInModal = true; setTimeout(() => copiedInModal = false, 1500)">
+                            x-on:click="navigator.clipboard.writeText({{ Js::from($subscribeUrl) }}); copiedInModal = true; setTimeout(() => copiedInModal = false, 1500)">
                             <span x-text="copiedInModal ? @js(__('Copied')) : @js(__('Copy'))">{{ __('Copy') }}</span>
                         </x-ui.button>
                         <x-ui.button :href="$webcalUrl">{{ __('Subscribe on this device') }}</x-ui.button>
@@ -107,8 +108,9 @@ new class extends Component {
         <div class="flex flex-col gap-4" x-data="{ copied: false }">
             <div class="flex items-end gap-2">
                 <flux:input :label="__('Your subscribe link')" readonly value="{{ $subscribeUrl }}" class="flex-1" />
+                {{-- Js::from, not @js: Blade never compiles @js inside <x-…> tag attributes. --}}
                 <x-ui.button type="button" variant="secondary"
-                    x-on:click="navigator.clipboard.writeText(@js($subscribeUrl)); copied = true; setTimeout(() => copied = false, 1500)">
+                    x-on:click="navigator.clipboard.writeText({{ Js::from($subscribeUrl) }}); copied = true; setTimeout(() => copied = false, 1500)">
                     <span x-text="copied ? @js(__('Copied')) : @js(__('Copy'))">{{ __('Copy') }}</span>
                 </x-ui.button>
             </div>
