@@ -205,8 +205,8 @@
                 class="flex w-full items-center gap-2.5 rounded-[13px] p-1.5 text-start transition hover:bg-muted">
             <span class="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#1E1D2A] text-[12.5px] font-semibold text-white">{{ $user?->initials() }}</span>
             <span x-show="!collapsed" x-cloak class="min-w-0 flex-1 leading-tight">
-                <span class="block truncate text-[13.5px] font-semibold text-ink">{{ $user?->name }}</span>
-                <span class="block truncate text-[12px] text-secondary">{{ $roleLabel }}</span>
+                <span class="block truncate text-[12.5px] font-semibold text-ink">{{ $user?->name }}</span>
+                <span class="block truncate text-[11.5px] text-secondary">{{ $roleLabel }}</span>
             </span>
         </button>
 

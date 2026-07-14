@@ -28,7 +28,7 @@
         >
             {{-- Desktop sidebar (lg and up; phones/tablets get the top bar + drawer) --}}
             <aside
-                :class="collapsed ? 'w-[76px]' : 'w-[244px]'"
+                :class="collapsed ? 'w-[68px]' : 'w-[220px]'"
                 class="sticky top-0 z-20 hidden h-svh shrink-0 flex-col border-e border-border bg-card transition-[width] duration-200 lg:flex bts-chrome"
             >
                 {{-- Logo + collapse --}}
@@ -36,8 +36,8 @@
                     <a href="{{ $salon ? route('salon.show', $salon) : route('dashboard') }}" wire:navigate
                        aria-label="{{ __('BookTheStyle') }}"
                        class="flex min-w-0 flex-1 items-center" :class="collapsed ? 'justify-center' : ''">
-                        <x-app-logo x-show="!collapsed" x-cloak class="h-8" alt="" />
-                        <x-app-logo-icon x-show="collapsed" x-cloak class="size-9" alt="" />
+                        <x-app-logo x-show="!collapsed" x-cloak class="h-7" alt="" />
+                        <x-app-logo-icon x-show="collapsed" x-cloak class="size-8" alt="" />
                     </a>
                     <button type="button" x-show="!collapsed" x-cloak @click="collapsed = true"
                             class="shrink-0 rounded-md p-1 text-faint transition hover:bg-muted hover:text-ink" aria-label="{{ __('Collapse sidebar') }}">

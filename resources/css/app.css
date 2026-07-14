@@ -616,7 +616,7 @@ select:focus[data-flux-control] {
        desktop so the full nav + user chip fit the viewport; the mobile
        drawer restores full touch-target sizing below. */
     .bts-nav-item {
-        @apply flex items-center gap-2.5 px-3 py-2 text-[14.5px] font-medium transition;
+        @apply flex items-center gap-2 px-2.5 py-[7px] text-[13px] font-medium transition;
         border-radius: var(--radius-nav);
         color: var(--color-secondary);
     }
