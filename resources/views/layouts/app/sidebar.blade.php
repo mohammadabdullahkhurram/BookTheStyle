@@ -110,6 +110,9 @@
             </flux:toast.group>
         @endpersist
 
+        {{-- The single global themed confirm dialog (see x-ui.confirm-modal). --}}
+        <x-ui.confirm-modal />
+
         @fluxScripts
     </body>
 </html>

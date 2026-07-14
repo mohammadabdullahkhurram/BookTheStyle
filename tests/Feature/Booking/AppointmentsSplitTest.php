@@ -118,7 +118,9 @@ it('offers status controls on both tabs for managers, none for stylists', functi
         ->test('pages::salon.appointments.all', ['salon' => $salon])
         ->assertSee('History')
         ->assertSee('Reschedule')
-        ->assertSeeHtml('wire:click="changeStatus'); // transition buttons rendered
+        // The Arrived booking's only transition (cancel) is destructive, so it
+        // renders as a themed-confirm button whose callback fires the action.
+        ->assertSeeHtml('$wire.changeStatus('); // transition buttons rendered
 
     // …while a stylist gets neither status buttons nor reschedule (the
     // status FILTER select stays available to everyone).
@@ -126,7 +128,8 @@ it('offers status controls on both tabs for managers, none for stylists', functi
         ->test('pages::salon.appointments.all', ['salon' => $salon])
         ->assertSee('History')
         ->assertDontSee('Reschedule')
-        ->assertDontSeeHtml('wire:click="changeStatus');
+        ->assertDontSeeHtml('wire:click="changeStatus')
+        ->assertDontSeeHtml('$wire.changeStatus(');
 });
 
 it('keeps a stylist out of check-in but not out of the appointments list', function () {

@@ -36,7 +36,10 @@ it('gates cancel and no-show behind specific confirmations on check-in and appoi
 
     Livewire::actingAs($owner)
         ->test($component, ['salon' => $salon])
-        ->assertSeeHtml('wire:confirm=')
+        // Converted to the themed dialog: the button opens $store.confirm and
+        // the wire action only runs from the confirm callback.
+        ->assertSeeHtml('$store.confirm.ask')
+        ->assertDontSeeHtml('wire:confirm')
         ->assertSee('Cancel this booking?')
         ->assertSee('Mark this booking as a no-show?')
         ->assertSee('GoHighLevel');

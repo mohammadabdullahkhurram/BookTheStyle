@@ -15,3 +15,36 @@ document.addEventListener('alpine:navigate', (event) => {
         window.location.assign(destination.href);
     }
 });
+
+// Themed in-app confirmation — replaces the native browser confirm() that
+// wire:confirm used. Any element inside a Livewire component calls
+// $store.confirm.ask({title, message, confirmLabel, danger}, () => $wire...)
+// and the single global modal (x-ui.confirm-modal in the app layout) renders
+// it on-theme. Confirming runs the captured action; Cancel/Esc/scrim abort.
+document.addEventListener('alpine:init', () => {
+    window.Alpine.store('confirm', {
+        show: false,
+        title: '',
+        message: '',
+        confirmLabel: '',
+        danger: true,
+        onConfirm: null,
+        ask(options, onConfirm) {
+            this.title = options.title ?? 'Are you sure?';
+            this.message = options.message ?? '';
+            this.confirmLabel = options.confirmLabel ?? 'Confirm';
+            this.danger = options.danger ?? true;
+            this.onConfirm = onConfirm;
+            this.show = true;
+        },
+        cancel() {
+            this.show = false;
+            this.onConfirm = null;
+        },
+        proceed() {
+            const run = this.onConfirm;
+            this.cancel();
+            if (run) run();
+        },
+    });
+});

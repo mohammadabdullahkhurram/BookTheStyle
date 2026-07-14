@@ -276,7 +276,8 @@ new #[Title('Appointments')] class extends Component {
                                         @if ($next === \App\Enums\BookingStatus::Arrived)
                                             <x-ui.button size="sm" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')">{{ __($next->actionLabel()) }}</x-ui.button>
                                         @elseif ($next->confirmMessage())
-                                            <x-ui.button size="sm" variant="secondary" wire:confirm="{{ __($next->confirmMessage()) }}" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')">{{ __($next->actionLabel()) }}</x-ui.button>
+                                            {{-- Themed confirm (replaces wire:confirm) — confirmable transitions (cancel / no-show) are destructive, hence danger. --}}
+                                            <x-ui.button size="sm" variant="secondary" x-on:click="$store.confirm.ask({ title: {{ Js::from(__($next->actionLabel())) }}, message: {{ Js::from(__($next->confirmMessage())) }}, confirmLabel: {{ Js::from(__($next->actionLabel())) }}, danger: true }, () => $wire.changeStatus({{ $booking->id }}, {{ Js::from($next->value) }}))">{{ __($next->actionLabel()) }}</x-ui.button>
                                         @else
                                             <x-ui.button size="sm" variant="secondary" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')">{{ __($next->actionLabel()) }}</x-ui.button>
                                         @endif

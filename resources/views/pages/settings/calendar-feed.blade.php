@@ -115,8 +115,14 @@ new class extends Component {
 
             <div class="flex flex-wrap items-center gap-3">
                 <x-ui.button :href="$webcalUrl">{{ __('Subscribe on this device') }}</x-ui.button>
-                <button type="button" wire:click="generate"
-                    wire:confirm="{{ __('Regenerate the link? Your existing calendar subscription will stop updating until you re-add the new link.') }}"
+                {{-- Themed confirm (replaces wire:confirm): open the global dialog, run the wire action only on confirm. --}}
+                <button type="button"
+                    x-on:click="$store.confirm.ask({
+                        title: {{ Js::from(__('Regenerate link')) }},
+                        message: {{ Js::from(__('Regenerate the link? Your existing calendar subscription will stop updating until you re-add the new link.')) }},
+                        confirmLabel: {{ Js::from(__('Regenerate')) }},
+                        danger: false,
+                    }, () => $wire.generate())"
                     class="bts-btn bts-btn-sm border border-input-border bg-card text-secondary hover:text-ink">
                     {{ __('Regenerate') }}
                 </button>
@@ -134,12 +140,17 @@ new class extends Component {
                 {{ __('For your security the link is shown only once. Regenerate to reveal a fresh link — this breaks the old one.') }}
             </p>
             <div class="flex flex-wrap gap-3">
-                <x-ui.button wire:click="generate"
-                    wire:confirm="{{ __('Regenerate the link? The old link stops working immediately.') }}">
+                <x-ui.button
+                    x-on:click="$store.confirm.ask({ title: {{ Js::from(__('Regenerate link')) }}, message: {{ Js::from(__('Regenerate the link? The old link stops working immediately.')) }}, confirmLabel: {{ Js::from(__('Regenerate')) }}, danger: false }, () => $wire.generate())">
                     {{ __('Regenerate link') }}
                 </x-ui.button>
-                <button type="button" wire:click="revoke"
-                    wire:confirm="{{ __('Revoke your calendar link? It will stop updating any calendar it was added to.') }}"
+                <button type="button"
+                    x-on:click="$store.confirm.ask({
+                        title: {{ Js::from(__('Revoke link')) }},
+                        message: {{ Js::from(__('Revoke your calendar link? It will stop updating any calendar it was added to.')) }},
+                        confirmLabel: {{ Js::from(__('Revoke')) }},
+                        danger: true,
+                    }, () => $wire.revoke())"
                     class="bts-btn bts-btn-sm border border-input-border bg-card text-danger hover:border-danger">
                     {{ __('Revoke') }}
                 </button>
