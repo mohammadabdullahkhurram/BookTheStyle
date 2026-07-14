@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Enums\AgencyRole;
 use App\Enums\StaffType;
 use App\Notifications\ResetPasswordNotification;

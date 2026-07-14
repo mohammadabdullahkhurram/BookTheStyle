@@ -94,11 +94,6 @@ enum BookingStatus: string
         };
     }
 
-    public function isTerminal(): bool
-    {
-        return in_array($this, [self::Completed, self::Cancelled, self::NoShow], true);
-    }
-
     /**
      * Allowed forward transitions (server-enforced).
      *

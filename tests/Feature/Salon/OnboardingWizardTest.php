@@ -354,5 +354,9 @@ it('marks the salon live when every step is done', function () {
 it('lists what is still incomplete for the go-live summary', function () {
     $salon = completedSalon(); // voice_actions not attested yet
 
-    expect(app(SalonOnboarding::class)->incomplete($salon))->toBe(['voice_actions']);
+    $pending = array_keys(array_filter(
+        app(SalonOnboarding::class)->statuses($salon),
+        fn (string $status): bool => $status !== SalonOnboarding::STATUS_DONE,
+    ));
+    expect($pending)->toBe(['voice_actions']);
 });

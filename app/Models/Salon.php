@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\StaffType;
+use App\Support\ThemeRegistry;
 use Carbon\CarbonImmutable;
 use Database\Factories\SalonFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -60,7 +61,7 @@ class Salon extends Model
      * @var array<string, mixed>
      */
     protected $attributes = [
-        'app_theme' => 'marble',
+        'app_theme' => ThemeRegistry::DEFAULT_APP,
     ];
 
     protected $fillable = [

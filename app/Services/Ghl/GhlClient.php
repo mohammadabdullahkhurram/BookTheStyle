@@ -73,18 +73,6 @@ class GhlClient
     }
 
     /**
-     * One calendar, including its team members.
-     */
-    public function calendar(string $calendarId): GhlCalendar
-    {
-        $data = $this->get('/calendars/'.$calendarId, self::CALENDARS_VERSION);
-
-        $calendar = $data['calendar'] ?? null;
-
-        return GhlCalendar::fromArray(is_array($calendar) ? $calendar : []);
-    }
-
-    /**
      * All users (potential calendar team members) in the salon's location.
      *
      * @return list<GhlUser>
@@ -128,20 +116,6 @@ class GhlClient
     public function updateSchedule(string $scheduleId, array $schedule): array
     {
         return $this->send('put', '/calendars/schedules/'.$scheduleId, self::CALENDARS_VERSION, json: $schedule);
-    }
-
-    /**
-     * Read one availability schedule (rules, timezone, associations).
-     *
-     * @return array<string, mixed>
-     */
-    public function schedule(string $scheduleId): array
-    {
-        $data = $this->get('/calendars/schedules/'.$scheduleId, self::CALENDARS_VERSION);
-
-        $result = $data['schedule'] ?? null;
-
-        return is_array($result) ? $result : $data;
     }
 
     /**

@@ -75,17 +75,6 @@ it('lists users with the users version header and parses name fallbacks', functi
         && str_contains($request->url(), 'locationId=loc_1'));
 });
 
-it('fetches a single calendar with its team members', function () {
-    Http::fake(['services.leadconnectorhq.com/*' => Http::response([
-        'calendar' => ['id' => 'cal_1', 'name' => 'Master calendar', 'teamMembers' => [['userId' => 'ghl_u1']]],
-    ])]);
-
-    $calendar = (new GhlClient('pit-token', 'loc_1'))->calendar('cal_1');
-
-    expect($calendar->id)->toBe('cal_1');
-    expect($calendar->teamMemberIds)->toBe(['ghl_u1']);
-});
-
 it('retries on 429 with backoff and succeeds', function () {
     Http::fake(['services.leadconnectorhq.com/*' => Http::sequence()
         ->push(['message' => 'rate limited'], 429)

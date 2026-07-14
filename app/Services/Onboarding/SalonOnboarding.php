@@ -93,19 +93,6 @@ class SalonOnboarding
     }
 
     /**
-     * Step keys still incomplete, in wizard order (for the go-live summary).
-     *
-     * @return list<string>
-     */
-    public function incomplete(Salon $salon): array
-    {
-        return array_keys(array_filter(
-            $this->statuses($salon),
-            fn (string $status): bool => $status !== self::STATUS_DONE,
-        ));
-    }
-
-    /**
      * Mark the salon live. Refuses (returns false) unless every step is done
      * — the button should be disabled anyway; this is the authoritative gate.
      */

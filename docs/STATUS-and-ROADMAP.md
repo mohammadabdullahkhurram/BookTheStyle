@@ -1,6 +1,6 @@
 # BookTheStyle — Status & Roadmap
 
-_Updated 2026-07-18. Reflects `main` (Phases 0–6 complete, CI green). Deeper detail: `docs/AUDIT-REPORT.md` (code audit) and `docs/PRODUCT-RESEARCH-REPORT.md` (market/gap analysis)._
+_Updated 2026-07-14 (pre-launch cleanup). Reflects `main` (Phases 0–6 complete + widgets/themes/reporting/marketing waves, CI green). Deeper detail: `docs/AUDIT-REPORT.md` (code audit) and `docs/PRODUCT-RESEARCH-REPORT.md` (market/gap analysis)._
 
 ## ✅ Complete (Phases 0–6)
 
@@ -20,12 +20,20 @@ _Updated 2026-07-18. Reflects `main` (Phases 0–6 complete, CI green). Deeper d
 - **Transactional email**: five branded queued mailables (account created, temp password, reset, staff invite, salon added), app-direct by decision (never GHL), fail-safe if the transport is down.
 - **Design system**: tokens, shell, all app screens, public/auth pages, theme-aware logo.
 
-## 🔜 Pre-launch gap fixes (from docs/PRODUCT-RESEARCH-REPORT.md)
+## ✅ Pre-launch gap fixes (shipped)
 
-- [ ] Make the auto-no-show transition configurable per salon (grace period / opt-out) — before it can mislabel served clients.
-- [ ] Display-only service prices (no payments — needed for GHL service menu, reporting, deposit messaging).
-- [ ] Client profiles: notes, preferences, visit history view.
-- [ ] Reporting v1: utilization, no-show rate, booking-source mix.
+- [x] Auto-no-show configurable per salon (grace period / opt-out) — settings booking policy.
+- [x] Display-only service prices (services.price_cents + currency; reporting + widget totals).
+- [x] Client profiles: notes, preferences (allergies/formulas/preferred stylist/birthday), visit history.
+- [x] Reporting v1: salon reports + AGENCY-wide reports (totals, per-salon breakdown, source mix).
+
+## ✅ Also shipped since the audit
+
+- Embeddable booking widget: per-service loop flow, inline availability calendar, month endpoint, multi-widget per salon (own branding/theme/embed id), widget types registry.
+- Theme system: Marble app-wide (default) + Classic preserved + Brand (landing palette) on auth/agency; registry with coming-soon entries.
+- Agency console: Dashboard rename, agency Reporting, full Users directory; personal calendar feed moved salon-side.
+- Bluejaypro marketing site (Home/Services/Features/Contact) with GHL booking/reviews embeds + CSP; register page carries the live embed.
+- DemoSalonSeeder (additive, idempotent); destructive DB resets forbidden (CLAUDE.md rule 10).
 
 ## 🔜 Phase 7 — hardening + deploy (the launch gate)
 
@@ -38,7 +46,6 @@ _Updated 2026-07-18. Reflects `main` (Phases 0–6 complete, CI green). Deeper d
 
 ## 🧩 Smaller open items
 
-- [ ] GHL calendar embed code for the register page (slot + CSP wired; embed is a placeholder).
 - [ ] Record how-to videos (framework built, one topic registered, no media shipped).
 - [ ] Master ICS feed for owner/front-desk (feeds are per-stylist-own only).
 - [ ] Final design polish pass.
