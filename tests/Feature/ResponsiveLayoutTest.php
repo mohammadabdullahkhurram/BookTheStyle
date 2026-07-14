@@ -87,10 +87,20 @@ it('wraps the agency tables in scroll containers', function (string $routeName) 
         ->assertOk()
         ->assertSee('<div class="overflow-x-auto" tabindex="0">', false);
 })->with([
-    'overview' => 'agency.overview',
-    'salons' => 'agency.salons.index',
+    // The Dashboard carries stat cards only now, and Salons defaults to the
+    // gallery — the LIST view's table is covered below.
     'users' => 'agency.users.index',
 ]);
+
+it('wraps the Salons LIST view table in a scroll container (gallery is card-based)', function () {
+    $salon = Salon::factory()->create();
+    $owner = responsiveAgencyOwner($salon);
+
+    Livewire\Livewire::actingAs($owner)
+        ->test('pages::agency.salons.index')
+        ->set('view', 'list')
+        ->assertSee('<div class="overflow-x-auto" tabindex="0">', false);
+});
 
 it('gives Today a stacked-card fallback beside the desktop table', function () {
     $salon = Salon::factory()->create();

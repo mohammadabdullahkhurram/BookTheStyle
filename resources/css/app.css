@@ -612,11 +612,16 @@ select:focus[data-flux-control] {
         white-space: nowrap;
     }
 
-    /* Nav item (sidebar). Radius via token; accent-tint active. */
+    /* Nav item (sidebar). Radius via token; accent-tint active. Compact on
+       desktop so the full nav + user chip fit the viewport; the mobile
+       drawer restores full touch-target sizing below. */
     .bts-nav-item {
-        @apply flex items-center gap-3 px-3 py-2.5 text-[15px] font-medium transition;
+        @apply flex items-center gap-2.5 px-3 py-2 text-[14.5px] font-medium transition;
         border-radius: var(--radius-nav);
         color: var(--color-secondary);
+    }
+    .bts-drawer-left .bts-nav-item {
+        @apply gap-3 py-2.5 text-[15px];
     }
     .bts-nav-item:hover {
         background-color: var(--color-muted);

@@ -8,8 +8,10 @@
      assignment is harmless on desktop). Expects $salon / $user / $roleLabel
      from the including layout. --}}
 
-{{-- Primary nav --}}
-<nav class="mt-2 flex flex-1 flex-col gap-1 px-3" aria-label="{{ __('Primary') }}">
+{{-- Primary nav. min-h-0 + overflow-y-auto: on short viewports THIS region
+     scrolls while New booking, the settings links, and the user chip stay
+     pinned and visible. --}}
+<nav class="mt-1 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3" aria-label="{{ __('Primary') }}">
     @if ($salon)
         <a href="{{ route('salon.show', $salon) }}" wire:navigate @click="mobileNav = false"
            aria-label="{{ __('Today') }}" :title="collapsed ? '{{ __('Today') }}' : null"
@@ -154,7 +156,7 @@
 @endif
 
 {{-- Settings --}}
-<nav class="px-3 pb-2 pt-1" aria-label="{{ __('Settings') }}">
+<nav class="flex shrink-0 flex-col gap-0.5 px-3 pb-1.5 pt-0.5" aria-label="{{ __('Settings') }}">
     {{-- My calendar: every salon member's own iCal feed (personal, not admin). --}}
     @if ($salon)
         <a href="{{ route('salon.account', $salon) }}" wire:navigate @click="mobileNav = false"
@@ -196,15 +198,15 @@
     @endif
 </nav>
 
-{{-- User chip --}}
-<div class="border-t border-border p-3">
+{{-- User chip — pinned at the bottom, always visible. --}}
+<div class="shrink-0 border-t border-border px-2.5 py-2">
     <flux:dropdown position="top" align="start" class="w-full">
         <button type="button" data-test="sidebar-menu-button" aria-label="{{ __('Account menu') }}"
-                class="flex w-full items-center gap-3 rounded-[13px] p-1.5 text-start transition hover:bg-muted">
-            <span class="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#1E1D2A] text-[13px] font-semibold text-white">{{ $user?->initials() }}</span>
+                class="flex w-full items-center gap-2.5 rounded-[13px] p-1.5 text-start transition hover:bg-muted">
+            <span class="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#1E1D2A] text-[12.5px] font-semibold text-white">{{ $user?->initials() }}</span>
             <span x-show="!collapsed" x-cloak class="min-w-0 flex-1 leading-tight">
-                <span class="block truncate text-[14px] font-semibold text-ink">{{ $user?->name }}</span>
-                <span class="block truncate text-[12.5px] text-secondary">{{ $roleLabel }}</span>
+                <span class="block truncate text-[13.5px] font-semibold text-ink">{{ $user?->name }}</span>
+                <span class="block truncate text-[12px] text-secondary">{{ $roleLabel }}</span>
             </span>
         </button>
 

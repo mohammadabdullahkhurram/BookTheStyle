@@ -32,7 +32,7 @@
                 class="sticky top-0 z-20 hidden h-svh shrink-0 flex-col border-e border-border bg-card transition-[width] duration-200 lg:flex bts-chrome"
             >
                 {{-- Logo + collapse --}}
-                <div class="flex items-center gap-3 px-4 pb-3 pt-4">
+                <div class="flex shrink-0 items-center gap-3 px-4 pb-2 pt-3">
                     <a href="{{ $salon ? route('salon.show', $salon) : route('dashboard') }}" wire:navigate
                        aria-label="{{ __('BookTheStyle') }}"
                        class="flex min-w-0 flex-1 items-center" :class="collapsed ? 'justify-center' : ''">

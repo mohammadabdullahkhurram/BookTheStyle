@@ -38,12 +38,21 @@ new #[Title('Dashboard')] class extends Component {
         <x-slot:subtitle>{{ __('Manage salons and agency users across the account.') }}</x-slot:subtitle>
     </x-ui.page-header>
 
-    <div class="grid gap-4 sm:grid-cols-2">
+    {{-- A true dashboard: the numbers, each linking into its own tab. The
+         salon LISTING lives on the Salons tab (gallery/list) — not
+         duplicated here. --}}
+    <div class="grid gap-4 sm:grid-cols-3">
         <a href="{{ route('agency.salons.index') }}" wire:navigate
            class="group rounded-[16px] border border-border bg-card p-[18px] shadow-card transition hover:border-accent">
             <div class="font-display text-[34px] font-bold leading-none text-ink">{{ $this->salons->count() }}</div>
             <div class="mt-2 text-[16px] font-semibold text-ink transition group-hover:text-accent">{{ __('Salons') }}</div>
             <div class="text-[14px] text-secondary">{{ __('Create and manage sub-accounts') }}</div>
+        </a>
+        <a href="{{ route('agency.reports') }}" wire:navigate
+           class="group rounded-[16px] border border-border bg-card p-[18px] shadow-card transition hover:border-accent">
+            <div class="font-display text-[34px] font-bold leading-none text-ink">{{ $this->salons->where('active', true)->count() }}</div>
+            <div class="mt-2 text-[16px] font-semibold text-ink transition group-hover:text-accent">{{ __('Reporting') }}</div>
+            <div class="text-[14px] text-secondary">{{ __('Active salons — bookings, outcomes, sources') }}</div>
         </a>
         <a href="{{ route('agency.users.index') }}" wire:navigate
            class="group rounded-[16px] border border-border bg-card p-[18px] shadow-card transition hover:border-accent">
@@ -53,50 +62,10 @@ new #[Title('Dashboard')] class extends Component {
         </a>
     </div>
 
-    <section class="flex flex-col gap-4">
-        <div class="flex items-center justify-between">
-            <h2 class="bts-card-title">{{ __('Salons') }}</h2>
-            <x-ui.button :href="route('agency.salons.create')" wire:navigate size="sm"><flux:icon.plus variant="micro" class="shrink-0" />{{ __('New salon') }}</x-ui.button>
-        </div>
-
-        <x-ui.card padding="p-0" class="overflow-hidden">
-            <div class="overflow-x-auto" tabindex="0">
-            <table class="w-full text-left">
-                <thead>
-                    <tr class="bts-overline border-b border-divider">
-                        <th scope="col" class="px-6 py-3.5 font-semibold">{{ __('Salon') }}</th>
-                        <th scope="col" class="px-6 py-3.5 font-semibold">{{ __('Staff') }}</th>
-                        <th scope="col" class="px-6 py-3.5 font-semibold">{{ __('Status') }}</th>
-                        <th scope="col" class="px-6 py-3.5"></th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-row">
-                    @forelse ($this->salons as $salon)
-                        <tr>
-                            <td class="px-6 py-4">
-                                <a href="{{ route('salon.show', $salon) }}" wire:navigate class="text-[15px] font-medium text-ink transition hover:text-accent">{{ $salon->name }}</a>
-                                <div class="text-[12.5px] text-faint">{{ $salon->slug }}.{{ config('app.domain') }} · {{ $salon->timezone }}</div>
-                            </td>
-                            <td class="px-6 py-4 text-[15px] text-secondary">{{ $salon->memberships_count }}</td>
-                            <td class="px-6 py-4">
-                                @if ($salon->active)
-                                    <span class="bts-pill" style="background-color:#E7EFE4;color:#3E5C3A;">{{ __('Active') }}</span>
-                                @else
-                                    <span class="bts-pill" style="background-color:#F0EEEA;color:#6B6862;">{{ __('Inactive') }}</span>
-                                @endif
-                            </td>
-                            <td class="px-6 py-4 text-right">
-                                <a href="{{ route('agency.salons.edit', $salon) }}" wire:navigate class="text-[13px] font-semibold text-accent transition hover:text-accent-hover">{{ __('Edit') }}</a>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="4" class="px-6 py-10 text-center text-[15px] text-faint">{{ __('No salons yet.') }}</td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-            </div>
+    @if ($this->salons->isEmpty())
+        <x-ui.card class="py-12 text-center text-[15px] text-faint">
+            {{ __('No salons yet.') }}
+            <a href="{{ route('agency.salons.create') }}" wire:navigate class="font-semibold text-accent transition hover:text-accent-hover">{{ __('Create the first one.') }}</a>
         </x-ui.card>
-    </section>
+    @endif
 </div>
