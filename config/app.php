@@ -70,6 +70,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Trusted Proxies
+    |--------------------------------------------------------------------------
+    |
+    | Proxies whose X-Forwarded-* headers the app honours (Cloudflare →
+    | Hostinger origin). '*' trusts whichever proxy connects; to pin, set a
+    | comma-separated list of IPs/CIDRs (e.g. Cloudflare's published ranges).
+    | Applied in AppServiceProvider (config-cache-safe; bootstrap runs before
+    | config loads). Real visitor IPs come from CF-Connecting-IP regardless —
+    | see App\Http\Middleware\TrustCloudflareClientIp.
+    |
+    */
+
+    'trusted_proxies' => env('TRUSTED_PROXIES', '*'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Register (book-a-call) Embed Frame Source
     |--------------------------------------------------------------------------
     |

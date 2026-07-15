@@ -86,6 +86,28 @@ php artisan up
 # php artisan migrate:rollback --step=1 --force
 ```
 
+## Cloudflare (in front of the origin)
+
+Traffic flows client → Cloudflare → Hostinger origin; the app never
+terminates public TLS itself.
+
+- SSL/TLS mode **Full (strict)** — the origin must hold a valid certificate.
+- Proxy trust: `TRUSTED_PROXIES` (default `*`) + the real visitor IP from
+  `CF-Connecting-IP`, so `$request->ip()`, HTTPS detection, and every per-IP
+  rate limit work correctly at the edge. To be stricter, pin
+  `TRUSTED_PROXIES` to Cloudflare's published ranges
+  (https://www.cloudflare.com/ips/) — the trade-off is keeping that list
+  current. Keep the origin closed to non-Cloudflare traffic either way.
+- **WAF / Bot Fight / challenge rules must SKIP these paths** — they are
+  fetched by machines, and a challenge page breaks them:
+  - `/webhooks/ghl` — the GHL workflow webhook
+  - `/api/v1/booking/*` — the GHL voice-AI custom actions
+  - `/api/widget/*` on every `{slug}` subdomain — the embedded booking
+    widget's JSON (called from visitors' browsers on third-party sites)
+  - `/cal/*` — calendar feed fetchers (Google/Apple/Outlook)
+- Disable Rocket Loader / script-rewriting features for the app hosts —
+  Livewire and the widget script must arrive byte-identical.
+
 ## Production guarantees already in code
 
 - `TrustProxies '*'` + `URL::forceScheme('https')` in production: correct

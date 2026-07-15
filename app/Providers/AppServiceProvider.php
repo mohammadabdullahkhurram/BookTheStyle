@@ -11,6 +11,7 @@ use App\Support\Notifications\MailTemporaryPasswordChannel;
 use App\Support\Notifications\TemporaryPasswordChannel;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -109,6 +110,16 @@ class AppServiceProvider extends ServiceProvider
         // UI) must be https. Local dev stays on plain http.
         if (app()->isProduction()) {
             URL::forceScheme('https');
+        }
+
+        // TRUSTED_PROXIES pins the proxies whose X-Forwarded-* we honour
+        // (e.g. Cloudflare's published ranges) instead of bootstrap's '*'
+        // default. Applied here — after config loads, config:cache-safe —
+        // via the middleware's static override; boot() runs before any
+        // request is handled.
+        $trustedProxies = (string) config('app.trusted_proxies', '*');
+        if ($trustedProxies !== '' && $trustedProxies !== '*') {
+            TrustProxies::at(array_values(array_filter(array_map('trim', explode(',', $trustedProxies)))));
         }
 
         Password::defaults(fn (): ?Password => app()->isProduction()
