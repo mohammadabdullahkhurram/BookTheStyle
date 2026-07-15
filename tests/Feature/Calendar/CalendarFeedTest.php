@@ -259,6 +259,83 @@ it('lets a user generate, view and revoke their feed from the account panel', fu
     $this->get($url)->assertNotFound();
 });
 
+it('leads with the copyable link, per-app steps, and an honestly-labelled Apple shortcut', function () {
+    $salon = Salon::factory()->create();
+    $this->actingAs(stylistOf($salon));
+
+    Livewire::test('pages::settings.calendar-feed')
+        ->call('generate')
+        // Step 1: the link is front and centre with a working copy affordance
+        // (Clipboard API + an execCommand fallback for non-secure dev hosts),
+        // and the copy confirmation is announced via a live region.
+        ->assertSee('Step 1 — copy your calendar link')
+        ->assertSee('Copy link')
+        ->assertSeeHtml('navigator.clipboard.writeText')
+        ->assertSeeHtml('document.execCommand')
+        ->assertSeeHtml('x-ref="feedUrl"')
+        ->assertSeeHtml('role="status" aria-live="polite"')
+        // Step 2: one short recipe per app — paste is the only way in
+        // Google/Outlook, and that is said out loud.
+        ->assertSee('Step 2 — paste it into your calendar app')
+        ->assertSee('Google Calendar')
+        ->assertSee('Apple Calendar')
+        ->assertSee('Outlook')
+        ->assertSee('pasting is the only way')
+        // The Apple shortcut is a real webcal:// link with an honest label —
+        // the ambiguous "Subscribe on this device" is gone.
+        ->assertSee('Open in Apple Calendar')
+        ->assertSeeHtml('href="webcal://')
+        ->assertDontSee('Subscribe on this device')
+        // Expectations: read-only, one-way, apps refresh on their own clock.
+        ->assertSee('Read-only and one-way')
+        ->assertSee('Google can take several hours to show changes');
+});
+
+it('compiles the copy control cleanly — the handler reaches the browser as real JS', function () {
+    $salon = Salon::factory()->create();
+    $this->actingAs(stylistOf($salon));
+
+    $html = Livewire::test('pages::settings.calendar-feed')
+        ->call('generate')
+        ->html();
+
+    // The prior copy-button bug shipped uncompiled Blade into Alpine — guard
+    // against every form of it (see the x-ui.confirm-modal recipe).
+    expect($html)->not->toContain('@js(')
+        ->and($html)->not->toContain('Js::from')
+        ->and($html)->toContain('x-on:click="copy()"');
+
+    // The input the fallback selects exists, and the feed URL is inside it.
+    expect($html)->toContain('x-ref="feedUrl"');
+    preg_match('/x-ref="feedUrl"[^>]*value="([^"]+)"/', $html, $m);
+    expect($m[1] ?? '')->toContain('/cal/');
+});
+
+it('keeps regenerate and revoke on the themed confirm modal after the redesign', function () {
+    $salon = Salon::factory()->create();
+    $this->actingAs(stylistOf($salon));
+
+    Livewire::test('pages::settings.calendar-feed')
+        ->call('generate')
+        ->assertSeeHtml('$store.confirm.ask')
+        ->assertDontSeeHtml('wire:confirm')
+        ->assertSee('Regenerate the link? Your existing calendar subscription will stop updating until you re-add the new link.');
+});
+
+it('notes that Google/Outlook can only reach the link once the app is live, on local URLs', function () {
+    $salon = Salon::factory()->create();
+    $this->actingAs(stylistOf($salon));
+
+    // The test APP_URL is a local host, so the note must show…
+    config(['app.url' => 'http://app.lvh.me:8000']);
+    $page = Livewire::test('pages::settings.calendar-feed')->call('generate');
+    $page->assertSee('once the app runs on its live URL');
+
+    // …and disappear on a public URL (nothing looks broken either way).
+    config(['app.url' => 'https://app.bookthestyle.com']);
+    $page->call('$refresh')->assertDontSee('once the app runs on its live URL');
+});
+
 it('hosts the personal calendar panel salon-side (My calendar), not on the profile page', function () {
     $salon = Salon::factory()->create();
     $stylist = stylistOf($salon);

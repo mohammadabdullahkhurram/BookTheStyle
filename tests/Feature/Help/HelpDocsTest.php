@@ -101,7 +101,7 @@ it('surfaces the subscribe link inside the help modal once generated', function 
         ->call('generate')
         ->html();
 
-    expect($html)->toContain('Your subscribe link');
+    expect($html)->toContain('Your calendar link');
     expect($html)->toContain('Watch: how to connect your calendar');
     expect($html)->toContain('Apple / iPhone');
 });
