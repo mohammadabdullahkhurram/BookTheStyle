@@ -14,9 +14,13 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // No ->after(): it referenced feature_flags, a column the 2026_07_15
+        // migration DROPS a week earlier in the sequence. SQLite (dev/CI)
+        // ignores column position so it slipped through; MySQL (production)
+        // rejects it. Position is cosmetic — append the columns.
         Schema::table('salons', function (Blueprint $table) {
-            $table->string('api_token_hash', 64)->nullable()->after('feature_flags');
-            $table->timestamp('api_token_generated_at')->nullable()->after('api_token_hash');
+            $table->string('api_token_hash', 64)->nullable();
+            $table->timestamp('api_token_generated_at')->nullable();
         });
     }
 

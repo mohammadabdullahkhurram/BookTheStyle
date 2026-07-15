@@ -16,9 +16,13 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // No ->after(): it referenced api_token_generated_at, a column the
+        // 2026_07_22 migration creates TEN DAYS LATER in the sequence. SQLite
+        // (dev/CI) ignores column position so it slipped through; MySQL
+        // (production) rejects it. Position is cosmetic — append the columns.
         Schema::table('salons', function (Blueprint $table) {
-            $table->json('onboarding')->nullable()->after('api_token_generated_at');
-            $table->timestamp('onboarded_at')->nullable()->after('onboarding');
+            $table->json('onboarding')->nullable();
+            $table->timestamp('onboarded_at')->nullable();
         });
     }
 
