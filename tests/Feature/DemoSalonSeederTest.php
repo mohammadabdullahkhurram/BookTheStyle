@@ -10,6 +10,7 @@ use App\Models\TimeOff;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Database\Seeders\DemoSalonSeeder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /*
@@ -82,9 +83,9 @@ it('is idempotent and strictly additive — existing data survives, nothing dupl
     $existing = bookingSalon();
     $stylist = stylistWithHours($existing, 0, 9 * 60, 17 * 60);
     $service = serviceFor($existing, $stylist, 60);
-    Illuminate\Support\Carbon::setTestNow(CarbonImmutable::parse('2026-06-22 12:00:00', 'UTC'));
+    Carbon::setTestNow(CarbonImmutable::parse('2026-06-22 12:00:00', 'UTC'));
     $booking = makeBooking($existing, salonOwnerOf($existing), $stylist, $service);
-    Illuminate\Support\Carbon::setTestNow();
+    Carbon::setTestNow();
 
     $this->seed(DemoSalonSeeder::class);
     $demo = Salon::query()->where('slug', 'demo')->firstOrFail();

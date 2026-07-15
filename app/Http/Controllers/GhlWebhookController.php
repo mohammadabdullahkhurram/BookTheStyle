@@ -47,6 +47,13 @@ class GhlWebhookController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 401);
         }
 
+        // Self-test ping (Settings → Integrations "Test delivery"): it went
+        // through the exact verification above, so answering here proves
+        // public reachability + the secret without recording a webhook event.
+        if (($payload['type'] ?? null) === 'bookthestyle.webhook.test') {
+            return response()->json(['received' => true, 'test' => true]);
+        }
+
         $hash = hash('sha256', $request->getContent());
 
         // Replay protection: GHL workflow bodies carry no nonce/timestamp, so

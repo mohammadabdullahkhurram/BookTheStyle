@@ -289,14 +289,34 @@ new #[Title('Salon settings')] class extends Component {
      * Verify the stored credentials against the GHL API (server-side read
      * call); stamps last-verified on success.
      */
-    public function testGhlConnection(TestGhlConnection $action): void
+    public function testGhlConnection(): void
     {
         $this->authorize('manageGhlConnection', $this->salon);
 
-        $check = $action->handle($this->salon);
+        // Runs through the shared checks engine so the inline result panel
+        // (partials.integration-check-result) and last-verified stamp persist.
+        $check = app(\App\Services\Ghl\IntegrationChecks::class)->run($this->salon, \App\Services\Ghl\IntegrationChecks::CONNECTION);
         $this->refreshGhlState();
+        $this->salon->refresh();
 
-        Flux::toast(variant: $check->ok ? 'success' : 'danger', text: $check->message);
+        Flux::toast(variant: $check->ok() ? 'success' : 'danger', text: $check->message);
+    }
+
+    /**
+     * Run one named integration check (partials.integration-check buttons);
+     * the outcome persists on the salon and renders inline.
+     */
+    public function runIntegrationCheck(string $key): void
+    {
+        $this->authorize('manageGhlConnection', $this->salon);
+
+        app(\App\Services\Ghl\IntegrationChecks::class)->run(
+            $this->salon,
+            $key,
+            $key === \App\Services\Ghl\IntegrationChecks::VOICE ? $this->apiTokenPlain : null,
+        );
+
+        $this->salon->refresh();
     }
 
     public function disconnectGhl(DisconnectGhl $action): void
@@ -1134,6 +1154,20 @@ new #[Title('Salon settings')] class extends Component {
                             <div><x-ui.button type="submit">{{ __('Save mapping') }}</x-ui.button></div>
                         @endif
                     </form>
+
+                    {{-- Live verification: the calendar still exists in GHL and
+                         every stylist maps to a real team member on it. --}}
+                    <div class="border-t border-row pt-4">
+                        @include('partials.integration-check', ['check' => 'mapping', 'label' => __('Verify mapping')])
+                    </div>
+                </x-ui.card>
+
+                <x-ui.card class="flex flex-col gap-4">
+                    <h2 class="bts-card-title">{{ __('Client contact sync') }}</h2>
+                    <p class="text-[14px] text-secondary">
+                        {{ __('Bookings keep GoHighLevel contacts in step with the app\'s clients. This verifies the token can actually read and write contacts (the contacts.readonly and contacts.write scopes) before a booking needs to.') }}
+                    </p>
+                    @include('partials.integration-check', ['check' => 'contacts', 'label' => __('Verify contact sync')])
                 </x-ui.card>
 
                 <x-ui.card class="flex flex-col gap-4">
@@ -1164,6 +1198,17 @@ new #[Title('Salon settings')] class extends Component {
                                 {{ __('Generate secret') }}
                             </x-ui.button>
                         @endif
+                    </div>
+
+                    {{-- Reachability + secret test: the app pings its own
+                         public webhook URL with a signed test payload. --}}
+                    <div class="border-t border-row pt-4">
+                        @include('partials.integration-check', [
+                            'check' => 'webhook',
+                            'label' => __('Test delivery'),
+                            'blocked' => ! \App\Support\PublicUrl::isPublic((string) config('app.url')),
+                            'blockedNote' => __('Delivery can only be tested over the app\'s live public URL — GoHighLevel (and this check) cannot reach a local address. The button works automatically once the app is deployed.'),
+                        ])
                     </div>
                 </x-ui.card>
 
@@ -1212,6 +1257,20 @@ new #[Title('Salon settings')] class extends Component {
                             {{ __('Sync availability to GoHighLevel') }}
                         </x-ui.button>
                     </div>
+
+                    {{-- Read-back verification: each mapped stylist's schedule
+                         actually exists in GHL, not just our last push status. --}}
+                    <div class="border-t border-row pt-4">
+                        @include('partials.integration-check', ['check' => 'availability', 'label' => __('Verify in GoHighLevel')])
+                    </div>
+                </x-ui.card>
+
+                <x-ui.card class="flex flex-col gap-4">
+                    <h2 class="bts-card-title">{{ __('Outbound booking sync') }}</h2>
+                    <p class="text-[14px] text-secondary">
+                        {{ __('Proves the app can write appointments to the master calendar. The round trip creates ONE clearly-titled test appointment through the same push path real bookings use, reads it back from GoHighLevel, and deletes it — no real client data, nothing left behind.') }}
+                    </p>
+                    @include('partials.integration-check', ['check' => 'booking', 'label' => __('Run round-trip test')])
                 </x-ui.card>
 
                 <x-ui.card class="flex flex-col gap-4">
@@ -1288,6 +1347,21 @@ new #[Title('Salon settings')] class extends Component {
             <p class="text-[12.5px] text-faint">
                 POST {{ rtrim(config('app.url'), '/') }}/api/v1/booking/availability · POST {{ rtrim(config('app.url'), '/') }}/api/v1/booking/create — Authorization: Bearer &lt;token&gt;
             </p>
+
+            {{-- End-to-end test: call this salon's own availability endpoint
+                 over the public URL — exactly what the GHL custom action does.
+                 Run it while a freshly generated token is on screen for the
+                 full 200-with-slots proof. --}}
+            @can('manageGhlConnection', $salon)
+                <div class="border-t border-row pt-4">
+                    @include('partials.integration-check', [
+                        'check' => 'voice',
+                        'label' => __('Test booking API'),
+                        'blocked' => ! \App\Support\PublicUrl::isPublic((string) config('app.url')),
+                        'blockedNote' => __('The booking API can only be tested over the app\'s live public URL — the same way the GHL custom action calls it. The button works automatically once the app is deployed.'),
+                    ])
+                </div>
+            @endcan
         </x-ui.card>
         </section>
 

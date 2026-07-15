@@ -175,6 +175,42 @@ class GhlClient
     }
 
     /**
+     * A tiny page of the location's contacts — the integration check's
+     * cheapest possible proof that the contacts.readonly scope responds.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function contacts(int $limit = 1): array
+    {
+        $data = $this->get('/contacts/', self::CONTACTS_VERSION, [
+            'locationId' => $this->locationId,
+            'limit' => (string) $limit,
+        ]);
+
+        return array_values(array_filter((array) ($data['contacts'] ?? []), 'is_array'));
+    }
+
+    /**
+     * One appointment by event id — the read-back half of the booking
+     * round-trip check.
+     *
+     * @return array<string, mixed>
+     */
+    public function appointment(string $eventId): array
+    {
+        return $this->get('/calendars/events/appointments/'.$eventId, self::CALENDARS_VERSION);
+    }
+
+    /**
+     * Hard-delete a calendar event — cleanup for the round-trip check's test
+     * appointment (real bookings are only ever CANCELLED, never deleted).
+     */
+    public function deleteEvent(string $eventId): void
+    {
+        $this->send('delete', '/calendars/events/'.$eventId, self::CALENDARS_VERSION);
+    }
+
+    /**
      * One contact by id — used to enrich reconciliation-imported bookings
      * with a real name/email/phone (the events feed only carries contactId).
      *
@@ -291,6 +327,7 @@ class GhlClient
                 'get' => $pending->get($path, $query),
                 'post' => $pending->post($path, $json ?? []),
                 'put' => $pending->put($path, $json ?? []),
+                'delete' => $pending->delete($path, $json ?? []),
                 default => throw new \InvalidArgumentException("Unsupported method [{$method}]."),
             };
         } catch (ConnectionException) {

@@ -127,14 +127,34 @@ new #[Title('Salon setup')] class extends Component {
         Flux::toast(variant: 'success', text: __('Connection details saved. Now run the test.'));
     }
 
-    public function testConnection(TestGhlConnection $action): void
+    public function testConnection(): void
     {
         $this->authorize('manageGhlConnection', $this->salon);
 
-        $check = $action->handle($this->salon);
+        // Shared checks engine: persists the inline result panel + stamp.
+        $check = app(\App\Services\Ghl\IntegrationChecks::class)->run($this->salon, \App\Services\Ghl\IntegrationChecks::CONNECTION);
+        $this->salon->refresh();
         unset($this->connection, $this->statuses);
 
-        Flux::toast(variant: $check->ok ? 'success' : 'danger', text: $check->message);
+        Flux::toast(variant: $check->ok() ? 'success' : 'danger', text: $check->message);
+    }
+
+    /**
+     * Run one named integration check (partials.integration-check buttons);
+     * the outcome persists on the salon and renders inline.
+     */
+    public function runIntegrationCheck(string $key): void
+    {
+        $this->authorize('manageGhlConnection', $this->salon);
+
+        app(\App\Services\Ghl\IntegrationChecks::class)->run(
+            $this->salon,
+            $key,
+            $key === \App\Services\Ghl\IntegrationChecks::VOICE ? $this->apiTokenPlain : null,
+        );
+
+        $this->salon->refresh();
+        unset($this->statuses);
     }
 
     public function generateWebhookSecret(): void
@@ -399,6 +419,16 @@ new #[Title('Salon setup')] class extends Component {
                         @if ($this->connection?->last_verified_at)
                             <p class="text-[13px] text-body">{{ __('Last verified :when.', ['when' => $this->connection->last_verified_at->diffForHumans()]) }}</p>
                         @endif
+
+                        @include('partials.integration-check-result', ['result' => $salon->integration_checks['connection'] ?? null])
+                    </div>
+
+                    <div class="mt-5 border-t border-divider pt-4">
+                        <p class="text-[14px] font-medium text-ink">{{ __('Client contact sync') }}</p>
+                        <p class="mt-1 text-[13px] text-body">{{ __('Verifies the token can actually read and write GoHighLevel contacts (the contacts.readonly and contacts.write scopes) before a booking needs to.') }}</p>
+                        <div class="mt-3">
+                            @include('partials.integration-check', ['check' => 'contacts', 'label' => __('Verify contact sync')])
+                        </div>
                     </div>
 
                 {{-- ============================== ghl_mapping ============================== --}}
@@ -424,6 +454,13 @@ new #[Title('Salon setup')] class extends Component {
                     <div class="mt-4 flex flex-wrap gap-2">
                         <a href="{{ route('salon.settings', $salon) }}#integrations" class="bts-btn bts-btn-secondary">{{ __('Open integrations settings') }}</a>
                         <button type="button" wire:click="$refresh" class="bts-btn bts-btn-secondary">{{ __('Check again') }}</button>
+                    </div>
+
+                    <div class="mt-4 border-t border-divider pt-4">
+                        <p class="text-[13px] text-body">{{ __('Live verification against GoHighLevel — the calendar exists and every stylist is linked to a real team member on it:') }}</p>
+                        <div class="mt-3">
+                            @include('partials.integration-check', ['check' => 'mapping', 'label' => __('Verify mapping')])
+                        </div>
                     </div>
 
                 {{-- ============================== webhook ============================== --}}
@@ -465,6 +502,18 @@ new #[Title('Salon setup')] class extends Component {
                                 @endif
                             @endif
                         </div>
+
+                        <div class="mt-4 border-t border-divider pt-4">
+                            <p class="text-[13px] text-body">{{ __('Direct delivery test — the app pings its own public webhook URL with the secret and confirms it verifies:') }}</p>
+                            <div class="mt-3">
+                                @include('partials.integration-check', [
+                                    'check' => 'webhook',
+                                    'label' => __('Test delivery'),
+                                    'blocked' => ! \App\Support\PublicUrl::isPublic((string) config('app.url')),
+                                    'blockedNote' => __('Delivery can only be tested over the app\'s live public URL — GoHighLevel (and this check) cannot reach a local address. The button works automatically once the app is deployed.'),
+                                ])
+                            </div>
+                        </div>
                     @endif
 
                 {{-- ============================== api_token ============================== --}}
@@ -494,6 +543,18 @@ new #[Title('Salon setup')] class extends Component {
                             @endif>
                         {{ $salon->api_token_hash !== null ? __('Regenerate token') : __('Generate token') }}
                     </button>
+
+                    <div class="mt-4 border-t border-divider pt-4">
+                        <p class="text-[13px] text-body">{{ __('Prove what the GHL custom action will receive — best run right after generating, while the token is still on screen (that enables the full end-to-end check with real slots).') }}</p>
+                        <div class="mt-3">
+                            @include('partials.integration-check', [
+                                'check' => 'voice',
+                                'label' => __('Test booking API'),
+                                'blocked' => ! \App\Support\PublicUrl::isPublic((string) config('app.url')),
+                                'blockedNote' => __('The booking API can only be tested over the app\'s live public URL — the same way the GHL custom action calls it. The button works automatically once the app is deployed.'),
+                            ])
+                        </div>
+                    </div>
 
                 {{-- ============================== voice_actions ============================== --}}
                 @elseif ($step === 'voice_actions')
@@ -569,6 +630,18 @@ new #[Title('Salon setup')] class extends Component {
                         </ul>
                     </div>
 
+                    <div class="mt-4 border-t border-divider pt-4">
+                        <p class="text-[13px] text-body">{{ __('Dry-run the availability action — the app calls its own endpoint over the public URL, exactly as GHL will:') }}</p>
+                        <div class="mt-3">
+                            @include('partials.integration-check', [
+                                'check' => 'voice',
+                                'label' => __('Test booking API'),
+                                'blocked' => ! \App\Support\PublicUrl::isPublic((string) config('app.url')),
+                                'blockedNote' => __('The booking API can only be tested over the app\'s live public URL — the same way the GHL custom action calls it. The button works automatically once the app is deployed.'),
+                            ])
+                        </div>
+                    </div>
+
                     <div class="mt-4 flex flex-wrap gap-2">
                         @if ($this->onboarding()->isAttested($salon, 'voice_actions'))
                             <button type="button" wire:click="attest('voice_actions', false)" class="bts-btn bts-btn-secondary">{{ __('Undo confirmation') }}</button>
@@ -612,6 +685,21 @@ new #[Title('Salon setup')] class extends Component {
                     @else
                         <p class="mt-4 text-[14px] text-body">{{ __('No stylists are mapped yet — finish the calendar and mapping step first.') }}</p>
                     @endif
+
+                    <div class="mt-4 flex flex-col gap-4 border-t border-divider pt-4">
+                        <div>
+                            <p class="text-[13px] text-body">{{ __('Read each schedule back from GoHighLevel — proves the mirror exists there, not just that our last push claimed success:') }}</p>
+                            <div class="mt-3">
+                                @include('partials.integration-check', ['check' => 'availability', 'label' => __('Verify in GoHighLevel')])
+                            </div>
+                        </div>
+                        <div>
+                            <p class="text-[13px] text-body">{{ __('Outbound booking round trip — creates one clearly-titled test appointment through the real push path, reads it back, then deletes it (no real client data, nothing left behind):') }}</p>
+                            <div class="mt-3">
+                                @include('partials.integration-check', ['check' => 'booking', 'label' => __('Run round-trip test')])
+                            </div>
+                        </div>
+                    </div>
                 @endif
 
                 {{-- Prev / next --}}

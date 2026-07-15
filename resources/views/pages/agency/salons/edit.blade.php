@@ -211,14 +211,16 @@ new #[Title('Edit salon')] class extends Component {
      * Verify the stored credentials against the GHL API (server-side read
      * call); stamps last-verified on success.
      */
-    public function testGhlConnection(TestGhlConnection $action): void
+    public function testGhlConnection(): void
     {
         $this->authorize('manageGhlConnection', $this->salon);
 
-        $check = $action->handle($this->salon);
+        // Shared checks engine: persists the inline result panel + stamp.
+        $check = app(\App\Services\Ghl\IntegrationChecks::class)->run($this->salon, \App\Services\Ghl\IntegrationChecks::CONNECTION);
         $this->refreshGhlState();
+        $this->salon->refresh();
 
-        Flux::toast(variant: $check->ok ? 'success' : 'danger', text: $check->message);
+        Flux::toast(variant: $check->ok() ? 'success' : 'danger', text: $check->message);
     }
 
     public function disconnectGhl(DisconnectGhl $action): void

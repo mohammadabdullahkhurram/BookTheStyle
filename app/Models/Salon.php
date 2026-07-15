@@ -44,6 +44,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property bool $auto_complete
  * @property string|null $api_token_hash
  * @property CarbonImmutable|null $api_token_generated_at
+ * @property array<string, array<string, mixed>>|null $integration_checks
  * @property array<string, mixed>|null $onboarding
  * @property CarbonImmutable|null $onboarded_at
  */
@@ -100,6 +101,7 @@ class Salon extends Model
             'active' => 'boolean',
             'branding' => 'array',
             'api_token_generated_at' => 'immutable_datetime',
+            'integration_checks' => 'array',
             'onboarding' => 'array',
             'onboarded_at' => 'immutable_datetime',
             'allow_walkins' => 'boolean',

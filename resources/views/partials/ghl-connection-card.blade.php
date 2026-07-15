@@ -84,6 +84,12 @@
             @endif
         </div>
 
+        {{-- Inline outcome of the last "Test connection" run — same panel as
+             every other integration check, read straight off the salon. --}}
+        @include('partials.integration-check-result', [
+            'result' => $salon->integration_checks['connection'] ?? null,
+        ])
+
         @if ($ghlLastVerified)
             <p class="text-[13px] text-faint">{{ __('Last verified :time', ['time' => $ghlLastVerified]) }}</p>
         @endif
