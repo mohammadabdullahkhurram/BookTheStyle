@@ -1,5 +1,5 @@
 <x-marketing.layout
-    :title="'Features — BookTheStyle by Bluejaypro'"
+    :title="'Features — BookTheStyle'"
     :description="'BookTheStyle features: booking widget, AI voice booking, per-stylist calendar, one-tap check-in, client book, reports. Plus Loopflo and SEO.'">
 
     <section class="mx-auto max-w-[720px] px-6 pt-14 text-center sm:px-8">

@@ -31,6 +31,49 @@ it('renders all four marketing pages with the shared nav and footer', function (
     }
 });
 
+it('brands every browser tab BookTheStyle — never Bluejaypro in the title', function () {
+    $expected = [
+        'home' => 'BookTheStyle — salon booking, CRM and local SEO',
+        'marketing.services' => 'Services — BookTheStyle',
+        'marketing.features' => 'Features — BookTheStyle',
+        'marketing.contact' => 'Contact — BookTheStyle',
+    ];
+
+    foreach ($expected as $routeName => $title) {
+        $html = (string) $this->get(route($routeName))->assertOk()->getContent();
+
+        preg_match('/<title>(.*?)<\/title>/s', $html, $m);
+        expect(trim($m[1] ?? ''))->toBe($title);
+
+        // The meta description carries the salon-first brand line too.
+        preg_match('/<meta name="description" content="([^"]*)"/', $html, $d);
+        expect($d[1] ?? '')->not->toContain('local businesses');
+    }
+
+    // The app/auth side titles off APP_NAME — the brand token there is
+    // BookTheStyle as well (template fallback included).
+    config(['app.name' => 'BookTheStyle']);
+    $login = (string) $this->get(route('login'))->assertOk()->getContent();
+    preg_match('/<title>(.*?)<\/title>/s', $login, $m);
+    expect(trim($m[1] ?? ''))->toContain('BookTheStyle')->not->toContain('Bluejaypro');
+});
+
+it('speaks to salons, not generic businesses, in the hero and value-prop copy', function () {
+    $this->get(route('home'))->assertOk()
+        ->assertSee('Growth that runs your local salon, not the other way around')
+        ->assertSee('systems local salons grow on')
+        ->assertSee('Three ways we grow local salons')
+        ->assertSee('how Bluejaypro fits your salon')
+        ->assertSee('helping local salons grow')
+        ->assertDontSee('local business');
+
+    // The Loopflo/SEO service lines legitimately address businesses broadly
+    // and stay; only generic "local businesses" phrasing is gone site-wide.
+    foreach (['marketing.services', 'marketing.features', 'marketing.contact'] as $routeName) {
+        $this->get(route($routeName))->assertOk()->assertDontSee('local businesses');
+    }
+});
+
 it('presents the three offerings with the BookTheStyle app showcases', function () {
     // Home: the value prop, the offering trio, and app previews.
     $this->get(route('home'))->assertOk()

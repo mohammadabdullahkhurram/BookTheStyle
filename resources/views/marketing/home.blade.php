@@ -1,6 +1,6 @@
 <x-marketing.layout
-    :title="'Bluejaypro — booking, CRM and local SEO for local businesses'"
-    :description="'Bluejaypro helps local businesses grow: BookTheStyle salon booking, the Loopflo CRM, and expert local SEO.'">
+    :title="'BookTheStyle — salon booking, CRM and local SEO'"
+    :description="'Bluejaypro helps local salons grow: BookTheStyle salon booking, the Loopflo CRM, and expert local SEO.'">
 
     {{-- Hero --}}
     <section class="relative overflow-hidden">
@@ -10,10 +10,10 @@
                 <span class="size-[7px] rounded-full bg-accent"></span>{{ __('Bookings · CRM · Local SEO') }}
             </div>
             <h1 class="font-display text-[40px] font-extrabold leading-[1.04] tracking-[-0.025em] text-ink text-balance sm:text-[60px]">
-                {{ __('Growth that runs your local business, not the other way around') }}
+                {{ __('Growth that runs your local salon, not the other way around') }}
             </h1>
             <p class="mx-auto mt-6 max-w-[600px] text-[18px] leading-[1.55] text-body">
-                {{ __('Bluejaypro builds the systems local businesses grow on: BookTheStyle for salon booking, Loopflo for CRM and automation, and local SEO that fills the calendar.') }}
+                {{ __('Bluejaypro builds the systems local salons grow on: BookTheStyle for salon booking, Loopflo for CRM and automation, and local SEO that fills the calendar.') }}
             </p>
             <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
                 <x-ui.button href="#book">{{ __('Book a call') }}</x-ui.button>
@@ -29,7 +29,7 @@
 
     {{-- The three offerings --}}
     <section class="mx-auto max-w-[1040px] px-6 pt-[72px] sm:px-8">
-        <h2 class="font-display text-center text-[30px] font-extrabold tracking-[-0.02em] text-ink sm:text-[36px]">{{ __('Three ways we grow local businesses') }}</h2>
+        <h2 class="font-display text-center text-[30px] font-extrabold tracking-[-0.02em] text-ink sm:text-[36px]">{{ __('Three ways we grow local salons') }}</h2>
         {{-- Open editorial trio: icon anchors + whitespace, no boxes. --}}
         <div class="mt-12 grid gap-x-10 gap-y-12 sm:grid-cols-3">
             <a href="{{ route('marketing.services') }}#bookthestyle" class="group block">
@@ -94,7 +94,7 @@
     <section id="book" class="mx-auto max-w-[860px] scroll-mt-8 px-6 pt-[72px] sm:px-8">
         <div class="mx-auto max-w-[560px] text-center">
             <h2 class="font-display text-[30px] font-extrabold tracking-[-0.02em] text-ink sm:text-[36px]">{{ __('Talk to us') }}</h2>
-            <p class="mt-3 text-[16px] leading-[1.55] text-body">{{ __('Pick a time that works — a friendly look at how Bluejaypro fits your business. No commitment.') }}</p>
+            <p class="mt-3 text-[16px] leading-[1.55] text-body">{{ __('Pick a time that works — a friendly look at how Bluejaypro fits your salon. No commitment.') }}</p>
         </div>
         <div class="mt-8">
             @include('marketing.partials.embed-booking')

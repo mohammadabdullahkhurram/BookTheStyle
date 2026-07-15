@@ -1,5 +1,5 @@
 <x-marketing.layout
-    :title="'Contact — Bluejaypro'"
+    :title="'Contact — BookTheStyle'"
     :description="'Talk to Bluejaypro: book a call, send a message, or reach us directly in Elk Grove, CA.'">
 
     <section class="mx-auto max-w-[720px] px-6 pt-14 text-center sm:px-8">

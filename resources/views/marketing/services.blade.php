@@ -1,5 +1,5 @@
 <x-marketing.layout
-    :title="'Services — Bluejaypro'"
+    :title="'Services — BookTheStyle'"
     :description="'BookTheStyle salon booking, the Loopflo CRM, and expert local SEO — what each does and why it works.'">
 
     <section class="mx-auto max-w-[720px] px-6 pt-14 text-center sm:px-8">

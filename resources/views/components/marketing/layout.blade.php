@@ -1,6 +1,6 @@
 @props([
-    'title' => 'Bluejaypro',
-    'description' => 'Booking, CRM and local SEO for growing local businesses.',
+    'title' => 'BookTheStyle',
+    'description' => 'Booking, CRM and local SEO for growing local salons.',
 ])
 
 {{--
@@ -76,7 +76,7 @@
             <div class="mx-auto grid max-w-[1120px] gap-10 px-6 py-12 sm:px-8 md:grid-cols-3">
                 <div>
                     <x-app-logo class="h-7" alt="BookTheStyle by Bluejaypro" />
-                    <p class="mt-3 max-w-[280px] text-[14px] leading-[1.6] text-body">{{ __('Bluejaypro — a marketing agency helping local businesses grow: bookings, CRM, and search.') }}</p>
+                    <p class="mt-3 max-w-[280px] text-[14px] leading-[1.6] text-body">{{ __('Bluejaypro — a marketing agency helping local salons grow: bookings, CRM, and search.') }}</p>
                 </div>
                 <div>
                     <h2 class="text-[13px] font-semibold uppercase tracking-[0.06em] text-secondary">{{ __('What we do') }}</h2>
