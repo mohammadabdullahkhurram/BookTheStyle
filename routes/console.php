@@ -9,12 +9,16 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 // Shared hosting has no always-on queue worker (SPEC §8): the GHL sync jobs
-// run on the database queue, drained every minute by the scheduler. Retry
-// counts/backoff live on the job classes. In production (Phase 7) one
-// crontab line drives this:
+// run on the database queue, drained every minute by the scheduler. One
+// crontab line drives everything in production (see docs/DEPLOY.md):
 //   * * * * * php artisan schedule:run >> /dev/null 2>&1
-// Locally `composer dev` runs queue:listen instead, so jobs process live.
-Schedule::command('queue:work --stop-when-empty')
+// Flags: --stop-when-empty exits once the queue drains (no lingering
+// process), --max-time=55 caps a busy drain under the next cron tick so
+// withoutOverlapping() releases on time, --tries=3 retries transient GHL
+// failures before failed_jobs. Net effect: jobs run within ~1 minute of
+// dispatch — that delay on GHL syncs is expected and acceptable. Locally
+// `composer dev` runs queue:listen instead, so jobs process live.
+Schedule::command('queue:work --stop-when-empty --max-time=55 --tries=3')
     ->everyMinute()
     ->withoutOverlapping();
 

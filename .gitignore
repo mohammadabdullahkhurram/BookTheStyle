@@ -1,3 +1,6 @@
+# NOTE: public/build/ (the Vite output) is deliberately COMMITTED — the
+# Hostinger server has no Node, so deploys are: npm run build locally →
+# commit → push → git pull on the server. See docs/DEPLOY.md.
 /.phpunit.cache
 /node_modules
 /public/fonts-manifest.dev.json

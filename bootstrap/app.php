@@ -15,6 +15,13 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Hostinger terminates TLS at its proxy and forwards plain HTTP with
+        // X-Forwarded-* headers. Trusting them makes isSecure()/url() see the
+        // real https scheme + client IP (rate limiters key on ip()). '*' is
+        // appropriate on managed hosting where REMOTE_ADDR is always the
+        // platform's own proxy; harmless locally (no forwarded headers sent).
+        $middleware->trustProxies(at: '*');
+
         // Force first-login password change before any other authenticated page.
         // SecurityHeaders adds the CSP + hardening headers to every web response.
         $middleware->web(append: [

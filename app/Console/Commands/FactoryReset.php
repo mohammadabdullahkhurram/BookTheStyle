@@ -8,15 +8,20 @@ use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 /**
  * Factory reset — DATA ONLY, schema untouched (never migrate:fresh; see
  * CLAUDE.md golden rule 10). Empties every application table in FK-safe
  * child-to-parent order via explicit deletes, then provisions the single
  * pristine account: the Bluejaypro agency with ONE agency owner
- * (abdullah@bluejaypro.com / password, printed at the end). Logging in
+ * (abdullah@bluejaypro.com, password printed at the end). Logging in
  * lands in the agency console with zero salons, ready to create the first
  * real one.
+ *
+ * Owner password: --password wins; otherwise production generates a strong
+ * random one (shown once, with a forced change at first login) — the weak
+ * "password" default exists ONLY outside production, for dev convenience.
  *
  * Destructive to data by design, so it never runs by accident: it asks for
  * confirmation unless --force is passed, and it is only ever run by hand.
@@ -24,7 +29,9 @@ use Illuminate\Support\Facades\Schema;
  */
 class FactoryReset extends Command
 {
-    protected $signature = 'app:factory-reset {--force : Skip the confirmation prompt}';
+    protected $signature = 'app:factory-reset
+        {--force : Skip the confirmation prompt}
+        {--password= : Owner password. Omitted: a strong random one in production (shown once), "password" in dev}';
 
     protected $description = 'Wipe ALL application data (schema untouched) and leave a single agency owner account';
 
@@ -93,12 +100,19 @@ class FactoryReset extends Command
 
         $agency = Agency::create(['name' => 'Bluejaypro']);
 
+        $explicit = $this->option('password');
+        $password = is_string($explicit) && $explicit !== ''
+            ? $explicit
+            : (app()->isProduction() ? Str::password(20) : self::OWNER_PASSWORD);
+
         User::create([
             'name' => 'Abdullah',
             'email' => self::OWNER_EMAIL,
-            'password' => self::OWNER_PASSWORD,
+            'password' => $password,
             'email_verified_at' => now(),
-            'must_change_password' => false,
+            // Production always forces a fresh password at first login — the
+            // printed one is a bootstrap credential, not a keeper.
+            'must_change_password' => app()->isProduction(),
             'agency_id' => $agency->id,
             'agency_role' => AgencyRole::Owner,
         ]);
@@ -106,8 +120,14 @@ class FactoryReset extends Command
         $this->components->info('Factory reset complete: '.$cleared.' rows cleared, schema untouched. One agency owner remains — log in at app.'.config('app.domain').' and create the first salon from the agency console.');
         $this->table(
             ['Email', 'Password', 'Role'],
-            [[self::OWNER_EMAIL, self::OWNER_PASSWORD, 'Agency owner (Bluejaypro)']],
+            [[self::OWNER_EMAIL, $password, 'Agency owner (Bluejaypro)']],
         );
+
+        if (app()->isProduction()) {
+            $this->components->warn('This password is shown ONCE — you will be required to set a new one at first login. Store it until then.');
+        } elseif ($password === self::OWNER_PASSWORD) {
+            $this->components->warn('Default dev password in use — never run it like this in production (there, a strong random password is generated instead).');
+        }
 
         return self::SUCCESS;
     }

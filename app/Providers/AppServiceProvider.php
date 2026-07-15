@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 
@@ -101,6 +102,14 @@ class AppServiceProvider extends ServiceProvider
         DB::prohibitDestructiveCommands(
             app()->isProduction(),
         );
+
+        // Production sits behind Hostinger's TLS-terminating proxy: even if a
+        // forwarded-proto header goes missing, every generated URL (routes,
+        // signed URLs, the webhook/widget/voice/calendar URLs shown in the
+        // UI) must be https. Local dev stays on plain http.
+        if (app()->isProduction()) {
+            URL::forceScheme('https');
+        }
 
         Password::defaults(fn (): ?Password => app()->isProduction()
             ? Password::min(12)
