@@ -2,10 +2,16 @@
 
 namespace App\Providers;
 
+use App\Actions\Fortify\AuthenticateUser;
 use App\Actions\Fortify\CreateNewUser;
 use App\Actions\Fortify\ResetUserPassword;
+use App\Models\User;
+use App\Support\AuthLog;
+use Illuminate\Auth\Events\Lockout;
+use Illuminate\Auth\Events\Login;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -40,6 +46,7 @@ class FortifyServiceProvider extends ServiceProvider
         $this->configureActions();
         $this->configureViews();
         $this->configureRateLimiting();
+        $this->configureAuthDiagnostics();
     }
 
     /**
@@ -49,6 +56,39 @@ class FortifyServiceProvider extends ServiceProvider
     {
         Fortify::resetUserPasswordsUsing(ResetUserPassword::class);
         Fortify::createUsersUsing(CreateNewUser::class);
+        // Credential check that logs WHICH check failed (see AuthenticateUser).
+        Fortify::authenticateUsing(new AuthenticateUser);
+    }
+
+    /**
+     * Log lines for the login outcomes the credential check itself can't see:
+     * throttling (rejected before credentials run) and successful logins that
+     * are about to hit a wall (temporary password pending, no salon access).
+     */
+    private function configureAuthDiagnostics(): void
+    {
+        Event::listen(function (Lockout $event) {
+            AuthLog::warn('throttled', (string) $event->request->input(Fortify::username()));
+        });
+
+        Event::listen(function (Login $event) {
+            $user = $event->user;
+
+            if (! $user instanceof User) {
+                return;
+            }
+
+            if ($user->must_change_password) {
+                // Signed in on a temporary password — every page will bounce
+                // to the forced-change screen until they set their own.
+                AuthLog::warn('must_change_password_pending', $user->email, $user);
+            } elseif (! $user->hasAnySalonAccess()) {
+                // Valid session, but nothing to reach: the dashboard shows an
+                // empty state. The log is the breadcrumb for "I'm in but see
+                // nothing" support calls.
+                AuthLog::warn('no_salon_access', $user->email, $user);
+            }
+        });
     }
 
     /**

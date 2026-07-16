@@ -4,9 +4,11 @@ use App\Http\Middleware\EnsurePasswordChanged;
 use App\Http\Middleware\ResolveSalon;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\TrustCloudflareClientIp;
+use App\Support\AuthLog;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -60,4 +62,21 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*'),
         );
+
+        // The route-level `throttle:login` limiter trips BEFORE Fortify's
+        // in-pipeline one, and its stock response is a bare 429 error page —
+        // yet another login failure that explains nothing. Turn it back into
+        // a form error that says how long to wait, and log it.
+        $exceptions->render(function (ThrottleRequestsException $e, Request $request) {
+            if (! $request->routeIs('login.store')) {
+                return null;
+            }
+
+            $seconds = (int) ($e->getHeaders()['Retry-After'] ?? 60);
+            AuthLog::warn('throttled', (string) $request->input('email'));
+
+            return redirect()->route('login')
+                ->withInput($request->only('email'))
+                ->withErrors(['email' => trans('auth.throttle', ['seconds' => $seconds])]);
+        });
     })->create();

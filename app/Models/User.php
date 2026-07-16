@@ -131,6 +131,26 @@ class User extends Authenticatable implements PasskeyUser
     }
 
     /**
+     * Whether the user currently has reach into ANY salon: an active salon
+     * membership, agency operator rights, or (for agency_users) at least one
+     * assigned salon. Login diagnostics key off this — no reach plus existing
+     * (inactive) memberships means the account was deactivated; no reach and
+     * no memberships means access was never granted.
+     */
+    public function hasAnySalonAccess(): bool
+    {
+        if ($this->isAgencyOperator()) {
+            return true;
+        }
+
+        if ($this->agency_role === AgencyRole::User && $this->assignedSalons()->exists()) {
+            return true;
+        }
+
+        return $this->salonMemberships()->where('active', true)->exists();
+    }
+
+    /**
      * Self-service account deletion (SPEC §2 deletion rules): a SALON OWNER
      * may delete their own account; salon admins and staff may not — their
      * accounts are salon-managed. The agency owner never may (the singleton

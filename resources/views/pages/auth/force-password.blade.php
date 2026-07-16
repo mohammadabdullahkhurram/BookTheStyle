@@ -43,6 +43,10 @@
             />
 
             <x-ui.button type="submit" class="w-full" data-test="update-password-button">{{ __('Set password & continue') }}</x-ui.button>
+
+            <flux:text class="text-center text-sm text-secondary">
+                {{ __('Lost your temporary password? Log out and use "Forgot password" on the sign-in screen — completing a reset also replaces it. Or ask your administrator to issue a new one.') }}
+            </flux:text>
         </form>
     </div>
 </x-layouts::auth>
