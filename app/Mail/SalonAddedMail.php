@@ -2,6 +2,7 @@
 
 namespace App\Mail;
 
+use App\Models\Salon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
@@ -10,8 +11,10 @@ use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
 /**
- * Heads-up to the agency's owners/admins that a new salon was created
- * under their agency.
+ * Sent to the agency's owners/admins when a salon is created under their
+ * agency: the salon's key details, its web address, the contact information
+ * captured at creation, and what to do next. Queued + fail-safe at the
+ * dispatch site (CreateSalon) — a mail hiccup never blocks salon creation.
  */
 class SalonAddedMail extends Mailable implements ShouldQueue
 {
@@ -19,15 +22,14 @@ class SalonAddedMail extends Mailable implements ShouldQueue
 
     public function __construct(
         public string $recipientName,
-        public string $salonName,
+        public Salon $salon,
         public string $agencyName,
-        public string $salonUrl,
     ) {}
 
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: __('New salon added: :salon', ['salon' => $this->salonName]),
+            subject: __('New salon created: :salon', ['salon' => $this->salon->name]),
         );
     }
 
@@ -37,9 +39,10 @@ class SalonAddedMail extends Mailable implements ShouldQueue
             markdown: 'mail.salon-added',
             with: [
                 'name' => $this->recipientName,
-                'salonName' => $this->salonName,
                 'agencyName' => $this->agencyName,
-                'salonUrl' => $this->salonUrl,
+                'salon' => $this->salon,
+                'salonUrl' => 'https://'.$this->salon->slug.'.'.config('app.domain'),
+                'setupUrl' => route('salon.onboarding', $this->salon),
             ],
         );
     }

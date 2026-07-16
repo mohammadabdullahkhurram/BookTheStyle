@@ -43,7 +43,7 @@
                 />
             </div>
 
-            <form method="POST" action="{{ route('two-factor.login.store') }}">
+            <form method="POST" action="{{ route('two-factor.login.store') }}" novalidate>
                 @csrf
 
                 <div class="space-y-5 text-center">

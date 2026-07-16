@@ -93,6 +93,12 @@ new #[Title('Widgets')] class extends Component {
     {
         $this->authorize('manage', $this->salon);
 
+        // Accept 1F6F6B / #1f6f6b / whitespace — canonical #RRGGBB. Only
+        // genuinely invalid colours reach the regex rule below.
+        foreach (['accent', 'secondary', 'surface'] as $colour) {
+            $this->{$colour} = \App\Support\HexColor::tryNormalize($this->{$colour});
+        }
+
         $this->validate([
             'name' => ['required', 'string', 'max:120'],
             'accent' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
@@ -227,7 +233,7 @@ new #[Title('Widgets')] class extends Component {
                        class="bts-btn bts-btn-secondary bts-btn-sm">{{ __('Preview') }}</a>
                 </div>
 
-                <form wire:submit="save" class="flex flex-col gap-5">
+                <form wire:submit="save" class="flex flex-col gap-5" novalidate>
                     <flux:input wire:model="name" :label="__('Name')" :description="__('Internal only — e.g. \'Main site\' or \'Downtown location\'.')" />
 
                     <div class="grid gap-4 sm:grid-cols-3">

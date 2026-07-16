@@ -248,7 +248,7 @@ new #[Title('Edit salon')] class extends Component {
         </x-ui.page-header>
 
         <x-ui.card>
-        <form wire:submit="save" class="flex flex-col gap-6">
+        <form wire:submit="save" class="flex flex-col gap-6" novalidate>
             @include('partials.salon-profile-fields')
 
             <flux:separator :text="__('Subdomain and preferences')" />

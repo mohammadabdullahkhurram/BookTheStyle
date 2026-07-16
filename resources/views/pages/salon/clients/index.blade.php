@@ -223,7 +223,7 @@ new #[Title('Clients')] class extends Component {
         @if ($this->canManage)
             <section class="flex flex-col gap-4 border-b border-input-border pb-7">
                 <h2 class="bts-card-title">{{ __('Add a client') }}</h2>
-                <form wire:submit="create" class="flex flex-col gap-4">
+                <form wire:submit="create" class="flex flex-col gap-4" novalidate>
                     <div class="grid gap-4 sm:grid-cols-3">
                         <flux:input wire:model="name" :label="__('Name')" required />
                         <flux:input wire:model="phone" :label="__('Phone')" />
@@ -378,7 +378,7 @@ new #[Title('Clients')] class extends Component {
     </div>
 
     <x-ui.modal wire:model="showEdit" class="max-w-md" :heading="__('Edit client')">
-        <form wire:submit="saveEdit" class="flex flex-col gap-5">
+        <form wire:submit="saveEdit" class="flex flex-col gap-5" novalidate>
             <flux:input wire:model="editName" :label="__('Name')" required />
             <flux:input wire:model="editPhone" :label="__('Phone')" />
             <flux:input wire:model="editEmail" type="email" :label="__('Email')" />

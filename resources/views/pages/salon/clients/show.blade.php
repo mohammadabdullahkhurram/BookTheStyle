@@ -251,7 +251,7 @@ new #[Title('Client')] class extends Component {
             {{-- Notes: timestamped, attributed; any booking-area staff can add. --}}
             <x-ui.card class="flex flex-col gap-4">
                 <h2 class="bts-card-title">{{ __('Notes') }}</h2>
-                <form wire:submit="addNote" class="flex flex-col gap-3">
+                <form wire:submit="addNote" class="flex flex-col gap-3" novalidate>
                     <flux:textarea wire:model="noteBody" rows="2" :placeholder="__('e.g. Prefers cooler tones; usually runs 10 minutes late')" />
                     <div><x-ui.button type="submit" size="sm">{{ __('Add note') }}</x-ui.button></div>
                 </form>
@@ -279,7 +279,7 @@ new #[Title('Client')] class extends Component {
                 </div>
 
                 @if ($editingPrefs)
-                    <form wire:submit="savePreferences" class="flex flex-col gap-4">
+                    <form wire:submit="savePreferences" class="flex flex-col gap-4" novalidate>
                         <flux:textarea wire:model="allergies" rows="2" :label="__('Allergies / sensitivities')" :placeholder="__('e.g. PPD allergy — no permanent color')" />
                         <flux:textarea wire:model="formulaNotes" rows="2" :label="__('Formula / color notes')" :placeholder="__('e.g. 7N + 8A 1:1, 20 vol')" />
                         <flux:select wire:model="preferredStylistId" :label="__('Preferred stylist')">
@@ -327,7 +327,7 @@ new #[Title('Client')] class extends Component {
     </div>
 
     <x-ui.modal wire:model="showContactEdit" class="max-w-md" :heading="__('Edit client')">
-        <form wire:submit="saveContact" class="flex flex-col gap-5">
+        <form wire:submit="saveContact" class="flex flex-col gap-5" novalidate>
             <flux:input wire:model="editName" :label="__('Name')" required />
             <flux:input wire:model="editPhone" :label="__('Phone')" />
             <flux:input wire:model="editEmail" type="email" :label="__('Email')" />

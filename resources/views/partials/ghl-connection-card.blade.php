@@ -23,12 +23,16 @@
         {{ __('Connect this salon to its GoHighLevel sub-account. Optional — you can fill it in later. The token is stored encrypted and is never shown again.') }}
     </p>
 
-    <form wire:submit="saveGhlConnection" class="flex flex-col gap-5">
+    <form wire:submit="saveGhlConnection" class="flex flex-col gap-5" novalidate>
         <flux:input wire:model="ghlLocationId" :label="__('Location ID')"
             :description="__('The GoHighLevel sub-account / location ID.')" placeholder="e.g. aBcD1234" />
 
         <flux:input wire:model="ghlCalendarId" :label="__('Calendar ID')"
             :description="__('The salon\'s master GoHighLevel calendar ID.')" placeholder="e.g. cal_aBcD1234" />
+
+        {{-- ABOVE the token field: grant the right scopes BEFORE going to
+             GHL to create the token. Expanded until a token exists. --}}
+        @include('partials.ghl-scopes', ['open' => ! $tokenIsSet])
 
         @if ($tokenIsSet)
             <div class="flex flex-col gap-2">
@@ -45,10 +49,6 @@
                 :description="__('Stored encrypted at rest. Write-only — it is never shown back once saved.')"
                 autocomplete="off" />
         @endif
-
-        {{-- Present wherever a token is entered or rotated, so the right
-             scopes get granted up front (shared partial; config/ghl.php). --}}
-        @include('partials.ghl-scopes')
 
         <div class="flex flex-wrap items-center gap-3">
             <x-ui.button type="submit">{{ __('Save connection') }}</x-ui.button>

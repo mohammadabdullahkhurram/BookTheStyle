@@ -69,7 +69,7 @@ new class extends Component {
             </div>
 
             @foreach ($stylistSalons as $salonId => $entry)
-                <form wire:submit="saveBio({{ $salonId }})" class="flex flex-col gap-3" wire:key="bio-{{ $salonId }}">
+                <form wire:submit="saveBio({{ $salonId }})" class="flex flex-col gap-3" wire:key="bio-{{ $salonId }}" novalidate>
                     @if (count($stylistSalons) > 1)
                         <flux:label>{{ $entry['name'] }}</flux:label>
                     @endif

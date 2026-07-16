@@ -124,12 +124,13 @@ it('never renders the stored token in the agency edit response', function () {
         ->assertDontSee('pit-super-secret');
 });
 
-it('shows the required PIT scopes at the new-salon token entry point', function () {
+it('shows the required PIT scopes ABOVE the token field, expanded, on the new-salon GHL step', function () {
     $agency = Agency::factory()->create();
     $admin = User::factory()->create(['agency_id' => $agency->id, 'agency_role' => AgencyRole::Admin]);
     $this->actingAs($admin);
 
     $page = Livewire::test('pages::agency.salons.create')
+        ->call('goTo', 'ghl')
         ->assertSee('Required scopes');
 
     // The full config-sourced list renders — same shared partial as
@@ -138,6 +139,23 @@ it('shows the required PIT scopes at the new-salon token entry point', function 
         $page->assertSee($scope)->assertSee($label);
     }
     $page->assertSee('Scope list (paste into your notes while ticking)');
+
+    // Instruction precedes action: the scopes disclosure is OPEN by default
+    // here and sits BEFORE the token input in the document.
+    $html = $page->html();
+    expect(strpos($html, 'Required scopes'))->toBeLessThan(strpos($html, 'Private integration token'));
+    expect(substr($html, (int) strpos($html, '<details'), 200))->toContain('open');
+});
+
+it('places the scopes above the token field on the settings connection card too', function () {
+    $salon = Salon::factory()->create();
+    $owner = salonOwnerOf($salon);
+
+    $html = Livewire::actingAs($owner)
+        ->test('pages::salon.settings', ['salon' => $salon])
+        ->html();
+
+    expect(strpos($html, 'Required scopes'))->toBeLessThan(strpos($html, 'Private integration token'));
 });
 
 it('creates a salon with GHL fields from the console create screen', function () {

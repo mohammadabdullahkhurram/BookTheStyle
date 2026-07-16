@@ -88,7 +88,7 @@ new #[Title('New agency user')] class extends Component {
             </div>
         @else
             <x-ui.card>
-            <form wire:submit="save" class="flex flex-col gap-6">
+            <form wire:submit="save" class="flex flex-col gap-6" novalidate>
                 <flux:input wire:model="name" :label="__('Name')" required autofocus />
                 <flux:input wire:model="email" type="email" :label="__('Email')" required />
 

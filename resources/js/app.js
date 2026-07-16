@@ -16,6 +16,39 @@ document.addEventListener('alpine:navigate', (event) => {
     }
 });
 
+// Take the user TO a validation failure. Flux marks the offending control
+// aria-invalid="true" and renders the message in an aria-live alert; what was
+// missing is bringing it into view. After each Livewire round-trip, if a NEW
+// first-invalid field appeared (identity-tracked so 5s polling or repeated
+// commits never re-yank the viewport), scroll it to centre and focus it —
+// focusing also makes screen readers read the aria-describedby error. Works
+// for stepped flows too: the server lands on the offending step first, then
+// this brings the field into view.
+document.addEventListener('livewire:init', () => {
+    let lastInvalid = null;
+
+    window.Livewire.hook('commit', ({ succeed }) => {
+        succeed(() => {
+            queueMicrotask(() => {
+                const invalid = document.querySelector('[aria-invalid="true"]');
+
+                if (! invalid) {
+                    lastInvalid = null;
+                    return;
+                }
+                if (invalid === lastInvalid || invalid.contains(document.activeElement)) {
+                    lastInvalid = invalid;
+                    return;
+                }
+
+                lastInvalid = invalid;
+                invalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                invalid.focus({ preventScroll: true });
+            });
+        });
+    });
+});
+
 // Themed in-app confirmation — replaces the native browser confirm() that
 // wire:confirm used. Any element inside a Livewire component calls
 // $store.confirm.ask({title, message, confirmLabel, danger}, () => $wire...)

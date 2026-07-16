@@ -215,7 +215,7 @@ new #[Title('Services')] class extends Component {
 
         <x-ui.card class="flex flex-col gap-4">
             <h2 class="bts-card-title">{{ __('Add a service') }}</h2>
-            <form wire:submit="create" class="flex flex-col gap-5">
+            <form wire:submit="create" class="flex flex-col gap-5" novalidate>
                 {{-- Default duration first, so the per-stylist override placeholder
                      below reflects it and "blank = service default" reads true. --}}
                 <div class="grid items-end gap-4 sm:grid-cols-4">
@@ -305,7 +305,7 @@ new #[Title('Services')] class extends Component {
     </div>
 
     <x-ui.modal wire:model="showEdit" class="max-w-lg" :heading="__('Edit service')">
-        <form wire:submit="saveEdit" class="flex flex-col gap-5">
+        <form wire:submit="saveEdit" class="flex flex-col gap-5" novalidate>
             <flux:input wire:model="editName" :label="__('Name')" required />
             <div class="grid gap-4 sm:grid-cols-2">
                 <flux:input type="number" wire:model.live="editDuration" :label="__('Default duration (min)')" min="5" max="600" step="5" />

@@ -232,7 +232,7 @@
                 {{ __('Account settings') }}
             </flux:menu.item>
             <flux:menu.separator />
-            <form method="POST" action="{{ route('logout') }}" class="w-full">
+            <form method="POST" action="{{ route('logout') }}" class="w-full" novalidate>
                 @csrf
                 <flux:menu.item as="button" type="submit" icon="arrow-right-start-on-rectangle"
                                 class="w-full cursor-pointer" data-test="logout-button">

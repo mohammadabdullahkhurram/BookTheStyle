@@ -1,8 +1,9 @@
 {{-- The GHL Private Integration required-scopes disclosure — shown at EVERY
-     point a PIT can be entered (settings/agency connection card, the agency
-     new-salon form; the setup wizard renders its own copy-field variant of
-     the same config list). Source of truth: config/ghl.php. --}}
-<details class="group rounded-[11px] border border-input-border bg-field">
+     point a PIT can be entered, ABOVE the token field (the scopes are the
+     instruction that precedes creating the token in GHL, not a footnote).
+     Pass 'open' => true at a first-time entry point so the list is expanded
+     before the user leaves for GHL. Source of truth: config/ghl.php. --}}
+<details class="group rounded-[11px] border border-input-border bg-field" @if ($open ?? false) open @endif>
     <summary class="flex cursor-pointer select-none items-center justify-between gap-2 px-4 py-3 text-[14px] font-medium text-body">
         {{ __('Required scopes') }}
         <flux:icon.chevron-down variant="micro" class="shrink-0 text-faint transition group-open:rotate-180" />

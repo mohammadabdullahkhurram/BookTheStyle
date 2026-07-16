@@ -76,7 +76,7 @@ new #[Title('Edit agency user')] class extends Component {
         </x-ui.page-header>
 
         <x-ui.card>
-        <form wire:submit="save" class="flex flex-col gap-6">
+        <form wire:submit="save" class="flex flex-col gap-6" novalidate>
             <flux:input wire:model="name" :label="__('Name')" required />
 
             <flux:select wire:model.live="agency_role" :label="__('Agency role')">

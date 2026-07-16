@@ -205,7 +205,7 @@ new #[Title('Staff')] class extends Component {
 
         <x-ui.card class="flex flex-col gap-4">
             <h2 class="bts-card-title">{{ __('Invite staff') }}</h2>
-            <form wire:submit="invite" class="flex flex-col gap-4">
+            <form wire:submit="invite" class="flex flex-col gap-4" novalidate>
                 <div class="grid gap-4 sm:grid-cols-2">
                     <flux:input wire:model="name" :label="__('Name')" required />
                     <flux:input wire:model="email" type="email" :label="__('Email')" required />
@@ -307,7 +307,7 @@ new #[Title('Staff')] class extends Component {
     </div>
 
     <x-ui.modal wire:model="showEdit" class="max-w-md" :heading="__('Edit staff member')">
-        <form wire:submit="saveEdit" class="flex flex-col gap-5">
+        <form wire:submit="saveEdit" class="flex flex-col gap-5" novalidate>
             <flux:select wire:model.live="editRole" :label="__('Role')">
                 @foreach ($this->assignableRoles as $r)
                     <flux:select.option value="{{ $r->value }}">{{ $r->label() }}</flux:select.option>

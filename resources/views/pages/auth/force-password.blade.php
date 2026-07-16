@@ -7,7 +7,7 @@
 
         <x-auth-session-status class="text-center" :status="session('status')" />
 
-        <form method="POST" action="{{ route('password.change.update') }}" class="flex flex-col gap-6">
+        <form method="POST" action="{{ route('password.change.update') }}" class="flex flex-col gap-6" novalidate>
             @csrf
             @method('PUT')
 

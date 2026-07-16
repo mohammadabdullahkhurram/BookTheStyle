@@ -80,9 +80,8 @@ class CreateSalon
         foreach ($managers as $manager) {
             rescue(fn () => Mail::to($manager->email)->send(new SalonAddedMail(
                 $manager->name,
-                $salon->name,
+                $salon,
                 $agency->name,
-                route('salon.show', $salon),
             )));
         }
     }

@@ -105,9 +105,31 @@ it('notifies agency owners and admins — not agency users — when a salon is a
         'slug' => 'mail-added', 'timezone' => 'America/New_York',
     ]));
 
-    Mail::assertQueued(SalonAddedMail::class, fn ($mail) => $mail->hasTo($owner->email) && $mail->salonName === 'Glow Bar');
+    Mail::assertQueued(SalonAddedMail::class, fn ($mail) => $mail->hasTo($owner->email) && $mail->salon->name === 'Glow Bar');
     Mail::assertQueued(SalonAddedMail::class, fn ($mail) => $mail->hasTo($admin->email));
     Mail::assertNotQueued(SalonAddedMail::class, fn ($mail) => $mail->hasTo($plainUser->email));
+});
+
+it('gives the salon-created email the details the owner needs: address, contacts, next steps', function () {
+    $agency = mailAgency();
+    mailAgencyOwnerOf($agency);
+    $salon = app(CreateSalon::class)->handle($agency, salonProfileInput([
+        'slug' => 'mail-detail', 'timezone' => 'America/New_York',
+    ]));
+
+    $html = (new SalonAddedMail('Ava Agency', $salon, $agency->name))->render();
+
+    expect($html)
+        // The salon and where it lives on the web.
+        ->toContain($salon->name)
+        ->toContain('mail-detail.'.config('app.domain'))
+        // Contact + business details captured at creation.
+        ->toContain($salon->contact_email)
+        ->toContain($salon->business_email)
+        // Timezone and what to do next, with the wizard as the entry point.
+        ->toContain('America/New_York')
+        ->toContain('setup wizard')
+        ->toContain('/setup');
 });
 
 // ---------------------------------------------------------------------------
@@ -118,7 +140,7 @@ it('renders every mailable with its key content and a plain-text alternative', f
     $mailables = [
         [new AccountCreatedMail('Nina New', 'Glow Bar', 'https://example.test/login'), ['Nina New', 'Glow Bar'], 'mail.account-created', ['name' => 'Nina New', 'workplace' => 'Glow Bar', 'loginUrl' => 'https://x.test']],
         [new StaffInviteMail('Nina New', 'Glow Bar', 'Staff', 'tmp-Secret123', 'https://example.test/login'), ['Nina New', 'Glow Bar', 'tmp-Secret123'], 'mail.staff-invite', ['name' => 'N', 'salonName' => 'G', 'roleLabel' => 'Staff', 'temporaryPassword' => 'tmp-Secret123', 'loginUrl' => 'https://x.test']],
-        [new SalonAddedMail('Ava Agency', 'Glow Bar', 'Bluejaypro', 'https://example.test/salon'), ['Ava Agency', 'Glow Bar', 'Bluejaypro'], 'mail.salon-added', ['name' => 'A', 'salonName' => 'G', 'agencyName' => 'B', 'salonUrl' => 'https://x.test']],
+        [new SalonAddedMail('Ava Agency', Salon::factory()->create(['name' => 'Glow Bar']), 'Bluejaypro'), ['Ava Agency', 'Glow Bar', 'Bluejaypro'], null, []],
         [new TemporaryPasswordMail(User::factory()->create(), 'tmp-Secret456', 'invite'), ['tmp-Secret456'], null, []],
     ];
 

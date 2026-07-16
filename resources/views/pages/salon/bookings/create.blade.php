@@ -397,7 +397,7 @@ new #[Title('New booking')] class extends Component {
         @error('items') <div class="text-[14px] text-danger">{{ $message }}</div> @enderror
         @error('client') <div class="text-[14px] text-danger">{{ $message }}</div> @enderror
 
-        <form wire:submit="save" class="flex flex-col gap-6">
+        <form wire:submit="save" class="flex flex-col gap-6" novalidate>
             {{-- Client — first and prominent. --}}
             <x-ui.card class="flex flex-col gap-4">
                 <h2 class="bts-card-title">{{ __('Client') }}</h2>

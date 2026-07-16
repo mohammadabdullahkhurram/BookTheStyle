@@ -645,9 +645,17 @@ new #[Title('Salon settings')] class extends Component {
         Flux::toast(variant: 'success', text: __('Booking policy saved.'));
     }
 
+    /** Accept 1F6F6B / #1f6f6b / whitespace — canonical #RRGGBB, live. */
+    public function updatedAccent(): void
+    {
+        $this->accent = \App\Support\HexColor::tryNormalize($this->accent);
+    }
+
     public function saveBranding(UpdateBranding $action): void
     {
         $this->authorize('manage', $this->salon);
+
+        $this->accent = \App\Support\HexColor::tryNormalize($this->accent);
 
         $this->validate([
             'accent' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
@@ -818,7 +826,7 @@ new #[Title('Salon settings')] class extends Component {
         @can('manageProfile', $salon)
             <x-ui.card class="flex flex-col gap-5">
                 <h2 class="bts-card-title">{{ __('Business profile') }}</h2>
-                <form wire:submit="saveProfile" class="flex flex-col gap-5">
+                <form wire:submit="saveProfile" class="flex flex-col gap-5" novalidate>
                     @include('partials.salon-profile-fields')
                     <div><x-ui.button type="submit">{{ __('Save business profile') }}</x-ui.button></div>
                 </form>
@@ -827,7 +835,7 @@ new #[Title('Salon settings')] class extends Component {
 
         <x-ui.card class="flex flex-col gap-4">
             <h2 class="bts-card-title">{{ __('Timezone') }}</h2>
-            <form wire:submit="saveTimezone" class="flex flex-col gap-4">
+            <form wire:submit="saveTimezone" class="flex flex-col gap-4" novalidate>
                 <flux:select wire:model="timezone" :label="__('Salon timezone')">
                     @foreach ($this->timezones as $tz)
                         <flux:select.option value="{{ $tz }}">{{ $tz }}</flux:select.option>
@@ -842,7 +850,7 @@ new #[Title('Salon settings')] class extends Component {
 
         <x-ui.card class="flex flex-col gap-4">
             <h2 class="bts-card-title">{{ __('Currency') }}</h2>
-            <form wire:submit="saveCurrency" class="flex flex-col gap-4">
+            <form wire:submit="saveCurrency" class="flex flex-col gap-4" novalidate>
                 <div class="max-w-56">
                     <flux:select wire:model="currency" :label="__('Display currency')">
                         @foreach (\App\Support\Money::codes() as $code)
@@ -862,7 +870,7 @@ new #[Title('Salon settings')] class extends Component {
         <section x-show="tab === 'policy'" x-cloak class="flex flex-col gap-6">
         <x-ui.card class="flex flex-col gap-5">
             <h2 class="bts-card-title">{{ __('Booking policy') }}</h2>
-            <form wire:submit="savePolicy" class="flex flex-col gap-5">
+            <form wire:submit="savePolicy" class="flex flex-col gap-5" novalidate>
                 <div class="flex flex-col gap-3">
                     <flux:checkbox wire:model="allow_walkins" :label="__('Allow walk-ins')" />
                     <flux:checkbox wire:model="allow_same_day" :label="__('Allow same-day booking')" />
@@ -906,7 +914,7 @@ new #[Title('Salon settings')] class extends Component {
         <section x-show="tab === 'branding'" x-cloak class="flex flex-col gap-6">
         <x-ui.card class="flex flex-col gap-5">
             <h2 class="bts-card-title">{{ __('Branding') }}</h2>
-            <form wire:submit="saveBranding" class="flex flex-col gap-5">
+            <form wire:submit="saveBranding" class="flex flex-col gap-5" novalidate>
                 {{-- Accent: a colour-wheel swatch + hex, synced both ways.
                      The swatch is the styled trigger; the picker itself is
                      the OS colour wheel. --}}
@@ -1033,7 +1041,7 @@ new #[Title('Salon settings')] class extends Component {
                         <p class="text-[13.5px] font-medium text-[#A23A3A]">{{ $message }}</p>
                     @enderror
 
-                    <form wire:submit="saveGhlMapping" class="flex flex-col gap-5">
+                    <form wire:submit="saveGhlMapping" class="flex flex-col gap-5" novalidate>
                         @if ($ghlDirectoryLoaded)
                             <flux:select wire:model.live="ghlCalendarId" :label="__('Master calendar')"
                                 :description="__('The team calendar whose members are your stylists.')">
