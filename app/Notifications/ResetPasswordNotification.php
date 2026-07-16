@@ -17,6 +17,23 @@ class ResetPasswordNotification extends ResetPassword implements ShouldQueue
 {
     use Queueable;
 
+    /**
+     * LOGIN-CRITICAL host fix: the parent builds url(route(..., false)) — a
+     * relative path glued onto APP_URL, which is the APEX (marketing) host.
+     * Auth lives on app.{APP_DOMAIN} (Fortify's routes are domain-bound
+     * there), so every produced link 404'd. An ABSOLUTE route() takes the
+     * host from the route's own registered domain — provably the host that
+     * actually serves /reset-password, independent of APP_URL, and correct
+     * in the queued-worker context and under config:cache.
+     */
+    protected function resetUrl($notifiable): string
+    {
+        return route('password.reset', [
+            'token' => $this->token,
+            'email' => $notifiable->getEmailForPasswordReset(),
+        ]);
+    }
+
     protected function buildMailMessage($url): MailMessage
     {
         return (new MailMessage)

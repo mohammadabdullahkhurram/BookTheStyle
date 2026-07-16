@@ -5,6 +5,7 @@ namespace App\Services\Ghl;
 use App\Actions\Salons\TestGhlConnection;
 use App\Models\Salon;
 use App\Models\StylistProfile;
+use App\Support\AppHost;
 use App\Support\PublicUrl;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
@@ -438,10 +439,10 @@ class IntegrationChecks
             return IntegrationCheckResult::failed(__('Generate the webhook secret first.'));
         }
 
-        // Built from app.url (the webhook route lives on the app host) so the
-        // check follows the configured public URL — route() would bake in the
-        // host the app booted with.
-        $url = rtrim((string) config('app.url'), '/').'/webhooks/ghl';
+        // The webhook lives on the APP host, not the apex APP_URL — building
+        // off app.url alone was the reset-email bug's twin. AppHost derives
+        // scheme/port from app.url and the host from app.{APP_DOMAIN}.
+        $url = AppHost::app('webhooks/ghl');
 
         if (! PublicUrl::isPublic($url)) {
             return IntegrationCheckResult::blocked(
@@ -499,7 +500,8 @@ class IntegrationChecks
             );
         }
 
-        $url = rtrim((string) config('app.url'), '/').'/api/v1/booking/availability';
+        // Same host rule: the booking API lives on app.{APP_DOMAIN}.
+        $url = AppHost::app('api/v1/booking/availability');
 
         if (! PublicUrl::isPublic($url)) {
             return IntegrationCheckResult::blocked(

@@ -3,6 +3,7 @@
 namespace App\Mail;
 
 use App\Models\Salon;
+use App\Support\AppHost;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
@@ -41,7 +42,7 @@ class SalonAddedMail extends Mailable implements ShouldQueue
                 'name' => $this->recipientName,
                 'agencyName' => $this->agencyName,
                 'salon' => $this->salon,
-                'salonUrl' => 'https://'.$this->salon->slug.'.'.config('app.domain'),
+                'salonUrl' => AppHost::salon($this->salon->slug),
                 'setupUrl' => route('salon.onboarding', $this->salon),
             ],
         );

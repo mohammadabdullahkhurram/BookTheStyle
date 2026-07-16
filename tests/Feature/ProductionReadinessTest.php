@@ -76,13 +76,14 @@ it('derives every UI-shown integration URL from config, never a hardcoded host',
     expect(route('widget.script'))->toContain((string) config('app.domain'));
     expect(route('api.booking.availability'))->toContain('app.'.config('app.domain'));
 
-    // …and the voice-API endpoints printed in settings come from APP_URL.
-    config(['app.url' => 'https://app.bookthestyle.com']);
+    // …and the voice-API endpoints printed in settings come from the ROUTE
+    // TABLE (host-proven), never from APP_URL — which is the apex.
     $salon = Salon::factory()->create();
 
     Livewire\Livewire::actingAs(salonOwnerOf($salon))
         ->test('pages::salon.settings', ['salon' => $salon])
-        ->assertSee('https://app.bookthestyle.com/api/v1/booking/availability');
+        ->assertSee(route('api.booking.availability'), false)
+        ->assertSee(route('api.booking.create'), false);
 });
 
 it('serves calendar feed links off the configured app host', function () {

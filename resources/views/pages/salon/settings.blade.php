@@ -1353,7 +1353,7 @@ new #[Title('Salon settings')] class extends Component {
             </div>
 
             <p class="text-[12.5px] text-faint">
-                POST {{ rtrim(config('app.url'), '/') }}/api/v1/booking/availability · POST {{ rtrim(config('app.url'), '/') }}/api/v1/booking/create — Authorization: Bearer &lt;token&gt;
+                POST {{ route('api.booking.availability') }} · POST {{ route('api.booking.create') }} — Authorization: Bearer &lt;token&gt;
             </p>
 
             {{-- End-to-end test: call this salon's own availability endpoint

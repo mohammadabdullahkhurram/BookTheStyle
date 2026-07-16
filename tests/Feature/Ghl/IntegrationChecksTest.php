@@ -245,7 +245,8 @@ it('shows the needs-live-URL state for the webhook check on a local app URL', fu
 });
 
 it('passes the webhook check when the public endpoint verifies the secret', function () {
-    config(['app.url' => CHECKS_PUBLIC_URL]);
+    // Production-faithful: APP_URL is the APEX; the checks must still hit app.
+    config(['app.url' => 'https://bookthestyle.com', 'app.domain' => 'bookthestyle.com']);
     Http::fake([CHECKS_PUBLIC_URL.'/webhooks/ghl' => Http::response(['received' => true, 'test' => true])]);
     $salon = checksSalon();
 
@@ -259,7 +260,8 @@ it('passes the webhook check when the public endpoint verifies the secret', func
 });
 
 it('explains a webhook secret mismatch with the likely fix', function () {
-    config(['app.url' => CHECKS_PUBLIC_URL]);
+    // Production-faithful: APP_URL is the APEX; the checks must still hit app.
+    config(['app.url' => 'https://bookthestyle.com', 'app.domain' => 'bookthestyle.com']);
     Http::fake([CHECKS_PUBLIC_URL.'/webhooks/ghl' => Http::response(['message' => 'Unauthorized.'], 401)]);
     $salon = checksSalon();
 
@@ -312,7 +314,8 @@ it('shows the needs-live-URL state for the booking API check on a local app URL'
 });
 
 it('proves the full 200-with-slots path when the fresh token is still on screen', function () {
-    config(['app.url' => CHECKS_PUBLIC_URL]);
+    // Production-faithful: APP_URL is the APEX; the checks must still hit app.
+    config(['app.url' => 'https://bookthestyle.com', 'app.domain' => 'bookthestyle.com']);
     Http::fake([CHECKS_PUBLIC_URL.'/api/v1/booking/availability' => Http::response([
         'success' => true,
         'slots' => [['spoken' => 'Tomorrow 10:00'], ['spoken' => 'Tomorrow 11:00']],
@@ -333,7 +336,8 @@ it('proves the full 200-with-slots path when the fresh token is still on screen'
 });
 
 it('verifies endpoint + auth stack without the plaintext token (hashed at rest)', function () {
-    config(['app.url' => CHECKS_PUBLIC_URL]);
+    // Production-faithful: APP_URL is the APEX; the checks must still hit app.
+    config(['app.url' => 'https://bookthestyle.com', 'app.domain' => 'bookthestyle.com']);
     Http::fake([CHECKS_PUBLIC_URL.'/api/v1/booking/availability' => Http::response([
         'success' => false, 'error' => 'unauthenticated', 'message' => 'Invalid or missing API token.',
     ], 401)]);
@@ -347,7 +351,8 @@ it('verifies endpoint + auth stack without the plaintext token (hashed at rest)'
 });
 
 it('gives a helpful 404 message when the booking API route is missing', function () {
-    config(['app.url' => CHECKS_PUBLIC_URL]);
+    // Production-faithful: APP_URL is the APEX; the checks must still hit app.
+    config(['app.url' => 'https://bookthestyle.com', 'app.domain' => 'bookthestyle.com']);
     Http::fake([CHECKS_PUBLIC_URL.'/api/v1/booking/availability' => Http::response('not found', 404)]);
     $salon = checksSalon();
     checksApiToken($salon);
@@ -359,7 +364,8 @@ it('gives a helpful 404 message when the booking API route is missing', function
 });
 
 it('requires a token before the booking API can be tested', function () {
-    config(['app.url' => CHECKS_PUBLIC_URL]);
+    // Production-faithful: APP_URL is the APEX; the checks must still hit app.
+    config(['app.url' => 'https://bookthestyle.com', 'app.domain' => 'bookthestyle.com']);
     $salon = checksSalon();
 
     $result = runCheck($salon, 'voice');
