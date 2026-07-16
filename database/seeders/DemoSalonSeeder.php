@@ -22,6 +22,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 /**
  * A COMPLETE, realistic demo salon for UI/UX review — every screen has data:
@@ -53,6 +54,13 @@ class DemoSalonSeeder extends Seeder
 
     public function run(): void
     {
+        // LOCAL/DEV ONLY: every demo account ships the literal password
+        // "password" with no forced change. Running this against the live
+        // database would create weak-credential logins — refuse outright.
+        if (app()->isProduction()) {
+            throw new RuntimeException('DemoSalonSeeder is local/dev-only — it creates demo accounts with weak passwords and must never run in production.');
+        }
+
         if (Salon::query()->where('slug', self::SLUG)->exists()) {
             $this->say('Demo salon "'.self::SLUG.'" already exists — nothing created (the seeder is additive and idempotent).');
 

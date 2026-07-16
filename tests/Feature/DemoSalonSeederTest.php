@@ -118,3 +118,12 @@ it('composes with the base seeder without conflict', function () {
     expect(Agency::query()->where('name', 'Bluejaypro')->count())->toBe(1);
     expect(Salon::query()->where('slug', 'demo')->firstOrFail()->agency->name)->toBe('Bluejaypro');
 });
+
+it('refuses to run in production — demo accounts carry weak passwords', function () {
+    $this->app['env'] = 'production';
+
+    expect(fn () => (new DemoSalonSeeder)->run())
+        ->toThrow(RuntimeException::class, 'must never run in production');
+
+    expect(Salon::query()->where('slug', 'demo')->exists())->toBeFalse();
+});
