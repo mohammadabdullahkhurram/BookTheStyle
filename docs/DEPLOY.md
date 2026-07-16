@@ -2,7 +2,9 @@
 
 Managed hosting: SSH + cron available, **no supervisor** (no always-on queue
 worker), **no Node** (assets are built locally and committed), PHP-FPM behind
-Hostinger's TLS-terminating proxy, web root is a `public_html` folder.
+Hostinger's TLS-terminating proxy (fronted by Cloudflare), web root is a
+`public_html` folder. Salon onboarding runbook: `docs/OPERATIONS.md`.
+Database backup/restore: `docs/BACKUPS.md`.
 
 ## Layout
 
@@ -122,3 +124,18 @@ terminates public TLS itself.
   keeps the session HTTPS-only across salon subdomains.
 - Public endpoints are rate-limited per IP/token/salon (widget, voice API,
   webhook, calendar feed).
+
+## Troubleshooting
+
+| Symptom | Likely cause → fix |
+|---|---|
+| Config/route changes not taking effect | Caches are stale — `php artisan config:cache && php artisan route:cache && php artisan view:cache` after every pull |
+| GHL syncs / emails not happening | The cron isn't running — check hPanel → Cron Jobs; `php artisan schedule:run` by hand and watch output; inspect `jobs` / `failed_jobs` tables |
+| Styles/JS look stale after deploy | Assets are committed — the LOCAL build step was skipped before push (`npm run build` locally → commit `public/build` → push → pull) |
+| `Unknown column` on `migrate --force` | A migration references a column not yet in history — CI's `mysql-migrations` job + `MigrationOrderTest` catch this class; fix the migration, never reorder ones already run |
+| Every visitor rate-limited / none are | Proxy trust broken — verify Cloudflare proxying is on and `CF-Connecting-IP` reaches the origin; see `TrustCloudflareClientIp` |
+| Voice AI / webhook suddenly failing with challenge pages | A Cloudflare WAF/bot rule stopped skipping the machine paths (list above) |
+| `http://` URLs appearing anywhere | `APP_ENV` isn't `production` or `APP_URL` isn't https in the server `.env` |
+| Errors after a rollback | `composer install --no-dev` + the three cache commands must re-run after `git reset` |
+
+Logs: `storage/logs/` on the server (`LOG_CHANNEL=daily` recommended so they rotate).

@@ -1,156 +1,90 @@
 # BookTheStyle
 
-A multi-tenant booking platform for hair/beauty salons, operated by an agency (one agency account) that manages many salons (sub-accounts). Each salon runs its own bookings, stylists, services, and its own GoHighLevel (GHL) sub-account integration. **Scheduling only — no payments.**
+Multi-tenant booking platform for hair/beauty salons, operated by one **agency** (Bluejaypro) that manages many **salons**. Each salon runs its own bookings, stylists, services, embeddable booking widget, and its own GoHighLevel (GHL) sub-account integration. **Scheduling only — no payments.**
 
-`SPEC.md` is the canonical product spec, `CLAUDE.md` holds the operating rules, and `DESIGN-TOKENS.md` is the authoritative design system.
+**Live in production:** bookthestyle.com (Hostinger Cloud, PHP 8.4, MySQL, Cloudflare-fronted).
 
-Backups & restore points: every checkpoint tag/branch and its restore command is cataloged in [`docs/BACKUPS.md`](docs/BACKUPS.md).
+| Doc | Purpose |
+|---|---|
+| [`SPEC.md`](SPEC.md) | Domain spec: tenancy, roles, booking/status model, availability rules |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | The hard parts: GHL sync design, wire quirks, voice API, tenant isolation |
+| [`docs/DEPLOY.md`](docs/DEPLOY.md) | Operations runbook: deploy, update, rollback, cron, Cloudflare |
+| [`docs/OPERATIONS.md`](docs/OPERATIONS.md) | Onboarding a salon end-to-end (agency team runbook) |
+| [`docs/BACKUPS.md`](docs/BACKUPS.md) | Production backup/restore + git restore points |
+| [`docs/STATUS-and-ROADMAP.md`](docs/STATUS-and-ROADMAP.md) | Honest state of play: shipped / outstanding / deferred |
+| [`DESIGN-TOKENS.md`](DESIGN-TOKENS.md) | The design system contract (exact tokens, build to it) |
+| [`CLAUDE.md`](CLAUDE.md) | Working agreement for AI-assisted changes |
+
+## Architecture in brief
+
+- **Multi-tenant, subdomain-per-salon.** Four hostnames off one Laravel app: apex (marketing), `app.` (auth, agency console, `/cal` feeds, `/webhooks`, voice API), `register.` (public book-a-call), `{slug}.` (salon tenants). The active salon resolves from the request Host; `ResolveSalon` middleware + a `salon_id` global scope enforce isolation server-side.
+- **Two-way GHL sync per salon.** Each salon connects its own GHL sub-account via a Private Integration Token (encrypted at rest). Bookings push out (reminders, voice AI, chat live in GHL); GHL-side bookings flow back in via webhook; an hourly reconcile repairs drift. Echo-loop protection is the load-bearing piece — see `docs/ARCHITECTURE.md`.
+- **The app is the booking engine.** GHL's voice AI books through the app's own `/api/v1/booking/*` endpoints (per-salon bearer token); the embeddable widget books through slug-scoped public endpoints. One slot engine serves every path.
+- **Theme system.** Salon app: Marble (default) or Classic per salon; agency/auth surfaces use the brand palette; widgets carry per-widget branding. Registry: `app/Support/ThemeRegistry.php`.
+- **Shared-hosting-shaped ops.** Database queue drained by a single per-minute cron (no supervisor); assets built locally and committed (no Node on the server); Cloudflare terminates TLS.
 
 ## Stack
 
-- **PHP 8.4+** · **Laravel 13** (pinned to `13.15.0`) · auth via **Fortify** (no public self-registration — staff are invited)
-- **Livewire 4** (+ Blaze) · **Flux UI** (free components only) · **Alpine** (bundled)
-- **Tailwind 4** (via `@tailwindcss/vite`) · **Vite** · self-hosted fonts (Schibsted Grotesk + Hanken Grotesk, no CDN)
-- Calendar: a bespoke Livewire day/week view (Livewire polling; no external calendar library)
-- **MySQL** in production (Hostinger); **SQLite** is fine for local dev/tests
-- Tooling: **Pest** (tests), **Pint** (laravel preset), **PHPStan**/Larastan level 7
-
-## Tenancy is subdomain-based
-
-The platform is split four ways by host (production shown; `APP_DOMAIN` is the apex):
-
-| Host | Role |
-|---|---|
-| `bookthestyle.com` (apex) | Public marketing landing |
-| `app.bookthestyle.com` | The application — login/logout, account settings, agency console, salon picker (+ `/cal`, `/webhooks`) |
-| `register.bookthestyle.com` | Public "book a call" page (GoHighLevel calendar embed) |
-| `{slug}.bookthestyle.com` | Salon tenant subdomains |
-
-The active salon is resolved from the request **Host**. See `SPEC.md` §3.1 for the full decision.
+- **PHP 8.4** · **Laravel 13** (pinned `13.15.0` — see CLAUDE.md) · **Fortify** auth (no public self-registration; staff are invited) · 2FA + passkeys
+- **Livewire 4** (+ Blaze) · **Flux UI** (free components only) · **Alpine** (bundled) · **Tailwind 4** · **Vite**
+- Self-hosted fonts (Fraunces + Hanken Grotesk — no CDN); bespoke Livewire calendar (polling, no external calendar library)
+- **MySQL** in production; **SQLite** for local dev/tests
+- **Pest** (tests) · **Pint** · **Larastan** level 7
 
 ## Local development
 
-Local dev uses **`lvh.me`** — a registrable domain whose wildcard DNS resolves `lvh.me` and every `*.lvh.me` to `127.0.0.1`. **No `/etc/hosts` edits and no extra tooling needed.** We use it instead of `*.localhost` because browsers refuse to set a `Domain` cookie for `localhost`/`*.localhost`, so the login session can't be shared from the apex to a salon subdomain there; `lvh.me` is a normal registrable domain, so the shared session works like production. (`localtest.me` is an equivalent fallback.)
+Local dev uses **`lvh.me`** (wildcard DNS to `127.0.0.1` — no `/etc/hosts` edits). `*.localhost` does not work: browsers refuse a `Domain` cookie there, which breaks the cross-subdomain session.
 
 ```bash
-cp .env.example .env
-php artisan key:generate
-php artisan migrate --seed     # SQLite is fine locally: set DB_CONNECTION=sqlite
-npm install && npm run dev     # asset bundling / HMR
-php artisan serve              # serves on http://lvh.me:8000 (and *.lvh.me)
+composer setup                              # first time: install + .env + key + migrate + build
+php artisan db:seed                         # Bluejaypro agency + 3 agency accounts
+php artisan db:seed --class=DemoSalonSeeder # full demo salon at demo.lvh.me (additive, idempotent)
+composer dev                                # server + queue worker + log tail + Vite, one command
 ```
 
-- Reset the database at any time with `php artisan migrate:fresh --seed`.
-- `composer dev` runs the server, queue worker, log tailer, and Vite together (one command).
-- `composer setup` does a first-time install (composer + `.env` + key + migrate + npm build).
-
-The relevant `.env` values (already in `.env.example`):
-
-```dotenv
-APP_URL=http://lvh.me:8000
-APP_DOMAIN=lvh.me               # apex; app at app.APP_DOMAIN, salons at {slug}.APP_DOMAIN
-SESSION_DOMAIN=.lvh.me          # leading dot → the login session is shared across subdomains
-REGISTER_EMBED_FRAME_SRC="https://*.leadconnectorhq.com https://*.msgsndr.com"  # book-a-call iframe CSP
-```
-
-### URLs
+**Never `migrate:fresh` / `migrate:refresh` / `db:wipe`** — additive `php artisan migrate` only (CLAUDE.md rule 10; production refuses destructive commands outright). To get demo data back after `app:factory-reset`, re-run the DemoSalonSeeder.
 
 | Area | URL |
 |---|---|
-| Marketing / landing (public) | `http://lvh.me:8000/` |
+| Marketing (public) | `http://lvh.me:8000/` |
 | Book a call (public) | `http://register.lvh.me:8000/` |
-| Login (all auth) | `http://app.lvh.me:8000/login` |
-| App home → salon picker | `http://app.lvh.me:8000/` (auth'd) · `/dashboard` |
-| Agency console | `http://app.lvh.me:8000/agency` |
-| Account settings | `http://app.lvh.me:8000/settings/profile` |
-| **Demo Salon** dashboard | `http://demo.lvh.me:8000/` |
-| Demo Salon appointments / book / clients / staff / services / availability / settings | `http://demo.lvh.me:8000/{appointments,book,clients,staff,services,availability,settings}` |
-| **Other Salon** (tenant-isolation check) | `http://other.lvh.me:8000/` |
+| Login / app / agency console | `http://app.lvh.me:8000/login` · `/dashboard` · `/agency` |
+| Demo salon | `http://demo.lvh.me:8000/` |
 
-`php artisan serve` binds `127.0.0.1:8000`; `lvh.me` and every `*.lvh.me` resolve there, so all four hosts work on one server. Log in at `http://app.lvh.me:8000/login`, then open `http://demo.lvh.me:8000/` — you stay logged in (the session cookie is scoped to `.lvh.me`).
+**Seeded accounts** (all passwords `password`): `agency@bookthestyle.test` (Agency Owner), `admin@bookthestyle.test` (Agency Admin), `user@bookthestyle.test` (Agency User, no salons). The DemoSalonSeeder adds `owner@demo.test`, `frontdesk@demo.test`, `maya@demo.test` (stylist) on the `demo` salon.
 
-### Seeded accounts (`php artisan db:seed`)
-
-All passwords are `password` unless noted. Slugs: **Demo Salon → `demo`**, **Other Salon → `other`**.
-
-| Email | Role | Reaches |
-|---|---|---|
-| `agency@bookthestyle.test` | Agency Owner | every salon + agency console |
-| `admin@bookthestyle.test` | Agency Admin | every salon + agency console |
-| `user@bookthestyle.test` | Agency User | Demo Salon only |
-| `owner@demo-salon.test` | Salon Owner | `demo.lvh.me:8000` |
-| `frontdesk@demo-salon.test` | Front Desk | `demo.lvh.me:8000` |
-| `stylist@demo-salon.test` | Stylist | `demo.lvh.me:8000` |
-| `newhire@demo-salon.test` | Stylist (temp password `temporary`, forced change) | `demo.lvh.me:8000` |
-| `owner@other-salon.test` | Salon Owner (different agency) | `other.lvh.me:8000` |
-
-Log in as a Demo Salon user and open `http://other.lvh.me:8000/` to confirm tenant isolation returns **403**.
+Key env vars (all documented inline in `.env.example`, including the production block at the top): `APP_DOMAIN`, `SESSION_DOMAIN` (leading dot — shares the session across subdomains), `TRUSTED_PROXIES`, `REGISTER_EMBED_FRAME_SRC`, retention knobs.
 
 ## Project layout
 
-Where things live (after the latest housekeeping pass):
-
 ```
 app/
-  Actions/          # write operations, one action class per use case
-  Concerns/         # shared validation-rule traits
-  Enums/            # roles, staff types, booking status/source, …
-  Http/
-    Controllers/    # the few non-Livewire controllers (e.g. forced password change)
-    Middleware/     # ResolveSalon (tenant resolution), EnsurePasswordChanged, SecurityHeaders
-  Livewire/Actions/ # Logout
-  Mail/             # TemporaryPasswordMail (the one email the app sends directly)
-  Models/
-    Concerns/       # BelongsToSalon trait
-    Scopes/         # SalonScope global scope (tenant isolation)
-  Policies/         # AgencyPolicy, SalonPolicy
-  Rules/            # SalonSlug
-  Services/         # Booking (policy + slot engine), Calendar (calendar data)
-  Support/          # AccentPalette, PastelPalette, ReservedSlugs, Permissions/, Notifications/
-resources/
-  css/app.css       # Tailwind 4 @theme mapped to DESIGN-TOKENS + Flux theming
-  js/               # app.js (origin-aware wire:navigate), passkeys.js
-  views/
-    components/     # x-* primitives; components/ui/* is the design system (button, card, …)
-    layouts/        # app (sidebar shell) + auth
-    pages/          # screens, namespaced as Livewire pages (agency, salon, auth, settings)
-    partials/       # head, settings-heading
-    welcome.blade.php / register.blade.php   # public marketing + book-a-call
-routes/             # web.php (host-split groups), settings.php, console.php
-config/             # standard Laravel + salon_features.php (per-salon feature flags)
-database/           # migrations, factories, DatabaseSeeder
-public/images/      # brand logos (full-logo.png, icon-logo.png) — see public/images/README.md
-design/             # design bundle: screenshots + reference markup (see design/README.md)
+  Actions/           # write operations, one class per use case (Bookings, Salons, Staff, …)
+  Console/Commands/  # bookings:close-elapsed, ghl:reconcile, app:factory-reset, ghl repair
+  Enums/             # roles, staff types, BookingStatus/Source, AvailabilityKind
+  Http/Middleware/   # ResolveSalon (tenant boundary), TrustCloudflareClientIp, SecurityHeaders, …
+  Jobs/              # queued GHL sync (bookings, availability, webhook processing)
+  Models/            # Concerns/BelongsToSalon + Scopes/SalonScope = tenant isolation
+  Policies/          # AgencyPolicy, SalonPolicy (all authorization)
+  Services/
+    Booking/         # slot engine + booking policy (the one engine every surface uses)
+    BookingApi/      # voice-AI booking API (VoiceBookingApi, VoiceInput wire tolerance)
+    Calendar/        # calendar data + ICS feed generation
+    Ghl/             # client, pushers, inbound sync, reconcile, integration checks
+  Support/           # ThemeRegistry, AccentPalette, WidgetBranding, PublicUrl, HelpDocs, …
+resources/views/
+  components/ui/     # the design-system primitives (build screens from these)
+  pages/             # Livewire single-file components (agency, salon, settings, marketing)
+  partials/          # ghl-connection-card, ghl-scopes, integration-check, head
+routes/              # web.php (host-split groups), settings.php, console.php (scheduler)
+public/build/        # committed Vite output — the server has no Node (docs/DEPLOY.md)
 ```
-
-## Design system
-
-- **`DESIGN-TOKENS.md`** (repo root) is the authoritative source for exact hexes, type scale, spacing, radii, and component specs. `resources/css/app.css` maps Tailwind 4 `@theme` and the Flux theme to it. **Light mode only.**
-- **Accent** is four swappable tokens (`--accent` / `--accent-hover` / `--accent-tint` / `--accent-ink`), violet by default. Presets `sage` and `terracotta` apply via `<html data-accent="sage|terracotta">`; a salon's branding accent overrides the four tokens through `App\Support\AccentPalette`.
-- Reusable primitives live in `resources/views/components/ui/` (`x-ui.button`, `x-ui.status-pill`, `x-ui.stat-card`, `x-ui.avatar`, …) — build new screens from these so they inherit the system.
-- `design/` holds the target screenshots and Claude Design reference markup; see `design/README.md`.
-
-## Key env vars
-
-All live in `.env.example`:
-
-| Var | Purpose |
-|---|---|
-| `APP_DOMAIN` | apex domain; app at `app.`, register at `register.`, salons at `{slug}.` (local: `lvh.me`) |
-| `SESSION_DOMAIN` | leading-dot parent domain so the login session is shared across subdomains (local: `.lvh.me`) |
-| `REGISTER_EMBED_FRAME_SRC` | CSP `frame-src` allow-list for the book-a-call iframe (register host only) |
-| `DB_CONNECTION` | `mysql` (production) or `sqlite` (local/tests) |
-| `BLAZE_DEBUG` | keep `false` — the Blaze debug bar pulls a Google webfont and the app is strictly CDN-free |
-
-There is **no global GHL key** — each salon's Private Integration Token is stored per-salon in the database, **encrypted at rest**.
 
 ## Tests, formatting, static analysis
 
 ```bash
-php artisan test                 # or: ./vendor/bin/pest
-./vendor/bin/pint                # format (add --test to check only)
-./vendor/bin/phpstan analyse     # Larastan, level 7
-composer test                    # CI parity: config:clear + pint --test + phpstan + artisan test
+php artisan test            # Pest; suite runs on SQLite
+composer test               # CI parity: pint --test + phpstan + tests
 ```
 
-Every suite includes at least one tenant-isolation test; keep it green.
+CI also migrates the full schema from scratch against real MySQL 8 on every push (`mysql-migrations` job) — SQLite silently ignores MySQL-only schema semantics. Every phase of work keeps at least one tenant-isolation test green.

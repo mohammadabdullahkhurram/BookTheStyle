@@ -1,99 +1,42 @@
-# Backups & restore points
+# Backups & restore
 
-The catalog of every restore point in this repository. **Tags** are permanent
-labeled snapshots; **backup branches** are frozen copies of the same commits —
-**never commit to a backup branch**. All work, always, continues on `main`.
+Two different things live here: **production data backups** (the thing that matters now) and **git restore points** (code snapshots from the build).
 
-**Update this file whenever a new checkpoint is made** (new tag + backup
-branch → add a row and a section here in the same sitting).
+## Production database backup
 
-## How to restore
+The database is the only state that can't be rebuilt from the repo (code + built assets are all in git; uploaded media lives under `storage/` and `public/how-to-documentation/`).
 
-- **Inspect (non-destructive):** `git checkout <tag-or-branch>` — look around,
-  or branch from it with `git switch -c experiment <tag>`; `git switch main`
-  returns you to the present.
-- **Reset main (destructive):** `git reset --hard <tag>` while on `main`,
-  then `git push --force-with-lease origin main`. This discards everything
-  after the tag — be sure.
+**Backup (on the server, or from cron):**
 
-## Catalog
+```sh
+mysqldump --single-transaction --routines \
+  -u <DB_USERNAME> -p<DB_PASSWORD> <DB_DATABASE> \
+  | gzip > ~/backups/bookthestyle-$(date +%F).sql.gz
+```
 
-| Restore point | Type | Commit | State captured |
-|---|---|---|---|
-| `pre-prelaunch-v1` | tag | `cb1f3e3` | Phases 0–6 complete |
-| `backup-phases-0-6-complete` | branch | `cb1f3e3` | same state as `pre-prelaunch-v1` |
-| `v1.0-prelaunch-complete` | tag | `903b295` | + the 5 pre-launch features |
-| `backup-v1-prelaunch-complete` | branch | `903b295` | same state as `v1.0-prelaunch-complete` |
-| `v1.1-preflight` | tag | `3f57c7a` | + clients directory, voice-AI API, contact sync |
-| `backup-v1.1-preflight` | branch | `3f57c7a` | same state as `v1.1-preflight` |
-| `v1.2-oldui-final` | tag | `ee74c42` | + GHL wire fixes, onboarding wizard, booking widget — the OLD UI, final |
-| `backup-oldui-final` | branch | `ee74c42` | same state as `v1.2-oldui-final` |
-| `v1.3-functional-complete` | tag | `c79c084` | All functional UX batches complete — data-integrity, mobile, confirmations, accessibility — before aesthetic refresh |
-| `backup-functional-complete` | branch | `c79c084` | same state as `v1.3-functional-complete` |
+Recommended: a daily cron line for the dump + a retention sweep (`find ~/backups -name '*.sql.gz' -mtime +14 -delete`), and periodically copy a dump **off the server**. Status: not yet automated — tracked in STATUS-and-ROADMAP.
 
-## Details
+**Restore (drill this before you need it):**
 
-### pre-prelaunch-v1 — Phases 0–6 complete
-- **Commit:** `cb1f3e33da7e229b9cb8f0cd4870b7508013f276`
-- **Frozen branch:** `backup-phases-0-6-complete` (same commit)
-- **State:** the full SPEC build — tenancy, RBAC, services/availability,
-  booking engine + status model, calendars, ICS feeds, the complete GHL
-  bidirectional booking sync (6a–6e), transactional email — **before** the
-  five pre-launch features.
-- **Restore:** `git checkout pre-prelaunch-v1` (inspect) ·
-  `git reset --hard pre-prelaunch-v1` (reset main)
+```sh
+php artisan down
+gunzip < ~/backups/bookthestyle-<date>.sql.gz | mysql -u <DB_USERNAME> -p <DB_DATABASE>
+php artisan migrate --force        # replays anything newer than the dump — additive only
+php artisan up
+```
 
-### v1.0-prelaunch-complete — feature-complete for launch
-- **Commit:** `903b2953cc4e20a72ff85bc2e3e2ba0bf550bedd`
-- **Frozen branch:** `backup-v1-prelaunch-complete` (same commit)
-- **State:** everything above **plus** the five pre-launch features: dead-code
-  cleanup, per-salon auto-no-show configuration, display-only service prices
-  (+ per-salon currency), client profiles (history / notes / preferences),
-  and the reports dashboard — **before** any voice-AI/API work.
-- **Restore:** `git checkout v1.0-prelaunch-complete` (inspect) ·
-  `git reset --hard v1.0-prelaunch-complete` (reset main)
+Also back up the server's `.env` (it holds APP_KEY — **without APP_KEY, encrypted GHL tokens in the dump are unrecoverable**) — store a copy somewhere safe off-server.
 
-### v1.1-preflight — Stage 2 built, pre-deploy
-- **Commit:** `3f57c7abe3b09b77b3b612e1d0d4e44a6a8e7572`
-- **Frozen branch:** `backup-v1.1-preflight` (same commit)
-- **State:** everything above **plus** the Clients directory (full nav tab
-  with per-row stats/search/sort/filters), the voice-AI booking API
-  (per-salon bearer tokens, availability + create endpoints over the app's
-  own engine), and bidirectional client↔GHL-contact sync with tag-gated
-  inbound + auto-tagging of real clients — **before** the live GHL smoke
-  test, UI audit, and deploy (Phase 7).
-- **Restore:** `git checkout v1.1-preflight` (inspect) ·
-  `git reset --hard v1.1-preflight` (reset main)
+## Git restore points (code only)
 
-### v1.2-oldui-final — the old UI preserved, all features in
-- **Commit:** `ee74c420564f50910acb952e4f6f6d9e8b5b3e3a`
-- **Frozen branch:** `backup-oldui-final` (same commit)
-- **State:** everything above **plus** the voice-AI API wire-format fixes
-  (query-string params, double-URL-encoding, date + time create shape), the
-  salon onboarding wizard (guided, resumable setup with GHL copy-paste
-  values and verification), and the embeddable booking widget (public
-  iframe page + widget.js loader + slug-scoped public API, source
-  `web_widget`). **This checkpoint preserves the OLD UI as a restore
-  point** — taken immediately before the UI redesign work; live GHL smoke
-  test and deploy still pending.
-- **Restore:** `git checkout v1.2-oldui-final` (inspect) ·
-  `git reset --hard v1.2-oldui-final` (reset main)
+Frozen tags/branches from the build. **They are NOT deploy rollbacks** — production rollback is `git reset --hard <last-good-sha>` per `docs/DEPLOY.md`, and **never force-push `main`** now that production pulls from it. These exist to inspect or salvage old code (`git checkout <tag>`, or branch from it).
 
-### v1.3-functional-complete — functionally complete, accessible, mobile-ready
-- **Commit:** `c79c08421f7d89ae8af72b9535dab348e56fda4f`
-- **Frozen branch:** `backup-functional-complete` (same commit)
-- **State:** everything above **plus** all four functional batches from the
-  UI/UX audit: **Batch 1** data-integrity bugs (transactional date-specific
-  availability edits, full-visit multi-service reschedule slots, calendar
-  overlap lanes so concurrent bookings never hide); **Batch 2**
-  mobile/responsive (off-canvas nav drawer + top bar, scrollable tables with
-  stacked-card fallbacks, standardized page widths); **Batch 3**
-  confirmations & feedback (wire:confirm on every destructive action,
-  select-then-confirm reschedule, verb-labeled buttons, loading/disabled
-  states, action-specific toasts); **Batch 4** accessibility & contrast
-  (WCAG AA text tokens, shared focus ring, skip link, keyboard-reachable 2FA
-  recovery, aria/label/scope sweep, settings-hash whitelist). Marks the app
-  **functionally complete + accessible + mobile-ready, BEFORE the
-  aesthetic/visual refresh**; live GHL smoke test and deploy still pending.
-- **Restore:** `git checkout v1.3-functional-complete` (inspect) ·
-  `git reset --hard v1.3-functional-complete` (reset main)
+| Restore point (tag = branch) | Commit | State captured |
+|---|---|---|
+| `pre-prelaunch-v1` / `backup-phases-0-6-complete` | `cb1f3e3` | Core build complete (tenancy → GHL sync) |
+| `v1.0-prelaunch-complete` / `backup-v1-prelaunch-complete` | `903b295` | + pre-launch features (prices, profiles, reports) |
+| `v1.1-preflight` / `backup-v1.1-preflight` | `3f57c7a` | + clients directory, voice-AI API, contact sync |
+| `v1.2-oldui-final` / `backup-oldui-final` | `ee74c42` | + wizard, widget — the OLD UI, preserved |
+| `v1.3-functional-complete` / `backup-functional-complete` | `c79c084` | + all functional/a11y batches, before the visual refresh |
+
+Never commit to a backup branch; all work continues on `main`. Add a row here if a new checkpoint is ever cut.
