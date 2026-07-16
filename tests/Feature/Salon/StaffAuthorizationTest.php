@@ -42,18 +42,18 @@ it('lets only agency owner/admin reach the create-salon screen', function () {
 
 // --- Rule 2: add/remove a salon OWNER or ADMIN ---------------------------------
 
-it('lets an agency owner and an agency admin add a salon owner', function () {
+it('refuses an Owner invite from EVERYONE — even agency operators on an ownerless salon', function () {
     $agency = Agency::factory()->create();
 
+    // Owners are assigned from the agency console (SetSalonOwner) or
+    // provisioned at salon creation; the invite path refuses categorically.
     foreach ([AgencyRole::Owner, AgencyRole::Admin] as $i => $role) {
-        $salon = Salon::factory()->for($agency)->create();
+        $salon = Salon::factory()->for($agency)->create(); // ownerless
         $actor = User::factory()->create(['agency_id' => $agency->id, 'agency_role' => $role]);
 
-        $result = app(InviteStaff::class)->handle($actor, $salon, [
+        expect(fn () => app(InviteStaff::class)->handle($actor, $salon, [
             'name' => 'New Owner', 'email' => "owner-{$i}@example.com", 'salon_role' => 'salon_owner',
-        ]);
-
-        expect($result->user->membershipFor($salon)->salon_role)->toBe(SalonRole::Owner);
+        ]))->toThrow(AuthorizationException::class);
     }
 });
 

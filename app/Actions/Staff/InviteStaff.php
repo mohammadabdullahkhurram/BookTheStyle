@@ -19,10 +19,13 @@ use Illuminate\Support\Facades\Mail;
 /**
  * Invite/create a staff member for a salon. Enforces the anti-escalation rule
  * (the actor may not grant a role they aren't allowed to) server-side, never
- * trusting the UI. New users get a cryptographically-random temporary password
- * + must_change_password; the plaintext is returned for one-time display and
- * emailed in the branded staff-invite mail (alongside a welcome email). An existing user (matched by email) is simply added as an extra
- * membership — no new credentials.
+ * trusting the UI — and CATEGORICALLY refuses Owner: owners are assigned from
+ * the agency console (SetSalonOwner) or provisioned at salon creation, never
+ * invited, no matter who asks. New users get a cryptographically-random
+ * temporary password + must_change_password; the plaintext is returned for
+ * one-time display and emailed in the branded staff-invite mail (alongside a
+ * welcome email). An existing user (matched by email) is simply added as an
+ * extra membership — no new credentials.
  */
 class InviteStaff
 {
@@ -35,19 +38,64 @@ class InviteStaff
     {
         $role = SalonRole::from($data['salon_role']);
 
+        // Hidden-but-reachable is a hole: even an actor whose UI never offers
+        // Owner gets refused here, agency owners included.
+        if ($role === SalonRole::Owner) {
+            throw new AuthorizationException('Owners are assigned from the agency console, never invited.');
+        }
+
         if (! $this->roles->canAssign($actor, $salon, $role)) {
             throw new AuthorizationException('You may not grant that role.');
         }
 
         // staff_type is the bookability flag and follows the role (stylists
-        // bookable, managers not); an explicit value is accepted only for the
-        // Owner path (a bookable owner). Enforced so the pairing never drifts.
+        // bookable, managers not). Enforced so the pairing never drifts.
         $staffType = ! empty($data['staff_type'])
             ? StaffType::from($data['staff_type'])
             : $this->roles->impliedType($role);
 
         $this->roles->assertRoleMatchesType($role, $staffType);
 
+        // Overwriting an existing membership needs authority over its CURRENT
+        // role too — the invite form can't demote an owner/manager the actor
+        // may not manage.
+        $existing = User::withTrashed()->where('email', $data['email'])->first();
+        if ($existing !== null && ! $existing->trashed()) {
+            $current = $salon->memberships()->where('user_id', $existing->id)->first();
+
+            if ($current !== null && ! $this->roles->canAssign($actor, $salon, $current->salon_role)) {
+                throw new AuthorizationException('You may not manage that staff member.');
+            }
+        }
+
+        return $this->provision($salon, $data, $role, $staffType);
+    }
+
+    /**
+     * The ONE owner-provisioning engine — same temp password, same branded
+     * mails, same restore-on-reinvite semantics as a staff invite. Carries NO
+     * actor gate on purpose: it is reachable only through salon creation
+     * (CreateSalon), the ownerless backfill command, and the agency console's
+     * SetSalonOwner — each of which enforces its own authorization first.
+     *
+     * @param  array{name: string, email: string, phone?: string|null}  $contact
+     */
+    public function provisionOwner(Salon $salon, array $contact): ProvisionedUser
+    {
+        return $this->provision($salon, [
+            ...$contact,
+            'salon_role' => SalonRole::Owner->value,
+        ], SalonRole::Owner, null);
+    }
+
+    /**
+     * Shared provisioning core: restore a deleted account, link an existing
+     * one, or create a new one with credentials — then attach the membership.
+     *
+     * @param  array{name: string, email: string, phone?: string|null}  $data
+     */
+    private function provision(Salon $salon, array $data, SalonRole $role, ?StaffType $staffType): ProvisionedUser
+    {
         $phone = isset($data['phone']) && $data['phone'] !== '' ? $data['phone'] : null;
 
         $existing = User::withTrashed()->where('email', $data['email'])->first();
@@ -67,12 +115,10 @@ class InviteStaff
                     'must_change_password' => true,
                 ])->save();
 
-                $salon->memberships()->create([
-                    'user_id' => $existing->id,
-                    'salon_role' => $role,
-                    'staff_type' => $staffType,
-                    'active' => true,
-                ]);
+                SalonMembership::updateOrCreate(
+                    ['user_id' => $existing->id, 'salon_id' => $salon->id],
+                    ['salon_role' => $role, 'staff_type' => $staffType, 'active' => true],
+                );
             });
 
             rescue(fn () => Mail::to($existing->email)->send(
@@ -83,22 +129,19 @@ class InviteStaff
         }
 
         if ($existing !== null) {
+            // Promoting an existing member to Owner keeps their bookability
+            // flag (the owner-who-cuts-hair case); other roles set their own.
             $current = $salon->memberships()->where('user_id', $existing->id)->first();
-
-            // If they already belong to this salon, the actor must also have
-            // authority over their *current* role — so the invite form can't be
-            // used to overwrite (e.g. demote) an owner/admin the actor may not
-            // manage.
-            if ($current !== null && ! $this->roles->canAssign($actor, $salon, $current->salon_role)) {
-                throw new AuthorizationException('You may not manage that staff member.');
-            }
+            $keepType = $role === SalonRole::Owner && $current !== null
+                ? $current->staff_type
+                : $staffType;
 
             SalonMembership::updateOrCreate(
                 ['user_id' => $existing->id, 'salon_id' => $salon->id],
-                ['salon_role' => $role, 'staff_type' => $staffType, 'active' => true],
+                ['salon_role' => $role, 'staff_type' => $keepType, 'active' => true],
             );
 
-            // Existing login, new salon: an invite without credentials.
+            // Existing login, new salon/role: an invite without credentials.
             rescue(fn () => Mail::to($existing->email)->send(
                 new StaffInviteMail($existing->name, $salon->name, $role->label(), null, route('login')),
             ));

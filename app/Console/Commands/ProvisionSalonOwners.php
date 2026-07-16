@@ -3,10 +3,8 @@
 namespace App\Console\Commands;
 
 use App\Actions\Staff\InviteStaff;
-use App\Enums\AgencyRole;
 use App\Enums\SalonRole;
 use App\Models\Salon;
-use App\Models\User;
 use Illuminate\Console\Command;
 
 /**
@@ -57,16 +55,9 @@ class ProvisionSalonOwners extends Command
                 continue;
             }
 
-            $actor = User::query()
-                ->where('agency_id', $salon->agency_id)
-                ->where('agency_role', AgencyRole::Owner->value)
-                ->firstOrFail();
-
-            $result = $invites->handle($actor, $salon, [
+            $result = $invites->provisionOwner($salon, [
                 'name' => $salon->contact_name,
                 'email' => $salon->contact_email,
-                'salon_role' => SalonRole::Owner->value,
-                'staff_type' => null,
             ]);
 
             $this->components->info($salon->name.': '.($result->existing

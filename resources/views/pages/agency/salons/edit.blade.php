@@ -2,9 +2,12 @@
 
 use App\Actions\Salons\DisconnectGhl;
 use App\Actions\Salons\SetSalonActive;
+use App\Actions\Salons\SetSalonOwner;
 use App\Actions\Salons\TestGhlConnection;
 use App\Actions\Salons\UpdateGhlConnection;
 use App\Actions\Salons\UpdateSalon;
+use App\Enums\AgencyRole;
+use App\Enums\SalonRole;
 use App\Models\Salon;
 use App\Rules\SalonSlug;
 use App\Support\SalonProfile;
@@ -232,6 +235,88 @@ new #[Title('Edit salon')] class extends Component {
 
         Flux::toast(variant: 'success', text: __('GoHighLevel disconnected. Stylist mappings were kept.'));
     }
+
+    // ------------------------------------------------------------------
+    // Ownership — an agency-owner-only action (SetSalonOwner re-enforces).
+    // ------------------------------------------------------------------
+
+    public string $ownerName = '';
+    public string $ownerEmail = '';
+    public string $ownerPhone = '';
+    public string $promoteMembershipId = '';
+    public ?string $ownerTempPassword = null;
+    public ?string $ownerTempForName = null;
+
+    #[Computed]
+    public function canAssignOwner(): bool
+    {
+        return auth()->user()->agency_id === $this->salon->agency_id
+            && auth()->user()->agency_role === AgencyRole::Owner;
+    }
+
+    #[Computed]
+    public function currentOwner()
+    {
+        return $this->salon->memberships()
+            ->where('salon_role', SalonRole::Owner->value)
+            ->with('user:id,name,email')
+            ->first();
+    }
+
+    /** Active non-owner members who could be promoted. */
+    #[Computed]
+    public function promotableMembers()
+    {
+        return $this->salon->memberships()
+            ->where('salon_role', '!=', SalonRole::Owner->value)
+            ->where('active', true)
+            ->with('user:id,name,email')
+            ->get();
+    }
+
+    public function promoteToOwner(SetSalonOwner $action): void
+    {
+        abort_unless($this->canAssignOwner, 403);
+
+        $this->validate(['promoteMembershipId' => ['required', 'integer']]);
+
+        $action->handle(auth()->user(), $this->salon, [
+            'membership_id' => (int) $this->promoteMembershipId,
+        ]);
+
+        $this->reset('promoteMembershipId');
+        unset($this->currentOwner, $this->promotableMembers);
+
+        Flux::toast(variant: 'success', text: __('Ownership transferred.'));
+    }
+
+    public function provisionOwner(SetSalonOwner $action): void
+    {
+        abort_unless($this->canAssignOwner, 403);
+
+        $this->validate([
+            'ownerName' => ['required', 'string', 'max:255'],
+            'ownerEmail' => ['required', 'string', 'email', 'max:255'],
+            'ownerPhone' => ['nullable', 'string', 'max:32'],
+        ]);
+
+        $result = $action->handle(auth()->user(), $this->salon, [
+            'name' => $this->ownerName,
+            'email' => $this->ownerEmail,
+            'phone' => $this->ownerPhone ?: null,
+        ]);
+
+        // New accounts get credentials shown ONCE, same as staff invites.
+        if ($result->temporaryPassword !== null) {
+            $this->ownerTempPassword = $result->temporaryPassword;
+            $this->ownerTempForName = $result->user->name;
+        }
+
+        $this->reset(['ownerName', 'ownerEmail', 'ownerPhone']);
+        unset($this->currentOwner, $this->promotableMembers);
+
+        Flux::toast(variant: 'success', text: __('Owner assigned.'));
+    }
 }; ?>
 
 <div>
@@ -293,6 +378,54 @@ new #[Title('Edit salon')] class extends Component {
         @can('manageGhlConnection', $salon)
             @include('partials.ghl-connection-card')
         @endcan
+
+        <x-ui.card class="flex flex-col gap-4">
+            <div>
+                <h3 class="text-[16px] font-semibold text-ink">{{ __('Ownership') }}</h3>
+                <p class="mt-0.5 text-[14px] text-secondary">
+                    @if ($this->currentOwner)
+                        {{ __('Owned by :name (:email).', ['name' => $this->currentOwner->user->name, 'email' => $this->currentOwner->user->email]) }}
+                    @else
+                        {{ __('This salon has no owner yet. Assign one below — every salon needs exactly one.') }}
+                    @endif
+                </p>
+            </div>
+
+            @if ($this->canAssignOwner)
+                @if ($ownerTempPassword)
+                    <x-temp-password-panel :name="$ownerTempForName" :password="$ownerTempPassword" />
+                @endif
+
+                <div class="grid gap-5 sm:grid-cols-2">
+                    @if ($this->promotableMembers->isNotEmpty())
+                        <div class="flex flex-col gap-3">
+                            <div class="bts-field-label">{{ __('Promote an existing member') }}</div>
+                            <flux:select wire:model="promoteMembershipId" :label="__('Member')">
+                                <flux:select.option value="">{{ __('Choose a member') }}</flux:select.option>
+                                @foreach ($this->promotableMembers as $member)
+                                    <flux:select.option value="{{ $member->id }}">{{ $member->user->name }} ({{ $member->salon_role->label() }})</flux:select.option>
+                                @endforeach
+                            </flux:select>
+                            <div>
+                                <x-ui.button type="button" variant="secondary" x-on:click="$store.confirm.ask({ title: {{ Js::from(__('Transfer ownership')) }}, message: {{ Js::from(__('Make this member the owner? The current owner (if any) becomes a manager — or a stylist if they take bookings. A salon always has exactly one owner.')) }}, confirmLabel: {{ Js::from(__('Transfer')) }}, danger: false }, () => $wire.promoteToOwner())">{{ __('Make owner') }}</x-ui.button>
+                            </div>
+                        </div>
+                    @endif
+
+                    <div class="flex flex-col gap-3">
+                        <div class="bts-field-label">{{ __('Or provision a new owner') }}</div>
+                        <flux:input wire:model="ownerName" :label="__('Name')" />
+                        <flux:input wire:model="ownerEmail" type="email" :label="__('Email')" />
+                        <flux:input wire:model="ownerPhone" type="tel" :label="__('Phone')" />
+                        <div>
+                            <x-ui.button type="button" x-on:click="$store.confirm.ask({ title: {{ Js::from(__('Assign owner')) }}, message: {{ Js::from(__('Assign this person as the owner? New accounts get a temporary password (shown once) and the standard invite emails. The current owner (if any) becomes a manager — or a stylist if they take bookings.')) }}, confirmLabel: {{ Js::from(__('Assign')) }}, danger: false }, () => $wire.provisionOwner())">{{ __('Assign owner') }}</x-ui.button>
+                        </div>
+                    </div>
+                </div>
+            @else
+                <p class="text-[13px] text-faint">{{ __('Only the agency owner can assign or transfer salon ownership.') }}</p>
+            @endif
+        </x-ui.card>
 
         <x-ui.card padding="p-5" class="flex items-center justify-between gap-4">
             <div>

@@ -17,12 +17,13 @@ use Illuminate\Validation\ValidationException;
  * because canAssign() is also checked against a TARGET's current role, no
  * actor can edit, demote, deactivate or reset the owner — the owner manages
  * their own account through account settings. The single exception keeps
- * provisioning/backfill possible: an agency owner/admin may grant Owner to a
- * salon that has NO active owner yet (salon creation, or repairing an
- * ownerless salon).
+ * provisioning/transfer possible: ownership is assigned from the AGENCY
+ * console (SetSalonOwner, agency owner only) or auto-provisioned at salon
+ * creation — never through user management, so Owner is never assignable
+ * here for anyone.
  *
  * Everyone with management rights grants Manager and Stylist:
- * - Agency owner/admin (this salon's agency) → Manager, Stylist (+ Owner iff none exists).
+ * - Agency owner/admin (this salon's agency) → Manager, Stylist.
  * - Salon owner → Manager, Stylist.
  * - Salon manager → Manager, Stylist (full salon surface; only the owner is out of reach).
  * - Assigned agency_user (a delegated salon manager) → Stylist only.
@@ -41,9 +42,7 @@ class SalonStaffRoles
                 return [SalonRole::Stylist];
             }
 
-            return $this->salonHasOwner($salon)
-                ? [SalonRole::Manager, SalonRole::Stylist]
-                : [SalonRole::Owner, SalonRole::Manager, SalonRole::Stylist];
+            return [SalonRole::Manager, SalonRole::Stylist];
         }
 
         return match ($actor->membershipFor($salon)?->salon_role) {
@@ -63,14 +62,6 @@ class SalonStaffRoles
     public function canManageStaff(User $actor, Salon $salon): bool
     {
         return $this->assignable($actor, $salon) !== [];
-    }
-
-    private function salonHasOwner(Salon $salon): bool
-    {
-        return $salon->memberships()
-            ->where('salon_role', SalonRole::Owner->value)
-            ->where('active', true)
-            ->exists();
     }
 
     /**
