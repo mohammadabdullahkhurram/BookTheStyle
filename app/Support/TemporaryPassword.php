@@ -14,7 +14,11 @@ class TemporaryPassword
 {
     public static function generate(): string
     {
-        // Str::password() draws from random_int (CSPRNG).
-        return Str::password(16, letters: true, numbers: true, symbols: true);
+        // Str::password() draws from random_int (CSPRNG). Letters + numbers
+        // only: symbols like * _ ` are markdown-significant and get eaten by
+        // the mail renderer (paired * became <em> and vanished from the
+        // email), and they mis-copy across email clients. 20 alphanumeric
+        // chars (~119 bits) exceeds the old 16-with-symbols entropy anyway.
+        return Str::password(20, letters: true, numbers: true, symbols: false);
     }
 }

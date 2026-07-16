@@ -8,7 +8,8 @@
 @endif
 
 <x-mail::panel>
-{{ $temporaryPassword }}
+{{-- Raw HTML block: markdown must never touch the password (paired * or _ would render as emphasis and drop characters). --}}
+<div style="font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 16px; letter-spacing: 1px;">{{ $temporaryPassword }}</div>
 </x-mail::panel>
 
 {{ __('You will be asked to set a new password the first time you sign in.') }}
