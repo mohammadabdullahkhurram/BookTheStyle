@@ -84,22 +84,22 @@ it('shows the client\'s visit history most recent first with service, stylist, s
 // Notes
 // ---------------------------------------------------------------------------
 
-it('lets any booking-area staff add attributed notes — stylists included', function () {
+it('lets managers add attributed notes (stylists no longer reach the profile)', function () {
     $salon = bookingSalon();
-    $stylist = stylistOf($salon);
+    $manager = salonAdminOf($salon);
     $client = Client::factory()->for($salon)->create();
 
-    Livewire::actingAs($stylist)
+    Livewire::actingAs($manager)
         ->test('pages::salon.clients.show', ['salon' => $salon, 'clientId' => $client->id])
         ->set('noteBody', 'Prefers cooler tones')
         ->call('addNote')
         ->assertHasNoErrors()
         ->assertSee('Prefers cooler tones')
-        ->assertSee($stylist->name);
+        ->assertSee($manager->name);
 
     $note = $client->notes()->first();
     expect($note->body)->toBe('Prefers cooler tones');
-    expect($note->author_id)->toBe($stylist->id);
+    expect($note->author_id)->toBe($manager->id);
     expect($note->salon_id)->toBe($salon->id);
 });
 
@@ -143,21 +143,16 @@ it('persists preferences and surfaces allergies prominently', function () {
     expect($client->birthday?->format('Y-m-d'))->toBe('1990-04-12');
 });
 
-it('lets stylists view profiles but not edit preferences or contact', function () {
+it('refuses stylists the client profile entirely — a manager surface', function () {
     $salon = bookingSalon();
     $stylist = stylistOf($salon);
     $client = Client::factory()->for($salon)->create(['allergies' => 'Latex sensitivity']);
 
-    // Viewing works, and the safety banner is visible to stylists too.
-    Livewire::actingAs($stylist)
-        ->test('pages::salon.clients.show', ['salon' => $salon, 'clientId' => $client->id])
-        ->assertSee('Latex sensitivity')
-        ->call('startEditingPrefs')
-        ->assertForbidden();
-
-    Livewire::actingAs($stylist)
-        ->test('pages::salon.clients.show', ['salon' => $salon, 'clientId' => $client->id])
-        ->call('startContactEdit')
+    // The scope-down: stylists no longer open client records at all
+    // (SPEC §2 — their surface is Today/calendar/own appointments/own
+    // availability). Client safety notes reach them on the booking itself.
+    $this->actingAs($stylist)
+        ->get(route('salon.client', ['salon' => $salon, 'clientId' => $client->id]))
         ->assertForbidden();
 });
 

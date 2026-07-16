@@ -10,9 +10,9 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * The single source of truth for which salon roles an actor may grant when
- * inviting or editing staff — the anti-privilege-escalation rules.
+ * inviting or editing users — the anti-privilege-escalation rules.
  *
- * OWNER IS NEVER GRANTED THROUGH STAFF MANAGEMENT. A salon's owner is
+ * OWNER IS NEVER GRANTED THROUGH USER MANAGEMENT. A salon's owner is
  * provisioned at salon creation (from the contact person) and is protected:
  * because canAssign() is also checked against a TARGET's current role, no
  * actor can edit, demote, deactivate or reset the owner — the owner manages
@@ -21,12 +21,12 @@ use Illuminate\Validation\ValidationException;
  * salon that has NO active owner yet (salon creation, or repairing an
  * ownerless salon).
  *
- * Everyone with management rights grants Admin and Staff:
- * - Agency owner/admin (this salon's agency) → Admin, Staff (+ Owner iff none exists).
- * - Salon owner → Admin, Staff.
- * - Salon admin → Admin, Staff (full salon admin surface; only the owner is out of reach).
- * - Assigned agency_user (a delegated salon manager) → Staff only.
- * - Everyone else (staff, non-members, cross-agency) → nothing.
+ * Everyone with management rights grants Manager and Stylist:
+ * - Agency owner/admin (this salon's agency) → Manager, Stylist (+ Owner iff none exists).
+ * - Salon owner → Manager, Stylist.
+ * - Salon manager → Manager, Stylist (full salon surface; only the owner is out of reach).
+ * - Assigned agency_user (a delegated salon manager) → Stylist only.
+ * - Everyone else (stylists, non-members, cross-agency) → nothing.
  */
 class SalonStaffRoles
 {
@@ -37,17 +37,17 @@ class SalonStaffRoles
     {
         if ($actor->operatesSalon($salon)) {
             if (! $actor->isAgencyOperator()) {
-                // Delegated agency_user: staff only.
-                return [SalonRole::Staff];
+                // Delegated agency_user: stylists only.
+                return [SalonRole::Stylist];
             }
 
             return $this->salonHasOwner($salon)
-                ? [SalonRole::Admin, SalonRole::Staff]
-                : [SalonRole::Owner, SalonRole::Admin, SalonRole::Staff];
+                ? [SalonRole::Manager, SalonRole::Stylist]
+                : [SalonRole::Owner, SalonRole::Manager, SalonRole::Stylist];
         }
 
         return match ($actor->membershipFor($salon)?->salon_role) {
-            SalonRole::Owner, SalonRole::Admin => [SalonRole::Admin, SalonRole::Staff],
+            SalonRole::Owner, SalonRole::Manager => [SalonRole::Manager, SalonRole::Stylist],
             default => [],
         };
     }
@@ -58,7 +58,7 @@ class SalonStaffRoles
     }
 
     /**
-     * Whether the actor may manage staff in this salon at all.
+     * Whether the actor may manage users in this salon at all.
      */
     public function canManageStaff(User $actor, Salon $salon): bool
     {
@@ -74,10 +74,10 @@ class SalonStaffRoles
     }
 
     /**
-     * The role follows the staff TYPE (SPEC §2): stylists are Staff
-     * (bookable, own-scope); managers and front desk are Admin; a member
-     * with no functional type is a plain Admin. Owner is exempt — an owner
-     * may also be a working stylist. Enforced server-side on every invite
+     * staff_type is the bookability flag and must agree with the role:
+     * a Stylist is always bookable (type 'stylist'); a Manager never is
+     * (type NULL). Owner is exempt — an owner may also be a working stylist
+     * (the owner-who-cuts-hair case). Enforced server-side on every invite
      * and edit so the pairing can never drift.
      *
      * @throws ValidationException
@@ -88,12 +88,20 @@ class SalonStaffRoles
             return;
         }
 
-        $required = $type === StaffType::Stylist ? SalonRole::Staff : SalonRole::Admin;
+        $valid = ($role === SalonRole::Stylist) === ($type === StaffType::Stylist);
 
-        if ($role !== $required) {
+        if (! $valid) {
             throw ValidationException::withMessages([
-                'salon_role' => __('That role does not match the staff type: stylists are Staff; managers and front desk are Admins.'),
+                'salon_role' => __('That role does not match: stylists are bookable; managers are not.'),
             ]);
         }
+    }
+
+    /**
+     * The bookability flag a role implies for non-owner members.
+     */
+    public function impliedType(SalonRole $role): ?StaffType
+    {
+        return $role === SalonRole::Stylist ? StaffType::Stylist : null;
     }
 }

@@ -48,7 +48,7 @@ it('gives every sidebar nav link an accessible name that survives the collapsed 
 
     $response = $this->actingAs($owner)->get(route('salon.show', $salon))->assertOk();
 
-    foreach (['Today', 'Calendar', 'Appointments', 'Clients', 'Check-in', 'Services', 'Staff', 'Reports', 'Availability', 'New booking', 'Settings'] as $label) {
+    foreach (['Today', 'Calendar', 'Appointments', 'Clients', 'Check-in', 'Services', 'Users', 'Reports', 'Availability', 'New booking', 'Settings'] as $label) {
         $response->assertSee('aria-label="'.$label.'"', false);
     }
 });

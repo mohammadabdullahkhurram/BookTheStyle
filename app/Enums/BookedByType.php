@@ -44,13 +44,12 @@ enum BookedByType: string
             return self::SalonAdmin;
         }
 
-        return match (true) {
-            $membership->salon_role === SalonRole::Owner => self::SalonOwner,
-            // Attribution is FUNCTIONAL: front desk holds the admin role
-            // since the remap, but "who booked it" still reads Front desk.
-            $membership->staff_type === StaffType::FrontDesk => self::FrontDesk,
-            $membership->salon_role === SalonRole::Admin => self::SalonAdmin,
-            default => self::Stylist,
+        // FrontDesk survives as a CASE for historical rows only — the
+        // front-desk role/type died in the owner/manager/stylist rework.
+        return match ($membership->salon_role) {
+            SalonRole::Owner => self::SalonOwner,
+            SalonRole::Manager => self::SalonAdmin,
+            SalonRole::Stylist => self::Stylist,
         };
     }
 }

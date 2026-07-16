@@ -28,7 +28,7 @@ function provisionStaff(): array
     $provisioned = app(InviteStaff::class)->handle(salonOwnerOf($salon), $salon, [
         'name' => 'Journey Tester',
         'email' => 'journey@example.com',
-        'salon_role' => 'staff',
+        'salon_role' => 'stylist',
         'staff_type' => 'stylist',
     ]);
 

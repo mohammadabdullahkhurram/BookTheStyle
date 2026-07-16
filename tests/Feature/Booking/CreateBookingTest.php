@@ -55,7 +55,7 @@ it('captures booked_by from the actor role', function () {
     $cases = [
         [salonOwnerOf($salon), BookedByType::SalonOwner, '2026-06-22 10:00'],
         [salonAdminOf($salon), BookedByType::SalonAdmin, '2026-06-22 12:00'],
-        [frontDeskOf($salon), BookedByType::FrontDesk, '2026-06-22 14:00'],
+        [frontDeskOf($salon), BookedByType::SalonAdmin, '2026-06-22 14:00'],
     ];
 
     foreach ($cases as [$actor, $expected, $start]) {

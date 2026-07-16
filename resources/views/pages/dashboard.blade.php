@@ -72,9 +72,8 @@ new #[Title('Salons')] class extends Component {
 
         return match (true) {
             $m && $m->salon_role === SalonRole::Owner => __('Owner'),
-            $m && $m->salon_role === SalonRole::Admin => __('Admin'),
-            $m && $m->staff_type === StaffType::Stylist => __('Stylist'),
-            $m && $m->staff_type === StaffType::FrontDesk => __('Front desk'),
+            $m && $m->salon_role === SalonRole::Manager => __('Manager'),
+            $m && $m->salon_role === SalonRole::Stylist => __('Stylist'),
             $m !== null => __('Staff'),
             // Agency operator reaching a salon without a salon membership.
             default => $user->agency_role?->label(),

@@ -140,7 +140,7 @@ class DemoSalonSeeder extends Seeder
         $frontDesk = $make('frontdesk@demo.test', 'Fern Frontdesk');
         SalonMembership::firstOrCreate(
             ['salon_id' => $salon->id, 'user_id' => $frontDesk->id],
-            ['salon_role' => SalonRole::Admin, 'staff_type' => StaffType::FrontDesk],
+            ['salon_role' => SalonRole::Manager, 'staff_type' => null],
         );
 
         $stylists = [];
@@ -154,7 +154,7 @@ class DemoSalonSeeder extends Seeder
             $stylist = $make($email, $name);
             SalonMembership::firstOrCreate(
                 ['salon_id' => $salon->id, 'user_id' => $stylist->id],
-                ['salon_role' => SalonRole::Staff, 'staff_type' => StaffType::Stylist],
+                ['salon_role' => SalonRole::Stylist, 'staff_type' => StaffType::Stylist],
             );
             StylistProfile::firstOrCreate(
                 ['salon_id' => $salon->id, 'user_id' => $stylist->id],

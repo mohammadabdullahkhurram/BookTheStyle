@@ -3,7 +3,7 @@
 use App\Enums\AgencyRole;
 use App\Enums\BookingSource;
 use App\Enums\BookingStatus;
-use App\Enums\StaffType;
+use App\Enums\SalonRole;
 use App\Models\Agency;
 use App\Models\Booking;
 use App\Models\BookingItem;
@@ -195,8 +195,8 @@ it('lists agency operators AND salon staff with roles, salons and status — sea
         ->assertDontSee('Fred Frontdesk')
         ->assertDontSee('Agatha Agency');
 
-    // Role filter: front desk only.
-    $component->set('search', '')->set('role', StaffType::FrontDesk->value)
+    // Role filter: managers only.
+    $component->set('search', '')->set('role', SalonRole::Manager->value)
         ->assertSee('Fred Frontdesk')
         ->assertDontSee('Sasha Scissors');
 

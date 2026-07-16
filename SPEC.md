@@ -17,25 +17,22 @@ Two scopes, mirroring GHL's agency/sub-account structure. Enforced server-side o
 
 **Agency scope:** Owner (everything; **exactly one, ever** — never grantable, untouchable by anyone else, edits only their own account) · Admin (near-everything, but cannot touch the owner) · User (only explicitly assigned salons, no console administration).
 
-**Salon scope:** role (`salon_owner` | `salon_admin` | `staff`) × staff type (`stylist` | `front_desk` | `manager` | none). **The role carries the permissions; the type is functional** (only stylists are bookable) and maps to the role — enforced server-side:
+**Salon scope:** three roles — `salon_owner` | `salon_manager` | `stylist` (front desk was absorbed into manager: functionally identical). **The role carries the permissions; `staff_type` survives as the orthogonal BOOKABILITY flag** (`stylist` or none): a stylist-role member always carries it, a manager never does, and an **owner may also carry it** — the owner-who-cuts-hair case — toggled only by the owner themself on their own row in salon → Users.
 
-| Staff type | Role |
-|---|---|
-| stylist | `staff` |
-| manager | `salon_admin` |
-| front desk | `salon_admin` |
-
-| Capability | Owner | Admin (managers + front desk) | Staff (stylists) |
+| Capability | Owner | Manager | Stylist |
 |---|---|---|---|
-| Master calendar / all bookings, check-in | ✓ | ✓ | own only |
-| Manage services / staff / clients | ✓ | ✓ | ✗ |
+| Today + master calendar / all bookings, check-in, create bookings | ✓ | ✓ | Today + own calendar column, own appointments only |
+| Manage clients / services / users / reports / settings / widgets / setup | ✓ | ✓ | ✗ (403 server-side) |
 | Edit availability | anyone's | anyone's | own |
-| Settings, policy, branding, widgets, reports | ✓ | ✓ | ✗ |
 | GHL connection + integration checks | ✓ | ✓ | ✗ |
-| Touch the salon OWNER (edit/demote/deactivate/reset) | ✗ (self-account only) | ✗ | ✗ |
+| Bookable (takes bookings) | optional (self-toggled) | never | always |
+| Touch the salon OWNER (edit/demote/deactivate/reset/delete) | ✗ (self-account only) | ✗ | ✗ |
+| Delete users | managers + stylists | managers + stylists (never the owner) | ✗ |
 | Delete own account | ✓ | ✗ (salon-managed) | ✗ (salon-managed) |
 | Delete/deactivate the salon | — (no in-app delete; policy reserves it) | ✗ | ✗ |
 | Personal ICS feed | ✓ | ✓ | ✓ |
+
+A stylist's reachable salon surface is exactly {Today, calendar (own view), own appointments, own availability, own account} — everything else 403s (`StylistScopeTest` pins the full route matrix). Adding a salon user asks exactly: name, email, phone, role (manager or stylist); owner is never grantable through user management.
 
 **Salon owner** is provisioned automatically at salon creation from the contact person (existing accounts are linked; new ones get a temp password via the standard invite mails) and is never grantable through staff management. **Agency owners/admins retain the platform override** (deactivate salons, full salon reach via the policy `before` hook) — deliberately, so the agency can always operate its own platform; the one thing even they cannot do is touch an existing salon owner's membership or mint a second agency owner.
 

@@ -157,7 +157,7 @@ it('shields the salon owner from every staff-management action — admins AND ag
 
     foreach ([$salonAdmin, $agencyOwner] as $actor) {
         expect(fn () => app(UpdateStaffMembership::class)->handle($actor, $salon, $ownerMembership, [
-            'salon_role' => 'salon_admin',
+            'salon_role' => 'salon_manager',
         ]))->toThrow(AuthorizationException::class);
         expect(fn () => app(SetMembershipActive::class)->handle($actor, $salon, $ownerMembership, false))
             ->toThrow(AuthorizationException::class);

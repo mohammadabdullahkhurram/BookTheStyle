@@ -35,12 +35,12 @@ class UpdateStaffMembership
             throw new AuthorizationException('You may not manage that staff member.');
         }
 
-        // Staff type records the member's operational function (stylist /
-        // front desk / manager); the ROLE carries permissions, and the type
-        // maps to it — enforced here so the pairing can never drift.
+        // staff_type is the bookability flag and follows the role (stylists
+        // bookable, managers not); explicit values are reserved for the
+        // owner-who-cuts-hair path. Enforced so the pairing never drifts.
         $staffType = ! empty($data['staff_type'])
             ? StaffType::from($data['staff_type'])
-            : null;
+            : $this->roles->impliedType($newRole);
 
         $this->roles->assertRoleMatchesType($newRole, $staffType);
 

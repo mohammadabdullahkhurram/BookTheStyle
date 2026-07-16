@@ -14,6 +14,7 @@ use Livewire\Component;
 new #[Title('New agency user')] class extends Component {
     public string $name = '';
     public string $email = '';
+    public string $phone = '';
     public string $agency_role = 'agency_user';
 
     /** @var array<int, int> */
@@ -59,6 +60,7 @@ new #[Title('New agency user')] class extends Component {
         $validated = $this->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique(User::class)->withoutTrashed()],
+            'phone' => ['nullable', 'string', 'max:32'],
             'agency_role' => ['required', Rule::in($allowed)],
             'salon_ids' => ['array'],
             'salon_ids.*' => ['integer'],
@@ -91,6 +93,7 @@ new #[Title('New agency user')] class extends Component {
             <form wire:submit="save" class="flex flex-col gap-6" novalidate>
                 <flux:input wire:model="name" :label="__('Name')" required autofocus />
                 <flux:input wire:model="email" type="email" :label="__('Email')" required />
+                <flux:input wire:model="phone" type="tel" :label="__('Phone')" autocomplete="tel" />
 
                 <flux:select wire:model.live="agency_role" :label="__('Agency role')">
                     @foreach ($this->assignableRoles as $role)

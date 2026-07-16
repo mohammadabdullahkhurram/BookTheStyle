@@ -61,7 +61,7 @@ it('emails a welcome and a credentialed invite to NEW salon staff, invite-only t
     $owner = salonOwnerOf($salon);
 
     $new = app(InviteStaff::class)->handle($owner, $salon, [
-        'name' => 'Nina New', 'email' => 'nina@example.com', 'salon_role' => 'staff', 'staff_type' => 'stylist',
+        'name' => 'Nina New', 'email' => 'nina@example.com', 'salon_role' => 'stylist', 'staff_type' => 'stylist',
     ]);
 
     Mail::assertQueued(AccountCreatedMail::class, fn ($mail) => $mail->hasTo('nina@example.com'));
@@ -72,7 +72,7 @@ it('emails a welcome and a credentialed invite to NEW salon staff, invite-only t
     // An existing login added to another salon: invite only, no credentials.
     $other = Salon::factory()->create();
     app(InviteStaff::class)->handle(salonOwnerOf($other), $other, [
-        'name' => 'Nina New', 'email' => 'nina@example.com', 'salon_role' => 'staff', 'staff_type' => 'stylist',
+        'name' => 'Nina New', 'email' => 'nina@example.com', 'salon_role' => 'stylist', 'staff_type' => 'stylist',
     ]);
 
     Mail::assertQueued(StaffInviteMail::class, fn ($mail) => $mail->salonName === $other->name
@@ -185,7 +185,7 @@ it('still provisions the account and surfaces the temp password when mail is dow
     $owner = salonOwnerOf($salon);
 
     $result = app(InviteStaff::class)->handle($owner, $salon, [
-        'name' => 'Lock Out', 'email' => 'lockout@example.com', 'salon_role' => 'staff', 'staff_type' => 'stylist',
+        'name' => 'Lock Out', 'email' => 'lockout@example.com', 'salon_role' => 'stylist', 'staff_type' => 'stylist',
     ]);
 
     // The user exists and the plaintext is still returned for in-app display.

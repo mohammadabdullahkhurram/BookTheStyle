@@ -58,8 +58,15 @@ function assertNoStrandedEnumValues(): void
 
 function runLegacyRoleFix(): void
 {
-    $migration = require database_path('migrations/2026_07_27_000001_fix_legacy_enum_role_values.php');
-    $migration->up();
+    // The full corrective chain, in migration order: the stranded-value
+    // sweep (000001), then the owner/manager/stylist taxonomy remap (000003).
+    foreach ([
+        'migrations/2026_07_27_000001_fix_legacy_enum_role_values.php',
+        'migrations/2026_07_27_000003_remap_salon_roles_to_owner_manager_stylist.php',
+    ] as $file) {
+        $migration = require database_path($file);
+        $migration->up();
+    }
 }
 
 it('holds no value any enum rejects (standing scan)', function () {
@@ -108,17 +115,18 @@ it('maps every legacy role shape, splitting by staff type, and re-runs as a no-o
     $role = fn (string $key) => DB::table('salon_memberships')->where('id', $ids[$key])->value('salon_role');
     $type = fn (string $key) => DB::table('salon_memberships')->where('id', $ids[$key])->value('staff_type');
 
-    expect($role('user+stylist'))->toBe('staff');
-    expect($role('user+manager'))->toBe('salon_admin');
-    expect($role('user+front_desk'))->toBe('salon_admin');
-    expect($role('user+hyphen-front-desk'))->toBe('salon_admin');
-    expect($type('user+hyphen-front-desk'))->toBe('front_desk');
-    expect($role('user+null'))->toBe('staff');            // safe default: least privilege
-    expect($role('member+stylist'))->toBe('staff');
+    expect($role('user+stylist'))->toBe('stylist');
+    expect($role('user+manager'))->toBe('salon_manager');
+    expect($role('user+front_desk'))->toBe('salon_manager');
+    expect($role('user+hyphen-front-desk'))->toBe('salon_manager');
+    expect($type('user+hyphen-front-desk'))->toBeNull();  // front-desk label died with the role
+    expect($role('user+null'))->toBe('stylist');          // safe default: least privilege
+    expect($type('user+null'))->toBe('stylist');          // stylist role ⇒ bookable
+    expect($role('member+stylist'))->toBe('stylist');
     expect($role('owner-alias'))->toBe('salon_owner');
-    expect($role('admin-alias'))->toBe('salon_admin');
-    expect($role('garbage'))->toBe('staff');              // unknown role + unknown type
-    expect($type('garbage'))->toBeNull();                 // → least privilege, no function
+    expect($role('admin-alias'))->toBe('salon_manager');
+    expect($role('garbage'))->toBe('stylist');            // unknown role + unknown type
+    expect($type('garbage'))->toBe('stylist');            // → least privilege, bookable stylist
 
     expect(DB::table('users')->where('id', $legacyAgencyRole->id)->value('agency_role'))->toBe('agency_admin');
     expect(DB::table('users')->where('id', $garbageAgencyRole->id)->value('agency_role'))->toBeNull();

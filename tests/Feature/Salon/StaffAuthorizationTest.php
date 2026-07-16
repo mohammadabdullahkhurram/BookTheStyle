@@ -62,10 +62,10 @@ it('lets an existing salon owner add another owner or admin', function () {
     $owner = salonOwnerOf($salon);
 
     $result = app(InviteStaff::class)->handle($owner, $salon, [
-        'name' => 'Co Admin', 'email' => 'coadmin@example.com', 'salon_role' => 'salon_admin',
+        'name' => 'Co Admin', 'email' => 'coadmin@example.com', 'salon_role' => 'salon_manager',
     ]);
 
-    expect($result->user->membershipFor($salon)->salon_role)->toBe(SalonRole::Admin);
+    expect($result->user->membershipFor($salon)->salon_role)->toBe(SalonRole::Manager);
 });
 
 it('forbids a salon admin from deactivating or resetting an owner', function () {
@@ -88,7 +88,7 @@ it('forbids a salon admin from overwriting an existing owner via the invite form
 
     // Admin tries to "invite" the existing owner as a stylist (a demote).
     expect(fn () => app(InviteStaff::class)->handle($admin, $salon, [
-        'name' => 'x', 'email' => $owner->email, 'salon_role' => 'staff', 'staff_type' => 'stylist',
+        'name' => 'x', 'email' => $owner->email, 'salon_role' => 'stylist', 'staff_type' => 'stylist',
     ]))->toThrow(AuthorizationException::class);
 
     expect($owner->fresh()->membershipFor($salon)->salon_role)->toBe(SalonRole::Owner);
@@ -99,17 +99,17 @@ it('lets a salon admin promote staff to admin — with the matching staff type',
     $admin = salonAdminOf($salon);
     $membership = stylistOf($salon)->membershipFor($salon);
 
-    // Full admin surface: promoting staff→admin is allowed, but the type
-    // must follow the mapping (a stylist cannot hold the admin role).
+    // Full manager surface: promoting stylist→manager is allowed, but the
+    // bookability flag must follow the role (a manager is never bookable).
     expect(fn () => app(UpdateStaffMembership::class)->handle($admin, $salon, $membership, [
-        'salon_role' => 'salon_admin', 'staff_type' => 'stylist',
+        'salon_role' => 'salon_manager', 'staff_type' => 'stylist',
     ]))->toThrow(ValidationException::class);
 
     app(UpdateStaffMembership::class)->handle($admin, $salon, $membership, [
-        'salon_role' => 'salon_admin', 'staff_type' => 'manager',
+        'salon_role' => 'salon_manager',
     ]);
 
-    expect($membership->fresh()->salon_role)->toBe(SalonRole::Admin);
+    expect($membership->fresh()->salon_role)->toBe(SalonRole::Manager);
 });
 
 // --- Rule 3: add/remove a STYLIST / front desk --------------------------------
@@ -120,13 +120,13 @@ it('lets a salon owner or admin add a stylist, but a stylist cannot add staff', 
     $stylist = stylistOf($salon);
 
     $added = app(InviteStaff::class)->handle($admin, $salon, [
-        'name' => 'Stylist One', 'email' => 's1@example.com', 'salon_role' => 'staff', 'staff_type' => 'stylist',
+        'name' => 'Stylist One', 'email' => 's1@example.com', 'salon_role' => 'stylist', 'staff_type' => 'stylist',
     ]);
-    expect($added->user->membershipFor($salon)->salon_role)->toBe(SalonRole::Staff);
+    expect($added->user->membershipFor($salon)->salon_role)->toBe(SalonRole::Stylist);
     expect($added->user->membershipFor($salon)->staff_type)->toBe(StaffType::Stylist);
 
     expect(fn () => app(InviteStaff::class)->handle($stylist, $salon, [
-        'name' => 'Sneaky', 'email' => 'sneaky@example.com', 'salon_role' => 'staff', 'staff_type' => 'stylist',
+        'name' => 'Sneaky', 'email' => 'sneaky@example.com', 'salon_role' => 'stylist', 'staff_type' => 'stylist',
     ]))->toThrow(AuthorizationException::class);
 });
 
@@ -144,7 +144,7 @@ it('supports a multi-salon user with a role per salon, reusing the account', fun
 
     // ...is added as a stylist in salon B by B's owner.
     $result = app(InviteStaff::class)->handle($ownerB, $salonB, [
-        'name' => 'Ignored', 'email' => 'multi@example.com', 'salon_role' => 'staff', 'staff_type' => 'stylist',
+        'name' => 'Ignored', 'email' => 'multi@example.com', 'salon_role' => 'stylist', 'staff_type' => 'stylist',
     ]);
 
     expect($result->existing)->toBeTrue();
@@ -155,7 +155,7 @@ it('supports a multi-salon user with a role per salon, reusing the account', fun
 
     // Role is resolved per salon.
     expect($person->membershipFor($salonA)->salon_role)->toBe(SalonRole::Owner);
-    expect($person->membershipFor($salonB)->salon_role)->toBe(SalonRole::Staff);
+    expect($person->membershipFor($salonB)->salon_role)->toBe(SalonRole::Stylist);
     expect($person->membershipFor($salonB)->staff_type)->toBe(StaffType::Stylist);
 });
 
@@ -169,7 +169,7 @@ it('grants a salon owner no staff authority in another salon', function () {
     expect((new SalonStaffRoles)->assignable($ownerA, $salonB))->toBe([]);
 
     expect(fn () => app(InviteStaff::class)->handle($ownerA, $salonB, [
-        'name' => 'x', 'email' => 'x@example.com', 'salon_role' => 'staff', 'staff_type' => 'stylist',
+        'name' => 'x', 'email' => 'x@example.com', 'salon_role' => 'stylist', 'staff_type' => 'stylist',
     ]))->toThrow(AuthorizationException::class);
 });
 
@@ -181,6 +181,6 @@ it('forbids an agency operator from acting on another agency\'s salon', function
     expect((new SalonStaffRoles)->assignable($ownerA, $salonB))->toBe([]);
 
     expect(fn () => app(InviteStaff::class)->handle($ownerA, $salonB, [
-        'name' => 'x', 'email' => 'cross@example.com', 'salon_role' => 'salon_admin',
+        'name' => 'x', 'email' => 'cross@example.com', 'salon_role' => 'salon_manager',
     ]))->toThrow(AuthorizationException::class);
 });

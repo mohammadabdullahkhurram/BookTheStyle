@@ -93,10 +93,8 @@ new #[Title('Users')] class extends Component {
             }
             match ($this->role) {
                 SalonRole::Owner->value => $q->where('salon_role', SalonRole::Owner->value),
-                SalonRole::Admin->value => $q->where('salon_role', SalonRole::Admin->value),
-                StaffType::Stylist->value => $q->where('staff_type', StaffType::Stylist->value),
-                StaffType::FrontDesk->value => $q->where('staff_type', StaffType::FrontDesk->value),
-                StaffType::Manager->value => $q->where('staff_type', StaffType::Manager->value),
+                SalonRole::Manager->value => $q->where('salon_role', SalonRole::Manager->value),
+                SalonRole::Stylist->value => $q->where('salon_role', SalonRole::Stylist->value),
                 default => null,
             };
         };
@@ -141,10 +139,8 @@ new #[Title('Users')] class extends Component {
                     <flux:select.option value="{{ $case->value }}">{{ __('Agency: :role', ['role' => $case->label()]) }}</flux:select.option>
                 @endforeach
                 <flux:select.option value="{{ \App\Enums\SalonRole::Owner->value }}">{{ __('Salon: Owner') }}</flux:select.option>
-                <flux:select.option value="{{ \App\Enums\SalonRole::Admin->value }}">{{ __('Salon: Admin') }}</flux:select.option>
-                <flux:select.option value="{{ \App\Enums\StaffType::Manager->value }}">{{ __('Salon: Manager') }}</flux:select.option>
-                <flux:select.option value="{{ \App\Enums\StaffType::Stylist->value }}">{{ __('Salon: Stylist') }}</flux:select.option>
-                <flux:select.option value="{{ \App\Enums\StaffType::FrontDesk->value }}">{{ __('Salon: Front desk') }}</flux:select.option>
+                <flux:select.option value="{{ \App\Enums\SalonRole::Manager->value }}">{{ __('Salon: Manager') }}</flux:select.option>
+                <flux:select.option value="{{ \App\Enums\SalonRole::Stylist->value }}">{{ __('Salon: Stylist') }}</flux:select.option>
             </flux:select>
             <flux:select wire:model.live="salonId" :label="__('Salon')">
                 <flux:select.option value="">{{ __('All salons') }}</flux:select.option>

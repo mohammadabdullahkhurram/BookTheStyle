@@ -49,8 +49,7 @@ it('reserves close-button space in the temporary-password dialog header', functi
     Livewire::test('pages::salon.staff.index', ['salon' => $salon])
         ->set('name', 'Annaliese')
         ->set('email', 'annaliese@example.com')
-        ->set('role', 'staff')
-        ->set('staff_type', 'stylist')
+        ->set('role', 'stylist')
         ->call('invite')
         ->assertSet('showTempPassword', true)
         ->assertSee('Temporary password for Annaliese')
@@ -68,7 +67,7 @@ it('reserves close-button space in the edit-staff dialog header', function () {
 
     Livewire::test('pages::salon.staff.index', ['salon' => $salon])
         ->call('startEdit', $membership->id)
-        ->assertSee('Edit staff member')
+        ->assertSee('Edit user')
         ->assertSee('pe-12', escape: false);
 });
 

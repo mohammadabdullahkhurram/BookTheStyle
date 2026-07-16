@@ -65,7 +65,7 @@ it('targets the app host in every login link a mailable carries', function () {
     $salon = Salon::factory()->create();
     app(InviteStaff::class)->handle(salonOwnerOf($salon), $salon, [
         'name' => 'Nina New', 'email' => 'nina@example.com',
-        'salon_role' => 'staff', 'staff_type' => 'stylist',
+        'salon_role' => 'stylist', 'staff_type' => 'stylist',
     ]);
 
     Mail::assertQueued(StaffInviteMail::class, function ($mail) {

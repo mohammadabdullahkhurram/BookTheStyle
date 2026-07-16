@@ -17,17 +17,16 @@ use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 
 /*
-| The manager staff type under the role taxonomy (SPEC §2): the TYPE is
-| functional (managers run the salon; they are never bookable) and MAPS to
-| the ADMIN role — enforced server-side, so a "member-manager" cannot exist.
-| Everything a manager may do comes from the admin role.
+| The Manager ROLE under the owner/manager/stylist taxonomy (SPEC §2):
+| managers run the salon and are never bookable — staff_type (the
+| bookability flag) stays NULL for them, enforced server-side.
 */
 
 // ---------------------------------------------------------------------------
 // Creation + the type → role mapping
 // ---------------------------------------------------------------------------
 
-it('creates a manager as a salon ADMIN through the staff screen', function () {
+it('creates a manager through the Users screen — never bookable', function () {
     Mail::fake();
     $salon = Salon::factory()->create();
     $owner = salonOwnerOf($salon);
@@ -36,58 +35,47 @@ it('creates a manager as a salon ADMIN through the staff screen', function () {
         ->test('pages::salon.staff.index', ['salon' => $salon])
         ->set('name', 'Morgan Manager')
         ->set('email', 'morgan@example.com')
-        ->set('role', 'salon_admin')
-        ->set('staff_type', 'manager')
+        ->set('role', 'salon_manager')
         ->call('invite')
         ->assertHasNoErrors();
 
     $user = User::where('email', 'morgan@example.com')->firstOrFail();
     $membership = $salon->memberships()->where('user_id', $user->id)->firstOrFail();
 
-    expect($membership->salon_role)->toBe(SalonRole::Admin);
-    expect($membership->staff_type)->toBe(StaffType::Manager);
+    expect($membership->salon_role)->toBe(SalonRole::Manager);
+    expect($membership->staff_type)->toBeNull();
 });
 
-it('rejects the impossible pairings: staff+manager, staff+front-desk, admin+stylist', function () {
+it('rejects the impossible pairing: a bookable manager', function () {
     $salon = Salon::factory()->create();
     $owner = salonOwnerOf($salon);
 
-    foreach ([
-        ['staff', 'manager'],
-        ['staff', 'front_desk'],
-        ['salon_admin', 'stylist'],
-    ] as [$role, $type]) {
-        expect(fn () => app(InviteStaff::class)->handle($owner, $salon, [
-            'name' => 'Mismatched', 'email' => 'mismatch-'.$type.'@example.com',
-            'salon_role' => $role, 'staff_type' => $type,
-        ]))->toThrow(ValidationException::class);
-    }
+    expect(fn () => app(InviteStaff::class)->handle($owner, $salon, [
+        'name' => 'Mismatched', 'email' => 'mismatch@example.com',
+        'salon_role' => 'salon_manager', 'staff_type' => 'stylist',
+    ]))->toThrow(ValidationException::class);
 });
 
-it('rejects an unknown staff type at the form boundary', function () {
+it('rejects an unknown staff type outright — the enum has one case', function () {
     $salon = Salon::factory()->create();
     $owner = salonOwnerOf($salon);
 
-    Livewire::actingAs($owner)
-        ->test('pages::salon.staff.index', ['salon' => $salon])
-        ->set('name', 'Sneaky')
-        ->set('email', 'sneaky@example.com')
-        ->set('role', 'staff')
-        ->set('staff_type', 'superuser')
-        ->call('invite')
-        ->assertHasErrors(['staff_type']);
+    expect(fn () => app(InviteStaff::class)->handle($owner, $salon, [
+        'name' => 'Sneaky', 'email' => 'sneaky@example.com',
+        'salon_role' => 'stylist', 'staff_type' => 'superuser',
+    ]))->toThrow(ValueError::class);
 });
 
-it('leaves existing rows untouched — no-type owners and typed staff keep their values', function () {
+it('keeps the bookability flag consistent: owners none by default, stylists always, managers never', function () {
     $salon = Salon::factory()->create();
     $owner = salonOwnerOf($salon);
     $stylist = stylistOf($salon);
-    $frontDesk = frontDeskOf($salon);
+    $manager = frontDeskOf($salon);
 
     expect($owner->membershipFor($salon)->staff_type)->toBeNull();
     expect($stylist->membershipFor($salon)->staff_type)->toBe(StaffType::Stylist);
-    expect($frontDesk->membershipFor($salon)->staff_type)->toBe(StaffType::FrontDesk);
-    expect($frontDesk->membershipFor($salon)->salon_role)->toBe(SalonRole::Admin);
+    expect($manager->membershipFor($salon)->staff_type)->toBeNull();
+    expect($manager->membershipFor($salon)->salon_role)->toBe(SalonRole::Manager);
 });
 
 // ---------------------------------------------------------------------------
@@ -155,7 +143,7 @@ it('gives a manager the full salon admin surface', function () {
     expect($salon->stylistUsers()->pluck('users.id')->all())->not->toContain($manager->id);
 });
 
-it('keeps stylist behavior unchanged; front desk holds the admin role', function () {
+it('keeps stylist behavior unchanged; desk-running members hold the manager role', function () {
     $salon = Salon::factory()->create();
     $stylist = stylistOf($salon);
     $frontDesk = frontDeskOf($salon);

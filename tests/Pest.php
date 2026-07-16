@@ -45,21 +45,24 @@ function stylistOf(Salon $salon, ?User $user = null): User
     return $user;
 }
 
+/**
+ * Historic helper: "front desk" was absorbed into the Manager role
+ * (functionally identical) in the owner/manager/stylist rework. Kept so the
+ * many call sites keep expressing "a desk-running member" — now a Manager.
+ */
 function frontDeskOf(Salon $salon): User
 {
     $user = User::factory()->create();
-    SalonMembership::factory()->for($user)->for($salon)->frontDesk()->create();
+    SalonMembership::factory()->for($user)->for($salon)->manager()->create();
 
     return $user;
 }
 
 /**
- * A member with the manager staff type (no operational function). Pass a role
- * for the office-manager combos, e.g. managerOf($salon, SalonRole::Admin).
+ * A Manager-role member (no bookable function).
  */
-function managerOf(Salon $salon, SalonRole $role = SalonRole::Admin): User
+function managerOf(Salon $salon, SalonRole $role = SalonRole::Manager): User
 {
-    // Managers hold the ADMIN role (SPEC §2: the type maps to the role).
     $user = User::factory()->create();
     SalonMembership::factory()->for($user)->for($salon)->manager()
         ->state(['salon_role' => $role])->create();

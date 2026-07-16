@@ -42,7 +42,8 @@ new #[Title('New booking')] class extends Component {
 
     public function mount(Salon $salon): void
     {
-        $this->authorize('accessBookings', $salon);
+        // Creating bookings is a manager surface — stylists don't book clients.
+        $this->authorize('manageBookings', $salon);
         $this->salon = $salon;
         $this->date = CarbonImmutable::now($salon->timezone)->format('Y-m-d');
         $this->items = [$this->blankLine()];
@@ -340,7 +341,7 @@ new #[Title('New booking')] class extends Component {
 
     public function save(CreateBooking $action): void
     {
-        $this->authorize('accessBookings', $this->salon);
+        $this->authorize('manageBookings', $this->salon);
 
         $rules = [
             'items' => ['required', 'array', 'min:1'],

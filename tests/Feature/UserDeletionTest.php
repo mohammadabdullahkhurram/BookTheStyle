@@ -246,7 +246,7 @@ it('restores a deleted account on re-invite, keeping the same user id', function
     $result = app(InviteStaff::class)->handle(salonOwnerOf($salon), $salon, [
         'name' => 'Back Again',
         'email' => $email,
-        'salon_role' => 'staff',
+        'salon_role' => 'stylist',
         'staff_type' => 'stylist',
     ]);
 

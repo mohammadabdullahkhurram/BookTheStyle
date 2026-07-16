@@ -39,7 +39,7 @@
         @endcan
         {{-- Check-in: front-desk level only (owner/admin/front-desk).
              Hidden from stylists, who cannot change booking status. --}}
-        @can('accessBookings', $salon)
+        @can('manageBookings', $salon)
             <a href="{{ route('salon.clients', $salon) }}" wire:navigate @click="mobileNav = false"
                aria-label="{{ __('Clients') }}" :title="collapsed ? '{{ __('Clients') }}' : null"
                class="bts-nav-item {{ request()->routeIs('salon.clients') || request()->routeIs('salon.client') ? 'bts-nav-item-active' : '' }}">
@@ -68,10 +68,10 @@
         @endcan
         @can('manageStaff', $salon)
             <a href="{{ route('salon.staff', $salon) }}" wire:navigate @click="mobileNav = false"
-               aria-label="{{ __('Staff') }}" :title="collapsed ? '{{ __('Staff') }}' : null"
+               aria-label="{{ __('Users') }}" :title="collapsed ? '{{ __('Users') }}' : null"
                class="bts-nav-item {{ request()->routeIs('salon.staff') ? 'bts-nav-item-active' : '' }}">
                 <flux:icon.users variant="micro" class="shrink-0" />
-                <span x-show="!collapsed" x-cloak>{{ __('Staff') }}</span>
+                <span x-show="!collapsed" x-cloak>{{ __('Users') }}</span>
             </a>
         @endcan
         @can('manage', $salon)
@@ -146,7 +146,7 @@
 
 {{-- New booking (salon context) --}}
 @if ($salon)
-    @can('accessBookings', $salon)
+    @can('manageBookings', $salon)
         <div class="px-3 pb-1">
             <a href="{{ route('salon.bookings.create', $salon) }}" wire:navigate @click="mobileNav = false"
                aria-label="{{ __('New booking') }}" :title="collapsed ? '{{ __('New booking') }}' : null"

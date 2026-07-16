@@ -51,7 +51,9 @@ new #[Title('Clients')] class extends Component {
     public function mount(Salon $salon): void
     {
         // Same rule as the client profile: any booking-area staff may look.
-        $this->authorize('accessBookings', $salon);
+        // Client records are a manager surface — stylists are scoped to
+        // {Today, calendar, own appointments, own availability} (SPEC §2).
+        $this->authorize('manageBookings', $salon);
         $this->salon = $salon;
     }
 

@@ -3,22 +3,22 @@
 use App\Models\Salon;
 
 /*
-| The salon sidebar exposes the management screens (Services, Staff, Availability)
+| The salon sidebar exposes the management screens (Services, Users, Availability)
 | with role-mirrored visibility — links never appear for a role that would 403.
 */
 
-it('shows Services, Staff and Availability links to a salon manager', function () {
+it('shows Services, Users and Availability links to a salon manager', function () {
     $salon = Salon::factory()->create();
     $owner = salonOwnerOf($salon);
 
     $html = $this->actingAs($owner)->get(route('salon.show', $salon))->assertOk()->getContent();
 
     expect($html)->toContain(route('salon.services', $salon))->toContain('Services');
-    expect($html)->toContain(route('salon.staff', $salon))->toContain('Staff');
+    expect($html)->toContain(route('salon.staff', $salon))->toContain('Users');
     expect($html)->toContain(route('salon.availability', $salon))->toContain('Availability');
 });
 
-it('shows a stylist only Availability (their own), not Services or Staff', function () {
+it('shows a stylist only Availability (their own), not Services or Users', function () {
     $salon = Salon::factory()->create();
     $stylist = stylistOf($salon);
 
@@ -29,7 +29,7 @@ it('shows a stylist only Availability (their own), not Services or Staff', funct
     expect($html)->toContain(route('salon.availability', $salon));
 });
 
-it('shows front desk the full management nav — the admin role since the remap', function () {
+it('shows a manager the full management nav', function () {
     $salon = Salon::factory()->create();
     $frontDesk = frontDeskOf($salon);
 

@@ -29,7 +29,7 @@ class InviteStaff
     public function __construct(private SalonStaffRoles $roles) {}
 
     /**
-     * @param  array{name: string, email: string, salon_role: string, staff_type?: string|null}  $data
+     * @param  array{name: string, email: string, phone?: string|null, salon_role: string, staff_type?: string|null}  $data
      */
     public function handle(User $actor, Salon $salon, array $data): ProvisionedUser
     {
@@ -39,14 +39,16 @@ class InviteStaff
             throw new AuthorizationException('You may not grant that role.');
         }
 
-        // Staff type records the member's operational function (stylist /
-        // front desk / manager); the ROLE carries permissions, and the type
-        // maps to it — enforced here so the pairing can never drift.
+        // staff_type is the bookability flag and follows the role (stylists
+        // bookable, managers not); an explicit value is accepted only for the
+        // Owner path (a bookable owner). Enforced so the pairing never drifts.
         $staffType = ! empty($data['staff_type'])
             ? StaffType::from($data['staff_type'])
-            : null;
+            : $this->roles->impliedType($role);
 
         $this->roles->assertRoleMatchesType($role, $staffType);
+
+        $phone = isset($data['phone']) && $data['phone'] !== '' ? $data['phone'] : null;
 
         $existing = User::withTrashed()->where('email', $data['email'])->first();
 
@@ -56,10 +58,11 @@ class InviteStaff
         if ($existing !== null && $existing->trashed()) {
             $temporaryPassword = TemporaryPassword::generate();
 
-            DB::transaction(function () use ($existing, $data, $salon, $role, $staffType, $temporaryPassword): void {
+            DB::transaction(function () use ($existing, $data, $salon, $role, $staffType, $temporaryPassword, $phone): void {
                 $existing->restore();
                 $existing->forceFill([
                     'name' => $data['name'],
+                    'phone' => $phone,
                     'password' => $temporaryPassword,
                     'must_change_password' => true,
                 ])->save();
@@ -105,10 +108,11 @@ class InviteStaff
 
         $temporaryPassword = TemporaryPassword::generate();
 
-        $user = DB::transaction(function () use ($data, $salon, $role, $staffType, $temporaryPassword) {
+        $user = DB::transaction(function () use ($data, $salon, $role, $staffType, $temporaryPassword, $phone) {
             $user = User::create([
                 'name' => $data['name'],
                 'email' => $data['email'],
+                'phone' => $phone,
                 'password' => $temporaryPassword,
                 'must_change_password' => true,
                 'email_verified_at' => now(),

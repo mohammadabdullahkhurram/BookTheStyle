@@ -34,7 +34,11 @@ use Illuminate\Support\Facades\DB;
  */
 return new class extends Migration
 {
-    private const SALON_ROLES = ['salon_owner', 'salon_admin', 'staff'];
+    // Recognized role values: the taxonomy this sweep normalises TO
+    // ('salon_admin'/'staff') plus its successors from the 000003 remap
+    // ('salon_manager'/'stylist') — so re-running this sweep after later
+    // remaps can never un-map converged data.
+    private const SALON_ROLES = ['salon_owner', 'salon_admin', 'salon_manager', 'staff', 'stylist'];
 
     private const STAFF_TYPES = ['stylist', 'front_desk', 'manager'];
 

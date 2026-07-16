@@ -42,7 +42,9 @@ new #[Title('Client')] class extends Component {
 
     public function mount(Salon $salon, int $clientId): void
     {
-        $this->authorize('accessBookings', $salon);
+        // Client records are a manager surface — stylists are scoped to
+        // {Today, calendar, own appointments, own availability} (SPEC §2).
+        $this->authorize('manageBookings', $salon);
         $this->salon = $salon;
         // Scoped lookup — out-of-salon ids 404 (no IDOR).
         $this->client = $salon->clients()->whereKey($clientId)->firstOrFail();

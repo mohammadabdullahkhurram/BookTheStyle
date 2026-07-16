@@ -28,7 +28,7 @@ class CreateAgencyUser
     ) {}
 
     /**
-     * @param  array{name: string, email: string, agency_role: string, salon_ids?: array<int, int|string>}  $data
+     * @param  array{name: string, email: string, phone?: string|null, agency_role: string, salon_ids?: array<int, int|string>}  $data
      */
     public function handle(User $actor, Agency $agency, array $data): ProvisionedUser
     {
@@ -49,6 +49,7 @@ class CreateAgencyUser
                 $trashed->restore();
                 $trashed->forceFill([
                     'name' => $data['name'],
+                    'phone' => ($data['phone'] ?? '') !== '' ? $data['phone'] : null,
                     'password' => $temporaryPassword,
                     'agency_id' => $agency->id,
                     'agency_role' => $role,
@@ -60,6 +61,7 @@ class CreateAgencyUser
                 $user = User::create([
                     'name' => $data['name'],
                     'email' => $data['email'],
+                    'phone' => ($data['phone'] ?? '') !== '' ? $data['phone'] : null,
                     'password' => $temporaryPassword,
                     'agency_id' => $agency->id,
                     'agency_role' => $role,

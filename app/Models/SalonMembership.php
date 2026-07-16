@@ -67,9 +67,4 @@ class SalonMembership extends Model
     {
         return $this->staff_type === StaffType::Stylist;
     }
-
-    public function isFrontDesk(): bool
-    {
-        return $this->staff_type === StaffType::FrontDesk;
-    }
 }
