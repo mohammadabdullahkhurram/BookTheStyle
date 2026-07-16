@@ -112,7 +112,8 @@ new #[Title('Calendar')] class extends Component {
      */
     public function selectSlot(string $start, ?int $stylistId = null): void
     {
-        $this->authorize('accessBookings', $this->salon);
+        // Click-to-book is a manager affordance — stylists view, never create.
+        $this->authorize('manageBookings', $this->salon);
 
         $local = CarbonImmutable::parse($start)->setTimezone($this->salon->timezone);
         $params = ['salon' => $this->salon, 'date' => $local->format('Y-m-d'), 'time' => $local->format('H:i')];
@@ -267,7 +268,7 @@ new #[Title('Calendar')] class extends Component {
                             {{-- Slot cells: shading (working = card, non-working = muted) + click-to-book --}}
                             <div class="flex flex-col">
                                 @foreach ($col['slots'] as $slot)
-                                    @if ($slot['bookable'])
+                                    @if ($slot['bookable'] && $isMaster)
                                         <button type="button" wire:click="selectSlot('{{ $slot['iso'] }}', {{ $col['stylistId'] ?? 'null' }})"
                                                 aria-label="{{ __('Book :who at :time', ['who' => $col['name'], 'time' => $slot['label']]) }}"
                                                 class="group block w-full bg-card transition hover:bg-accent-tint/50" style="height: {{ 30 * $ppm }}px"></button>

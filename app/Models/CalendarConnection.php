@@ -16,11 +16,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $user_id
  * @property string|null $token_hash
  * @property CarbonImmutable|null $last_used_at
+ * @property string|null $last_client
+ * @property int $fetch_count
  */
 class CalendarConnection extends Model
 {
     protected $fillable = [
         'last_used_at',
+        'last_client',
+        'fetch_count',
     ];
 
     /**
@@ -37,6 +41,7 @@ class CalendarConnection extends Model
     {
         return [
             'last_used_at' => 'datetime',
+            'fetch_count' => 'integer',
         ];
     }
 

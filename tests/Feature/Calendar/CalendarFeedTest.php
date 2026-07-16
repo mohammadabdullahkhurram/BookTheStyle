@@ -319,7 +319,7 @@ it('keeps regenerate and revoke on the themed confirm modal after the redesign',
         ->call('generate')
         ->assertSeeHtml('$store.confirm.ask')
         ->assertDontSeeHtml('wire:confirm')
-        ->assertSee('Regenerate the link? Your existing calendar subscription will stop updating until you re-add the new link.');
+        ->assertSee('Regenerate the link? The old link stops working immediately and the connection status starts over — your calendar keeps working only once you add the new link.');
 });
 
 it('notes that Google/Outlook can only reach the link once the app is live, on local URLs', function () {

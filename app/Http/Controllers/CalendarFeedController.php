@@ -21,7 +21,7 @@ class CalendarFeedController extends Controller
         PersonalCalendarFeed $feed,
         string $token,
     ): Response {
-        $user = $service->resolve($token);
+        $user = $service->resolve($token, $request->userAgent());
 
         abort_if($user === null, 404);
 

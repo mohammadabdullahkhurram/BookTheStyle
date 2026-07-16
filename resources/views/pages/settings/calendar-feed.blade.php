@@ -1,8 +1,10 @@
 <?php
 
+use App\Models\CalendarConnection;
 use App\Services\Calendar\CalendarFeedService;
 use Flux\Flux;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\Computed;
 use Livewire\Component;
 
 new class extends Component {
@@ -41,6 +43,25 @@ new class extends Component {
         $this->connected = false;
 
         Flux::toast(variant: 'success', text: __('Calendar link revoked.'));
+    }
+
+    /**
+     * Fetch evidence for the CURRENT link (the user's own row only). Honest
+     * by construction: the feed is pull-based, so the only real status is
+     * whether a calendar app has actually come and fetched it.
+     */
+    #[Computed]
+    public function feedStatus(): ?CalendarConnection
+    {
+        $connection = Auth::user()->calendarConnection()->first();
+
+        return $connection?->hasFeed() ? $connection : null;
+    }
+
+    /** Re-read the status from the database ("Check again"). */
+    public function refreshStatus(): void
+    {
+        unset($this->feedStatus);
     }
 }; ?>
 
@@ -129,6 +150,29 @@ new class extends Component {
 
     @if ($subscribeUrl)
         <div class="flex flex-col gap-5">
+            {{-- Connection status: evidence of an actual fetch, never a fake "test". --}}
+            @if ($this->feedStatus)
+                <div class="flex flex-wrap items-center justify-between gap-3 rounded-[11px] border border-input-border px-4 py-3">
+                    <div class="flex items-start gap-2">
+                        @if ($this->feedStatus->last_used_at)
+                            <flux:icon.check-circle variant="micro" class="mt-0.5 shrink-0 text-[#3E5C3A]" />
+                            <div>
+                                <p class="text-[13.5px] font-medium text-body">
+                                    {{ __('Connected — :client last checked :when.', ['client' => $this->feedStatus->last_client ?? __('a calendar app'), 'when' => $this->feedStatus->last_used_at->diffForHumans()]) }}
+                                </p>
+                            </div>
+                        @else
+                            <flux:icon.clock variant="micro" class="mt-0.5 shrink-0 text-faint" />
+                            <div>
+                                <p class="text-[13.5px] font-medium text-body">{{ __('Not connected yet — once you add the link to your calendar app, it\'ll show here.') }}</p>
+                                <p class="mt-0.5 text-[12.5px] leading-relaxed text-secondary">{{ __('Calendar apps check the link on their own schedule — Google can take a few hours after you add it. A fresh link showing "not connected yet" is normal, not broken.') }}</p>
+                            </div>
+                        @endif
+                    </div>
+                    <x-ui.button type="button" variant="secondary" size="sm" wire:click="refreshStatus" loading="refreshStatus">{{ __('Check again') }}</x-ui.button>
+                </div>
+            @endif
+
             {{-- Step 1 — the link is the whole product; copying it is the action. --}}
             <div class="flex flex-col gap-2"
                  x-data="{
@@ -211,7 +255,7 @@ new class extends Component {
                 <button type="button"
                     x-on:click="$store.confirm.ask({
                         title: {{ Js::from(__('Regenerate link')) }},
-                        message: {{ Js::from(__('Regenerate the link? Your existing calendar subscription will stop updating until you re-add the new link.')) }},
+                        message: {{ Js::from(__('Regenerate the link? The old link stops working immediately and the connection status starts over — your calendar keeps working only once you add the new link.')) }},
                         confirmLabel: {{ Js::from(__('Regenerate')) }},
                         danger: false,
                     }, () => $wire.generate())"
@@ -224,6 +268,29 @@ new class extends Component {
         </div>
     @elseif ($connected)
         <div class="flex flex-col gap-3">
+            {{-- Connection status: evidence of an actual fetch, never a fake "test". --}}
+            @if ($this->feedStatus)
+                <div class="flex flex-wrap items-center justify-between gap-3 rounded-[11px] border border-input-border px-4 py-3">
+                    <div class="flex items-start gap-2">
+                        @if ($this->feedStatus->last_used_at)
+                            <flux:icon.check-circle variant="micro" class="mt-0.5 shrink-0 text-[#3E5C3A]" />
+                            <div>
+                                <p class="text-[13.5px] font-medium text-body">
+                                    {{ __('Connected — :client last checked :when.', ['client' => $this->feedStatus->last_client ?? __('a calendar app'), 'when' => $this->feedStatus->last_used_at->diffForHumans()]) }}
+                                </p>
+                            </div>
+                        @else
+                            <flux:icon.clock variant="micro" class="mt-0.5 shrink-0 text-faint" />
+                            <div>
+                                <p class="text-[13.5px] font-medium text-body">{{ __('Not connected yet — once you add the link to your calendar app, it\'ll show here.') }}</p>
+                                <p class="mt-0.5 text-[12.5px] leading-relaxed text-secondary">{{ __('Calendar apps check the link on their own schedule — Google can take a few hours after you add it. A fresh link showing "not connected yet" is normal, not broken.') }}</p>
+                            </div>
+                        @endif
+                    </div>
+                    <x-ui.button type="button" variant="secondary" size="sm" wire:click="refreshStatus" loading="refreshStatus">{{ __('Check again') }}</x-ui.button>
+                </div>
+            @endif
+
             <div class="flex items-center gap-2 text-[14px] font-medium text-body">
                 <flux:icon.check-circle variant="micro" class="text-[#3E5C3A]" />
                 <span>{{ __('Your calendar link is active.') }}</span>
@@ -233,7 +300,7 @@ new class extends Component {
             </p>
             <div class="flex flex-wrap gap-3">
                 <x-ui.button
-                    x-on:click="$store.confirm.ask({ title: {{ Js::from(__('Regenerate link')) }}, message: {{ Js::from(__('Regenerate the link? The old link stops working immediately.')) }}, confirmLabel: {{ Js::from(__('Regenerate')) }}, danger: false }, () => $wire.generate())">
+                    x-on:click="$store.confirm.ask({ title: {{ Js::from(__('Regenerate link')) }}, message: {{ Js::from(__('Regenerate the link? The old link stops working immediately and the connection status starts over — your calendar keeps working only once you add the new link.')) }}, confirmLabel: {{ Js::from(__('Regenerate')) }}, danger: false }, () => $wire.generate())">
                     {{ __('Regenerate link') }}
                 </x-ui.button>
                 <button type="button"

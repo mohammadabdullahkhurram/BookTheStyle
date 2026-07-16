@@ -167,23 +167,23 @@ it('creates a walk-in and checks it in immediately', function () {
     expect($booking->statusEvents()->count())->toBe(2);
 });
 
-it('restricts a stylist to booking only their own items', function () {
+it('refuses a stylist any booking creation — even their own', function () {
     $salon = bookingSalon();
     $stylist = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
     $other = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
     $service = Service::factory()->create(['salon_id' => $salon->id, 'duration_min' => 60]);
     $service->stylists()->attach([$stylist->id => ['salon_id' => $salon->id], $other->id => ['salon_id' => $salon->id]]);
 
-    // Booking another stylist's item is forbidden.
+    // Another stylist's item is forbidden…
     expect(fn () => app(CreateBooking::class)->handle($stylist, $salon, bookingData([
         'items' => [['service_id' => $service->id, 'stylist_id' => $other->id]],
     ])))->toThrow(AuthorizationException::class);
 
-    // Their own is allowed.
-    $booking = app(CreateBooking::class)->handle($stylist, $salon, bookingData([
+    // …and since the scope-down, so is their OWN: booking clients in is desk
+    // work; blocking out their time is what availability/time off are for.
+    expect(fn () => app(CreateBooking::class)->handle($stylist, $salon, bookingData([
         'items' => [['service_id' => $service->id, 'stylist_id' => $stylist->id]],
-    ]));
-    expect($booking->items()->first()->stylist_id)->toBe($stylist->id);
+    ])))->toThrow(AuthorizationException::class);
 });
 
 it('keeps bookings + items tenant-scoped', function () {

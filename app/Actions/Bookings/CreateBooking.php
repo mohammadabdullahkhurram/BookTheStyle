@@ -290,22 +290,18 @@ class CreateBooking
     }
 
     /**
-     * Non-managers (stylists) may only create bookings whose every item is their
-     * own. Managers/front desk may book any stylist.
+     * Booking creation is a MANAGER surface (owner/manager + agency
+     * operators). Stylists lost self-booking in the scope-down: blocking out
+     * their own time is what availability and time off are for, and booking
+     * clients in is desk work. System callers (null actor — voice AI, the
+     * widget, GHL inbound) never reach here.
      *
      * @param  list<array{stylist_id: int, service: Service, starts_at: CarbonImmutable, ends_at: CarbonImmutable, buffer_min: int, blocked: int}>  $resolved
      */
     private function assertActorMayBook(User $actor, Salon $salon, array $resolved): void
     {
-        if ($actor->can('manageBookings', $salon)) {
-            return;
-        }
-
-        $ownStylist = $actor->stylistMembershipFor($salon) !== null;
-        $allOwn = collect($resolved)->every(fn ($ri) => $ri['stylist_id'] === $actor->id);
-
-        if (! ($ownStylist && $allOwn)) {
-            throw new AuthorizationException('You may only book your own appointments.');
+        if (! $actor->can('manageBookings', $salon)) {
+            throw new AuthorizationException('Only salon managers may create bookings.');
         }
     }
 }

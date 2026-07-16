@@ -105,11 +105,11 @@ it('calendar feed regenerate + revoke use the themed dialog with the original co
         ->assertSeeHtml('$store.confirm.ask')
         ->assertDontSeeHtml('wire:confirm')
         // The exact wire:confirm copy, preserved as the dialog message.
-        ->assertSee('Regenerate the link? Your existing calendar subscription will stop updating until you re-add the new link.');
+        ->assertSee('Regenerate the link? The old link stops working immediately and the connection status starts over — your calendar keeps working only once you add the new link.');
 
     Livewire::actingAs($user)
         ->test('pages::settings.calendar-feed')
-        ->assertSee('Regenerate the link? The old link stops working immediately.')
+        ->assertSee('Regenerate the link? The old link stops working immediately and the connection status starts over — your calendar keeps working only once you add the new link.')
         ->assertSee('Revoke your calendar link? It will stop updating any calendar it was added to.')
         // Revoke is danger; regenerate is a normal-severity confirm.
         ->assertSeeHtml('danger: true')
