@@ -112,6 +112,36 @@ it('keeps a bookable owner bookable through the role migration', function () {
     expect($membership->fresh()->staff_type)->toBe(StaffType::Stylist);
 });
 
+it('renders the list twice — desktop table and mobile stacked cards — and reveals the add form on demand', function () {
+    $salon = Salon::factory()->create();
+    $owner = salonOwnerOf($salon);
+    stylistOf($salon);
+
+    $html = $this->actingAs($owner)->get(route('salon.staff', $salon))->assertOk()->getContent();
+
+    // Both presentations exist (Clients-directory responsive pattern)…
+    expect($html)->toContain('md:hidden');
+    expect(substr_count($html, $owner->name))->toBeGreaterThanOrEqual(2);
+
+    // …and the page is list-first: the add form lives in a modal.
+    expect($html)->toContain(__('Add user'));
+
+    Livewire::actingAs($owner)
+        ->test('pages::salon.staff.index', ['salon' => $salon])
+        ->call('startAdd')
+        ->assertSet('showAdd', true)
+        ->set('name', 'Modal Molly')
+        ->set('email', 'molly@example.com')
+        ->set('phone', '+1 555 010 9911')
+        ->set('role', 'stylist')
+        ->call('invite')
+        ->assertHasNoErrors()
+        ->assertSet('showAdd', false)
+        ->assertSet('showTempPassword', true);
+
+    expect(User::where('email', 'molly@example.com')->firstOrFail()->phone)->toBe('+1 555 010 9911');
+});
+
 // ---------------------------------------------------------------------------
 // Agency side
 // ---------------------------------------------------------------------------

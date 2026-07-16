@@ -86,7 +86,7 @@ it('confirms staff password resets and deactivation with specific copy', functio
         ->test('pages::salon.staff.index', ['salon' => $salon])
         ->assertSeeHtml('$store.confirm.ask')
         ->assertDontSeeHtml('wire:confirm')
-        ->assertSee('password? Their current password stops working immediately')
+        ->assertSee('The current one stops working immediately')
         ->assertSee('They lose access to this salon; their bookings and history are kept.');
 });
 

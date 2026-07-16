@@ -26,6 +26,7 @@ new #[Title('Users')] class extends Component {
     public string $email = '';
     public string $phone = '';
     public string $role = 'stylist';
+    public bool $showAdd = false;
 
     public ?int $editingId = null;
     public string $editRole = 'stylist';
@@ -76,6 +77,17 @@ new #[Title('Users')] class extends Component {
         return (new SalonStaffRoles)->canAssign(Auth::user(), $this->salon, $membership->salon_role);
     }
 
+    /** Open the add-user modal with a clean slate. */
+    public function startAdd(): void
+    {
+        $this->authorize('manageStaff', $this->salon);
+
+        $this->reset(['name', 'email', 'phone']);
+        $this->role = 'stylist';
+        $this->resetErrorBag();
+        $this->showAdd = true;
+    }
+
     public function invite(InviteStaff $action): void
     {
         $this->authorize('manageStaff', $this->salon);
@@ -97,6 +109,7 @@ new #[Title('Users')] class extends Component {
         unset($this->memberships);
         $this->reset(['name', 'email', 'phone', 'role']);
         $this->role = 'stylist';
+        $this->showAdd = false;
 
         if ($result->existing) {
             Flux::toast(variant: 'success', text: __('Existing user added to this salon.'));
@@ -212,54 +225,47 @@ new #[Title('Users')] class extends Component {
 
 <div>
     <div class="mx-auto flex w-full max-w-6xl flex-col gap-7 px-4 py-6 sm:px-6 lg:px-8 lg:py-7">
-        <x-ui.page-header :overline="__('Manage')" :title="__('Users')" />
+        <x-ui.page-header :overline="__('Manage')" :title="__('Users')">
+            <x-slot:subtitle>{{ __('Everyone with access to this salon.') }}</x-slot:subtitle>
+            <x-slot:actions>
+                <x-ui.button wire:click="startAdd"><flux:icon.plus variant="micro" class="shrink-0" />{{ __('Add user') }}</x-ui.button>
+            </x-slot:actions>
+        </x-ui.page-header>
 
-        <x-ui.card class="flex flex-col gap-4">
-            <h2 class="bts-card-title">{{ __('Add user') }}</h2>
-            <form wire:submit="invite" class="flex flex-col gap-4" novalidate>
-                <div class="grid gap-4 sm:grid-cols-2">
-                    <flux:input wire:model="name" :label="__('Name')" required />
-                    <flux:input wire:model="email" type="email" :label="__('Email')" required />
-                    <flux:input wire:model="phone" type="tel" :label="__('Phone')" autocomplete="tel" />
-                    <flux:select wire:model="role" :label="__('Role')"
-                        :description="__('Stylists are bookable and see only their own schedule; managers run the salon.')">
-                        @foreach ($this->assignableRoles as $r)
-                            <flux:select.option value="{{ $r->value }}">{{ $r->label() }}</flux:select.option>
-                        @endforeach
-                    </flux:select>
-                </div>
-                <div>
-                    <x-ui.button type="submit" loading="invite"><flux:icon.plus variant="micro" class="shrink-0" />{{ __('Send invite') }}</x-ui.button>
-                </div>
-            </form>
-        </x-ui.card>
-
-        <x-ui.card padding="p-0" class="overflow-hidden">
+        {{-- Desktop table (mirrors the Clients directory rhythm). --}}
+        <x-ui.card padding="p-0" class="hidden overflow-hidden md:block">
             <div class="overflow-x-auto" tabindex="0">
             <table class="w-full text-left">
                 <thead>
                     <tr class="bts-overline border-b border-divider">
                         <th scope="col" class="px-6 py-3.5 font-semibold">{{ __('Name') }}</th>
+                        <th scope="col" class="px-6 py-3.5 font-semibold">{{ __('Phone') }}</th>
                         <th scope="col" class="px-6 py-3.5 font-semibold">{{ __('Role') }}</th>
-                        <th scope="col" class="px-6 py-3.5 font-semibold">{{ __('Type') }}</th>
                         <th scope="col" class="px-6 py-3.5 font-semibold">{{ __('Status') }}</th>
-                        <th scope="col" class="px-6 py-3.5"></th>
+                        <th scope="col" class="px-6 py-3.5 text-right"><span class="sr-only">{{ __('Actions') }}</span></th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-row">
                     @forelse ($this->memberships as $m)
-                        <tr @class(['bg-muted/40' => ! $m->active])>
+                        <tr wire:key="member-{{ $m->id }}" @class(['bg-muted/40' => ! $m->active])>
                             <td class="px-6 py-4">
                                 <div class="flex items-center gap-3">
                                     <x-ui.avatar :name="$m->user->name" :seed="$m->user->id" size="sm" />
-                                    <div>
-                                        <div class="text-[15px] font-medium text-ink">{{ $m->user->name }}</div>
-                                        <div class="text-[12.5px] text-faint">{{ $m->user->email }}</div>
+                                    <div class="min-w-0">
+                                        <div class="truncate text-[15px] font-medium text-ink">{{ $m->user->name }}</div>
+                                        <div class="truncate text-[12.5px] text-faint">{{ $m->user->email }}</div>
                                     </div>
                                 </div>
                             </td>
-                            <td class="px-6 py-4 text-[15px] text-secondary">{{ $m->salon_role->label() }}</td>
-                            <td class="px-6 py-4 text-[15px] text-secondary">{{ $m->staff_type?->label() ?? '—' }}</td>
+                            <td class="px-6 py-4 text-[14px] text-secondary">{{ $m->user->phone ?: '—' }}</td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-2 text-[14px] text-secondary">
+                                    <span>{{ $m->salon_role->label() }}</span>
+                                    @if ($m->salon_role === \App\Enums\SalonRole::Owner && $m->staff_type === \App\Enums\StaffType::Stylist)
+                                        <span class="bts-pill" style="background-color:var(--accent-tint);color:var(--accent-ink);">{{ __('Takes bookings') }}</span>
+                                    @endif
+                                </div>
+                            </td>
                             <td class="px-6 py-4">
                                 @if ($m->active)
                                     <span class="bts-pill" style="background-color:#E7EFE4;color:#3E5C3A;">{{ __('Active') }}</span>
@@ -268,65 +274,80 @@ new #[Title('Users')] class extends Component {
                                 @endif
                             </td>
                             <td class="px-6 py-4">
-                                <div class="flex items-center justify-end gap-4">
-                                    @if ($this->canManageMembership($m))
-                                        <button type="button" wire:click="startEdit({{ $m->id }})" class="text-[13px] font-semibold text-accent transition hover:text-accent-hover">{{ __('Edit') }}</button>
-                                        {{-- Themed confirms (replace wire:confirm); reactivating commits without one, as before. --}}
-                                        <button type="button"
-                                                x-on:click="$store.confirm.ask({
-                                                    title: {{ Js::from(__('Reset password')) }},
-                                                    message: {{ Js::from(__('Reset :name\'s password? Their current password stops working immediately and a new temporary password is shown once.', ['name' => $m->user->name])) }},
-                                                    confirmLabel: {{ Js::from(__('Reset')) }},
-                                                    danger: false,
-                                                }, () => $wire.resetPassword({{ $m->id }}))"
-                                                class="text-[13px] font-medium text-secondary transition hover:text-ink">{{ __('Reset password') }}</button>
-                                        <button type="button"
-                                                @if ($m->active)
-                                                    x-on:click="$store.confirm.ask({
-                                                        title: {{ Js::from(__('Deactivate member')) }},
-                                                        message: {{ Js::from(__('Deactivate :name? They lose access to this salon; their bookings and history are kept.', ['name' => $m->user->name])) }},
-                                                        confirmLabel: {{ Js::from(__('Deactivate')) }},
-                                                        danger: true,
-                                                    }, () => $wire.toggleActive({{ $m->id }}))"
-                                                @else
-                                                    wire:click="toggleActive({{ $m->id }})"
-                                                @endif
-                                                class="text-[13px] font-medium text-secondary transition hover:text-ink">
-                                            {{ $m->active ? __('Deactivate') : __('Reactivate') }}
-                                        </button>
-                                        {{-- Deactivate stays the recommended, reversible action; delete is the rare permanent one. Owner rows never reach here deletable (canAssign refuses Owner), and self-deletion lives in account settings. --}}
-                                        @if ($m->user_id !== Auth::id())
-                                            <button type="button"
-                                                    x-on:click="$store.confirm.ask({
-                                                        title: {{ Js::from(__('Delete member')) }},
-                                                        message: {{ Js::from(__(':name is removed from this salon permanently — and their account is deleted if this is their only access. Past bookings and history are kept under their name. Prefer Deactivate if they might return.', ['name' => $m->user->name])) }},
-                                                        confirmLabel: {{ Js::from(__('Delete')) }},
-                                                        danger: true,
-                                                    }, () => $wire.deleteMember({{ $m->id }}))"
-                                                    class="text-[13px] font-medium text-danger transition hover:opacity-80">{{ __('Delete') }}</button>
-                                        @endif
-                                    @elseif ($m->user_id === Auth::id() && $m->salon_role === \App\Enums\SalonRole::Owner)
-                                        {{-- The owner-who-cuts-hair switch: only the owner, on their own row. --}}
-                                        <button type="button" wire:click="toggleOwnerBookable({{ $m->id }})"
-                                                class="text-[13px] font-medium text-secondary transition hover:text-ink">
-                                            {{ $m->staff_type === \App\Enums\StaffType::Stylist ? __('Stop taking bookings') : __('Take bookings') }}
-                                        </button>
-                                    @else
-                                        <span class="text-[13px] text-faint">{{ __('—') }}</span>
-                                    @endif
+                                <div class="flex items-center justify-end gap-3">
+                                    @include('pages.salon.staff.partials.row-actions', ['m' => $m, 'canManage' => $this->canManageMembership($m)])
                                 </div>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="px-6 py-10 text-center text-[15px] text-faint">{{ __('No staff yet. Invite someone above.') }}</td>
+                            <td colspan="5" class="px-6 py-12 text-center">
+                                <p class="text-[15px] font-medium text-body">{{ __('No users yet.') }}</p>
+                                <p class="mt-1 text-[13.5px] text-secondary">{{ __('Use Add user to invite your first manager or stylist.') }}</p>
+                            </td>
                         </tr>
                     @endforelse
                 </tbody>
             </table>
             </div>
         </x-ui.card>
+
+        {{-- Mobile: stacked cards (the Clients directory pattern). --}}
+        <div class="flex flex-col divide-y divide-row border-t border-divider md:hidden">
+            @forelse ($this->memberships as $m)
+                <div wire:key="member-m-{{ $m->id }}" @class(['flex flex-col gap-2.5 py-4', 'opacity-70' => ! $m->active])>
+                    <div class="flex items-center gap-3">
+                        <x-ui.avatar :name="$m->user->name" :seed="$m->user->id" size="sm" />
+                        <div class="min-w-0 flex-1">
+                            <div class="truncate text-[15px] font-medium text-ink">{{ $m->user->name }}</div>
+                            <div class="truncate text-[12.5px] text-faint">{{ $m->user->email }}</div>
+                        </div>
+                        <div class="flex shrink-0 items-center gap-3">
+                            @include('pages.salon.staff.partials.row-actions', ['m' => $m, 'canManage' => $this->canManageMembership($m)])
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2 ps-11 text-[13px] text-secondary">
+                        <span>{{ $m->salon_role->label() }}</span>
+                        @if ($m->salon_role === \App\Enums\SalonRole::Owner && $m->staff_type === \App\Enums\StaffType::Stylist)
+                            <span class="bts-pill" style="background-color:var(--accent-tint);color:var(--accent-ink);">{{ __('Takes bookings') }}</span>
+                        @endif
+                        @unless ($m->active)
+                            <span class="bts-pill" style="background-color:#F0EEEA;color:#6B6862;">{{ __('Inactive') }}</span>
+                        @endunless
+                        @if ($m->user->phone)
+                            <span class="text-faint">· {{ $m->user->phone }}</span>
+                        @endif
+                    </div>
+                </div>
+            @empty
+                <div class="py-12 text-center">
+                    <p class="text-[15px] font-medium text-body">{{ __('No users yet.') }}</p>
+                    <p class="mt-1 text-[13.5px] text-secondary">{{ __('Use Add user to invite your first manager or stylist.') }}</p>
+                </div>
+            @endforelse
+        </div>
     </div>
+
+    {{-- Add user: revealed on demand so the LIST leads the page (same modal
+         pattern as Edit below). Single column — no grid for helper text to
+         break; the role note sits under its own field. --}}
+    <x-ui.modal wire:model="showAdd" class="max-w-md" :heading="__('Add user')">
+        <form wire:submit="invite" class="flex flex-col gap-5" novalidate>
+            <flux:input wire:model="name" :label="__('Name')" required autofocus />
+            <flux:input wire:model="email" type="email" :label="__('Email')" required />
+            <flux:input wire:model="phone" type="tel" :label="__('Phone')" autocomplete="tel" />
+            <flux:select wire:model="role" :label="__('Role')"
+                :description="__('Stylists are bookable and see only their own schedule; managers run the salon.')">
+                @foreach ($this->assignableRoles as $r)
+                    <flux:select.option value="{{ $r->value }}">{{ $r->label() }}</flux:select.option>
+                @endforeach
+            </flux:select>
+            <div class="flex justify-end gap-3">
+                <x-ui.button type="button" variant="secondary" wire:click="$set('showAdd', false)">{{ __('Cancel') }}</x-ui.button>
+                <x-ui.button type="submit" loading="invite">{{ __('Send invite') }}</x-ui.button>
+            </div>
+        </form>
+    </x-ui.modal>
 
     <x-ui.modal wire:model="showEdit" class="max-w-md" :heading="__('Edit user')">
         <form wire:submit="saveEdit" class="flex flex-col gap-5" novalidate>
