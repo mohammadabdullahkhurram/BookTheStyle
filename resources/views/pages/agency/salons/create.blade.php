@@ -211,7 +211,7 @@ new #[Title('New salon')] class extends Component {
             throw $e;
         }
 
-        $salon = $action->handle($this->agency(), $data);
+        $salon = $action->handle(Auth::user(), $this->agency(), $data);
 
         Flux::toast(variant: 'success', text: __('Salon ":name" created.', ['name' => $salon->name]));
 

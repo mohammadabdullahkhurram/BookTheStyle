@@ -3,7 +3,6 @@
 namespace App\Policies;
 
 use App\Enums\SalonRole;
-use App\Enums\StaffType;
 use App\Models\Salon;
 use App\Models\User;
 
@@ -61,18 +60,15 @@ class SalonPolicy
     }
 
     /**
-     * Front-desk-level booking capability: create/edit/cancel any booking,
-     * check clients in, and manage clients. Owner/admin (and agency operators)
-     * via `manage`, plus front desk. Stylists are NOT included here — they only
-     * see their own bookings/clients.
+     * Booking capability: create/edit/cancel any booking, check clients in,
+     * manage clients. Owner/admin (and agency operators) via `manage`. Since
+     * the role remap, managers and front desk ARE salon admins (staff type is
+     * functional only), so no type-based special case remains. Staff
+     * (stylists) are NOT included — they only see their own bookings/clients.
      */
     public function manageBookings(User $user, Salon $salon): bool
     {
-        if ($this->manage($user, $salon)) {
-            return true;
-        }
-
-        return $user->membershipFor($salon)?->staff_type === StaffType::FrontDesk;
+        return $this->manage($user, $salon);
     }
 
     /**
@@ -86,11 +82,12 @@ class SalonPolicy
     }
 
     /**
-     * Only the salon owner connects/configures the salon's GHL (SPEC §3).
+     * Connect/configure the salon's GHL: the full admin surface belongs to
+     * owner AND admin (SPEC §2) — plus agency operators via `before`.
      */
     public function connectGhl(User $user, Salon $salon): bool
     {
-        return $user->membershipFor($salon)?->salon_role === SalonRole::Owner;
+        return $user->membershipFor($salon)?->salon_role->isManager() ?? false;
     }
 
     /**
@@ -118,17 +115,24 @@ class SalonPolicy
     }
 
     /**
-     * Master calendar: owner, admin, and front desk — not stylists.
+     * Master calendar: owner and admin (front desk / managers hold the admin
+     * role since the remap) — not staff (stylists), who get their own view.
      */
     public function viewMasterCalendar(User $user, Salon $salon): bool
     {
-        $membership = $user->membershipFor($salon);
+        return $user->membershipFor($salon)?->salon_role->isManager() ?? false;
+    }
 
-        if ($membership === null) {
-            return false;
-        }
-
-        return $membership->salon_role->isManager()
-            || $membership->staff_type === StaffType::FrontDesk;
+    /**
+     * Delete the salon. Salon ADMINS never can; the salon's own owner can;
+     * and — deliberately, via `before()` — agency owners/admins retain the
+     * override (the agency must stay able to remove salons from its own
+     * platform). NOTE: no in-app delete flow exists today — the live
+     * operation is agency-side DEACTIVATION — but the rule is enforced here
+     * so any future delete feature inherits it.
+     */
+    public function delete(User $user, Salon $salon): bool
+    {
+        return $user->membershipFor($salon)?->salon_role === SalonRole::Owner;
     }
 }

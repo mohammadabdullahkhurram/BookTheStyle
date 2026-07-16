@@ -141,12 +141,14 @@ it('keeps the sync-issues panel away from non-admin staff', function () {
     $salon = siSalon();
     siFailedBooking($salon);
 
-    // Front desk and stylists cannot even open salon settings.
-    foreach ([frontDeskOf($salon), stylistOf($salon)] as $user) {
-        test()->actingAs($user)
-            ->get(route('salon.settings', $salon))
-            ->assertForbidden();
-    }
+    // Staff (stylists) cannot open salon settings; front desk — an admin
+    // since the remap — can.
+    test()->actingAs(stylistOf($salon))
+        ->get(route('salon.settings', $salon))
+        ->assertForbidden();
+    test()->actingAs(frontDeskOf($salon))
+        ->get(route('salon.settings', $salon))
+        ->assertOk();
 });
 
 it('never lists or retries another salon\'s bookings', function () {

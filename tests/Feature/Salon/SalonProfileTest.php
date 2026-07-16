@@ -112,7 +112,7 @@ it('scopes profile management to salon and agency managers', function () {
 
     // Denied: salon staff, agency users, and other agencies.
     expect(stylistOf($salon)->can('manageProfile', $salon))->toBeFalse();
-    expect(frontDeskOf($salon)->can('manageProfile', $salon))->toBeFalse();
+    expect(frontDeskOf($salon)->can('manageProfile', $salon))->toBeTrue(); // admin role since the remap
     expect($agencyUser->can('manageProfile', $salon))->toBeFalse();
     expect($otherAdmin->can('manageProfile', $salon))->toBeFalse();
 });

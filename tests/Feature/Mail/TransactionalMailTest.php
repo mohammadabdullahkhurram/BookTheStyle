@@ -61,7 +61,7 @@ it('emails a welcome and a credentialed invite to NEW salon staff, invite-only t
     $owner = salonOwnerOf($salon);
 
     $new = app(InviteStaff::class)->handle($owner, $salon, [
-        'name' => 'Nina New', 'email' => 'nina@example.com', 'salon_role' => 'user', 'staff_type' => 'stylist',
+        'name' => 'Nina New', 'email' => 'nina@example.com', 'salon_role' => 'staff', 'staff_type' => 'stylist',
     ]);
 
     Mail::assertQueued(AccountCreatedMail::class, fn ($mail) => $mail->hasTo('nina@example.com'));
@@ -72,7 +72,7 @@ it('emails a welcome and a credentialed invite to NEW salon staff, invite-only t
     // An existing login added to another salon: invite only, no credentials.
     $other = Salon::factory()->create();
     app(InviteStaff::class)->handle(salonOwnerOf($other), $other, [
-        'name' => 'Nina New', 'email' => 'nina@example.com', 'salon_role' => 'user', 'staff_type' => 'stylist',
+        'name' => 'Nina New', 'email' => 'nina@example.com', 'salon_role' => 'staff', 'staff_type' => 'stylist',
     ]);
 
     Mail::assertQueued(StaffInviteMail::class, fn ($mail) => $mail->salonName === $other->name
@@ -101,7 +101,7 @@ it('notifies agency owners and admins — not agency users — when a salon is a
     $admin = User::factory()->create(['agency_id' => $agency->id, 'agency_role' => AgencyRole::Admin]);
     $plainUser = User::factory()->create(['agency_id' => $agency->id, 'agency_role' => AgencyRole::User]);
 
-    app(CreateSalon::class)->handle($agency, salonProfileInput([
+    app(CreateSalon::class)->handle($owner, $agency, salonProfileInput([
         'slug' => 'mail-added', 'timezone' => 'America/New_York',
     ]));
 
@@ -112,8 +112,8 @@ it('notifies agency owners and admins — not agency users — when a salon is a
 
 it('gives the salon-created email the details the owner needs: address, contacts, next steps', function () {
     $agency = mailAgency();
-    mailAgencyOwnerOf($agency);
-    $salon = app(CreateSalon::class)->handle($agency, salonProfileInput([
+    $actor = mailAgencyOwnerOf($agency);
+    $salon = app(CreateSalon::class)->handle($actor, $agency, salonProfileInput([
         'slug' => 'mail-detail', 'timezone' => 'America/New_York',
     ]));
 
@@ -185,7 +185,7 @@ it('still provisions the account and surfaces the temp password when mail is dow
     $owner = salonOwnerOf($salon);
 
     $result = app(InviteStaff::class)->handle($owner, $salon, [
-        'name' => 'Lock Out', 'email' => 'lockout@example.com', 'salon_role' => 'user', 'staff_type' => 'stylist',
+        'name' => 'Lock Out', 'email' => 'lockout@example.com', 'salon_role' => 'staff', 'staff_type' => 'stylist',
     ]);
 
     // The user exists and the plaintext is still returned for in-app display.

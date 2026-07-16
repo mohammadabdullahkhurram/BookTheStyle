@@ -25,13 +25,11 @@ it('lets an owner create a service scoped to the salon', function () {
     expect($service->color_key)->toBe('green');
 });
 
-it('forbids front desk and stylists from the services screen', function () {
+it('forbids stylists from the services screen; front desk (admin role) may manage', function () {
     $salon = Salon::factory()->create();
 
-    $this->actingAs(frontDeskOf($salon))->get(route('salon.services', $salon))->assertForbidden();
     $this->actingAs(stylistOf($salon))->get(route('salon.services', $salon))->assertForbidden();
-
-    // An owner/admin can.
+    $this->actingAs(frontDeskOf($salon))->get(route('salon.services', $salon))->assertOk();
     $this->actingAs(salonOwnerOf($salon))->get(route('salon.services', $salon))->assertOk();
 });
 

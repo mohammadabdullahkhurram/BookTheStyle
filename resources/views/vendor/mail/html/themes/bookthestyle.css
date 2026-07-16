@@ -111,11 +111,13 @@ img {
 /* Logo */
 
 .logo {
-    height: 75px;
+    /* The wide wordmark PNG (891x189) rendered at 38px tall - retina-crisp. */
+    height: 38px;
     margin-top: 15px;
     margin-bottom: 10px;
-    max-height: 75px;
-    width: 75px;
+    max-height: 38px;
+    max-width: 220px;
+    width: auto;
 }
 
 /* Body */

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\AgencyRole;
+use App\Enums\SalonRole;
 use App\Enums\StaffType;
 use App\Notifications\ResetPasswordNotification;
 use Database\Factories\UserFactory;
@@ -127,6 +128,24 @@ class User extends Authenticatable implements PasskeyUser
     public function isAgencyOperator(): bool
     {
         return $this->agency_role?->isPrivileged() ?? false;
+    }
+
+    /**
+     * Self-service account deletion (SPEC §2 deletion rules): a SALON OWNER
+     * may delete their own account; salon admins and staff may not — their
+     * accounts are salon-managed. The agency owner never may (the singleton
+     * operator account must not orphan the agency). Users with no salon
+     * memberships (agency admins/users) keep self-deletion.
+     */
+    public function canDeleteOwnAccount(): bool
+    {
+        if ($this->agency_role === AgencyRole::Owner) {
+            return false;
+        }
+
+        return ! $this->salonMemberships()
+            ->where('salon_role', '!=', SalonRole::Owner->value)
+            ->exists();
     }
 
     /**

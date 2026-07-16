@@ -13,12 +13,12 @@ use Livewire\Livewire;
 /*
 | End-to-end role enforcement (SPEC §3, tightened per the target role model):
 |
-|   Stylist        — own calendar + own availability/bio only. No check-in/
+|   Staff (stylist) — own calendar + own availability/bio only. No check-in/
 |                     status, no master calendar, no services/staff/settings,
 |                     no other stylist's availability.
-|   Front desk     — check-in/status + bookings; no services/staff; no
-|                     availability editing.
-|   Owner / admin  — full salon management.
+|   Admin          — full salon management (managers AND front desk hold the
+|                     admin role; the staff type is functional only).
+|   Owner          — everything, and untouchable by anyone else.
 |
 | Every rule is enforced server-side (policy/gate + action), never just hidden.
 */
@@ -113,22 +113,22 @@ it('forbids a stylist editing another stylist\'s availability', function () {
 // Front desk
 // ---------------------------------------------------------------------------
 
-it('lets front desk check in but not manage services, staff or availability', function () {
+it('gives front desk — a salon admin since the remap — the full admin surface', function () {
     $salon = bookingSalon();
     $stylist = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
     $booking = makeBooking($salon, salonOwnerOf($salon), $stylist, serviceFor($salon, $stylist, 60));
     $frontDesk = frontDeskOf($salon);
 
-    // Check-in: allowed.
+    // Check-in: allowed, as always.
     $this->actingAs($frontDesk)->get(route('salon.appointments', $salon))->assertOk();
     app(TransitionBookingStatus::class)->handle($frontDesk, $salon, $booking, BookingStatus::Arrived);
     expect($booking->fresh()->status)->toBe(BookingStatus::Arrived);
 
-    // Services / staff: denied. Availability: read-only view (no editing).
-    $this->get(route('salon.services', $salon))->assertForbidden();
-    $this->get(route('salon.staff', $salon))->assertForbidden();
+    // Full admin surface now: services, staff, availability management.
+    $this->get(route('salon.services', $salon))->assertOk();
+    $this->get(route('salon.staff', $salon))->assertOk();
     $this->get(route('salon.availability', $salon))->assertOk();
-    expect((new AvailabilityAccess)->canManage($frontDesk, $salon, $stylist->id))->toBeFalse();
+    expect((new AvailabilityAccess)->canManage($frontDesk, $salon, $stylist->id))->toBeTrue();
 });
 
 // ---------------------------------------------------------------------------
@@ -181,10 +181,10 @@ it('renders only the links each role may use', function () {
     expect($stylistHtml)->toContain($calendar)->toContain($availability)
         ->not->toContain($checkin)->not->toContain($services)->not->toContain($staff);
 
-    // Front desk: calendar + check-in + read-only availability; no services/staff.
+    // Front desk holds the admin role: the full management set renders.
     $frontHtml = $this->actingAs(frontDeskOf($salon))->get(route('salon.show', $salon))->assertOk()->getContent();
     expect($frontHtml)->toContain($calendar)->toContain($checkin)->toContain($availability)
-        ->not->toContain($services)->not->toContain($staff);
+        ->toContain($services)->toContain($staff);
 
     // Owner: the full management set.
     $ownerHtml = $this->actingAs(salonOwnerOf($salon))->get(route('salon.show', $salon))->assertOk()->getContent();

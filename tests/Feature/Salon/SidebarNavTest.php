@@ -29,15 +29,15 @@ it('shows a stylist only Availability (their own), not Services or Staff', funct
     expect($html)->toContain(route('salon.availability', $salon));
 });
 
-it('shows front desk only the read-only Availability link, no management links', function () {
+it('shows front desk the full management nav — the admin role since the remap', function () {
     $salon = Salon::factory()->create();
     $frontDesk = frontDeskOf($salon);
 
     $html = $this->actingAs($frontDesk)->get(route('salon.show', $salon))->assertOk()->getContent();
 
-    expect($html)->not->toContain(route('salon.services', $salon));
-    expect($html)->not->toContain(route('salon.staff', $salon));
-    expect($html)->toContain(route('salon.availability', $salon)); // read-only staff schedules
+    expect($html)->toContain(route('salon.services', $salon));
+    expect($html)->toContain(route('salon.staff', $salon));
+    expect($html)->toContain(route('salon.availability', $salon));
 });
 
 it('marks the active nav item on each management route', function () {

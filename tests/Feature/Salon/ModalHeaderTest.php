@@ -49,7 +49,7 @@ it('reserves close-button space in the temporary-password dialog header', functi
     Livewire::test('pages::salon.staff.index', ['salon' => $salon])
         ->set('name', 'Annaliese')
         ->set('email', 'annaliese@example.com')
-        ->set('role', 'user')
+        ->set('role', 'staff')
         ->set('staff_type', 'stylist')
         ->call('invite')
         ->assertSet('showTempPassword', true)

@@ -76,14 +76,14 @@ it('renders every step with progress for an owner', function () {
     $component->assertSee(__('Mark salon as live'));
 });
 
-it('refuses stylists and front desk', function () {
+it('refuses stylists; front desk holds the admin role and may run setup', function () {
     $salon = bookingSalon();
 
     $this->actingAs(stylistOf($salon));
     Livewire::test('pages::salon.onboarding', ['salon' => $salon])->assertForbidden();
 
     $this->actingAs(frontDeskOf($salon));
-    Livewire::test('pages::salon.onboarding', ['salon' => $salon])->assertForbidden();
+    Livewire::test('pages::salon.onboarding', ['salon' => $salon])->assertOk();
 });
 
 it('is tenant-scoped: an owner of one salon cannot onboard another', function () {

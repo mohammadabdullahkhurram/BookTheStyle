@@ -39,12 +39,14 @@ class InviteStaff
             throw new AuthorizationException('You may not grant that role.');
         }
 
-        // Staff type is orthogonal to role: it records the member's operational
-        // function (stylist / front desk / manager) and grants no permissions
-        // itself; empty = no staff function (typical for owners/admins).
+        // Staff type records the member's operational function (stylist /
+        // front desk / manager); the ROLE carries permissions, and the type
+        // maps to it — enforced here so the pairing can never drift.
         $staffType = ! empty($data['staff_type'])
             ? StaffType::from($data['staff_type'])
             : null;
+
+        $this->roles->assertRoleMatchesType($role, $staffType);
 
         $existing = User::where('email', $data['email'])->first();
 

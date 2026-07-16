@@ -188,11 +188,11 @@ it('never counts another salon\'s bookings', function () {
     expect($rB['revenue_cents'])->toBe(99900);
 });
 
-it('admits owners and admins only — front desk and stylists are refused', function () {
+it('admits owners and admins — incl. front desk (admin role) — and refuses stylists', function () {
     $salon = bookingSalon();
 
     $this->actingAs(salonOwnerOf($salon))->get(route('salon.reports', $salon))->assertOk();
     $this->actingAs(salonAdminOf($salon))->get(route('salon.reports', $salon))->assertOk();
-    $this->actingAs(frontDeskOf($salon))->get(route('salon.reports', $salon))->assertForbidden();
+    $this->actingAs(frontDeskOf($salon))->get(route('salon.reports', $salon))->assertOk();
     $this->actingAs(stylistOf($salon))->get(route('salon.reports', $salon))->assertForbidden();
 });

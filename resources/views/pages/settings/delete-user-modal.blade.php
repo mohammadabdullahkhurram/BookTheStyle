@@ -11,10 +11,15 @@ new class extends Component {
     public string $password = '';
 
     /**
-     * Delete the currently authenticated user.
+     * Delete the currently authenticated user. Server-enforced deletion
+     * rule (SPEC §2): only salon OWNERS (and salon-less accounts) may
+     * self-delete — salon admins/staff are salon-managed, and the agency
+     * owner never may. The UI hides the section too; this is the guard.
      */
     public function deleteUser(Logout $logout): void
     {
+        abort_unless(Auth::user()->canDeleteOwnAccount(), 403);
+
         $this->validate([
             'password' => $this->currentPasswordRules(),
         ]);

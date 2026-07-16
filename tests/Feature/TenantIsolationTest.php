@@ -97,11 +97,12 @@ it('honours the SalonPolicy ability checks per role', function () {
     $stylist = User::factory()->create();
     SalonMembership::factory()->for($stylist)->for($salon)->stylist()->create();
 
-    // Only the owner connects GHL.
+    // Owner and admin (front desk holds the admin role) connect GHL; staff never.
     expect($owner->can('connectGhl', $salon))->toBeTrue();
-    expect($frontDesk->can('connectGhl', $salon))->toBeFalse();
+    expect($frontDesk->can('connectGhl', $salon))->toBeTrue();
+    expect($stylist->can('connectGhl', $salon))->toBeFalse();
 
-    // Front desk + managers see the master calendar; stylists do not.
+    // Admins (incl. front desk) see the master calendar; staff do not.
     expect($frontDesk->can('viewMasterCalendar', $salon))->toBeTrue();
     expect($stylist->can('viewMasterCalendar', $salon))->toBeFalse();
 });

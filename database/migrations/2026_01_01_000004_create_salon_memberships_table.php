@@ -13,7 +13,7 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->foreignId('salon_id')->constrained()->cascadeOnDelete();
             $table->string('salon_role');
-            // Only meaningful for SalonRole::User (stylist | front_desk).
+            // The functional staff type (stylist | front_desk | manager).
             $table->string('staff_type')->nullable();
             $table->boolean('active')->default(true);
             $table->timestamps();

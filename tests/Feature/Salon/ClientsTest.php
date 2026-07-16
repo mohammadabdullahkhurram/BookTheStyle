@@ -23,7 +23,7 @@ it('lets every booking-area role reach the directory; editing stays front-desk l
     // A user with no booking surface at all is still refused.
     $outsider = User::factory()->create();
     SalonMembership::factory()->for($outsider)->for($salon)->create([
-        'salon_role' => SalonRole::User, 'staff_type' => null,
+        'salon_role' => SalonRole::Staff, 'staff_type' => null,
     ]);
     $this->actingAs($outsider)->get(route('salon.clients', $salon))->assertForbidden();
 

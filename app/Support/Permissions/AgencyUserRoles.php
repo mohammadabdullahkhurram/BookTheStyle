@@ -8,9 +8,16 @@ use App\Models\User;
 /**
  * Which agency roles an actor may grant when creating/editing agency users.
  *
- * - Only an agency_owner may create agency owners or admins.
- * - An agency_admin may create agency_users only (never a peer/superior).
- * - Anyone else may grant nothing.
+ * THERE IS EXACTLY ONE AGENCY OWNER, EVER. Owner is never assignable — not
+ * by the owner, not by anyone — so no path creates, promotes to, or invites
+ * a second owner. Because actions also check canAssign() against a TARGET's
+ * current role, the owner is equally untouchable: no one (agency admins
+ * included) can edit, demote, deactivate or delete them. The owner manages
+ * their own account through account settings.
+ *
+ * - agency_owner → may grant Admin and User.
+ * - agency_admin → may grant User only (never a peer/superior).
+ * - Anyone else → nothing.
  */
 class AgencyUserRoles
 {
@@ -20,7 +27,7 @@ class AgencyUserRoles
     public function assignable(User $actor): array
     {
         return match ($actor->agency_role) {
-            AgencyRole::Owner => [AgencyRole::Owner, AgencyRole::Admin, AgencyRole::User],
+            AgencyRole::Owner => [AgencyRole::Admin, AgencyRole::User],
             AgencyRole::Admin => [AgencyRole::User],
             default => [],
         };

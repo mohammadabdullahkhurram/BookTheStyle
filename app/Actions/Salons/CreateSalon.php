@@ -2,7 +2,9 @@
 
 namespace App\Actions\Salons;
 
+use App\Actions\Staff\InviteStaff;
 use App\Enums\AgencyRole;
+use App\Enums\SalonRole;
 use App\Mail\SalonAddedMail;
 use App\Models\Agency;
 use App\Models\Salon;
@@ -28,12 +30,15 @@ use Illuminate\Support\Facades\Mail;
  */
 class CreateSalon
 {
-    public function __construct(private UpdateGhlConnection $ghl) {}
+    public function __construct(
+        private UpdateGhlConnection $ghl,
+        private InviteStaff $invites,
+    ) {}
 
     /**
      * @param  SalonInput  $data
      */
-    public function handle(Agency $agency, array $data): Salon
+    public function handle(User $actor, Agency $agency, array $data): Salon
     {
         $salon = $agency->salons()->create([
             'slug' => $data['slug'],
@@ -61,9 +66,33 @@ class CreateSalon
             ]);
         }
 
+        $this->provisionOwner($actor, $salon);
+
         $this->notifyAgencyManagers($agency, $salon);
 
         return $salon;
+    }
+
+    /**
+     * The salon's OWNER is the contact person, provisioned automatically
+     * through the same path staff invites use (temp password + the branded
+     * account-created and invite mails; an existing account — including the
+     * agency owner's own — is simply linked as the salon owner, no new
+     * credentials). SalonStaffRoles permits granting Owner exactly here:
+     * an agency operator, on a salon that has no owner yet.
+     */
+    private function provisionOwner(User $actor, Salon $salon): void
+    {
+        if (blank($salon->contact_email) || blank($salon->contact_name)) {
+            return; // profile validation makes this unreachable; never fabricate an owner
+        }
+
+        $this->invites->handle($actor, $salon, [
+            'name' => $salon->contact_name,
+            'email' => $salon->contact_email,
+            'salon_role' => SalonRole::Owner->value,
+            'staff_type' => null,
+        ]);
     }
 
     /**

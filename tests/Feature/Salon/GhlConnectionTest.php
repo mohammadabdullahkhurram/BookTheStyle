@@ -83,8 +83,9 @@ it('reports status from the three fields', function () {
 
 it('creates a salon with no GHL fields and no connection row', function () {
     $agency = Agency::factory()->create();
+    $actor = User::factory()->create(['agency_id' => $agency->id, 'agency_role' => AgencyRole::Owner]);
 
-    $salon = app(CreateSalon::class)->handle($agency, [
+    $salon = app(CreateSalon::class)->handle($actor, $agency, [
         'name' => 'No GHL Salon',
         'slug' => 'no-ghl-salon',
         'timezone' => 'America/New_York',
@@ -96,8 +97,9 @@ it('creates a salon with no GHL fields and no connection row', function () {
 
 it('creates the connection when GHL fields are supplied at creation', function () {
     $agency = Agency::factory()->create();
+    $actor = User::factory()->create(['agency_id' => $agency->id, 'agency_role' => AgencyRole::Owner]);
 
-    $salon = app(CreateSalon::class)->handle($agency, [
+    $salon = app(CreateSalon::class)->handle($actor, $agency, [
         'name' => 'GHL Salon',
         'slug' => 'ghl-salon',
         'timezone' => 'America/New_York',
@@ -127,10 +129,11 @@ it('lets salon and agency managers manage the connection, but not staff or agenc
     expect(salonOwnerOf($salon)->can('manageGhlConnection', $salon))->toBeTrue();
     expect(salonAdminOf($salon)->can('manageGhlConnection', $salon))->toBeTrue();
 
-    // Denied: salon staff and agency users never touch credentials.
+    // Denied: staff (stylists) and agency users never touch credentials;
+    // front desk holds the admin role since the remap and may.
     expect($agencyUser->can('manageGhlConnection', $salon))->toBeFalse();
     expect(stylistOf($salon)->can('manageGhlConnection', $salon))->toBeFalse();
-    expect(frontDeskOf($salon)->can('manageGhlConnection', $salon))->toBeFalse();
+    expect(frontDeskOf($salon)->can('manageGhlConnection', $salon))->toBeTrue();
 });
 
 it('forbids an agency admin from managing another agency\'s salon connection', function () {

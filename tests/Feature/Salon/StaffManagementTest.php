@@ -38,23 +38,24 @@ it('forbids the invite action across salons even if the route is bypassed', func
     ]))->toThrow(AuthorizationException::class);
 });
 
-it('does not let a salon admin grant or manage owners/admins', function () {
+it('lets a salon admin manage staff and admins — but NEVER grant or touch the owner', function () {
     $salon = Salon::factory()->create();
     $admin = salonAdminOf($salon);
 
-    // A salon admin may grant the staff (user) role only — never owner/admin.
+    // Full admin surface: an admin may grant Staff and Admin — never Owner.
     $assignable = (new SalonStaffRoles)->assignable($admin, $salon);
-    expect($assignable)->toEqualCanonicalizing([SalonRole::User]);
+    expect($assignable)->toEqualCanonicalizing([SalonRole::Admin, SalonRole::Staff]);
     expect($assignable)->not->toContain(SalonRole::Owner);
-    expect($assignable)->not->toContain(SalonRole::Admin);
 
-    // Inviting an owner OR an admin is rejected server-side.
+    // Inviting an owner is rejected server-side; inviting an admin works.
     expect(fn () => app(InviteStaff::class)->handle($admin, $salon, [
         'name' => 'X', 'email' => 'x@example.com', 'salon_role' => 'salon_owner',
     ]))->toThrow(AuthorizationException::class);
-    expect(fn () => app(InviteStaff::class)->handle($admin, $salon, [
+
+    $peer = app(InviteStaff::class)->handle($admin, $salon, [
         'name' => 'Y', 'email' => 'y@example.com', 'salon_role' => 'salon_admin',
-    ]))->toThrow(AuthorizationException::class);
+    ]);
+    expect($peer->user->membershipFor($salon)->salon_role)->toBe(SalonRole::Admin);
 });
 
 it('forbids a salon admin from editing an owner membership', function () {
@@ -68,12 +69,12 @@ it('forbids a salon admin from editing an owner membership', function () {
     ]))->toThrow(AuthorizationException::class);
 });
 
-it('lets a salon owner grant any role', function () {
+it('lets a salon owner grant admin and staff — never a second owner', function () {
     $salon = Salon::factory()->create();
     $owner = salonOwnerOf($salon);
 
     expect((new SalonStaffRoles)->assignable($owner, $salon))
-        ->toEqualCanonicalizing([SalonRole::Owner, SalonRole::Admin, SalonRole::User]);
+        ->toEqualCanonicalizing([SalonRole::Admin, SalonRole::Staff]);
 });
 
 it('issues a temp password + forces change for new staff, and emails it', function () {
@@ -85,7 +86,7 @@ it('issues a temp password + forces change for new staff, and emails it', functi
     $result = app(InviteStaff::class)->handle($owner, $salon, [
         'name' => 'New Stylist',
         'email' => 'new.stylist@example.com',
-        'salon_role' => 'user',
+        'salon_role' => 'staff',
         'staff_type' => 'stylist',
     ]);
 
@@ -108,7 +109,7 @@ it('adds an existing user to a salon without issuing new credentials', function 
     $existing = User::factory()->create(['email' => 'already@example.com', 'must_change_password' => false]);
 
     $result = app(InviteStaff::class)->handle($owner, $salon, [
-        'name' => 'Ignored', 'email' => 'already@example.com', 'salon_role' => 'user', 'staff_type' => 'front_desk',
+        'name' => 'Ignored', 'email' => 'already@example.com', 'salon_role' => 'salon_admin', 'staff_type' => 'front_desk',
     ]);
 
     expect($result->existing)->toBeTrue();

@@ -62,14 +62,19 @@ it('scopes an agency_user to assigned salons only', function () {
     $this->actingAs($agencyUser)->get(route('salon.show', $unassigned))->assertForbidden();
 });
 
-it('only lets an agency_owner create owners/admins', function () {
+it('lets an agency_owner create admins — and NOBODY create a second owner', function () {
     $agency = Agency::factory()->create();
     $owner = agencyOwner($agency);
     $admin = agencyAdmin($agency);
 
+    // Exactly one agency owner, ever: Owner is never assignable, by anyone.
     expect((new AgencyUserRoles)->assignable($owner))
-        ->toEqualCanonicalizing([AgencyRole::Owner, AgencyRole::Admin, AgencyRole::User]);
+        ->toEqualCanonicalizing([AgencyRole::Admin, AgencyRole::User]);
     expect((new AgencyUserRoles)->assignable($admin))->toBe([AgencyRole::User]);
+
+    expect(fn () => app(CreateAgencyUser::class)->handle($owner, $agency, [
+        'name' => 'Second Owner', 'email' => 'second@example.com', 'agency_role' => 'agency_owner',
+    ]))->toThrow(AuthorizationException::class);
 
     // An admin creating an admin is rejected server-side.
     expect(fn () => app(CreateAgencyUser::class)->handle($admin, $agency, [

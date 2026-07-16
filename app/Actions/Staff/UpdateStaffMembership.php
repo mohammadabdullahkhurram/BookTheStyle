@@ -35,12 +35,14 @@ class UpdateStaffMembership
             throw new AuthorizationException('You may not manage that staff member.');
         }
 
-        // Staff type is orthogonal to role: it records the member's operational
-        // function (stylist / front desk / manager) and grants no permissions
-        // itself; empty = no staff function (typical for owners/admins).
+        // Staff type records the member's operational function (stylist /
+        // front desk / manager); the ROLE carries permissions, and the type
+        // maps to it — enforced here so the pairing can never drift.
         $staffType = ! empty($data['staff_type'])
             ? StaffType::from($data['staff_type'])
             : null;
+
+        $this->roles->assertRoleMatchesType($newRole, $staffType);
 
         if ($membership->salon_role === SalonRole::Owner
             && $newRole !== SalonRole::Owner

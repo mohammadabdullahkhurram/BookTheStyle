@@ -45,17 +45,20 @@ it('lets an owner edit any stylist\'s availability', function () {
     expect(Availability::query()->where('user_id', $stylist->id)->exists())->toBeTrue();
 });
 
-it('lets front desk VIEW the schedules read-only but never edit', function () {
+it('lets front desk — a salon admin since the remap — manage any stylist\'s availability', function () {
     $salon = Salon::factory()->create();
-    stylistOf($salon);
+    $stylist = stylistOf($salon);
     $frontDesk = frontDeskOf($salon);
 
-    // Cards are visible to every member of the salon…
     $this->actingAs($frontDesk)->get(route('salon.availability', $salon))->assertOk();
 
-    // …but nothing is editable: not through the panel, not through actions.
+    // Full admin surface: front desk edits any STYLIST's hours…
+    app(SaveWeeklyHours::class)->handle($frontDesk, $salon, $stylist->id, weekOf());
+    expect(Availability::query()->where('user_id', $stylist->id)->exists())->toBeTrue();
+
+    // …but is not bookable themselves: no availability of their own.
     expect(fn () => app(SaveWeeklyHours::class)->handle($frontDesk, $salon, $frontDesk->id, weekOf()))
-        ->toThrow(AuthorizationException::class);
+        ->toThrow(ValidationException::class);
 });
 
 it('validates positive duration and rejects overlaps', function () {

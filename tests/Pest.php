@@ -57,8 +57,9 @@ function frontDeskOf(Salon $salon): User
  * A member with the manager staff type (no operational function). Pass a role
  * for the office-manager combos, e.g. managerOf($salon, SalonRole::Admin).
  */
-function managerOf(Salon $salon, SalonRole $role = SalonRole::User): User
+function managerOf(Salon $salon, SalonRole $role = SalonRole::Admin): User
 {
+    // Managers hold the ADMIN role (SPEC §2: the type maps to the role).
     $user = User::factory()->create();
     SalonMembership::factory()->for($user)->for($salon)->manager()
         ->state(['salon_role' => $role])->create();

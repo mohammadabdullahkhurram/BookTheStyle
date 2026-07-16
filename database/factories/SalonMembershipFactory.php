@@ -21,7 +21,7 @@ class SalonMembershipFactory extends Factory
         return [
             'user_id' => User::factory(),
             'salon_id' => Salon::factory(),
-            'salon_role' => SalonRole::User,
+            'salon_role' => SalonRole::Staff,
             'staff_type' => StaffType::Stylist,
             'active' => true,
         ];
@@ -46,23 +46,25 @@ class SalonMembershipFactory extends Factory
     public function stylist(): static
     {
         return $this->state(fn () => [
-            'salon_role' => SalonRole::User,
+            'salon_role' => SalonRole::Staff,
             'staff_type' => StaffType::Stylist,
         ]);
     }
 
     public function frontDesk(): static
     {
+        // Front desk holds the ADMIN role (type is functional only).
         return $this->state(fn () => [
-            'salon_role' => SalonRole::User,
+            'salon_role' => SalonRole::Admin,
             'staff_type' => StaffType::FrontDesk,
         ]);
     }
 
     public function manager(): static
     {
+        // Managers hold the ADMIN role (type is functional only).
         return $this->state(fn () => [
-            'salon_role' => SalonRole::User,
+            'salon_role' => SalonRole::Admin,
             'staff_type' => StaffType::Manager,
         ]);
     }

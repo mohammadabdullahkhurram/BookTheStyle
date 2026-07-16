@@ -15,21 +15,29 @@ A multi-tenant booking platform for hair/beauty salons, operated by an **agency*
 
 Two scopes, mirroring GHL's agency/sub-account structure. Enforced server-side on every request and query (`SalonPolicy`, `AgencyPolicy`, `ResolveSalon`, the `BelongsToSalon` global scope).
 
-**Agency scope:** Owner (everything) · Admin (near-everything) · User (only explicitly assigned salons, no console administration).
+**Agency scope:** Owner (everything; **exactly one, ever** — never grantable, untouchable by anyone else, edits only their own account) · Admin (near-everything, but cannot touch the owner) · User (only explicitly assigned salons, no console administration).
 
-**Salon scope:** role (`salon_owner` | `salon_admin` | `user`) × staff type (`stylist` | `front_desk` | `manager` | none).
+**Salon scope:** role (`salon_owner` | `salon_admin` | `staff`) × staff type (`stylist` | `front_desk` | `manager` | none). **The role carries the permissions; the type is functional** (only stylists are bookable) and maps to the role — enforced server-side:
 
-| Capability | Owner | Admin | Stylist | Front desk |
-|---|---|---|---|---|
-| Master calendar / all bookings | ✓ | ✓ | own only | ✓ |
-| Create/edit/cancel bookings, check-in | ✓ | ✓ | own | ✓ |
-| Manage services / staff | ✓ | ✓ | ✗ | ✗ |
-| Edit availability | anyone's | anyone's | own | ✗ (view only) |
-| Salon settings, booking policy, reports, widgets | ✓ | ✓ | ✗ | ✗ |
-| GHL connection + integration checks | ✓ | ✓ (policy `manageGhlConnection`) | ✗ | ✗ |
-| Personal ICS feed | ✓ | ✓ | ✓ | ✓ |
+| Staff type | Role |
+|---|---|
+| stylist | `staff` |
+| manager | `salon_admin` |
+| front desk | `salon_admin` |
 
-A member-**manager** staff type is identity/attribution only — it grants no stylist calendar and no management rights (the role does that).
+| Capability | Owner | Admin (managers + front desk) | Staff (stylists) |
+|---|---|---|---|
+| Master calendar / all bookings, check-in | ✓ | ✓ | own only |
+| Manage services / staff / clients | ✓ | ✓ | ✗ |
+| Edit availability | anyone's | anyone's | own |
+| Settings, policy, branding, widgets, reports | ✓ | ✓ | ✗ |
+| GHL connection + integration checks | ✓ | ✓ | ✗ |
+| Touch the salon OWNER (edit/demote/deactivate/reset) | ✗ (self-account only) | ✗ | ✗ |
+| Delete own account | ✓ | ✗ (salon-managed) | ✗ (salon-managed) |
+| Delete/deactivate the salon | — (no in-app delete; policy reserves it) | ✗ | ✗ |
+| Personal ICS feed | ✓ | ✓ | ✓ |
+
+**Salon owner** is provisioned automatically at salon creation from the contact person (existing accounts are linked; new ones get a temp password via the standard invite mails) and is never grantable through staff management. **Agency owners/admins retain the platform override** (deactivate salons, full salon reach via the policy `before` hook) — deliberately, so the agency can always operate its own platform; the one thing even they cannot do is touch an existing salon owner's membership or mint a second agency owner.
 
 ### 2.1 Host-based routing
 

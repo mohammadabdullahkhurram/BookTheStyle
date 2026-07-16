@@ -3,25 +3,30 @@
 namespace App\Support\Permissions;
 
 use App\Enums\SalonRole;
+use App\Enums\StaffType;
 use App\Models\Salon;
 use App\Models\User;
+use Illuminate\Validation\ValidationException;
 
 /**
  * The single source of truth for which salon roles an actor may grant when
- * inviting or editing staff — i.e. the anti-privilege-escalation rules.
+ * inviting or editing staff — the anti-privilege-escalation rules.
  *
- * Adding/removing a salon OWNER or ADMIN requires an agency owner/admin or the
- * salon's own owner; adding/removing a STYLIST or front-desk (the `user` role)
- * additionally allows a salon admin (and an assigned agency_user). Concretely:
+ * OWNER IS NEVER GRANTED THROUGH STAFF MANAGEMENT. A salon's owner is
+ * provisioned at salon creation (from the contact person) and is protected:
+ * because canAssign() is also checked against a TARGET's current role, no
+ * actor can edit, demote, deactivate or reset the owner — the owner manages
+ * their own account through account settings. The single exception keeps
+ * provisioning/backfill possible: an agency owner/admin may grant Owner to a
+ * salon that has NO active owner yet (salon creation, or repairing an
+ * ownerless salon).
  *
- * - Agency owner/admin (for this salon's agency) → any salon role.
- * - Salon owner → any salon role.
- * - Salon admin → the `user` role only (staff) — never owner/admin.
- * - Assigned agency_user (a delegated salon manager) → the `user` role only.
- * - Everyone else (stylist, front desk, non-members, cross-agency) → nothing.
- *
- * Actions call canAssign() before persisting, so the UI can never be trusted to
- * bypass this.
+ * Everyone with management rights grants Admin and Staff:
+ * - Agency owner/admin (this salon's agency) → Admin, Staff (+ Owner iff none exists).
+ * - Salon owner → Admin, Staff.
+ * - Salon admin → Admin, Staff (full salon admin surface; only the owner is out of reach).
+ * - Assigned agency_user (a delegated salon manager) → Staff only.
+ * - Everyone else (staff, non-members, cross-agency) → nothing.
  */
 class SalonStaffRoles
 {
@@ -31,18 +36,18 @@ class SalonStaffRoles
     public function assignable(User $actor, Salon $salon): array
     {
         if ($actor->operatesSalon($salon)) {
-            // Agency owner/admin may grant any role; an assigned agency_user is a
-            // delegated salon manager and may grant staff roles only.
-            return $actor->isAgencyOperator()
-                ? [SalonRole::Owner, SalonRole::Admin, SalonRole::User]
-                : [SalonRole::User];
+            if (! $actor->isAgencyOperator()) {
+                // Delegated agency_user: staff only.
+                return [SalonRole::Staff];
+            }
+
+            return $this->salonHasOwner($salon)
+                ? [SalonRole::Admin, SalonRole::Staff]
+                : [SalonRole::Owner, SalonRole::Admin, SalonRole::Staff];
         }
 
         return match ($actor->membershipFor($salon)?->salon_role) {
-            SalonRole::Owner => [SalonRole::Owner, SalonRole::Admin, SalonRole::User],
-            // A salon admin manages staff (stylists/front desk) but cannot add,
-            // remove, or edit owners/admins.
-            SalonRole::Admin => [SalonRole::User],
+            SalonRole::Owner, SalonRole::Admin => [SalonRole::Admin, SalonRole::Staff],
             default => [],
         };
     }
@@ -58,5 +63,37 @@ class SalonStaffRoles
     public function canManageStaff(User $actor, Salon $salon): bool
     {
         return $this->assignable($actor, $salon) !== [];
+    }
+
+    private function salonHasOwner(Salon $salon): bool
+    {
+        return $salon->memberships()
+            ->where('salon_role', SalonRole::Owner->value)
+            ->where('active', true)
+            ->exists();
+    }
+
+    /**
+     * The role follows the staff TYPE (SPEC §2): stylists are Staff
+     * (bookable, own-scope); managers and front desk are Admin; a member
+     * with no functional type is a plain Admin. Owner is exempt — an owner
+     * may also be a working stylist. Enforced server-side on every invite
+     * and edit so the pairing can never drift.
+     *
+     * @throws ValidationException
+     */
+    public function assertRoleMatchesType(SalonRole $role, ?StaffType $type): void
+    {
+        if ($role === SalonRole::Owner) {
+            return;
+        }
+
+        $required = $type === StaffType::Stylist ? SalonRole::Staff : SalonRole::Admin;
+
+        if ($role !== $required) {
+            throw ValidationException::withMessages([
+                'salon_role' => __('That role does not match the staff type: stylists are Staff; managers and front desk are Admins.'),
+            ]);
+        }
     }
 }

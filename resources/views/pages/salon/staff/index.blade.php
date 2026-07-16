@@ -23,11 +23,11 @@ new #[Title('Staff')] class extends Component {
 
     public string $name = '';
     public string $email = '';
-    public string $role = 'user';
+    public string $role = 'staff';
     public string $staff_type = 'stylist';
 
     public ?int $editingId = null;
-    public string $editRole = 'user';
+    public string $editRole = 'staff';
     public string $editStaffType = 'stylist';
     public string $editBio = '';
     public bool $showEdit = false;
@@ -78,12 +78,12 @@ new #[Title('Staff')] class extends Component {
     /** Members default to stylist; owners/admins to no staff function. */
     public function updatedRole(string $value): void
     {
-        $this->staff_type = $value === 'user' ? 'stylist' : '';
+        $this->staff_type = $value === 'staff' ? 'stylist' : '';
     }
 
     public function updatedEditRole(string $value): void
     {
-        $this->editStaffType = $value === 'user' ? 'stylist' : '';
+        $this->editStaffType = $value === 'staff' ? 'stylist' : '';
     }
 
     /**
@@ -116,7 +116,7 @@ new #[Title('Staff')] class extends Component {
 
         unset($this->memberships);
         $this->reset(['name', 'email', 'role', 'staff_type']);
-        $this->role = 'user';
+        $this->role = 'staff';
         $this->staff_type = 'stylist';
 
         if ($result->existing) {
@@ -138,7 +138,7 @@ new #[Title('Staff')] class extends Component {
         $this->editingId = $membership->id;
         $this->editRole = $membership->salon_role->value;
         $this->editStaffType = $membership->staff_type?->value
-            ?? ($membership->salon_role === SalonRole::User ? 'stylist' : '');
+            ?? ($membership->salon_role === SalonRole::Staff ? 'stylist' : '');
         $this->editBio = (string) StylistProfile::query()
             ->where('salon_id', $this->salon->id)
             ->where('user_id', $membership->user_id)
@@ -162,7 +162,7 @@ new #[Title('Staff')] class extends Component {
         ]);
 
         // Bio lives on StylistProfile per (user, salon); only stylists carry one.
-        if ($this->editRole === 'user' && $this->editStaffType === StaffType::Stylist->value) {
+        if ($this->editRole === 'staff' && $this->editStaffType === StaffType::Stylist->value) {
             $profile->handle(Auth::user(), $this->salon, $membership->user_id, $this->editBio ?: null);
         }
 
@@ -214,13 +214,15 @@ new #[Title('Staff')] class extends Component {
                             <flux:select.option value="{{ $r->value }}">{{ $r->label() }}</flux:select.option>
                         @endforeach
                     </flux:select>
-                    <flux:select wire:model="staff_type" :label="__('Staff type')">
-                        @if ($role !== 'user')
+                    <flux:select wire:model="staff_type" :label="__('Staff type')"
+                        :description="$role === 'staff' ? __('Staff are stylists — bookable, with availability.') : __('Functional label; admins hold full salon rights either way.')">
+                        @if ($role === 'staff')
+                            <flux:select.option value="stylist">{{ __('Stylist') }}</flux:select.option>
+                        @else
                             <flux:select.option value="">{{ __('None') }}</flux:select.option>
+                            <flux:select.option value="front_desk">{{ __('Front desk') }}</flux:select.option>
+                            <flux:select.option value="manager">{{ __('Manager') }}</flux:select.option>
                         @endif
-                        <flux:select.option value="stylist">{{ __('Stylist') }}</flux:select.option>
-                        <flux:select.option value="front_desk">{{ __('Front desk') }}</flux:select.option>
-                        <flux:select.option value="manager">{{ __('Manager') }}</flux:select.option>
                     </flux:select>
                 </div>
                 <div>
@@ -314,14 +316,15 @@ new #[Title('Staff')] class extends Component {
                 @endforeach
             </flux:select>
             <flux:select wire:model.live="editStaffType" :label="__('Staff type')">
-                @if ($editRole !== 'user')
+                @if ($editRole === 'staff')
+                    <flux:select.option value="stylist">{{ __('Stylist') }}</flux:select.option>
+                @else
                     <flux:select.option value="">{{ __('None') }}</flux:select.option>
+                    <flux:select.option value="front_desk">{{ __('Front desk') }}</flux:select.option>
+                    <flux:select.option value="manager">{{ __('Manager') }}</flux:select.option>
                 @endif
-                <flux:select.option value="stylist">{{ __('Stylist') }}</flux:select.option>
-                <flux:select.option value="front_desk">{{ __('Front desk') }}</flux:select.option>
-                <flux:select.option value="manager">{{ __('Manager') }}</flux:select.option>
             </flux:select>
-            @if ($editRole === 'user' && $editStaffType === 'stylist')
+            @if ($editRole === 'staff' && $editStaffType === 'stylist')
                 <flux:textarea wire:model="editBio" :label="__('Bio')" rows="3" :placeholder="__('A short bio for this stylist.')" />
             @endif
             <div class="flex justify-end gap-3">
