@@ -38,3 +38,18 @@ Schedule::command('bookings:close-elapsed')
 Schedule::command('ghl:reconcile')
     ->hourly()
     ->withoutOverlapping();
+
+// Retention pruning (shared hosting: unbounded rows eat the inode/disk
+// budget). webhook_events prunes via the model's Prunable contract — 30
+// days by default (GHL_WEBHOOK_RETENTION_DAYS), never PENDING rows, and
+// every runtime lookback is far shorter (replay dedupe = 1 hour; sync
+// state lives on bookings/clients columns). failed_jobs keeps 30 days of
+// failures visible for debugging (QUEUE_FAILED_RETENTION_HOURS), old ones
+// go. The same single crontab line drives both.
+Schedule::command('model:prune')
+    ->dailyAt('03:10')
+    ->withoutOverlapping();
+
+Schedule::command('queue:prune-failed --hours='.(int) config('queue.failed_retention_hours', 720))
+    ->dailyAt('03:20')
+    ->withoutOverlapping();

@@ -1,57 +1,42 @@
 # BookTheStyle — Status & Roadmap
 
-_Updated 2026-07-14 (pre-launch cleanup). Reflects `main` (Phases 0–6 complete + widgets/themes/reporting/marketing waves, CI green). Deeper detail: `docs/AUDIT-REPORT.md` (code audit) and `docs/PRODUCT-RESEARCH-REPORT.md` (market/gap analysis)._
+_Updated 2026-07-16. **The app is LIVE in production**: bookthestyle.com on Hostinger Cloud (PHP 8.4, MySQL), Cloudflare-fronted, cron-driven queue, deployed 2026-07-15. Ops runbook: `docs/DEPLOY.md`._
 
-## ✅ Complete (Phases 0–6)
+## ✅ Live in production
 
-- **Phase 0–1 — platform**: multi-tenant schema (agency → salons → memberships), Fortify auth (no public registration, 2FA + passkeys), forced password change, agency console, staff invites with temp passwords, salon settings + booking policy + feature flags, RBAC (agency roles × salon roles × staff types incl. Manager).
-- **Phase 2 — core data**: services (auto palette colors, stylist assignment at create), per-stylist duration/buffer overrides (buffers dormant behind `stylist_buffers` flag), availability + time off.
-- **Phase 3 — bookings**: pure slot engine (DST-safe, policy-gated), multi-service bookings split per service line (`visit_group_id`), walk-ins, check-in workflow, status timeline, reschedule, concurrency lock, today dashboard.
-- **Phase 3.5/3.7 — tenancy routing**: subdomain-per-salon, four-way host split (apex / app / register / {slug}), `lvh.me` local parity.
-- **Phase 4 — calendar**: custom master (column-per-stylist) + personal calendars, service-colored blocks, breaks/time-off hatching, 5s polling, detail modal.
-- **Phase 5 — ICS feeds**: per-user tokenized feeds (hashed, show-once, rotate/revoke), connect page with per-platform instructions.
-- **Phase 6 — GoHighLevel sync (all sub-phases)**:
-  - **6a — connection**: per-salon PIT (encrypted at rest, write-only UI), test-connection, two-tier staff mapping (stylists → calendar team members; other staff → location users).
-  - **6b — outbound push**: queued booking create/update/cancel to GHL, contact upsert, payload-hash idempotency, per-location throttling.
-  - **6c — inbound webhook**: per-salon shared secret, replay dedupe, hardened parsing against real payload shapes, **echo-loop protection** (state-equality + last-change-wins + timestamp-less gates, per-event decision log), GHL-originated bookings (voice AI / chat widget / manual) become app bookings.
-  - **6d — source tagging + reconciliation**: `bookings.source` throughout the UI; hourly `ghl:reconcile` drift repair; per-booking sync status + retry panels.
-  - **6e — availability push**: per-stylist GHL schedules (weekly rules + date overrides), calendar slot settings, change-triggered + manual sync. _Spec-verified only — needs a live-location smoke test (see Phase 7)._
-- **Availability redesign (July 2026)**: staff-card grid → docked drawer, weekly grid editor with split shifts + copy-times, date-specific hours/off entries (`time_off.kind`), read view for all members, editing gated by `AvailabilityAccess`.
-- **Transactional email**: five branded queued mailables (account created, temp password, reset, staff invite, salon added), app-direct by decision (never GHL), fail-safe if the transport is down.
-- **Design system**: tokens, shell, all app screens, public/auth pages, theme-aware logo.
+- **Platform (Phases 0–6)**: multi-tenant schema (agency → salons → memberships), Fortify auth (no public registration, 2FA + passkeys), forced password change, agency console (Dashboard / Salons / Reporting / Users), staff invites with temp passwords, RBAC (agency roles × salon roles × staff types incl. Manager), services with per-stylist duration/buffer overrides (always on — the feature-flag system was removed), availability (weekly grid + split shifts + date-specific entries), pure slot engine (DST-safe, policy-gated), multi-service visits split per service line, walk-ins, check-in workflow, reschedule, custom master + personal calendars, per-user ICS feeds, and the full two-way GoHighLevel sync (PIT per salon, outbound push, inbound webhook with echo-loop protection, source tagging, hourly reconcile, availability push).
+- **Booking surfaces**: embeddable multi-service booking widget (per-widget branding/theme, types registry), Voice-AI booking API (per-salon hashed bearer token, GHL wire-quirk tolerant), in-app booking.
+- **Theme system**: Marble (salon default) + Classic, Brand/Glacier on agency/auth; Velvet/Gazette/Fern registered as locked "coming soon".
+- **Reporting v1** (salon + agency-wide), client profiles (notes/preferences/history), transactional mail (five branded mailables), display-only pricing, auto-no-show/auto-complete automation.
+- **Bluejaypro marketing site** (Home/Services/Features/Contact + register) with GHL embeds; BookTheStyle branding in every tab title; salon-first copy.
+- **Onboarding wizard** with per-step integration verification.
+- **Integration Test/Verify actions** (Settings → Integrations + wizard): connection, contacts scopes, calendar+mapping, availability read-back, non-destructive booking round-trip (creates → reads back → deletes), webhook self-ping, voice-API end-to-end — each with persisted last-verified results and honest "needs live URL" states.
+- **Themed confirm dialog everywhere**: zero native `wire:confirm`/`confirm()` remain (guard test enforces it); one accessible top-layer `<dialog>`.
+- **Production/ops hardening**: cron-driven queue worker (`--stop-when-empty --max-time=55 --tries=3`), TrustProxies + Cloudflare real-IP handling (`CF-Connecting-IP`), https URL generation, committed build assets (no Node on the server), `app:factory-reset` (production generates a strong one-time owner password), DemoSalonSeeder refuses to run in production, destructive schema commands prohibited in production, **MySQL migration CI job** (migrates from scratch on MySQL 8 every push) + a migration-order guard test, daily retention pruning for `webhook_events` and `failed_jobs`.
 
-## ✅ Pre-launch gap fixes (shipped)
+## 🔜 Outstanding (the real list)
 
-- [x] Auto-no-show configurable per salon (grace period / opt-out) — settings booking policy.
-- [x] Display-only service prices (services.price_cents + currency; reporting + widget totals).
-- [x] Client profiles: notes, preferences (allergies/formulas/preferred stylist/birthday), visit history.
-- [x] Reporting v1: salon reports + AGENCY-wide reports (totals, per-salon breakdown, source mix).
-
-## ✅ Also shipped since the audit
-
-- Embeddable booking widget: per-service loop flow, inline availability calendar, month endpoint, multi-widget per salon (own branding/theme/embed id), widget types registry.
-- Theme system: Marble app-wide (default) + Classic preserved + Brand (landing palette) on auth/agency; registry with coming-soon entries.
-- Agency console: Dashboard rename, agency Reporting, full Users directory; personal calendar feed moved salon-side.
-- Bluejaypro marketing site (Home/Services/Features/Contact) with GHL booking/reviews embeds + CSP; register page carries the live embed.
-- DemoSalonSeeder (additive, idempotent); destructive DB resets forbidden (CLAUDE.md rule 10).
-
-## 🔜 Phase 7 — hardening + deploy (the launch gate)
-
-- [ ] Deploy foundation: deploy script + hPanel Git, wildcard DNS + TLS (`*.bookthestyle.com`), production `.env` (MySQL, cookies, `APP_DEBUG=false`), the one-line cron.
-- [ ] Real mail transport + SPF/DKIM; send-test all five mailables.
-- [ ] **Live GHL smoke test** on a real template location: connect → map staff → availability sync → both booking directions → check-in echo test → reconcile → voice/chat slot validity. Paste the register-page embed code.
-- [ ] Run migrations + full suite against MySQL once (suite is SQLite-only today).
-- [ ] Backups (nightly `mysqldump` + restore drill), HSTS, `webhook_events`/`failed_jobs` retention.
-- [ ] Audit log (SPEC §5.11) — build or consciously defer.
-
-## 🧩 Smaller open items
-
-- [ ] Record how-to videos (framework built, one topic registered, no media shipped).
+- [ ] **Live GHL smoke test** on a real location: connect → map staff → availability sync → both booking directions → check-in echo test → reconcile → voice/chat slot validity. The Settings → Integrations Test/Verify buttons are the tooling for this.
+- [ ] **Real mail transport** on the server (`MAIL_MAILER`) + SPF/DKIM; send-test all five mailables. (Code-side done; temp passwords/resets are login-critical.)
+- [ ] **Backups**: nightly `mysqldump` + a restore drill.
+- [ ] **HSTS** (app or Cloudflare-level).
+- [ ] Full test **suite** against MySQL (migrations already run on MySQL in CI; tests are SQLite).
+- [ ] **Audit log** (SPEC §5.11) — build or consciously defer.
+- [ ] How-to videos (framework built, no media shipped — help modal shows "Video coming soon").
 - [ ] Master ICS feed for owner/front-desk (feeds are per-stylist-own only).
 - [ ] Final design polish pass.
+- [ ] Dependency advisories: `guzzlehttp/guzzle` + `guzzlehttp/psr7` have medium CVEs pending an upgrade window (`composer audit`).
+
+## 🧊 Deliberately deferred
+
+- Undo window for destructive actions (themed confirm is the guard today).
+- Google Calendar OAuth (ICS feeds only).
+- Staging environment (single production + local dev).
+- Velvet / Gazette / Fern themes; Chat / Lead-form / Reviews widget types (registry placeholders, locked in the UI).
 
 ## Habit notes
 
-- New column/table in a report → run `php artisan migrate` locally before testing.
-- After pulling changes, restart any local `queue:listen` worker (stale code in memory).
+- New column/table → additive `php artisan migrate` only; **never** `migrate:fresh` (CLAUDE.md rule 10; production also refuses destructive commands).
+- Deploys: build assets locally → commit → push → `git pull` on the server (`docs/DEPLOY.md`).
+- After pulling changes locally, restart any `queue:listen` worker (stale code in memory).
 - Availability is edited in the app only — GHL-side edits are overwritten on the next push.

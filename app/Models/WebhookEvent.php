@@ -3,7 +3,9 @@
 namespace App\Models;
 
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Prunable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
@@ -25,6 +27,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class WebhookEvent extends Model
 {
+    use Prunable;
+
     public const STATUS_PENDING = 'pending';
 
     public const STATUS_APPLIED = 'applied';
@@ -81,5 +85,23 @@ class WebhookEvent extends Model
             'note' => $note === null ? null : mb_substr($note, 0, 500),
             'processed_at' => now(),
         ])->save();
+    }
+
+    /**
+     * Retention: the daily model:prune schedule removes rows older than
+     * config('ghl.webhook_retention_days'). Safe because every runtime read
+     * is short-window or current-row — replay dedupe looks back ONE hour,
+     * jobs conclude the row they were dispatched for, reconcile creates
+     * fresh rows, and echo-loop state lives on bookings/clients columns.
+     * PENDING rows are kept regardless of age: a still-queued job may not
+     * have processed them yet, and an unprocessed event must never vanish.
+     *
+     * @return Builder<static>
+     */
+    public function prunable(): Builder
+    {
+        return static::query()
+            ->where('status', '!=', self::STATUS_PENDING)
+            ->where('created_at', '<', now()->subDays((int) config('ghl.webhook_retention_days')));
     }
 }

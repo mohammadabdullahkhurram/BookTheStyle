@@ -1,6 +1,6 @@
 <?php
 
-use App\Actions\Availability\AddAvailabilityWindow;
+use App\Actions\Availability\SaveWeeklyHours;
 use App\Actions\Bookings\TransitionBookingStatus;
 use App\Enums\BookingStatus;
 use App\Models\Salon;
@@ -104,8 +104,8 @@ it('forbids a stylist editing another stylist\'s availability', function () {
     $stylistB = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
 
     // Even if the client forged the target id, the action rejects it.
-    expect(fn () => app(AddAvailabilityWindow::class)->handle($stylistA, $salon, $stylistB->id, [
-        'weekday' => 1, 'kind' => 'work', 'start_minute' => 9 * 60, 'end_minute' => 17 * 60,
+    expect(fn () => app(SaveWeeklyHours::class)->handle($stylistA, $salon, $stylistB->id, [
+        1 => [['start_minute' => 9 * 60, 'end_minute' => 17 * 60]],
     ]))->toThrow(AuthorizationException::class);
 });
 

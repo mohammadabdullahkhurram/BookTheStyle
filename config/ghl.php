@@ -25,6 +25,15 @@ return [
     */
     'client_tag' => env('GHL_CLIENT_TAG', 'client'),
 
+    /*
+    | How long processed webhook_events rows are kept before the daily
+    | model:prune sweep removes them (shared hosting: unbounded row growth
+    | eats the inode/disk budget). Every runtime lookback is far shorter —
+    | replay dedupe checks 1 hour; sync state lives on bookings/clients
+    | columns, not here — so 30 days is pure debugging headroom.
+    */
+    'webhook_retention_days' => env('GHL_WEBHOOK_RETENTION_DAYS', 30),
+
     'required_scopes' => [
         'calendars.readonly' => 'View calendars',
         'calendars.write' => 'Edit calendars',

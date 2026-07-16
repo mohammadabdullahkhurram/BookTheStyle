@@ -124,6 +124,22 @@ it('never renders the stored token in the agency edit response', function () {
         ->assertDontSee('pit-super-secret');
 });
 
+it('shows the required PIT scopes at the new-salon token entry point', function () {
+    $agency = Agency::factory()->create();
+    $admin = User::factory()->create(['agency_id' => $agency->id, 'agency_role' => AgencyRole::Admin]);
+    $this->actingAs($admin);
+
+    $page = Livewire::test('pages::agency.salons.create')
+        ->assertSee('Required scopes');
+
+    // The full config-sourced list renders — same shared partial as
+    // Settings → Integrations (label + exact scope string + copy affordance).
+    foreach (config('ghl.required_scopes') as $scope => $label) {
+        $page->assertSee($scope)->assertSee($label);
+    }
+    $page->assertSee('Scope list (paste into your notes while ticking)');
+});
+
 it('creates a salon with GHL fields from the console create screen', function () {
     $agency = Agency::factory()->create();
     $admin = User::factory()->create(['agency_id' => $agency->id, 'agency_role' => AgencyRole::Admin]);

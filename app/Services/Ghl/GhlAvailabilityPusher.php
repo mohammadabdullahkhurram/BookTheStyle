@@ -42,10 +42,10 @@ use Illuminate\Support\Facades\DB;
  * app's per-stylist-per-service granularity cannot map 1:1. The master
  * calendar gets: slotDuration = the LONGEST active service duration (incl.
  * per-stylist overrides), slotInterval = the app engine's 15-minute
- * granularity, slotBuffer (post-appointment) = the longest cleanup buffer
- * when the salon's stylist_buffers flag is on (0 when off — buffers are
- * dormant until a salon opts in). preBuffer is left untouched: the app has
- * no pre-buffer, and whatever GHL holds can only under-offer.
+ * granularity, slotBuffer (post-appointment) = the longest per-stylist
+ * cleanup buffer override (0 when none are set). preBuffer is left
+ * untouched: the app has no pre-buffer, and whatever GHL holds can only
+ * under-offer.
  *
  * Idempotent: the rules payload is hashed on the stylist profile; an
  * unchanged re-sync makes no API call, a changed one UPDATES the stored
@@ -167,8 +167,8 @@ class GhlAvailabilityPusher
      * Calendar-level slot settings on the master calendar. GHL has ONE slot
      * duration/buffer per calendar, so the conservative mapping blocks for
      * the WORST case: the longest active service (incl. per-stylist duration
-     * overrides) and, when the buffers flag is on, the longest cleanup
-     * buffer. Shorter services under-offer in GHL; nothing over-offers.
+     * overrides) and the longest per-stylist cleanup buffer override.
+     * Shorter services under-offer in GHL; nothing over-offers.
      */
     public function pushCalendarSlotSettings(Salon $salon): void
     {

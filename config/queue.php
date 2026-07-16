@@ -126,4 +126,18 @@ return [
         'table' => 'failed_jobs',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Failed Job Retention
+    |--------------------------------------------------------------------------
+    |
+    | How many hours failed_jobs rows are kept before the daily scheduled
+    | queue:prune-failed sweep removes them. Recent failures stay visible
+    | for debugging; old ones stop accumulating on the shared host. 720
+    | hours = 30 days.
+    |
+    */
+
+    'failed_retention_hours' => env('QUEUE_FAILED_RETENTION_HOURS', 720),
+
 ];

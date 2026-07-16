@@ -1,6 +1,6 @@
 <?php
 
-use App\Actions\Availability\AddAvailabilityWindow;
+use App\Actions\Availability\SaveWeeklyHours;
 use App\Actions\Services\SyncServiceStylists;
 use App\Actions\Staff\InviteStaff;
 use App\Actions\Staff\UpdateStaffMembership;
@@ -138,15 +138,15 @@ it('rejects stylist availability for a manager, as target and as self', function
     $salon = Salon::factory()->create();
     $owner = salonOwnerOf($salon);
     $manager = managerOf($salon);
-    $window = ['weekday' => 1, 'kind' => 'work', 'start_minute' => 9 * 60, 'end_minute' => 17 * 60];
+    $week = [1 => [['start_minute' => 9 * 60, 'end_minute' => 17 * 60]]];
 
     // Even an owner cannot give a manager stylist availability.
-    expect(fn () => app(AddAvailabilityWindow::class)->handle($owner, $salon, $manager->id, $window))
+    expect(fn () => app(SaveWeeklyHours::class)->handle($owner, $salon, $manager->id, $week))
         ->toThrow(ValidationException::class);
 
     // A member-manager may not manage anyone's availability — their own included.
     expect((new AvailabilityAccess)->canManage($manager, $salon, $manager->id))->toBeFalse();
-    expect(fn () => app(AddAvailabilityWindow::class)->handle($manager, $salon, $manager->id, $window))
+    expect(fn () => app(SaveWeeklyHours::class)->handle($manager, $salon, $manager->id, $week))
         ->toThrow(AuthorizationException::class);
 });
 

@@ -187,6 +187,9 @@ new #[Title('New salon')] class extends Component {
             <flux:input wire:model="ghl_calendar_id" :label="__('Calendar ID')" :description="__('The salon\'s master GoHighLevel calendar ID.')" placeholder="e.g. cal_aBcD1234" />
             <flux:input type="password" wire:model="ghl_token" :label="__('Private integration token')" :description="__('Stored encrypted at rest. Write-only — never shown back.')" autocomplete="off" />
 
+            {{-- The scopes the PIT must carry — shown at every token entry point. --}}
+            @include('partials.ghl-scopes')
+
             <div class="flex items-center gap-3">
                 <x-ui.button type="submit">{{ __('Create salon') }}</x-ui.button>
                 <x-ui.button variant="secondary" :href="route('dashboard')" wire:navigate>{{ __('Cancel') }}</x-ui.button>

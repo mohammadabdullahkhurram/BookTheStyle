@@ -1,8 +1,7 @@
 <?php
 
-use App\Actions\Availability\AddAvailabilityWindow;
 use App\Actions\Availability\AddTimeOff;
-use App\Actions\Availability\RemoveAvailabilityWindow;
+use App\Actions\Availability\SaveWeeklyHours;
 use App\Models\Availability;
 use App\Models\Salon;
 use App\Models\TimeOff;
@@ -12,18 +11,19 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 
-function workWindow(int $weekday = 0, int $start = 540, int $end = 1020): array
+/** One weekly-hours payload for SaveWeeklyHours — the live grid's write path. */
+function weekOf(int $weekday = 0, int $start = 540, int $end = 1020): array
 {
-    return ['weekday' => $weekday, 'kind' => 'work', 'start_minute' => $start, 'end_minute' => $end];
+    return [$weekday => [['start_minute' => $start, 'end_minute' => $end]]];
 }
 
-it('lets a stylist add their own availability', function () {
+it('lets a stylist save their own availability', function () {
     $salon = Salon::factory()->create();
     $stylist = stylistOf($salon);
 
-    $window = app(AddAvailabilityWindow::class)->handle($stylist, $salon, $stylist->id, workWindow());
+    app(SaveWeeklyHours::class)->handle($stylist, $salon, $stylist->id, weekOf());
 
-    expect($window->user_id)->toBe($stylist->id);
+    $window = Availability::query()->where('user_id', $stylist->id)->sole();
     expect($window->salon_id)->toBe($salon->id);
 });
 
@@ -32,7 +32,7 @@ it('forbids a stylist editing another stylist\'s availability', function () {
     $a = stylistOf($salon);
     $b = stylistOf($salon);
 
-    expect(fn () => app(AddAvailabilityWindow::class)->handle($a, $salon, $b->id, workWindow()))
+    expect(fn () => app(SaveWeeklyHours::class)->handle($a, $salon, $b->id, weekOf()))
         ->toThrow(AuthorizationException::class);
 });
 
@@ -41,8 +41,8 @@ it('lets an owner edit any stylist\'s availability', function () {
     $owner = salonOwnerOf($salon);
     $stylist = stylistOf($salon);
 
-    $window = app(AddAvailabilityWindow::class)->handle($owner, $salon, $stylist->id, workWindow());
-    expect($window->user_id)->toBe($stylist->id);
+    app(SaveWeeklyHours::class)->handle($owner, $salon, $stylist->id, weekOf());
+    expect(Availability::query()->where('user_id', $stylist->id)->exists())->toBeTrue();
 });
 
 it('lets front desk VIEW the schedules read-only but never edit', function () {
@@ -54,7 +54,7 @@ it('lets front desk VIEW the schedules read-only but never edit', function () {
     $this->actingAs($frontDesk)->get(route('salon.availability', $salon))->assertOk();
 
     // …but nothing is editable: not through the panel, not through actions.
-    expect(fn () => app(AddAvailabilityWindow::class)->handle($frontDesk, $salon, $frontDesk->id, workWindow()))
+    expect(fn () => app(SaveWeeklyHours::class)->handle($frontDesk, $salon, $frontDesk->id, weekOf()))
         ->toThrow(AuthorizationException::class);
 });
 
@@ -63,17 +63,19 @@ it('validates positive duration and rejects overlaps', function () {
     $stylist = stylistOf($salon);
 
     // end <= start
-    expect(fn () => app(AddAvailabilityWindow::class)->handle($stylist, $salon, $stylist->id, workWindow(0, 600, 600)))
+    expect(fn () => app(SaveWeeklyHours::class)->handle($stylist, $salon, $stylist->id, weekOf(0, 600, 600)))
         ->toThrow(ValidationException::class);
 
-    // overlapping same-kind window on the same day
-    app(AddAvailabilityWindow::class)->handle($stylist, $salon, $stylist->id, workWindow(1, 540, 1020));
-    expect(fn () => app(AddAvailabilityWindow::class)->handle($stylist, $salon, $stylist->id, workWindow(1, 600, 700)))
-        ->toThrow(ValidationException::class);
+    // overlapping windows within one day
+    expect(fn () => app(SaveWeeklyHours::class)->handle($stylist, $salon, $stylist->id, [
+        1 => [['start_minute' => 540, 'end_minute' => 1020], ['start_minute' => 600, 'end_minute' => 700]],
+    ]))->toThrow(ValidationException::class);
 
     // a non-overlapping split shift on the same day is fine
-    $second = app(AddAvailabilityWindow::class)->handle($stylist, $salon, $stylist->id, workWindow(1, 1020, 1140));
-    expect($second)->not->toBeNull();
+    app(SaveWeeklyHours::class)->handle($stylist, $salon, $stylist->id, [
+        1 => [['start_minute' => 540, 'end_minute' => 1020], ['start_minute' => 1020, 'end_minute' => 1140]],
+    ]);
+    expect(Availability::query()->where('user_id', $stylist->id)->count())->toBe(2);
 });
 
 it('stores a time-off override and validates its range', function () {
@@ -95,14 +97,18 @@ it('stores a time-off override and validates its range', function () {
     ]))->toThrow(ValidationException::class);
 });
 
-it('forbids removing another salon\'s window (anti-IDOR)', function () {
+it('forbids touching another salon\'s stylist hours (anti-IDOR)', function () {
     $salonA = Salon::factory()->create();
     $salonB = Salon::factory()->create();
     $stylistA = stylistOf($salonA);
     $windowA = Availability::factory()->create(['salon_id' => $salonA->id, 'user_id' => $stylistA->id]);
 
-    expect(fn () => app(RemoveAvailabilityWindow::class)->handle(salonOwnerOf($salonB), $salonB, $windowA))
-        ->toThrow(AuthorizationException::class);
+    // A forged foreign stylist id gets rejected before any write…
+    expect(fn () => app(SaveWeeklyHours::class)->handle(salonOwnerOf($salonB), $salonB, $stylistA->id, weekOf()))
+        ->toThrow(ValidationException::class);
+
+    // …and salon A's window is untouched.
+    expect(Availability::query()->whereKey($windowA->id)->exists())->toBeTrue();
 });
 
 it('lets a stylist VIEW a colleague but never edit them from the screen', function () {
