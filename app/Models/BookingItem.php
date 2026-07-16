@@ -91,6 +91,7 @@ class BookingItem extends Model
      */
     public function stylist(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'stylist_id');
+        // History: a deleted stylist's past bookings keep their real name.
+        return $this->belongsTo(User::class, 'stylist_id')->withTrashed();
     }
 }

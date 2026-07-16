@@ -48,7 +48,36 @@ class InviteStaff
 
         $this->roles->assertRoleMatchesType($role, $staffType);
 
-        $existing = User::where('email', $data['email'])->first();
+        $existing = User::withTrashed()->where('email', $data['email'])->first();
+
+        // Re-inviting a DELETED person restores their account (history keeps
+        // its owner; the unique email would block a fresh row anyway) and
+        // issues new credentials exactly like a brand-new invite.
+        if ($existing !== null && $existing->trashed()) {
+            $temporaryPassword = TemporaryPassword::generate();
+
+            DB::transaction(function () use ($existing, $data, $salon, $role, $staffType, $temporaryPassword): void {
+                $existing->restore();
+                $existing->forceFill([
+                    'name' => $data['name'],
+                    'password' => $temporaryPassword,
+                    'must_change_password' => true,
+                ])->save();
+
+                $salon->memberships()->create([
+                    'user_id' => $existing->id,
+                    'salon_role' => $role,
+                    'staff_type' => $staffType,
+                    'active' => true,
+                ]);
+            });
+
+            rescue(fn () => Mail::to($existing->email)->send(
+                new StaffInviteMail($existing->name, $salon->name, $role->label(), $temporaryPassword, route('login')),
+            ));
+
+            return new ProvisionedUser($existing, $temporaryPassword);
+        }
 
         if ($existing !== null) {
             $current = $salon->memberships()->where('user_id', $existing->id)->first();

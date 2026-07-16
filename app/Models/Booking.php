@@ -91,7 +91,7 @@ class Booking extends Model
      */
     public function bookedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'booked_by_user_id');
+        return $this->belongsTo(User::class, 'booked_by_user_id')->withTrashed();
     }
 
     /**

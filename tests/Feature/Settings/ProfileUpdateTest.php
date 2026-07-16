@@ -70,7 +70,10 @@ class ProfileUpdateTest extends TestCase
             ->assertHasNoErrors()
             ->assertRedirect('/');
 
-        $this->assertNull($user->fresh());
+        // Soft delete: the row survives (booking history cascades on a hard
+        // delete), but the account is gone for every live query and login.
+        $this->assertTrue($user->fresh()->trashed());
+        $this->assertNull(User::find($user->id));
         $this->assertFalse(auth()->check());
     }
 

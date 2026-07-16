@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\AgencyUsers\DeleteAgencyUser;
 use App\Actions\AgencyUsers\UpdateAgencyUser;
 use App\Enums\AgencyRole;
 use App\Models\User;
@@ -67,6 +68,14 @@ new #[Title('Edit agency user')] class extends Component {
 
         Flux::toast(variant: 'success', text: __('User updated.'));
     }
+
+    public function deleteUser(DeleteAgencyUser $action): void
+    {
+        $action->handle(Auth::user(), $this->user);
+
+        session()->flash('status', __('User deleted. Anything they created keeps their name.'));
+        $this->redirectRoute('agency.users.index', navigate: true);
+    }
 }; ?>
 
 <div>
@@ -103,5 +112,21 @@ new #[Title('Edit agency user')] class extends Component {
             </div>
         </form>
         </x-ui.card>
+
+        @if ($user->id !== Auth::id())
+            <x-ui.card class="flex flex-col gap-3">
+                <h2 class="bts-card-title">{{ __('Delete user') }}</h2>
+                <flux:text class="text-sm text-secondary">{{ __('Permanently removes this account and its salon access. Anything they created — bookings, notes, history — is kept under their name. Prefer editing their salon scope if they just need less access.') }}</flux:text>
+                <div>
+                    <x-ui.button variant="danger"
+                        x-on:click="$store.confirm.ask({
+                            title: {{ Js::from(__('Delete user')) }},
+                            message: {{ Js::from(__('Delete this user? Their account and salon access are removed permanently. Bookings and history are kept.')) }},
+                            confirmLabel: {{ Js::from(__('Delete')) }},
+                            danger: true,
+                        }, () => $wire.deleteUser())">{{ __('Delete user') }}</x-ui.button>
+                </div>
+            </x-ui.card>
+        @endif
     </div>
 </div>

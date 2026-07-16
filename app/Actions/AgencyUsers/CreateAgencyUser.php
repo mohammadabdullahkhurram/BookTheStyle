@@ -41,15 +41,32 @@ class CreateAgencyUser
         $temporaryPassword = TemporaryPassword::generate();
 
         $user = DB::transaction(function () use ($agency, $data, $role, $temporaryPassword): User {
-            $user = User::create([
-                'name' => $data['name'],
-                'email' => $data['email'],
-                'password' => $temporaryPassword,
-                'agency_id' => $agency->id,
-                'agency_role' => $role,
-                'must_change_password' => true,
-                'email_verified_at' => now(),
-            ]);
+            // Re-creating a DELETED person's account restores it — history
+            // keeps its owner, and the unique email blocks a fresh row.
+            $trashed = User::onlyTrashed()->where('email', $data['email'])->first();
+
+            if ($trashed !== null) {
+                $trashed->restore();
+                $trashed->forceFill([
+                    'name' => $data['name'],
+                    'password' => $temporaryPassword,
+                    'agency_id' => $agency->id,
+                    'agency_role' => $role,
+                    'must_change_password' => true,
+                ])->save();
+
+                $user = $trashed;
+            } else {
+                $user = User::create([
+                    'name' => $data['name'],
+                    'email' => $data['email'],
+                    'password' => $temporaryPassword,
+                    'agency_id' => $agency->id,
+                    'agency_role' => $role,
+                    'must_change_password' => true,
+                    'email_verified_at' => now(),
+                ]);
+            }
 
             if ($role === AgencyRole::User) {
                 $user->assignedSalons()->sync(

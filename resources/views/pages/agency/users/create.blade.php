@@ -58,7 +58,7 @@ new #[Title('New agency user')] class extends Component {
 
         $validated = $this->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', Rule::unique(User::class)],
+            'email' => ['required', 'string', 'email', 'max:255', Rule::unique(User::class)->withoutTrashed()],
             'agency_role' => ['required', Rule::in($allowed)],
             'salon_ids' => ['array'],
             'salon_ids.*' => ['integer'],

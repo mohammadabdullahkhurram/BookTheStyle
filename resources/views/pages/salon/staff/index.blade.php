@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Staff\DeleteStaffUser;
 use App\Actions\Staff\InviteStaff;
 use App\Actions\Staff\ResetStaffPassword;
 use App\Actions\Staff\SetMembershipActive;
@@ -182,6 +183,17 @@ new #[Title('Staff')] class extends Component {
         Flux::toast(variant: 'success', text: $membership->active ? __('Staff member reactivated.') : __('Staff member deactivated.'));
     }
 
+    public function deleteMember(int $membershipId, DeleteStaffUser $action): void
+    {
+        $membership = $this->membership($membershipId);
+        $accountDeleted = $action->handle(Auth::user(), $this->salon, $membership);
+        unset($this->memberships);
+
+        Flux::toast(variant: 'success', text: $accountDeleted
+            ? __('Staff member deleted. Their bookings and history are kept.')
+            : __('Removed from this salon. They keep access elsewhere; bookings and history are kept.'));
+    }
+
     public function resetPassword(int $membershipId, ResetStaffPassword $action): void
     {
         $membership = $this->membership($membershipId);
@@ -291,6 +303,17 @@ new #[Title('Staff')] class extends Component {
                                                 class="text-[13px] font-medium text-secondary transition hover:text-ink">
                                             {{ $m->active ? __('Deactivate') : __('Reactivate') }}
                                         </button>
+                                        {{-- Deactivate stays the recommended, reversible action; delete is the rare permanent one. Owner rows never reach here deletable (canAssign refuses Owner), and self-deletion lives in account settings. --}}
+                                        @if ($m->user_id !== Auth::id())
+                                            <button type="button"
+                                                    x-on:click="$store.confirm.ask({
+                                                        title: {{ Js::from(__('Delete member')) }},
+                                                        message: {{ Js::from(__(':name is removed from this salon permanently — and their account is deleted if this is their only access. Past bookings and history are kept under their name. Prefer Deactivate if they might return.', ['name' => $m->user->name])) }},
+                                                        confirmLabel: {{ Js::from(__('Delete')) }},
+                                                        danger: true,
+                                                    }, () => $wire.deleteMember({{ $m->id }}))"
+                                                    class="text-[13px] font-medium text-danger transition hover:opacity-80">{{ __('Delete') }}</button>
+                                        @endif
                                     @else
                                         <span class="text-[13px] text-faint">{{ __('—') }}</span>
                                     @endif
