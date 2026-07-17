@@ -1,4 +1,4 @@
-{{-- Shared "Business details / Address / Primary contact" sections for the
+{{-- Shared "Business details / Address / Owner details" sections for the
      agency salon create + edit screens and salon settings. The host Livewire
      component must expose these string properties (all profile columns) and
      validate them with App\Support\SalonProfile::rules(). `name` is the business
@@ -46,13 +46,13 @@
         </flux:select>
     </div>
 
-    <flux:separator :text="__('Primary contact')" />
+    <flux:separator :text="__('Owner details')" />
 
-    <flux:input wire:model="contact_name" :label="__('Contact name')"
-        :description="__('Owner / admin point of contact.')" required />
+    <flux:input wire:model="contact_name" :label="__('Owner name')"
+        :description="__('This person is the salon\'s OWNER — a user account with the owner role is created for them when the salon is created.')" required />
 
     <div class="grid gap-4 sm:grid-cols-2">
-        <flux:input type="email" wire:model="contact_email" :label="__('Contact email')" required />
-        <flux:input type="tel" wire:model="contact_phone" :label="__('Contact phone')" required />
+        <flux:input type="email" wire:model="contact_email" :label="__('Owner email')" required />
+        <flux:input type="tel" wire:model="contact_phone" :label="__('Owner phone')" required />
     </div>
 </div>

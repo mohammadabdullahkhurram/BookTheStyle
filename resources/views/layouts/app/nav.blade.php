@@ -13,14 +13,17 @@
      pinned and visible. --}}
 <nav class="mt-1 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3" aria-label="{{ __('Primary') }}">
     @if ($salon)
+        {{-- Salon nav, in the canonical order (SPEC): Today · Calendar ·
+             Check-in · Appointments · Clients · Reports · Services · Users ·
+             Availability. Visibility mirrors each screen's own server-side
+             authorization, so no link ever 403s — stylists simply see fewer. --}}
         <a href="{{ route('salon.show', $salon) }}" wire:navigate @click="mobileNav = false"
            aria-label="{{ __('Today') }}" :title="collapsed ? '{{ __('Today') }}' : null"
            class="bts-nav-item {{ request()->routeIs('salon.show') ? 'bts-nav-item-active' : '' }}">
             <flux:icon.squares-2x2 variant="micro" class="shrink-0" />
             <span x-show="!collapsed" x-cloak>{{ __('Today') }}</span>
         </a>
-        {{-- Calendar: managers/front-desk get the master view, a
-             stylist their own column. --}}
+        {{-- Calendar: managers get the master view, a stylist their own column. --}}
         @can('accessBookings', $salon)
             <a href="{{ route('salon.calendar', $salon) }}" wire:navigate @click="mobileNav = false"
                aria-label="{{ __('Calendar') }}" :title="collapsed ? '{{ __('Calendar') }}' : null"
@@ -28,25 +31,8 @@
                 <flux:icon.calendar variant="micro" class="shrink-0" />
                 <span x-show="!collapsed" x-cloak>{{ __('Calendar') }}</span>
             </a>
-            {{-- The full, searchable list of every appointment
-                 (stylists see their own; the page scopes it). --}}
-            <a href="{{ route('salon.appointments.all', $salon) }}" wire:navigate @click="mobileNav = false"
-               aria-label="{{ __('Appointments') }}" :title="collapsed ? '{{ __('Appointments') }}' : null"
-               class="bts-nav-item {{ request()->routeIs('salon.appointments.all') ? 'bts-nav-item-active' : '' }}">
-                <flux:icon.list-bullet variant="micro" class="shrink-0" />
-                <span x-show="!collapsed" x-cloak>{{ __('Appointments') }}</span>
-            </a>
         @endcan
-        {{-- Check-in: front-desk level only (owner/admin/front-desk).
-             Hidden from stylists, who cannot change booking status. --}}
-        @can('manageBookings', $salon)
-            <a href="{{ route('salon.clients', $salon) }}" wire:navigate @click="mobileNav = false"
-               aria-label="{{ __('Clients') }}" :title="collapsed ? '{{ __('Clients') }}' : null"
-               class="bts-nav-item {{ request()->routeIs('salon.clients') || request()->routeIs('salon.client') ? 'bts-nav-item-active' : '' }}">
-                <flux:icon.user-group variant="micro" class="shrink-0" />
-                <span x-show="!collapsed" x-cloak>{{ __('Clients') }}</span>
-            </a>
-        @endcan
+        {{-- Check-in: desk level only — hidden from stylists. --}}
         @can('manageBookings', $salon)
             <a href="{{ route('salon.appointments', $salon) }}" wire:navigate @click="mobileNav = false"
                aria-label="{{ __('Check-in') }}" :title="collapsed ? '{{ __('Check-in') }}' : null"
@@ -55,9 +41,31 @@
                 <span x-show="!collapsed" x-cloak>{{ __('Check-in') }}</span>
             </a>
         @endcan
-
-        {{-- Management links. Visibility mirrors each screen's own
-             server-side authorization, so no link ever 403s. --}}
+        {{-- Every appointment, searchable (stylists see their own; the page scopes it). --}}
+        @can('accessBookings', $salon)
+            <a href="{{ route('salon.appointments.all', $salon) }}" wire:navigate @click="mobileNav = false"
+               aria-label="{{ __('Appointments') }}" :title="collapsed ? '{{ __('Appointments') }}' : null"
+               class="bts-nav-item {{ request()->routeIs('salon.appointments.all') ? 'bts-nav-item-active' : '' }}">
+                <flux:icon.list-bullet variant="micro" class="shrink-0" />
+                <span x-show="!collapsed" x-cloak>{{ __('Appointments') }}</span>
+            </a>
+        @endcan
+        @can('manageBookings', $salon)
+            <a href="{{ route('salon.clients', $salon) }}" wire:navigate @click="mobileNav = false"
+               aria-label="{{ __('Clients') }}" :title="collapsed ? '{{ __('Clients') }}' : null"
+               class="bts-nav-item {{ request()->routeIs('salon.clients') || request()->routeIs('salon.client') ? 'bts-nav-item-active' : '' }}">
+                <flux:icon.user-group variant="micro" class="shrink-0" />
+                <span x-show="!collapsed" x-cloak>{{ __('Clients') }}</span>
+            </a>
+        @endcan
+        @can('manage', $salon)
+            <a href="{{ route('salon.reports', $salon) }}" wire:navigate @click="mobileNav = false"
+               aria-label="{{ __('Reports') }}" :title="collapsed ? '{{ __('Reports') }}' : null"
+               class="bts-nav-item {{ request()->routeIs('salon.reports') ? 'bts-nav-item-active' : '' }}">
+                <flux:icon.chart-bar variant="micro" class="shrink-0" />
+                <span x-show="!collapsed" x-cloak>{{ __('Reports') }}</span>
+            </a>
+        @endcan
         @can('manageServices', $salon)
             <a href="{{ route('salon.services', $salon) }}" wire:navigate @click="mobileNav = false"
                aria-label="{{ __('Services') }}" :title="collapsed ? '{{ __('Services') }}' : null"
@@ -72,14 +80,6 @@
                class="bts-nav-item {{ request()->routeIs('salon.staff') ? 'bts-nav-item-active' : '' }}">
                 <flux:icon.users variant="micro" class="shrink-0" />
                 <span x-show="!collapsed" x-cloak>{{ __('Users') }}</span>
-            </a>
-        @endcan
-        @can('manage', $salon)
-            <a href="{{ route('salon.reports', $salon) }}" wire:navigate @click="mobileNav = false"
-               aria-label="{{ __('Reports') }}" :title="collapsed ? '{{ __('Reports') }}' : null"
-               class="bts-nav-item {{ request()->routeIs('salon.reports') ? 'bts-nav-item-active' : '' }}">
-                <flux:icon.chart-bar variant="micro" class="shrink-0" />
-                <span x-show="!collapsed" x-cloak>{{ __('Reports') }}</span>
             </a>
         @endcan
         {{-- Every member may VIEW staff schedules; editing is

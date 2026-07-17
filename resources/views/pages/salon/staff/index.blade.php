@@ -189,6 +189,63 @@ new #[Title('Users')] class extends Component {
         $this->showTempPassword = true;
     }
 
+    // ------------------------------------------------------------------
+    // Owner details (SPEC §2 refinement): AGENCY owner/admin may edit the
+    // salon owner's name/email/phone — they operate the platform and created
+    // the salon. Salon managers/stylists never can; the owner edits
+    // themselves through account settings.
+    // ------------------------------------------------------------------
+
+    public bool $showOwnerEdit = false;
+    public ?int $ownerEditId = null;
+    public string $ownerName = '';
+    public string $ownerEmail = '';
+    public string $ownerPhone = '';
+
+    public function canEditOwnerDetails(SalonMembership $membership): bool
+    {
+        return $membership->salon_role === SalonRole::Owner
+            && Auth::user()->isAgencyOperator()
+            && Auth::user()->agency_id === $this->salon->agency_id;
+    }
+
+    public function startOwnerEdit(int $membershipId): void
+    {
+        $membership = $this->membership($membershipId);
+        abort_unless($this->canEditOwnerDetails($membership), 403);
+
+        $this->ownerEditId = $membership->id;
+        $this->ownerName = $membership->user->name;
+        $this->ownerEmail = $membership->user->email;
+        $this->ownerPhone = (string) $membership->user->phone;
+        $this->resetErrorBag();
+        $this->showOwnerEdit = true;
+    }
+
+    public function saveOwnerDetails(): void
+    {
+        $membership = $this->membership((int) $this->ownerEditId);
+        abort_unless($this->canEditOwnerDetails($membership), 403);
+
+        $validated = $this->validate([
+            'ownerName' => ['required', 'string', 'max:255'],
+            'ownerEmail' => ['required', 'string', 'email', 'max:255', \Illuminate\Validation\Rule::unique('users', 'email')->ignore($membership->user_id)->withoutTrashed()],
+            'ownerPhone' => ['nullable', 'string', 'max:32'],
+        ]);
+
+        $membership->user->forceFill([
+            'name' => $validated['ownerName'],
+            'email' => $validated['ownerEmail'],
+            'phone' => $validated['ownerPhone'] ?: null,
+        ])->save();
+
+        $this->showOwnerEdit = false;
+        $this->ownerEditId = null;
+        unset($this->memberships);
+
+        Flux::toast(variant: 'success', text: __('Owner details updated.'));
+    }
+
     /**
      * The owner-who-cuts-hair switch: ONLY the owner, on their OWN row, may
      * flip whether they take bookings (staff_type stylist ⇄ null). Nobody
@@ -275,7 +332,7 @@ new #[Title('Users')] class extends Component {
                             </td>
                             <td class="px-6 py-4">
                                 <div class="flex items-center justify-end gap-3">
-                                    @include('pages.salon.staff.partials.row-actions', ['m' => $m, 'canManage' => $this->canManageMembership($m)])
+                                    @include('pages.salon.staff.partials.row-actions', ['m' => $m, 'canManage' => $this->canManageMembership($m), 'canEditOwner' => $this->canEditOwnerDetails($m)])
                                 </div>
                             </td>
                         </tr>
@@ -303,7 +360,7 @@ new #[Title('Users')] class extends Component {
                             <div class="truncate text-[12.5px] text-faint">{{ $m->user->email }}</div>
                         </div>
                         <div class="flex shrink-0 items-center gap-3">
-                            @include('pages.salon.staff.partials.row-actions', ['m' => $m, 'canManage' => $this->canManageMembership($m)])
+                            @include('pages.salon.staff.partials.row-actions', ['m' => $m, 'canManage' => $this->canManageMembership($m), 'canEditOwner' => $this->canEditOwnerDetails($m)])
                         </div>
                     </div>
                     <div class="flex flex-wrap items-center gap-2 ps-11 text-[13px] text-secondary">
@@ -361,6 +418,18 @@ new #[Title('Users')] class extends Component {
             @endif
             <div class="flex justify-end gap-3">
                 <x-ui.button type="button" variant="secondary" wire:click="$set('showEdit', false)">{{ __('Cancel') }}</x-ui.button>
+                <x-ui.button type="submit">{{ __('Save') }}</x-ui.button>
+            </div>
+        </form>
+    </x-ui.modal>
+
+    <x-ui.modal wire:model="showOwnerEdit" class="max-w-md" :heading="__('Edit owner details')">
+        <form wire:submit="saveOwnerDetails" class="flex flex-col gap-5" novalidate>
+            <flux:input wire:model="ownerName" :label="__('Name')" required />
+            <flux:input wire:model="ownerEmail" type="email" :label="__('Email')" required />
+            <flux:input wire:model="ownerPhone" type="tel" :label="__('Phone')" />
+            <div class="flex justify-end gap-3">
+                <x-ui.button type="button" variant="secondary" wire:click="$set('showOwnerEdit', false)">{{ __('Cancel') }}</x-ui.button>
                 <x-ui.button type="submit">{{ __('Save') }}</x-ui.button>
             </div>
         </form>

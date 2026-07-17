@@ -343,7 +343,7 @@ new #[Title('New salon')] class extends Component {
                         __('Business email') => $business_email,
                         __('Business phone') => $business_phone,
                         __('Address') => trim($address_line1.' '.$city),
-                        __('Contact') => trim($contact_name.' '.$contact_email),
+                        __('Owner') => trim($contact_name.' '.$contact_email),
                     ],
                     'policy' => [
                         __('Walk-ins') => $allow_walkins ? __('Allowed') : __('Not allowed'),

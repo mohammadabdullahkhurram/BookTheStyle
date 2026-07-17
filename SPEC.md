@@ -26,11 +26,13 @@ Two scopes, mirroring GHL's agency/sub-account structure. Enforced server-side o
 | Edit availability | anyone's | anyone's | own |
 | GHL connection + integration checks | ✓ | ✓ | ✗ |
 | Bookable (takes bookings) | optional (self-toggled) | never | always |
-| Touch the salon OWNER (edit/demote/deactivate/reset/delete) | ✗ (self-account only) | ✗ | ✗ |
+| Touch the salon OWNER | edit self (account settings) | ✗ | ✗ |
 | Delete users | managers + stylists | managers + stylists (never the owner) | ✗ |
 | Delete own account | ✓ | ✗ (salon-managed) | ✗ (salon-managed) |
 | Delete/deactivate the salon | — (no in-app delete; policy reserves it) | ✗ | ✗ |
 | Personal ICS feed | ✓ | ✓ | ✓ |
+
+**Owner editability:** the AGENCY owner/admin may edit the salon owner's details (name/email/phone — salon Users screen and the salon profile's Owner details); they may never demote/deactivate/delete the owner outside the ownership-transfer path. Salon managers and stylists can never touch the owner. The agency owner remains untouchable by everyone.
 
 A stylist's reachable salon surface is exactly {Today, calendar (own view), own appointments, own availability, own account} — everything else 403s (`StylistScopeTest` pins the full route matrix). Adding a salon user asks exactly: name, email, phone, role (manager or stylist); owner is never grantable through user management.
 

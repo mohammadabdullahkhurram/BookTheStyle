@@ -26,6 +26,11 @@
             @endif
         </flux:menu>
     </flux:dropdown>
+@elseif ($canEditOwner ?? false)
+    {{-- Agency owner/admin: may edit the salon owner's DETAILS (name/email/
+         phone) — never demote, deactivate, or delete them here. Ownership
+         transfer lives in the agency console (SetSalonOwner). --}}
+    <button type="button" wire:click="startOwnerEdit({{ $m->id }})" class="text-[13px] font-semibold text-accent transition hover:text-accent-hover">{{ __('Edit details') }}</button>
 @elseif ($m->user_id === Auth::id() && $m->salon_role === \App\Enums\SalonRole::Owner)
     {{-- The owner-who-cuts-hair switch: only the owner, on their own row. --}}
     <button type="button" wire:click="toggleOwnerBookable({{ $m->id }})" class="text-[13px] font-medium text-secondary transition hover:text-ink">{{ $m->staff_type === \App\Enums\StaffType::Stylist ? __('Stop taking bookings') : __('Take bookings') }}</button>

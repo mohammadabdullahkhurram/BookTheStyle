@@ -118,6 +118,8 @@ new #[Title('Edit salon')] class extends Component {
 
         $this->loadProfile();
         $this->refreshGhlState();
+
+        $this->prefillOwnerFromProfile();
     }
 
     /**
@@ -243,6 +245,19 @@ new #[Title('Edit salon')] class extends Component {
     public string $ownerName = '';
     public string $ownerEmail = '';
     public string $ownerPhone = '';
+
+    /**
+     * An ownerless salon usually already KNOWS its owner — the Owner details
+     * captured at creation. Prefill so the backfill is two clicks.
+     */
+    public function prefillOwnerFromProfile(): void
+    {
+        if ($this->currentOwner === null) {
+            $this->ownerName = (string) $this->salon->contact_name;
+            $this->ownerEmail = (string) $this->salon->contact_email;
+            $this->ownerPhone = (string) $this->salon->contact_phone;
+        }
+    }
     public string $promoteMembershipId = '';
     public ?string $ownerTempPassword = null;
     public ?string $ownerTempForName = null;
