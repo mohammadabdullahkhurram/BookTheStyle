@@ -26,10 +26,12 @@ new #[Title('Users')] class extends Component {
     public string $email = '';
     public string $phone = '';
     public string $role = 'stylist';
+    public string $arrangement = 'employee';
     public bool $showAdd = false;
 
     public ?int $editingId = null;
     public string $editRole = 'stylist';
+    public string $editArrangement = 'employee';
     public string $editBio = '';
     public bool $showEdit = false;
 
@@ -67,6 +69,13 @@ new #[Title('Users')] class extends Component {
         return array_map(fn (SalonRole $r) => $r->value, $this->assignableRoles());
     }
 
+    /** Only MIX salons choose per stylist; other types force the arrangement. */
+    #[Computed]
+    public function arrangementSelectable(): bool
+    {
+        return $this->salon->salon_type === \App\Enums\SalonType::Mix;
+    }
+
     /**
      * Whether the current actor may manage a given membership (i.e. has
      * authority over its role). Hides the row actions; the server enforces it
@@ -82,7 +91,7 @@ new #[Title('Users')] class extends Component {
     {
         $this->authorize('manageStaff', $this->salon);
 
-        $this->reset(['name', 'email', 'phone']);
+        $this->reset(['name', 'email', 'phone', 'arrangement']);
         $this->role = 'stylist';
         $this->resetErrorBag();
         $this->showAdd = true;
@@ -97,6 +106,7 @@ new #[Title('Users')] class extends Component {
             'email' => ['required', 'string', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:32'],
             'role' => ['required', Rule::in($this->roleValues())],
+            'arrangement' => ['required', Rule::in(array_column(\App\Enums\StylistArrangement::cases(), 'value'))],
         ]);
 
         $result = $action->handle(Auth::user(), $this->salon, [
@@ -104,10 +114,11 @@ new #[Title('Users')] class extends Component {
             'email' => $validated['email'],
             'phone' => $validated['phone'] ?? null,
             'salon_role' => $validated['role'],
+            'arrangement' => $validated['arrangement'],
         ]);
 
         unset($this->memberships);
-        $this->reset(['name', 'email', 'phone', 'role']);
+        $this->reset(['name', 'email', 'phone', 'role', 'arrangement']);
         $this->role = 'stylist';
         $this->showAdd = false;
 
@@ -129,6 +140,7 @@ new #[Title('Users')] class extends Component {
 
         $this->editingId = $membership->id;
         $this->editRole = $membership->salon_role->value;
+        $this->editArrangement = $membership->arrangement->value;
         $this->editBio = (string) StylistProfile::query()
             ->where('salon_id', $this->salon->id)
             ->where('user_id', $membership->user_id)
@@ -142,11 +154,13 @@ new #[Title('Users')] class extends Component {
 
         $this->validate([
             'editRole' => ['required', Rule::in($this->roleValues())],
+            'editArrangement' => ['required', Rule::in(array_column(\App\Enums\StylistArrangement::cases(), 'value'))],
             'editBio' => ['nullable', 'string', 'max:2000'],
         ]);
 
         $action->handle(Auth::user(), $this->salon, $membership, [
             'salon_role' => $this->editRole,
+            'arrangement' => $this->editArrangement,
         ]);
 
         // Bio lives on StylistProfile per (user, salon); only stylists carry one.
@@ -318,6 +332,9 @@ new #[Title('Users')] class extends Component {
                             <td class="px-6 py-4">
                                 <div class="flex items-center gap-2 text-[14px] text-secondary">
                                     <span>{{ $m->salon_role->label() }}</span>
+                                    @if ($m->salon_role === \App\Enums\SalonRole::Stylist && $m->arrangement === \App\Enums\StylistArrangement::BoothRental)
+                                        <span class="bts-pill" style="background-color:#E3EDF6;color:#356088;">{{ __('Booth renter') }}</span>
+                                    @endif
                                     @if ($m->salon_role === \App\Enums\SalonRole::Owner && $m->staff_type === \App\Enums\StaffType::Stylist)
                                         <span class="bts-pill" style="background-color:var(--accent-tint);color:var(--accent-ink);">{{ __('Takes bookings') }}</span>
                                     @endif
@@ -393,12 +410,19 @@ new #[Title('Users')] class extends Component {
             <flux:input wire:model="name" :label="__('Name')" required autofocus />
             <flux:input wire:model="email" type="email" :label="__('Email')" required />
             <flux:input wire:model="phone" type="tel" :label="__('Phone')" autocomplete="tel" />
-            <flux:select wire:model="role" :label="__('Role')"
+            <flux:select wire:model.live="role" :label="__('Role')"
                 :description="__('Stylists are bookable and see only their own schedule; managers run the salon.')">
                 @foreach ($this->assignableRoles as $r)
                     <flux:select.option value="{{ $r->value }}">{{ $r->label() }}</flux:select.option>
                 @endforeach
             </flux:select>
+            @if ($this->arrangementSelectable && $role === 'stylist')
+                <flux:select wire:model="arrangement" :label="__('Arrangement')"
+                    :description="__('Employees see the shared calendar; booth renters run their own book, clients, and revenue.')">
+                    <flux:select.option value="employee">{{ __('Employee') }}</flux:select.option>
+                    <flux:select.option value="booth_rental">{{ __('Booth renter') }}</flux:select.option>
+                </flux:select>
+            @endif
             <div class="flex justify-end gap-3">
                 <x-ui.button type="button" variant="secondary" wire:click="$set('showAdd', false)">{{ __('Cancel') }}</x-ui.button>
                 <x-ui.button type="submit" loading="invite">{{ __('Send invite') }}</x-ui.button>
@@ -413,6 +437,12 @@ new #[Title('Users')] class extends Component {
                     <flux:select.option value="{{ $r->value }}">{{ $r->label() }}</flux:select.option>
                 @endforeach
             </flux:select>
+            @if ($this->arrangementSelectable && $editRole === 'stylist')
+                <flux:select wire:model="editArrangement" :label="__('Arrangement')">
+                    <flux:select.option value="employee">{{ __('Employee') }}</flux:select.option>
+                    <flux:select.option value="booth_rental">{{ __('Booth renter') }}</flux:select.option>
+                </flux:select>
+            @endif
             @if ($editRole === 'stylist')
                 <flux:textarea wire:model="editBio" :label="__('Bio')" rows="3" :placeholder="__('A short bio for this stylist.')" />
             @endif

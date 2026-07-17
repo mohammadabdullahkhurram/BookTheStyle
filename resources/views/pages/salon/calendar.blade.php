@@ -29,18 +29,31 @@ new #[Title('Calendar')] class extends Component {
     public bool $showDetail = false;
     public ?int $detailId = null;
 
+    /** Whether the viewer may create bookings from this calendar. */
+    public bool $canCreate = false;
+
     public function mount(Salon $salon): void
     {
         $this->authorize('accessBookings', $salon);
         $this->salon = $salon;
 
-        // Master calendar = anyone who manages bookings (owner/admin/front desk
-        // + agency operators); otherwise the signed-in stylist's own calendar.
-        $this->isMaster = Auth::user()->can('manageBookings', $salon);
-        if (! $this->isMaster) {
+        // Managers: the master board, with click-to-book. EMPLOYEE stylists:
+        // the shared salon board too (they work the same floor), read-only.
+        // BOOTH RENTERS: their own column ONLY — separate businesses must
+        // not see each other's books (SPEC §2) — with click-to-book on it.
+        $manages = Auth::user()->can('manageBookings', $salon);
+        $boothRenter = Auth::user()->boothRenterMembershipFor($salon) !== null;
+
+        if (! $manages) {
             abort_unless(Auth::user()->stylistMembershipFor($salon) !== null, 403);
-            $this->stylistId = Auth::id();
         }
+
+        $this->isMaster = $manages || (! $boothRenter);
+        $this->stylistId = $manages ? null : Auth::id();
+        if ($boothRenter) {
+            $this->isMaster = false;
+        }
+        $this->canCreate = $manages || $boothRenter;
 
         $this->date = CarbonImmutable::now($salon->timezone)->format('Y-m-d');
     }
@@ -112,13 +125,14 @@ new #[Title('Calendar')] class extends Component {
      */
     public function selectSlot(string $start, ?int $stylistId = null): void
     {
-        // Click-to-book is a manager affordance — stylists view, never create.
-        $this->authorize('manageBookings', $this->salon);
+        // Managers book anyone; a booth renter books ONLY themselves
+        // (employee stylists fail the ability outright).
+        $this->authorize('createBookings', $this->salon);
 
         $local = CarbonImmutable::parse($start)->setTimezone($this->salon->timezone);
         $params = ['salon' => $this->salon, 'date' => $local->format('Y-m-d'), 'time' => $local->format('H:i')];
 
-        $prefillStylist = $this->isMaster ? $stylistId : $this->stylistId;
+        $prefillStylist = Auth::user()->can('manageBookings', $this->salon) ? $stylistId : Auth::id();
         if ($prefillStylist !== null) {
             $params['stylist'] = $prefillStylist;
         }
@@ -166,6 +180,8 @@ new #[Title('Calendar')] class extends Component {
     {
         $booking = $this->salon->bookings()->whereKey($id)->firstOrFail();
 
+        // Master viewers (managers + employee stylists on the shared board)
+        // may open any booking; a booth renter only their own.
         abort_unless(
             $this->isMaster || $booking->items()->where('stylist_id', Auth::id())->exists(),
             403,
@@ -185,7 +201,7 @@ new #[Title('Calendar')] class extends Component {
     <div class="mx-auto flex w-full max-w-[1400px] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-7">
         <x-ui.page-header :overline="__('Calendar')" :title="$isMaster ? __('Master calendar') : __('My calendar')">
             <x-slot:actions>
-                @can('manageBookings', $salon)
+                @can('createBookings', $salon)
                     <x-ui.button :href="route('salon.bookings.create', $salon)" wire:navigate>
                         <flux:icon.plus variant="micro" class="shrink-0" />{{ __('Add booking') }}
                     </x-ui.button>
@@ -268,7 +284,7 @@ new #[Title('Calendar')] class extends Component {
                             {{-- Slot cells: shading (working = card, non-working = muted) + click-to-book --}}
                             <div class="flex flex-col">
                                 @foreach ($col['slots'] as $slot)
-                                    @if ($slot['bookable'] && $isMaster)
+                                    @if ($slot['bookable'] && $canCreate)
                                         <button type="button" wire:click="selectSlot('{{ $slot['iso'] }}', {{ $col['stylistId'] ?? 'null' }})"
                                                 aria-label="{{ __('Book :who at :time', ['who' => $col['name'], 'time' => $slot['label']]) }}"
                                                 class="group block w-full bg-card transition hover:bg-accent-tint/50" style="height: {{ 30 * $ppm }}px"></button>
@@ -396,7 +412,8 @@ new #[Title('Calendar')] class extends Component {
                 {{-- Status actions (reuses the Phase 3 transition flow). Check-in
                      is front-desk level — owner/admin/front-desk only; stylists
                      never see these (the server rejects them regardless). --}}
-                @can('manageBookings', $salon)
+                @php($canActOnBooking = Auth::user()->can('manageBookings', $salon) || (Auth::user()->boothRenterMembershipFor($salon) !== null && $booking->items()->where('stylist_id', Auth::id())->exists()))
+                @if ($canActOnBooking)
                     @if ($booking->status->allowedTransitions() !== [])
                         <div class="flex flex-wrap gap-2 border-t border-divider pt-4">
                             @foreach ($booking->status->allowedTransitions() as $next)
@@ -413,7 +430,7 @@ new #[Title('Calendar')] class extends Component {
                             @endforeach
                         </div>
                     @endif
-                @endcan
+                @endif
 
                 {{-- History --}}
                 <div class="border-t border-divider pt-4">

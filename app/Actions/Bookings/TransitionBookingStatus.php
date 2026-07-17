@@ -29,10 +29,16 @@ class TransitionBookingStatus
             throw new AuthorizationException('That booking is not in this salon.');
         }
 
-        // Front-desk level only (owner / admin / front desk). Stylists are
-        // excluded — they never change appointment status, own or otherwise.
+        // Managers everywhere; a BOOTH-RENTING stylist runs their own book and
+        // may manage the status of bookings that carry THEIR items. Employee
+        // stylists never change status, own or otherwise.
         if (! $actor->can('manageBookings', $salon)) {
-            throw new AuthorizationException('You may not manage that booking.');
+            $ownBoothBooking = $actor->boothRenterMembershipFor($salon) !== null
+                && $booking->items()->where('stylist_id', $actor->id)->exists();
+
+            if (! $ownBoothBooking) {
+                throw new AuthorizationException('You may not manage that booking.');
+            }
         }
 
         $from = $booking->status;

@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Salons\ChangeSalonType;
 use App\Actions\Salons\DisconnectGhl;
 use App\Actions\Salons\SetSalonActive;
 use App\Actions\Salons\SetSalonOwner;
@@ -239,6 +240,50 @@ new #[Title('Edit salon')] class extends Component {
     }
 
     // ------------------------------------------------------------------
+    // Salon type — changing it changes real people's permissions; the UI
+    // confirms with the exact consequences (ChangeSalonType defines them).
+    // ------------------------------------------------------------------
+
+    public string $salonTypeChoice = '';
+
+    /** The consequence line for the confirm dialog, per target type. */
+    public function typeConsequence(string $to): string
+    {
+        $type = \App\Enums\SalonType::tryFrom($to);
+        if ($type === null || $type === $this->salon->salon_type) {
+            return '';
+        }
+
+        $affected = app(ChangeSalonType::class)->affectedCount($this->salon, $type);
+
+        return match ($type) {
+            \App\Enums\SalonType::Employee => trans_choice(
+                ':count stylist becomes an employee — they lose self-booking, their client list, and their revenue view (no data is deleted), and gain the shared calendar.|:count stylists become employees — they lose self-booking, their client lists, and their revenue views (no data is deleted), and gain the shared calendar.',
+                $affected, ['count' => $affected]),
+            \App\Enums\SalonType::BoothRental => trans_choice(
+                ':count stylist becomes a booth renter — they gain their own bookings, clients, and revenue, and stop seeing the shared calendar.|:count stylists become booth renters — they gain their own bookings, clients, and revenue, and stop seeing the shared calendar.',
+                $affected, ['count' => $affected]),
+            \App\Enums\SalonType::Mix => __('No stylist changes — everyone keeps their current arrangement; you choose per stylist from now on.'),
+        };
+    }
+
+    public function changeSalonType(ChangeSalonType $action): void
+    {
+        $this->authorize('manageSalons', $this->salon->agency);
+
+        $type = \App\Enums\SalonType::tryFrom($this->salonTypeChoice);
+        abort_unless($type !== null, 422);
+
+        $changed = $action->handle($this->salon, $type);
+        $this->salon->refresh();
+        $this->salonTypeChoice = '';
+
+        Flux::toast(variant: 'success', text: $changed > 0
+            ? trans_choice('Salon type updated — :count stylist changed arrangement.|Salon type updated — :count stylists changed arrangement.', $changed, ['count' => $changed])
+            : __('Salon type updated.'));
+    }
+
+    // ------------------------------------------------------------------
     // Ownership — an agency-owner-only action (SetSalonOwner re-enforces).
     // ------------------------------------------------------------------
 
@@ -393,6 +438,28 @@ new #[Title('Edit salon')] class extends Component {
         @can('manageGhlConnection', $salon)
             @include('partials.ghl-connection-card')
         @endcan
+
+        <x-ui.card class="flex flex-col gap-4">
+            <div>
+                <h3 class="text-[16px] font-semibold text-ink">{{ __('Salon type') }}</h3>
+                <p class="mt-0.5 text-[14px] text-secondary">
+                    {{ __('Currently :type — :description', ['type' => $salon->salon_type->label(), 'description' => __($salon->salon_type->description())]) }}
+                </p>
+            </div>
+            <div class="flex flex-wrap items-end gap-3">
+                <flux:select wire:model.live="salonTypeChoice" :label="__('Change to')" class="max-w-64">
+                    <flux:select.option value="">{{ __('Choose a type') }}</flux:select.option>
+                    @foreach (\App\Enums\SalonType::cases() as $type)
+                        @if ($type !== $salon->salon_type)
+                            <flux:select.option value="{{ $type->value }}">{{ $type->label() }}</flux:select.option>
+                        @endif
+                    @endforeach
+                </flux:select>
+                @if ($salonTypeChoice !== '')
+                    <x-ui.button type="button" x-on:click="$store.confirm.ask({ title: {{ Js::from(__('Change salon type')) }}, message: {{ Js::from($this->typeConsequence($salonTypeChoice)) }}, confirmLabel: {{ Js::from(__('Change type')) }}, danger: true }, () => $wire.changeSalonType())">{{ __('Change type') }}</x-ui.button>
+                @endif
+            </div>
+        </x-ui.card>
 
         <x-ui.card class="flex flex-col gap-4">
             <div>

@@ -19,13 +19,25 @@ Two scopes, mirroring GHL's agency/sub-account structure. Enforced server-side o
 
 **Salon scope:** three roles — `salon_owner` | `salon_manager` | `stylist` (front desk was absorbed into manager: functionally identical). **The role carries the permissions; `staff_type` survives as the orthogonal BOOKABILITY flag** (`stylist` or none): a stylist-role member always carries it, a manager never does, and an **owner may also carry it** — the owner-who-cuts-hair case — toggled only by the owner themself on their own row in salon → Users.
 
-| Capability | Owner | Manager | Stylist |
+**Salon types** (`salons.salon_type` ∈ employee · booth_rental · mix, chosen at creation, changeable by the agency with a consequences-naming confirmation) govern the per-membership stylist **arrangement** (`salon_memberships.arrangement` ∈ employee · booth_rental): Employee salons force employee, BoothRental salons force booth_rental, Mix chooses per stylist. Changing type → employee/booth_rental flips every stylist's arrangement (visibility changes, no data deleted); → mix preserves all arrangements. Owners/managers are unaffected by type — they see and manage everything, always.
+
+| Capability | Owner | Manager | Employee stylist | Booth-rental stylist |
+|---|---|---|---|---|
+| Today | ✓ | ✓ | own | own |
+| Calendar | master + create | master + create | the SHARED salon board, read-only | own column only + create own |
+| Appointments | all | all | own | own |
+| Create/manage bookings (incl. status) | ✓ | ✓ | ✗ | ✓ their own |
+| Clients (+ profiles/notes) | all | all | ✗ | only clients THEY have served (derived from bookings) |
+| Reports/revenue | salon | salon | ✗ | their own only |
+| Edit availability | anyone's | anyone's | own | own |
+| Services / Users / Settings / Widgets / Setup | ✓ | ✓ | ✗ (403 server-side) | ✗ (403 server-side) |
+| GHL connection + integration checks | ✓ | ✓ | ✗ | ✗ |
+| Bookable (takes bookings) | optional (self-toggled) | never | always | always |
+
+Booth renters are separate businesses under the salon's roof: they must never see each other's books, clients, notes, or revenue — CalendarData, ClientDirectory, and SalonReport all enforce the scope server-side.
+
+| Capability | Owner | Manager | Stylist (both arrangements) |
 |---|---|---|---|
-| Today + master calendar / all bookings, check-in, create bookings | ✓ | ✓ | Today + own calendar column, own appointments only |
-| Manage clients / services / users / reports / settings / widgets / setup | ✓ | ✓ | ✗ (403 server-side) |
-| Edit availability | anyone's | anyone's | own |
-| GHL connection + integration checks | ✓ | ✓ | ✗ |
-| Bookable (takes bookings) | optional (self-toggled) | never | always |
 | Touch the salon OWNER | edit self (account settings) | ✗ | ✗ |
 | Delete users | managers + stylists | managers + stylists (never the owner) | ✗ |
 | Delete own account | ✓ | ✗ (salon-managed) | ✗ (salon-managed) |

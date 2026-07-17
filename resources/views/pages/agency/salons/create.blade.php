@@ -65,6 +65,7 @@ new #[Title('New salon')] class extends Component {
     public string $slug = '';
 
     public string $timezone = 'America/New_York';
+    public string $salon_type = 'employee';
 
     public string $accent = '';
 
@@ -103,6 +104,7 @@ new #[Title('New salon')] class extends Component {
             // salons (slugs are live subdomains, so global) via Rule::unique.
             'slug' => ['required', 'string', new SalonSlug, Rule::unique('salons', 'slug')],
             'timezone' => ['required', 'timezone:all'],
+            'salon_type' => ['required', Illuminate\Validation\Rule::in(array_column(\App\Enums\SalonType::cases(), 'value'))],
             'accent' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'allow_walkins' => ['boolean'],
             'allow_same_day' => ['boolean'],
@@ -123,7 +125,7 @@ new #[Title('New salon')] class extends Component {
     private function stepFields(): array
     {
         return [
-            'basics' => [...array_keys(SalonProfile::rules()), 'slug', 'timezone'],
+            'basics' => [...array_keys(SalonProfile::rules()), 'slug', 'timezone', 'salon_type'],
             'policy' => ['allow_walkins', 'allow_same_day', 'max_advance_days', 'min_notice_minutes'],
             'branding' => ['accent'],
             'ghl' => ['ghl_location_id', 'ghl_calendar_id', 'ghl_token'],
@@ -291,6 +293,14 @@ new #[Title('New salon')] class extends Component {
                         <flux:select.option value="{{ $tz }}">{{ $tz }}</flux:select.option>
                     @endforeach
                 </flux:select>
+
+                <flux:separator :text="__('How stylists work here')" />
+
+                <flux:radio.group wire:model="salon_type" :label="__('Salon type')">
+                    @foreach (\App\Enums\SalonType::cases() as $type)
+                        <flux:radio value="{{ $type->value }}" :label="__($type->label())" :description="__($type->description())" />
+                    @endforeach
+                </flux:radio.group>
             @elseif ($step === 'policy')
                 <div class="flex flex-col gap-3">
                     <flux:checkbox wire:model="allow_walkins" :label="__('Allow walk-ins')" />
@@ -340,6 +350,7 @@ new #[Title('New salon')] class extends Component {
                         __('Salon name') => $name,
                         __('Subdomain') => $slug !== '' ? $slug.'.'.config('app.domain') : '',
                         __('Timezone') => $timezone,
+                        __('Salon type') => \App\Enums\SalonType::from($salon_type)->label(),
                         __('Business email') => $business_email,
                         __('Business phone') => $business_phone,
                         __('Address') => trim($address_line1.' '.$city),

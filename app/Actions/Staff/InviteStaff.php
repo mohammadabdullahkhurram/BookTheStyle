@@ -4,6 +4,7 @@ namespace App\Actions\Staff;
 
 use App\Enums\SalonRole;
 use App\Enums\StaffType;
+use App\Enums\StylistArrangement;
 use App\Mail\AccountCreatedMail;
 use App\Mail\StaffInviteMail;
 use App\Models\Salon;
@@ -32,7 +33,7 @@ class InviteStaff
     public function __construct(private SalonStaffRoles $roles) {}
 
     /**
-     * @param  array{name: string, email: string, phone?: string|null, salon_role: string, staff_type?: string|null}  $data
+     * @param  array{name: string, email: string, phone?: string|null, salon_role: string, staff_type?: string|null, arrangement?: string|null}  $data
      */
     public function handle(User $actor, Salon $salon, array $data): ProvisionedUser
     {
@@ -56,6 +57,10 @@ class InviteStaff
 
         $this->roles->assertRoleMatchesType($role, $staffType);
 
+        $arrangement = $this->roles->resolveArrangement($salon, $role, ! empty($data['arrangement'])
+            ? StylistArrangement::from($data['arrangement'])
+            : null);
+
         // Overwriting an existing membership needs authority over its CURRENT
         // role too — the invite form can't demote an owner/manager the actor
         // may not manage.
@@ -68,7 +73,7 @@ class InviteStaff
             }
         }
 
-        return $this->provision($salon, $data, $role, $staffType);
+        return $this->provision($salon, $data, $role, $staffType, $arrangement);
     }
 
     /**
@@ -85,7 +90,7 @@ class InviteStaff
         return $this->provision($salon, [
             ...$contact,
             'salon_role' => SalonRole::Owner->value,
-        ], SalonRole::Owner, null);
+        ], SalonRole::Owner, null, StylistArrangement::Employee);
     }
 
     /**
@@ -94,7 +99,7 @@ class InviteStaff
      *
      * @param  array{name: string, email: string, phone?: string|null}  $data
      */
-    private function provision(Salon $salon, array $data, SalonRole $role, ?StaffType $staffType): ProvisionedUser
+    private function provision(Salon $salon, array $data, SalonRole $role, ?StaffType $staffType, StylistArrangement $arrangement): ProvisionedUser
     {
         $phone = isset($data['phone']) && $data['phone'] !== '' ? $data['phone'] : null;
 
@@ -106,7 +111,7 @@ class InviteStaff
         if ($existing !== null && $existing->trashed()) {
             $temporaryPassword = TemporaryPassword::generate();
 
-            DB::transaction(function () use ($existing, $data, $salon, $role, $staffType, $temporaryPassword, $phone): void {
+            DB::transaction(function () use ($existing, $data, $salon, $role, $staffType, $arrangement, $temporaryPassword, $phone): void {
                 $existing->restore();
                 $existing->forceFill([
                     'name' => $data['name'],
@@ -117,7 +122,7 @@ class InviteStaff
 
                 SalonMembership::updateOrCreate(
                     ['user_id' => $existing->id, 'salon_id' => $salon->id],
-                    ['salon_role' => $role, 'staff_type' => $staffType, 'active' => true],
+                    ['salon_role' => $role, 'staff_type' => $staffType, 'arrangement' => $arrangement, 'active' => true],
                 );
             });
 
@@ -138,7 +143,7 @@ class InviteStaff
 
             SalonMembership::updateOrCreate(
                 ['user_id' => $existing->id, 'salon_id' => $salon->id],
-                ['salon_role' => $role, 'staff_type' => $keepType, 'active' => true],
+                ['salon_role' => $role, 'staff_type' => $keepType, 'arrangement' => $arrangement, 'active' => true],
             );
 
             // Existing login, new salon/role: an invite without credentials.
@@ -151,7 +156,7 @@ class InviteStaff
 
         $temporaryPassword = TemporaryPassword::generate();
 
-        $user = DB::transaction(function () use ($data, $salon, $role, $staffType, $temporaryPassword, $phone) {
+        $user = DB::transaction(function () use ($data, $salon, $role, $staffType, $arrangement, $temporaryPassword, $phone) {
             $user = User::create([
                 'name' => $data['name'],
                 'email' => $data['email'],
@@ -165,6 +170,7 @@ class InviteStaff
                 'user_id' => $user->id,
                 'salon_role' => $role,
                 'staff_type' => $staffType,
+                'arrangement' => $arrangement,
                 'active' => true,
             ]);
 

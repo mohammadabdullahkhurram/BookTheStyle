@@ -82,6 +82,38 @@ class SalonPolicy
     }
 
     /**
+     * Create bookings: managers everywhere; a BOOTH-RENTING stylist for their
+     * own book (CreateBooking additionally pins every item to them).
+     * Employee stylists never — the desk books their clients in.
+     */
+    public function createBookings(User $user, Salon $salon): bool
+    {
+        return $this->manageBookings($user, $salon)
+            || $user->boothRenterMembershipFor($salon) !== null;
+    }
+
+    /**
+     * The client directory/profiles: managers see all; a booth renter only
+     * the clients THEY have served (the pages force that scope). Employee
+     * stylists never.
+     */
+    public function accessClients(User $user, Salon $salon): bool
+    {
+        return $this->manageBookings($user, $salon)
+            || $user->boothRenterMembershipFor($salon) !== null;
+    }
+
+    /**
+     * Reports: managers see the salon; a booth renter only their own
+     * bookings/revenue/no-shows (the page forces the scope).
+     */
+    public function viewReports(User $user, Salon $salon): bool
+    {
+        return $this->manage($user, $salon)
+            || $user->boothRenterMembershipFor($salon) !== null;
+    }
+
+    /**
      * Connect/configure the salon's GHL: the full admin surface belongs to
      * owner AND admin (SPEC §2) — plus agency operators via `before`.
      */

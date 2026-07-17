@@ -24,6 +24,9 @@ use Illuminate\Support\Facades\DB;
 class SalonReport
 {
     /**
+     * @param  int|null  $onlyStylistId  scope every metric to ONE stylist's
+     *                                   items — the booth-renter view (their
+     *                                   own business only)
      * @return array{
      *     total: int,
      *     completed: int,
@@ -37,10 +40,11 @@ class SalonReport
      *     top_services: array<int, array{service_id: int, name: string, count: int, revenue_cents: int|null}>,
      * }
      */
-    public function build(Salon $salon, CarbonImmutable $start, CarbonImmutable $end): array
+    public function build(Salon $salon, CarbonImmutable $start, CarbonImmutable $end, ?int $onlyStylistId = null): array
     {
         $start = $start->utc();
         $end = $end->utc();
+        $this->onlyStylistId = $onlyStylistId;
 
         $statusCounts = $this->bookingsInRange($salon, $start, $end)
             ->selectRaw('bookings.status, count(*) as c')
@@ -124,6 +128,9 @@ class SalonReport
         ];
     }
 
+    /** Booth-renter scope: when set, every metric covers only this stylist. */
+    private ?int $onlyStylistId = null;
+
     /**
      * Bookings with at least one item starting in [start, end) — plain query
      * builder, explicitly salon-scoped (never relies on the global scope).
@@ -138,7 +145,8 @@ class SalonReport
                 ->from('booking_items')
                 ->whereColumn('booking_items.booking_id', 'bookings.id')
                 ->where('booking_items.starts_at', '>=', $start)
-                ->where('booking_items.starts_at', '<', $end));
+                ->where('booking_items.starts_at', '<', $end)
+                ->when($this->onlyStylistId !== null, fn ($qq) => $qq->where('booking_items.stylist_id', $this->onlyStylistId)));
     }
 
     /**
@@ -152,6 +160,7 @@ class SalonReport
             ->join('bookings', 'bookings.id', '=', 'booking_items.booking_id')
             ->where('booking_items.salon_id', $salon->id)
             ->where('booking_items.starts_at', '>=', $start)
-            ->where('booking_items.starts_at', '<', $end);
+            ->where('booking_items.starts_at', '<', $end)
+            ->when($this->onlyStylistId !== null, fn ($q) => $q->where('booking_items.stylist_id', $this->onlyStylistId));
     }
 }

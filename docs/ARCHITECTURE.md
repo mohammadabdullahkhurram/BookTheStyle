@@ -87,3 +87,19 @@ The webhook and voice API are deliberately **outside** the session/scope system 
 - **Proxies**: Cloudflare → Hostinger → PHP-FPM. `TrustCloudflareClientIp` adopts `CF-Connecting-IP` (spoof-proof through the edge) before any throttle; `TRUSTED_PROXIES` is config-pinnable; production forces https URL generation.
 - **Live UI**: Livewire polling (calendar ~5 s) — no WebSockets on this host.
 - **Themes**: `ThemeRegistry` (salon: Marble/Classic; agency: brand/glacier; coming-soon placeholders are locked cards). Classic salons render the pre-rollout "lumen" look on two proof routes (`LumenTheme`) — intentional, tested. A salon's branding accent recolors any theme via `AccentPalette` CSS-variable slots.
+
+## Salon types and stylist arrangements
+
+`salons.salon_type` (employee · booth_rental · mix) governs the per-membership
+`salon_memberships.arrangement` (employee · booth_rental) —
+`SalonStaffRoles::resolveArrangement` forces it for non-mix salons on every
+invite/edit, and `ChangeSalonType` flips existing stylists transactionally
+when the agency changes type. Capability scoping is server-side throughout:
+`SalonPolicy::createBookings/accessClients/viewReports` admit booth renters,
+and the pages force the self-scope (CalendarData `$onlyStylistId`,
+ClientDirectory's served-by `stylist_id` filter, SalonReport
+`$onlyStylistId`). CreateBooking and TransitionBookingStatus re-verify that a
+booth renter only ever touches bookings carrying their own items. Employee
+stylists keep the shared calendar (read-only) and no booking/client/report
+surface. The GHL mirror is arrangement-agnostic — bookings sync identically
+regardless of who created them.

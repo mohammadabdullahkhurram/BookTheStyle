@@ -4,6 +4,7 @@ namespace App\Actions\Salons;
 
 use App\Actions\Staff\InviteStaff;
 use App\Enums\AgencyRole;
+use App\Enums\SalonType;
 use App\Mail\SalonAddedMail;
 use App\Models\Agency;
 use App\Models\Salon;
@@ -20,7 +21,7 @@ use Illuminate\Support\Facades\Mail;
  * stored via UpdateGhlConnection (token encrypted, never mass-assigned).
  *
  * @phpstan-type SalonInput array{
- *     name: string, slug: string, timezone: string, accent?: string|null,
+ *     name: string, slug: string, timezone: string, salon_type?: string|null, accent?: string|null,
  *     allow_walkins?: bool, allow_same_day?: bool,
  *     max_advance_days?: int, min_notice_minutes?: int,
  *     ghl_location_id?: string|null, ghl_calendar_id?: string|null,
@@ -42,6 +43,7 @@ class CreateSalon
         $salon = $agency->salons()->create([
             'slug' => $data['slug'],
             'timezone' => $data['timezone'],
+            'salon_type' => SalonType::tryFrom((string) ($data['salon_type'] ?? '')) ?? SalonType::Employee,
             'active' => true,
             'branding' => isset($data['accent']) && $data['accent']
                 ? ['accent' => $data['accent']]

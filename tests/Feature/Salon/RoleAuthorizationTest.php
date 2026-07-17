@@ -30,16 +30,17 @@ afterEach(fn () => Carbon::setTestNow());
 // Stylist — allow
 // ---------------------------------------------------------------------------
 
-it('lets a stylist load their own calendar (scoped to themselves, not master)', function () {
+it('gives an employee stylist the shared salon board, read-only', function () {
     $salon = bookingSalon();
     $stylist = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
 
     $this->actingAs($stylist)->get(route('salon.calendar', $salon))->assertOk();
 
+    // Employees work the same floor: shared board (SPEC §2), no creation.
     Livewire::actingAs($stylist)
         ->test('pages::salon.calendar', ['salon' => $salon])
-        ->assertSet('isMaster', false)
-        ->assertSet('stylistId', $stylist->id);
+        ->assertSet('isMaster', true)
+        ->assertSet('canCreate', false);
 });
 
 it('lets a stylist load their own availability with no stylist picker', function () {

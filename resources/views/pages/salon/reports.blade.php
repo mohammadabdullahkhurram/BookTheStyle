@@ -27,7 +27,9 @@ new #[Title('Reports')] class extends Component {
 
     public function mount(Salon $salon): void
     {
-        $this->authorize('manage', $salon);
+        // Managers see the salon; a BOOTH-RENTING stylist sees only their
+        // own business (scope forced below). Employee stylists have none.
+        $this->authorize('viewReports', $salon);
         $this->salon = $salon;
 
         $today = CarbonImmutable::now($salon->timezone);
@@ -81,7 +83,9 @@ new #[Title('Reports')] class extends Component {
     {
         [$start, $end] = $this->range();
 
-        return app(SalonReport::class)->build($this->salon, $start, $end);
+        $onlyStylist = auth()->user()->can('manage', $this->salon) ? null : auth()->id();
+
+        return app(SalonReport::class)->build($this->salon, $start, $end, $onlyStylist);
     }
 
     /** Share of bookings that came in through GHL's AI channels. */

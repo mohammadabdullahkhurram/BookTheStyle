@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\AgencyRole;
 use App\Enums\SalonRole;
 use App\Enums\StaffType;
+use App\Enums\StylistArrangement;
 use App\Notifications\ResetPasswordNotification;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -223,6 +224,22 @@ class User extends Authenticatable implements PasskeyUser
         $membership = $this->membershipFor($salon);
 
         return $membership?->staff_type === StaffType::Stylist ? $membership : null;
+    }
+
+    /**
+     * The user's active membership when they are a BOOTH-RENTING stylist at
+     * this salon — an independent business under the salon's roof: they book
+     * their own clients and see only their own book, clients, and revenue.
+     */
+    public function boothRenterMembershipFor(Salon $salon): ?SalonMembership
+    {
+        $membership = $this->membershipFor($salon);
+
+        return $membership !== null
+            && $membership->salon_role === SalonRole::Stylist
+            && $membership->arrangement === StylistArrangement::BoothRental
+            ? $membership
+            : null;
     }
 
     /**

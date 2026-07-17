@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\SalonType;
 use App\Enums\StaffType;
 use App\Support\ThemeRegistry;
 use Carbon\CarbonImmutable;
@@ -19,6 +20,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property string $name
  * @property string $slug
  * @property string $timezone
+ * @property SalonType $salon_type
  * @property string $currency
  * @property bool $active
  * @property array<string, mixed>|null $branding
@@ -62,9 +64,11 @@ class Salon extends Model
      */
     protected $attributes = [
         'app_theme' => ThemeRegistry::DEFAULT_APP,
+        'salon_type' => 'employee',
     ];
 
     protected $fillable = [
+        'salon_type',
         'agency_id',
         'name',
         'slug',
@@ -98,6 +102,7 @@ class Salon extends Model
     protected function casts(): array
     {
         return [
+            'salon_type' => SalonType::class,
             'active' => 'boolean',
             'branding' => 'array',
             'api_token_generated_at' => 'immutable_datetime',

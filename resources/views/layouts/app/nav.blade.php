@@ -50,7 +50,7 @@
                 <span x-show="!collapsed" x-cloak>{{ __('Appointments') }}</span>
             </a>
         @endcan
-        @can('manageBookings', $salon)
+        @can('accessClients', $salon)
             <a href="{{ route('salon.clients', $salon) }}" wire:navigate @click="mobileNav = false"
                aria-label="{{ __('Clients') }}" :title="collapsed ? '{{ __('Clients') }}' : null"
                class="bts-nav-item {{ request()->routeIs('salon.clients') || request()->routeIs('salon.client') ? 'bts-nav-item-active' : '' }}">
@@ -58,7 +58,7 @@
                 <span x-show="!collapsed" x-cloak>{{ __('Clients') }}</span>
             </a>
         @endcan
-        @can('manage', $salon)
+        @can('viewReports', $salon)
             <a href="{{ route('salon.reports', $salon) }}" wire:navigate @click="mobileNav = false"
                aria-label="{{ __('Reports') }}" :title="collapsed ? '{{ __('Reports') }}' : null"
                class="bts-nav-item {{ request()->routeIs('salon.reports') ? 'bts-nav-item-active' : '' }}">
@@ -146,7 +146,7 @@
 
 {{-- New booking (salon context) --}}
 @if ($salon)
-    @can('manageBookings', $salon)
+    @can('createBookings', $salon)
         <div class="px-3 pb-1">
             <a href="{{ route('salon.bookings.create', $salon) }}" wire:navigate @click="mobileNav = false"
                aria-label="{{ __('New booking') }}" :title="collapsed ? '{{ __('New booking') }}' : null"

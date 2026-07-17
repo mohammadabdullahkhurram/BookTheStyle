@@ -6,7 +6,9 @@ use App\Enums\BookedByType;
 use App\Enums\BookingSource;
 use App\Enums\BookingStatus;
 use App\Enums\SalonRole;
+use App\Enums\SalonType;
 use App\Enums\StaffType;
+use App\Enums\StylistArrangement;
 use App\Models\Salon;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -28,6 +30,8 @@ function enumBackedColumns(): array
     return [
         ['salon_memberships', 'salon_role', $values(SalonRole::class), 'not-nullable'],
         ['salon_memberships', 'staff_type', $values(StaffType::class), 'nullable'],
+        ['salon_memberships', 'arrangement', $values(StylistArrangement::class), 'not-nullable'],
+        ['salons', 'salon_type', $values(SalonType::class), 'not-nullable'],
         ['users', 'agency_role', $values(AgencyRole::class), 'nullable'],
         ['bookings', 'status', $values(BookingStatus::class), 'not-nullable'],
         ['bookings', 'source', $values(BookingSource::class), 'not-nullable'],

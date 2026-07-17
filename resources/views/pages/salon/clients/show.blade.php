@@ -42,12 +42,28 @@ new #[Title('Client')] class extends Component {
 
     public function mount(Salon $salon, int $clientId): void
     {
-        // Client records are a manager surface — stylists are scoped to
-        // {Today, calendar, own appointments, own availability} (SPEC §2).
-        $this->authorize('manageBookings', $salon);
+        // Managers open any client; a BOOTH-RENTING stylist only clients THEY
+        // have served — including the notes on them. A shared client (served
+        // by two renters) is correctly visible to both; safety notes
+        // (allergies) must not be hidden from someone serving the client.
+        $this->authorize('accessClients', $salon);
         $this->salon = $salon;
         // Scoped lookup — out-of-salon ids 404 (no IDOR).
         $this->client = $salon->clients()->whereKey($clientId)->firstOrFail();
+
+        if (! Auth::user()->can('manageBookings', $salon)) {
+            abort_unless($this->servedByViewer(), 403);
+        }
+    }
+
+    /** Whether this client has any non-cancelled booking with the viewer. */
+    private function servedByViewer(): bool
+    {
+        return $this->salon->bookings()
+            ->where('client_id', $this->client->id)
+            ->where('status', '!=', \App\Enums\BookingStatus::Cancelled->value)
+            ->whereHas('items', fn ($q) => $q->where('stylist_id', Auth::id()))
+            ->exists();
     }
 
     /** Whether the viewer may edit contact details and preferences. */

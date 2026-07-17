@@ -42,8 +42,10 @@ new #[Title('New booking')] class extends Component {
 
     public function mount(Salon $salon): void
     {
-        // Creating bookings is a manager surface — stylists don't book clients.
-        $this->authorize('manageBookings', $salon);
+        // Managers book anyone; a BOOTH-RENTING stylist books their own
+        // clients (CreateBooking pins every item to them). Employee stylists
+        // never book — the desk does.
+        $this->authorize('createBookings', $salon);
         $this->salon = $salon;
         $this->date = CarbonImmutable::now($salon->timezone)->format('Y-m-d');
         $this->items = [$this->blankLine()];
@@ -128,6 +130,11 @@ new #[Title('New booking')] class extends Component {
 
         $resolver = app(DurationResolver::class);
         $activeIds = $this->salon->stylistUsers()->pluck('users.id')->map(fn ($id) => (int) $id)->all();
+
+        // A booth renter books only their own column; managers book anyone.
+        if (! Auth::user()->can('manageBookings', $this->salon)) {
+            $activeIds = array_values(array_intersect($activeIds, [Auth::id()]));
+        }
 
         return $service->stylists()
             ->orderBy('name')
@@ -341,7 +348,7 @@ new #[Title('New booking')] class extends Component {
 
     public function save(CreateBooking $action): void
     {
-        $this->authorize('manageBookings', $this->salon);
+        $this->authorize('createBookings', $this->salon);
 
         $rules = [
             'items' => ['required', 'array', 'min:1'],

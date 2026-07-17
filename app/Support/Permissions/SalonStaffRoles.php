@@ -4,6 +4,7 @@ namespace App\Support\Permissions;
 
 use App\Enums\SalonRole;
 use App\Enums\StaffType;
+use App\Enums\StylistArrangement;
 use App\Models\Salon;
 use App\Models\User;
 use Illuminate\Validation\ValidationException;
@@ -94,5 +95,22 @@ class SalonStaffRoles
     public function impliedType(SalonRole $role): ?StaffType
     {
         return $role === SalonRole::Stylist ? StaffType::Stylist : null;
+    }
+
+    /**
+     * The working arrangement a stylist membership must carry, governed by
+     * the SALON TYPE (SPEC §2): Employee salons force employee, BoothRental
+     * salons force booth_rental, Mix lets the caller choose (defaulting to
+     * employee). Non-stylist roles carry the inert default.
+     */
+    public function resolveArrangement(Salon $salon, SalonRole $role, ?StylistArrangement $requested): StylistArrangement
+    {
+        if ($role !== SalonRole::Stylist) {
+            return StylistArrangement::Employee;
+        }
+
+        return $salon->salon_type->forcedArrangement()
+            ?? $requested
+            ?? StylistArrangement::Employee;
     }
 }

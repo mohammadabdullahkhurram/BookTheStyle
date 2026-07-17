@@ -122,22 +122,33 @@ it('builds a week grid of seven day columns', function () {
     expect(gridClients($grid))->toContain('Weekly Wendy');
 });
 
-it('lets a manager see the master calendar and a stylist see only their own', function () {
+it('scopes the calendar per role and arrangement: managers create, employees view shared, renters own-only', function () {
     $salon = bookingSalon();
     $stylist = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
 
     Livewire::actingAs(salonOwnerOf($salon))
         ->test('pages::salon.calendar', ['salon' => $salon])
         ->assertSet('isMaster', true)
+        ->assertSet('canCreate', true)
         ->assertSet('stylistId', null);
 
     Livewire::actingAs(frontDeskOf($salon))
         ->test('pages::salon.calendar', ['salon' => $salon])
         ->assertSet('isMaster', true);
 
+    // Employee stylist: shared board, read-only (SPEC §2).
     Livewire::actingAs($stylist)
         ->test('pages::salon.calendar', ['salon' => $salon])
+        ->assertSet('isMaster', true)
+        ->assertSet('canCreate', false);
+
+    // Booth renter: their own column only, with creation.
+    $salon->memberships()->where('user_id', $stylist->id)
+        ->update(['arrangement' => 'booth_rental']);
+    Livewire::actingAs($stylist->fresh())
+        ->test('pages::salon.calendar', ['salon' => $salon])
         ->assertSet('isMaster', false)
+        ->assertSet('canCreate', true)
         ->assertSet('stylistId', $stylist->id);
 });
 

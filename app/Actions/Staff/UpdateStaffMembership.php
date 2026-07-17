@@ -4,6 +4,7 @@ namespace App\Actions\Staff;
 
 use App\Enums\SalonRole;
 use App\Enums\StaffType;
+use App\Enums\StylistArrangement;
 use App\Models\Salon;
 use App\Models\SalonMembership;
 use App\Models\User;
@@ -22,7 +23,7 @@ class UpdateStaffMembership
     public function __construct(private SalonStaffRoles $roles) {}
 
     /**
-     * @param  array{salon_role: string, staff_type?: string|null}  $data
+     * @param  array{salon_role: string, staff_type?: string|null, arrangement?: string|null}  $data
      */
     public function handle(User $actor, Salon $salon, SalonMembership $membership, array $data): SalonMembership
     {
@@ -52,9 +53,14 @@ class UpdateStaffMembership
             ]);
         }
 
+        $arrangement = $this->roles->resolveArrangement($salon, $newRole, ! empty($data['arrangement'])
+            ? StylistArrangement::from($data['arrangement'])
+            : $membership->arrangement);
+
         $membership->update([
             'salon_role' => $newRole,
             'staff_type' => $staffType,
+            'arrangement' => $arrangement,
         ]);
 
         return $membership;

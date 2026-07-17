@@ -51,9 +51,10 @@ new #[Title('Clients')] class extends Component {
     public function mount(Salon $salon): void
     {
         // Same rule as the client profile: any booking-area staff may look.
-        // Client records are a manager surface — stylists are scoped to
-        // {Today, calendar, own appointments, own availability} (SPEC §2).
-        $this->authorize('manageBookings', $salon);
+        // Managers see every client; a BOOTH-RENTING stylist sees only the
+        // clients THEY have served (forced below — the client belongs to the
+        // stylist, not the salon). Employee stylists have no client surface.
+        $this->authorize('accessClients', $salon);
         $this->salon = $salon;
     }
 
@@ -67,10 +68,14 @@ new #[Title('Clients')] class extends Component {
     #[Computed]
     public function clients()
     {
+        // Booth renters are pinned to clients they have served — the existing
+        // served-by filter, forced regardless of what the UI sends.
+        $forcedStylist = Auth::user()->can('manageBookings', $this->salon) ? null : Auth::id();
+
         return app(ClientDirectory::class)->paginate($this->salon, [
             'search' => $this->search,
             'sort' => in_array($this->sort, ClientDirectory::SORTS, true) ? $this->sort : 'name',
-            'stylist_id' => $this->stylistFilter !== '' ? (int) $this->stylistFilter : null,
+            'stylist_id' => $forcedStylist ?? ($this->stylistFilter !== '' ? (int) $this->stylistFilter : null),
             'service_id' => $this->serviceFilter !== '' ? (int) $this->serviceFilter : null,
             'upcoming_only' => $this->upcomingOnly,
             'new_only' => $this->newOnly,
