@@ -83,7 +83,7 @@ it('confirms staff password resets and deactivation with specific copy', functio
     stylistOf($salon);
 
     Livewire::actingAs($owner)
-        ->test('pages::salon.staff.index', ['salon' => $salon])
+        ->test('pages::salon.users.index', ['salon' => $salon])
         ->assertSeeHtml('$store.confirm.ask')
         ->assertDontSeeHtml('wire:confirm')
         ->assertSee('The current one stops working immediately')

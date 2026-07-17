@@ -46,7 +46,7 @@ it('reserves close-button space in the temporary-password dialog header', functi
 
     $this->actingAs($owner);
 
-    Livewire::test('pages::salon.staff.index', ['salon' => $salon])
+    Livewire::test('pages::salon.users.index', ['salon' => $salon])
         ->set('name', 'Annaliese')
         ->set('email', 'annaliese@example.com')
         ->set('role', 'stylist')
@@ -65,7 +65,7 @@ it('reserves close-button space in the edit-staff dialog header', function () {
 
     $this->actingAs($owner);
 
-    Livewire::test('pages::salon.staff.index', ['salon' => $salon])
+    Livewire::test('pages::salon.users.index', ['salon' => $salon])
         ->call('startEdit', $membership->id)
         ->assertSee('Edit user')
         ->assertSee('pe-12', escape: false);

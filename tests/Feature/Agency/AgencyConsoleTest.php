@@ -54,11 +54,11 @@ it('scopes an agency_user to assigned salons only', function () {
     $agencyUser->assignedSalons()->attach($assigned);
 
     // Can manage the assigned salon...
-    $this->actingAs($agencyUser)->get(route('salon.staff', $assigned))->assertOk();
+    $this->actingAs($agencyUser)->get(route('salon.users', $assigned))->assertOk();
     $this->actingAs($agencyUser)->get(route('salon.settings', $assigned))->assertOk();
 
     // ...but is forbidden on an unassigned salon in the same agency.
-    $this->actingAs($agencyUser)->get(route('salon.staff', $unassigned))->assertForbidden();
+    $this->actingAs($agencyUser)->get(route('salon.users', $unassigned))->assertForbidden();
     $this->actingAs($agencyUser)->get(route('salon.show', $unassigned))->assertForbidden();
 });
 

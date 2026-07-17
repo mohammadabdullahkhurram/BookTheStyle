@@ -29,7 +29,7 @@ it('renders every agency + salon screen for an authorised operator', function ()
 
     // Salon-scoped (owner operates every salon in the agency)
     $this->get(route('salon.show', $salon))->assertOk();
-    $this->get(route('salon.staff', $salon))->assertOk();
+    $this->get(route('salon.users', $salon))->assertOk();
     $this->get(route('salon.settings', $salon))->assertOk();
 });
 

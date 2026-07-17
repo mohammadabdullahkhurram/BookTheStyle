@@ -347,7 +347,7 @@ new #[Title('Salon setup')] class extends Component {
                         {{ trans_choice(':count stylist added.|:count stylists added.', $stylistCount, ['count' => $stylistCount]) }}
                         @if ($stylistCount === 0) {{ __('Add at least one to continue.') }} @endif
                     </p>
-                    <a href="{{ route('salon.staff', $salon) }}" wire:navigate class="bts-btn bts-btn-secondary mt-4">{{ __('Open staff') }}</a>
+                    <a href="{{ route('salon.users', $salon) }}" wire:navigate class="bts-btn bts-btn-secondary mt-4">{{ __('Open staff') }}</a>
 
                 {{-- ============================== services ============================== --}}
                 @elseif ($step === 'services')

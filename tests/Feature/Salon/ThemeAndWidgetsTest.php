@@ -117,7 +117,7 @@ it('renders Marble across the salon app by default — every screen, one theme',
     $owner = salonOwnerOf($salon);
     $this->actingAs($owner);
 
-    foreach (['salon.show', 'salon.calendar', 'salon.appointments', 'salon.clients', 'salon.services', 'salon.staff', 'salon.availability', 'salon.reports', 'salon.settings', 'salon.widgets', 'salon.account'] as $routeName) {
+    foreach (['salon.show', 'salon.calendar', 'salon.appointments', 'salon.clients', 'salon.services', 'salon.users', 'salon.availability', 'salon.reports', 'salon.settings', 'salon.widgets', 'salon.account'] as $routeName) {
         $this->get(route($routeName, $salon))
             ->assertOk()
             ->assertSee('data-theme="marble"', false);

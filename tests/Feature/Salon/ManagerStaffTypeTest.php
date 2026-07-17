@@ -32,7 +32,7 @@ it('creates a manager through the Users screen — never bookable', function () 
     $owner = salonOwnerOf($salon);
 
     Livewire::actingAs($owner)
-        ->test('pages::salon.staff.index', ['salon' => $salon])
+        ->test('pages::salon.users.index', ['salon' => $salon])
         ->set('name', 'Morgan Manager')
         ->set('email', 'morgan@example.com')
         ->set('role', 'salon_manager')
@@ -137,7 +137,7 @@ it('gives a manager the full salon admin surface', function () {
 
     $this->actingAs($manager);
     $this->get(route('salon.services', $salon))->assertOk();
-    $this->get(route('salon.staff', $salon))->assertOk();
+    $this->get(route('salon.users', $salon))->assertOk();
 
     // Managing the salon still gives them no stylist surface of their own.
     expect($salon->stylistUsers()->pluck('users.id')->all())->not->toContain($manager->id);
@@ -168,6 +168,6 @@ it('confines a manager to their own salon', function () {
     expect($manager->can('manage', $salonB))->toBeFalse();
 
     $this->actingAs($manager);
-    $this->get(route('salon.staff', $salonA))->assertOk();
-    $this->get(route('salon.staff', $salonB))->assertForbidden();
+    $this->get(route('salon.users', $salonA))->assertOk();
+    $this->get(route('salon.users', $salonB))->assertForbidden();
 });

@@ -17,13 +17,28 @@ use Livewire\Livewire;
 | flip their own bookability (the owner-who-cuts-hair switch).
 */
 
+it('serves the screen at /users and 301-redirects the old /staff path to it', function () {
+    $salon = Salon::factory()->create(['slug' => 'route-check']);
+    $owner = salonOwnerOf($salon);
+
+    expect(route('salon.users', $salon))->toEndWith('/users');
+
+    $this->actingAs($owner)->get(route('salon.users', $salon))->assertOk();
+
+    // Old bookmarks and stale links keep working.
+    $this->actingAs($owner)
+        ->get('http://route-check.'.config('app.domain').'/staff')
+        ->assertMovedPermanently()
+        ->assertRedirect('http://route-check.'.config('app.domain').'/users');
+});
+
 it('lists the owner alongside everyone else, first', function () {
     $salon = Salon::factory()->create();
     $owner = salonOwnerOf($salon);
     $stylist = stylistOf($salon);
 
     Livewire::actingAs(salonAdminOf($salon))
-        ->test('pages::salon.staff.index', ['salon' => $salon])
+        ->test('pages::salon.users.index', ['salon' => $salon])
         ->assertSee($owner->name)
         ->assertSee($stylist->name)
         ->assertSee(__('Owner'));
@@ -35,7 +50,7 @@ it('offers no edit affordance on the owner row and 403s server-side edits of the
     $ownerMembership = $salon->memberships()->where('user_id', $owner->id)->firstOrFail();
 
     $component = Livewire::actingAs(salonAdminOf($salon))
-        ->test('pages::salon.staff.index', ['salon' => $salon]);
+        ->test('pages::salon.users.index', ['salon' => $salon]);
 
     // No action reaches the owner row from the UI…
     expect($component->instance()->canManageMembership($ownerMembership))->toBeFalse();
@@ -49,7 +64,7 @@ it('collects exactly name, email, phone and role — and persists the phone', fu
     $salon = Salon::factory()->create();
 
     Livewire::actingAs(salonOwnerOf($salon))
-        ->test('pages::salon.staff.index', ['salon' => $salon])
+        ->test('pages::salon.users.index', ['salon' => $salon])
         ->set('name', 'Pia Phone')
         ->set('email', 'pia@example.com')
         ->set('phone', '+1 555 010 3344')
@@ -70,7 +85,7 @@ it('assigns manager and stylist only — owner is never on offer', function () {
     $salon = Salon::factory()->create();
 
     $component = Livewire::actingAs(salonOwnerOf($salon))
-        ->test('pages::salon.staff.index', ['salon' => $salon]);
+        ->test('pages::salon.users.index', ['salon' => $salon]);
 
     expect($component->instance()->assignableRoles())
         ->toBe([SalonRole::Manager, SalonRole::Stylist]);
@@ -84,7 +99,7 @@ it('lets only the owner flip their own bookability', function () {
 
     // The owner-who-cuts-hair switch, on their own row.
     Livewire::actingAs($owner)
-        ->test('pages::salon.staff.index', ['salon' => $salon])
+        ->test('pages::salon.users.index', ['salon' => $salon])
         ->call('toggleOwnerBookable', $ownerMembership->id)
         ->assertHasNoErrors();
 
@@ -92,7 +107,7 @@ it('lets only the owner flip their own bookability', function () {
 
     // A manager may NOT flip the owner's bookability.
     Livewire::actingAs(salonAdminOf($salon))
-        ->test('pages::salon.staff.index', ['salon' => $salon])
+        ->test('pages::salon.users.index', ['salon' => $salon])
         ->call('toggleOwnerBookable', $ownerMembership->id)
         ->assertForbidden();
 
@@ -117,7 +132,7 @@ it('renders the list twice — desktop table and mobile stacked cards — and re
     $owner = salonOwnerOf($salon);
     stylistOf($salon);
 
-    $html = $this->actingAs($owner)->get(route('salon.staff', $salon))->assertOk()->getContent();
+    $html = $this->actingAs($owner)->get(route('salon.users', $salon))->assertOk()->getContent();
 
     // Both presentations exist (Clients-directory responsive pattern)…
     expect($html)->toContain('md:hidden');
@@ -127,7 +142,7 @@ it('renders the list twice — desktop table and mobile stacked cards — and re
     expect($html)->toContain(__('Add user'));
 
     Livewire::actingAs($owner)
-        ->test('pages::salon.staff.index', ['salon' => $salon])
+        ->test('pages::salon.users.index', ['salon' => $salon])
         ->call('startAdd')
         ->assertSet('showAdd', true)
         ->set('name', 'Modal Molly')

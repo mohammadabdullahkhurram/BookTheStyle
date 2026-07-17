@@ -14,7 +14,7 @@ it('shows Services, Users and Availability links to a salon manager', function (
     $html = $this->actingAs($owner)->get(route('salon.show', $salon))->assertOk()->getContent();
 
     expect($html)->toContain(route('salon.services', $salon))->toContain('Services');
-    expect($html)->toContain(route('salon.staff', $salon))->toContain('Users');
+    expect($html)->toContain(route('salon.users', $salon))->toContain('Users');
     expect($html)->toContain(route('salon.availability', $salon))->toContain('Availability');
 });
 
@@ -25,7 +25,7 @@ it('shows a stylist only Availability (their own), not Services or Users', funct
     $html = $this->actingAs($stylist)->get(route('salon.show', $salon))->assertOk()->getContent();
 
     expect($html)->not->toContain(route('salon.services', $salon));
-    expect($html)->not->toContain(route('salon.staff', $salon));
+    expect($html)->not->toContain(route('salon.users', $salon));
     expect($html)->toContain(route('salon.availability', $salon));
 });
 
@@ -36,7 +36,7 @@ it('shows a manager the full management nav', function () {
     $html = $this->actingAs($frontDesk)->get(route('salon.show', $salon))->assertOk()->getContent();
 
     expect($html)->toContain(route('salon.services', $salon));
-    expect($html)->toContain(route('salon.staff', $salon));
+    expect($html)->toContain(route('salon.users', $salon));
     expect($html)->toContain(route('salon.availability', $salon));
 });
 
@@ -48,8 +48,8 @@ it('marks the active nav item on each management route', function () {
     $services = $this->get(route('salon.services', $salon))->assertOk()->getContent();
     expect($services)->toMatch('#href="[^"]*/services"[^>]*bts-nav-item-active#');
 
-    $staff = $this->get(route('salon.staff', $salon))->assertOk()->getContent();
-    expect($staff)->toMatch('#href="[^"]*/staff"[^>]*bts-nav-item-active#');
+    $users = $this->get(route('salon.users', $salon))->assertOk()->getContent();
+    expect($users)->toMatch('#href="[^"]*/users"[^>]*bts-nav-item-active#');
 
     $availability = $this->get(route('salon.availability', $salon))->assertOk()->getContent();
     expect($availability)->toMatch('#href="[^"]*/availability"[^>]*bts-nav-item-active#');

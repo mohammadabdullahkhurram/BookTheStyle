@@ -24,8 +24,8 @@ it('forbids a salon admin from reaching staff in another salon (no IDOR)', funct
 
     $adminA = salonAdminOf($salonA);
 
-    $this->actingAs($adminA)->get(route('salon.staff', $salonA))->assertOk();
-    $this->actingAs($adminA)->get(route('salon.staff', $salonB))->assertForbidden();
+    $this->actingAs($adminA)->get(route('salon.users', $salonA))->assertOk();
+    $this->actingAs($adminA)->get(route('salon.users', $salonB))->assertForbidden();
 });
 
 it('forbids the invite action across salons even if the route is bypassed', function () {

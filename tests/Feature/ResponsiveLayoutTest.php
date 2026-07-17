@@ -63,7 +63,7 @@ it('wraps every data table in a keyboard-scrollable overflow container', functio
         ->assertSee('<div class="overflow-x-auto" tabindex="0">', false);
 })->with([
     'services' => 'salon.services',
-    'staff' => 'salon.staff',
+    'staff' => 'salon.users',
 ]);
 
 it('wraps the clients directory table in a scroll container and keeps its stacked fallback', function () {

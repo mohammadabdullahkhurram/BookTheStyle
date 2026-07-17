@@ -50,7 +50,7 @@ it('lets an owner set a stylist\'s bio from the staff edit screen', function () 
 
     $this->actingAs($owner);
 
-    Livewire::test('pages::salon.staff.index', ['salon' => $salon])
+    Livewire::test('pages::salon.users.index', ['salon' => $salon])
         ->call('startEdit', $membership->id)
         ->set('editBio', 'Specialises in balayage.')
         ->call('saveEdit')
@@ -69,7 +69,7 @@ it('preloads an existing bio into the staff edit screen', function () {
 
     $this->actingAs($owner);
 
-    Livewire::test('pages::salon.staff.index', ['salon' => $salon])
+    Livewire::test('pages::salon.users.index', ['salon' => $salon])
         ->call('startEdit', $membership->id)
         ->assertSet('editBio', 'Loves precision cuts.');
 });

@@ -332,7 +332,7 @@ new #[Title('Users')] class extends Component {
                             </td>
                             <td class="px-6 py-4">
                                 <div class="flex items-center justify-end gap-3">
-                                    @include('pages.salon.staff.partials.row-actions', ['m' => $m, 'canManage' => $this->canManageMembership($m), 'canEditOwner' => $this->canEditOwnerDetails($m)])
+                                    @include('pages.salon.users.partials.row-actions', ['m' => $m, 'canManage' => $this->canManageMembership($m), 'canEditOwner' => $this->canEditOwnerDetails($m)])
                                 </div>
                             </td>
                         </tr>
@@ -360,7 +360,7 @@ new #[Title('Users')] class extends Component {
                             <div class="truncate text-[12.5px] text-faint">{{ $m->user->email }}</div>
                         </div>
                         <div class="flex shrink-0 items-center gap-3">
-                            @include('pages.salon.staff.partials.row-actions', ['m' => $m, 'canManage' => $this->canManageMembership($m), 'canEditOwner' => $this->canEditOwnerDetails($m)])
+                            @include('pages.salon.users.partials.row-actions', ['m' => $m, 'canManage' => $this->canManageMembership($m), 'canEditOwner' => $this->canEditOwnerDetails($m)])
                         </div>
                     </div>
                     <div class="flex flex-wrap items-center gap-2 ps-11 text-[13px] text-secondary">

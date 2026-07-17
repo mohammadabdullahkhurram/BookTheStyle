@@ -67,7 +67,7 @@ it('forbids a stylist the check-in, services, staff and settings screens', funct
     $this->actingAs($stylist);
     $this->get(route('salon.appointments', $salon))->assertForbidden();
     $this->get(route('salon.services', $salon))->assertForbidden();
-    $this->get(route('salon.staff', $salon))->assertForbidden();
+    $this->get(route('salon.users', $salon))->assertForbidden();
     $this->get(route('salon.settings', $salon))->assertForbidden();
 });
 
@@ -126,7 +126,7 @@ it('gives front desk — a salon admin since the remap — the full admin surfac
 
     // Full admin surface now: services, staff, availability management.
     $this->get(route('salon.services', $salon))->assertOk();
-    $this->get(route('salon.staff', $salon))->assertOk();
+    $this->get(route('salon.users', $salon))->assertOk();
     $this->get(route('salon.availability', $salon))->assertOk();
     expect((new AvailabilityAccess)->canManage($frontDesk, $salon, $stylist->id))->toBeTrue();
 });
@@ -143,7 +143,7 @@ it('gives owner and admin full salon management', function () {
         $this->actingAs($manager);
         $this->get(route('salon.appointments', $salon))->assertOk();
         $this->get(route('salon.services', $salon))->assertOk();
-        $this->get(route('salon.staff', $salon))->assertOk();
+        $this->get(route('salon.users', $salon))->assertOk();
         $this->get(route('salon.availability', $salon))->assertOk();
         $this->get(route('salon.settings', $salon))->assertOk();
     }
@@ -173,7 +173,7 @@ it('renders only the links each role may use', function () {
     // stylist-visible /appointments/all link.
     $checkin = route('salon.appointments', $salon).'"';
     $services = route('salon.services', $salon);
-    $staff = route('salon.staff', $salon);
+    $staff = route('salon.users', $salon);
     $availability = route('salon.availability', $salon);
 
     // Stylist: own calendar + own availability; no check-in/services/staff.

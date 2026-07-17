@@ -75,9 +75,9 @@
             </a>
         @endcan
         @can('manageStaff', $salon)
-            <a href="{{ route('salon.staff', $salon) }}" wire:navigate @click="mobileNav = false"
+            <a href="{{ route('salon.users', $salon) }}" wire:navigate @click="mobileNav = false"
                aria-label="{{ __('Users') }}" :title="collapsed ? '{{ __('Users') }}' : null"
-               class="bts-nav-item {{ request()->routeIs('salon.staff') ? 'bts-nav-item-active' : '' }}">
+               class="bts-nav-item {{ request()->routeIs('salon.users') ? 'bts-nav-item-active' : '' }}">
                 <flux:icon.users variant="micro" class="shrink-0" />
                 <span x-show="!collapsed" x-cloak>{{ __('Users') }}</span>
             </a>

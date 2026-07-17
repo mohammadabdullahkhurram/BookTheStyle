@@ -24,7 +24,7 @@ function stylistRouteMatrix(): array
         'salon.appointments' => false,    // check-in desk
         'salon.bookings.create' => false, // booking clients in
         'salon.clients' => false,
-        'salon.staff' => false,           // the Users screen
+        'salon.users' => false,           // the Users screen
         'salon.services' => false,
         'salon.reports' => false,
         'salon.settings' => false,
@@ -71,7 +71,7 @@ it('keeps managers and owners on their full surface (untouched by the scope-down
     $salon = Salon::factory()->create(['slug' => 'manager-check']);
 
     foreach ([salonOwnerOf($salon), salonAdminOf($salon)] as $actor) {
-        foreach (['salon.show', 'salon.calendar', 'salon.clients', 'salon.services', 'salon.staff', 'salon.reports', 'salon.settings', 'salon.appointments', 'salon.bookings.create'] as $route) {
+        foreach (['salon.show', 'salon.calendar', 'salon.clients', 'salon.services', 'salon.users', 'salon.reports', 'salon.settings', 'salon.appointments', 'salon.bookings.create'] as $route) {
             $this->actingAs($actor)->get(route($route, $salon))->assertOk();
         }
     }

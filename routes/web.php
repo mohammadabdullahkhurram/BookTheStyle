@@ -165,7 +165,9 @@ Route::domain('{salon}.'.$central)->middleware(['auth', 'resolve.salon'])->group
     Route::livewire('book', 'pages::salon.bookings.create')->name('salon.bookings.create');
     Route::livewire('clients', 'pages::salon.clients.index')->name('salon.clients');
     Route::livewire('clients/{clientId}', 'pages::salon.clients.show')->name('salon.client');
-    Route::livewire('staff', 'pages::salon.staff.index')->name('salon.staff');
+    Route::livewire('users', 'pages::salon.users.index')->name('salon.users');
+    // The screen was renamed Staff → Users; keep old bookmarks working.
+    Route::redirect('staff', '/users', 301);
     Route::livewire('services', 'pages::salon.services.index')->name('salon.services');
     Route::livewire('availability', 'pages::salon.availability.index')->name('salon.availability');
     Route::livewire('reports', 'pages::salon.reports')->name('salon.reports');

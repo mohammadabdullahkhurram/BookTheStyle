@@ -23,7 +23,7 @@ function navHrefOrder(): array
 {
     return [
         'salon.show', 'salon.calendar', 'salon.appointments', 'salon.appointments.all',
-        'salon.clients', 'salon.reports', 'salon.services', 'salon.staff', 'salon.availability',
+        'salon.clients', 'salon.reports', 'salon.services', 'salon.users', 'salon.availability',
     ];
 }
 
@@ -57,7 +57,7 @@ it('keeps stylist scoping: fewer items, same relative order', function () {
 
     $html = $this->actingAs($stylist)->get(route('salon.show', $salon))->assertOk()->getContent();
 
-    foreach (['salon.appointments' => false, 'salon.clients' => false, 'salon.reports' => false, 'salon.services' => false, 'salon.staff' => false] as $route => $x) {
+    foreach (['salon.appointments' => false, 'salon.clients' => false, 'salon.reports' => false, 'salon.services' => false, 'salon.users' => false] as $route => $x) {
         expect(str_contains($html, 'href="'.route($route, $salon).'"'))->toBeFalse($route);
     }
 
@@ -120,7 +120,7 @@ it('lets agency owner and admin edit the salon owner details; salon roles never'
         $operator = User::factory()->create(['agency_id' => $agency->id, 'agency_role' => $role]);
 
         Livewire::actingAs($operator)
-            ->test('pages::salon.staff.index', ['salon' => $salon])
+            ->test('pages::salon.users.index', ['salon' => $salon])
             ->assertSee(__('Edit details'))
             ->call('startOwnerEdit', $ownerMembership->id)
             ->assertSet('showOwnerEdit', true)
@@ -138,13 +138,13 @@ it('lets agency owner and admin edit the salon owner details; salon roles never'
     // Salon manager: no affordance, and the server 403s a forged call.
     $manager = salonAdminOf($salon);
     Livewire::actingAs($manager)
-        ->test('pages::salon.staff.index', ['salon' => $salon])
+        ->test('pages::salon.users.index', ['salon' => $salon])
         ->assertDontSee(__('Edit details'))
         ->call('startOwnerEdit', $ownerMembership->id)
         ->assertForbidden();
 
     // Stylists can't even reach the screen (scope-down).
-    $this->actingAs(stylistOf($salon))->get(route('salon.staff', $salon))->assertForbidden();
+    $this->actingAs(stylistOf($salon))->get(route('salon.users', $salon))->assertForbidden();
 });
 
 it('refuses a cross-agency operator the owner details', function () {
@@ -157,7 +157,7 @@ it('refuses a cross-agency operator the owner details', function () {
     ]);
 
     // Cross-agency operators are stopped at the salon boundary already.
-    $this->actingAs($foreign)->get(route('salon.staff', $salon))->assertForbidden();
+    $this->actingAs($foreign)->get(route('salon.users', $salon))->assertForbidden();
 });
 
 it('lets the owner edit their own account through settings', function () {
