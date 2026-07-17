@@ -55,4 +55,9 @@
         <flux:input type="email" wire:model="contact_email" :label="__('Owner email')" required />
         <flux:input type="tel" wire:model="contact_phone" :label="__('Owner phone')" required />
     </div>
+
+    <div class="flex flex-col gap-1">
+        <flux:checkbox wire:model="owner_is_stylist" :label="__('The owner is also a stylist')" />
+        <p class="ps-6 text-[12.5px] leading-relaxed text-secondary">{{ __('They become bookable — availability, a calendar column, appointments — while keeping full owner rights.') }}</p>
+    </div>
 </div>

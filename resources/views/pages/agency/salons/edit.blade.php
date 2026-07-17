@@ -142,6 +142,11 @@ new #[Title('Edit salon')] class extends Component {
         $this->contact_name = $this->salon->contact_name;
         $this->contact_email = $this->salon->contact_email;
         $this->contact_phone = $this->salon->contact_phone;
+
+        $this->owner_is_stylist = $this->salon->memberships()
+            ->where('salon_role', \App\Enums\SalonRole::Owner->value)
+            ->where('active', true)
+            ->value('staff_type') === \App\Enums\StaffType::Stylist->value;
     }
 
     /**
@@ -168,11 +173,22 @@ new #[Title('Edit salon')] class extends Component {
         return timezone_identifiers_list();
     }
 
-    public function save(UpdateSalon $action): void
+    public function save(UpdateSalon $action, \App\Actions\Salons\ReconcileSalonOwner $reconcile): void
     {
         $this->authorize('manageSalons', $this->salon->agency);
 
         $action->handle($this->salon, $this->validate());
+        $this->salon->refresh();
+
+        // Owner details are the source of truth: provision a missing owner,
+        // sync details, or transfer on an email change (rules in the action).
+        $result = $reconcile->handle(auth()->user(), $this->salon, (bool) $this->owner_is_stylist);
+
+        if ($result?->temporaryPassword !== null) {
+            $this->ownerTempPassword = $result->temporaryPassword;
+            $this->ownerTempForName = $result->user->name;
+        }
+        unset($this->currentOwner, $this->promotableMembers);
 
         Flux::toast(variant: 'success', text: __('Salon updated.'));
     }
@@ -245,6 +261,7 @@ new #[Title('Edit salon')] class extends Component {
     // ------------------------------------------------------------------
 
     public string $salonTypeChoice = '';
+    public bool $owner_is_stylist = false;
 
     /** The consequence line for the confirm dialog, per target type. */
     public function typeConsequence(string $to): string

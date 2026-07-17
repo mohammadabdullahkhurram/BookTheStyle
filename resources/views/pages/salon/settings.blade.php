@@ -95,6 +95,7 @@ new #[Title('Salon settings')] class extends Component {
     public string $country = '';
 
     public string $contact_name = '';
+    public bool $owner_is_stylist = false;
 
     public string $contact_email = '';
 
@@ -176,6 +177,10 @@ new #[Title('Salon settings')] class extends Component {
         $this->postal_code = $this->salon->postal_code;
         $this->country = $this->salon->country;
         $this->contact_name = $this->salon->contact_name;
+        $this->owner_is_stylist = $this->salon->memberships()
+            ->where('salon_role', \App\Enums\SalonRole::Owner->value)
+            ->where('active', true)
+            ->value('staff_type') === \App\Enums\StaffType::Stylist->value;
         $this->contact_email = $this->salon->contact_email;
         $this->contact_phone = $this->salon->contact_phone;
     }
@@ -737,14 +742,28 @@ new #[Title('Salon settings')] class extends Component {
      * the rest of settings: salon owner/admin (+ agency owner/admin via before),
      * never salon staff or agency users.
      */
-    public function saveProfile(UpdateSalonProfile $action): void
+    public ?string $ownerTempPassword = null;
+    public ?string $ownerTempForName = null;
+    public bool $showOwnerTempPassword = false;
+
+    public function saveProfile(UpdateSalonProfile $action, \App\Actions\Salons\ReconcileSalonOwner $reconcile): void
     {
         $this->authorize('manageProfile', $this->salon);
 
-        $data = $this->validate(SalonProfile::rules());
+        $data = $this->validate([...SalonProfile::rules(), 'owner_is_stylist' => ['boolean']]);
 
         $action->handle($this->salon, $data);
         $this->salon->refresh();
+
+        // Owner details are the source of truth: provision a missing owner,
+        // sync details, or transfer on an email change (rules in the action).
+        $result = $reconcile->handle(Auth::user(), $this->salon, (bool) $this->owner_is_stylist);
+
+        if ($result?->temporaryPassword !== null) {
+            $this->ownerTempPassword = $result->temporaryPassword;
+            $this->ownerTempForName = $result->user->name;
+            $this->showOwnerTempPassword = true;
+        }
 
         Flux::toast(variant: 'success', text: __('Business profile saved.'));
     }
@@ -826,6 +845,7 @@ new #[Title('Salon settings')] class extends Component {
         @can('manageProfile', $salon)
             <x-ui.card class="flex flex-col gap-5">
                 <h2 class="bts-card-title">{{ __('Business profile') }}</h2>
+                <p class="text-[13px] text-secondary">{{ __('Salon type: :type — managed by your agency.', ['type' => $salon->salon_type->label()]) }}</p>
                 <form wire:submit="saveProfile" class="flex flex-col gap-5" novalidate>
                     @include('partials.salon-profile-fields')
                     <div><x-ui.button type="submit">{{ __('Save business profile') }}</x-ui.button></div>
@@ -1376,4 +1396,14 @@ new #[Title('Salon settings')] class extends Component {
             </div>
         </div>
     </div>
+
+    <x-ui.modal wire:model="showOwnerTempPassword" class="max-w-md"
+        :heading="$ownerTempForName ? __('Temporary password for :name', ['name' => $ownerTempForName]) : __('Temporary password')">
+        @if ($ownerTempPassword)
+            <x-temp-password-panel :name="$ownerTempForName" :password="$ownerTempPassword" :show-heading="false" />
+        @endif
+        <div class="flex justify-end">
+            <x-ui.button wire:click="$set('showOwnerTempPassword', false)">{{ __('Done') }}</x-ui.button>
+        </div>
+    </x-ui.modal>
 </div>

@@ -275,6 +275,20 @@ new #[Title('Users')] class extends Component {
             403,
         );
 
+        // Turning bookings OFF must never orphan upcoming appointments.
+        if ($membership->staff_type === StaffType::Stylist) {
+            $upcoming = $this->salon->bookings()
+                ->where('status', '!=', \App\Enums\BookingStatus::Cancelled->value)
+                ->whereHas('items', fn ($q) => $q->where('stylist_id', $membership->user_id)->where('starts_at', '>', now()))
+                ->count();
+
+            if ($upcoming > 0) {
+                Flux::toast(variant: 'danger', text: trans_choice('You still have :count upcoming appointment — reassign or cancel it first.|You still have :count upcoming appointments — reassign or cancel them first.', $upcoming, ['count' => $upcoming]));
+
+                return;
+            }
+        }
+
         $membership->update([
             'staff_type' => $membership->staff_type === StaffType::Stylist ? null : StaffType::Stylist,
         ]);

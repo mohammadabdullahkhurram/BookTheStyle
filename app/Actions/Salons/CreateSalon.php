@@ -5,6 +5,7 @@ namespace App\Actions\Salons;
 use App\Actions\Staff\InviteStaff;
 use App\Enums\AgencyRole;
 use App\Enums\SalonType;
+use App\Enums\StaffType;
 use App\Mail\SalonAddedMail;
 use App\Models\Agency;
 use App\Models\Salon;
@@ -21,7 +22,7 @@ use Illuminate\Support\Facades\Mail;
  * stored via UpdateGhlConnection (token encrypted, never mass-assigned).
  *
  * @phpstan-type SalonInput array{
- *     name: string, slug: string, timezone: string, salon_type?: string|null, accent?: string|null,
+ *     name: string, slug: string, timezone: string, salon_type?: string|null, owner_is_stylist?: bool, accent?: string|null,
  *     allow_walkins?: bool, allow_same_day?: bool,
  *     max_advance_days?: int, min_notice_minutes?: int,
  *     ghl_location_id?: string|null, ghl_calendar_id?: string|null,
@@ -67,7 +68,7 @@ class CreateSalon
             ]);
         }
 
-        $this->provisionOwner($actor, $salon);
+        $this->provisionOwner($actor, $salon, $data);
 
         $this->notifyAgencyManagers($agency, $salon);
 
@@ -82,16 +83,27 @@ class CreateSalon
      * credentials). This creation path and the agency console's SetSalonOwner
      * are the only two ways ownership is ever granted.
      */
-    private function provisionOwner(User $actor, Salon $salon): void
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function provisionOwner(User $actor, Salon $salon, array $data = []): void
     {
         if (blank($salon->contact_email) || blank($salon->contact_name)) {
             return; // profile validation makes this unreachable; never fabricate an owner
         }
 
-        $this->invites->provisionOwner($salon, [
+        $result = $this->invites->provisionOwner($salon, [
             'name' => $salon->contact_name,
             'email' => $salon->contact_email,
+            'phone' => $salon->contact_phone ?: null,
         ]);
+
+        // The owner-who-cuts-hair checkbox at creation: bookable from day one.
+        if (! empty($data['owner_is_stylist'])) {
+            $salon->memberships()
+                ->where('user_id', $result->user->id)
+                ->update(['staff_type' => StaffType::Stylist->value]);
+        }
     }
 
     /**

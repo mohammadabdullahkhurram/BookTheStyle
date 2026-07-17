@@ -66,6 +66,7 @@ new #[Title('New salon')] class extends Component {
 
     public string $timezone = 'America/New_York';
     public string $salon_type = 'employee';
+    public bool $owner_is_stylist = false;
 
     public string $accent = '';
 
@@ -105,6 +106,7 @@ new #[Title('New salon')] class extends Component {
             'slug' => ['required', 'string', new SalonSlug, Rule::unique('salons', 'slug')],
             'timezone' => ['required', 'timezone:all'],
             'salon_type' => ['required', Illuminate\Validation\Rule::in(array_column(\App\Enums\SalonType::cases(), 'value'))],
+            'owner_is_stylist' => ['boolean'],
             'accent' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'allow_walkins' => ['boolean'],
             'allow_same_day' => ['boolean'],
@@ -125,7 +127,7 @@ new #[Title('New salon')] class extends Component {
     private function stepFields(): array
     {
         return [
-            'basics' => [...array_keys(SalonProfile::rules()), 'slug', 'timezone', 'salon_type'],
+            'basics' => [...array_keys(SalonProfile::rules()), 'slug', 'timezone', 'salon_type', 'owner_is_stylist'],
             'policy' => ['allow_walkins', 'allow_same_day', 'max_advance_days', 'min_notice_minutes'],
             'branding' => ['accent'],
             'ghl' => ['ghl_location_id', 'ghl_calendar_id', 'ghl_token'],
