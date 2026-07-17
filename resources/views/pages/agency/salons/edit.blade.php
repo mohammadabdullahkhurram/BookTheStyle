@@ -173,16 +173,54 @@ new #[Title('Edit salon')] class extends Component {
         return timezone_identifiers_list();
     }
 
+    /**
+     * The tab that owns each error key — a failure on a hidden tab is a dead
+     * end, so save() lands the user on the offending panel (the shared
+     * first-invalid JS then scrolls + focuses the field).
+     *
+     * @param  list<string>  $errorKeys
+     */
+    private function tabForErrors(array $errorKeys): string
+    {
+        $ownerFields = ['contact_name', 'contact_email', 'contact_phone', 'owner_is_stylist'];
+        $policyFields = ['allow_walkins', 'allow_same_day', 'max_advance_days', 'min_notice_minutes'];
+
+        foreach ($errorKeys as $key) {
+            if (in_array($key, $ownerFields, true)) {
+                return 'owner';
+            }
+            if (in_array($key, $policyFields, true)) {
+                return 'policy';
+            }
+        }
+
+        return 'general';
+    }
+
     public function save(UpdateSalon $action, \App\Actions\Salons\ReconcileSalonOwner $reconcile): void
     {
         $this->authorize('manageSalons', $this->salon->agency);
 
-        $action->handle($this->salon, $this->validate());
-        $this->salon->refresh();
+        try {
+            $data = $this->validate();
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $this->dispatch('salon-edit-tab', tab: $this->tabForErrors(array_keys($e->errors())));
 
-        // Owner details are the source of truth: provision a missing owner,
-        // sync details, or transfer on an email change (rules in the action).
-        $result = $reconcile->handle(auth()->user(), $this->salon, (bool) $this->owner_is_stylist);
+            throw $e;
+        }
+
+        try {
+            $action->handle($this->salon, $data);
+            $this->salon->refresh();
+
+            // Owner details are the source of truth: provision a missing owner,
+            // sync details, or transfer on an email change (rules in the action).
+            $result = $reconcile->handle(auth()->user(), $this->salon, (bool) $this->owner_is_stylist);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $this->dispatch('salon-edit-tab', tab: $this->tabForErrors(array_keys($e->errors())));
+
+            throw $e;
+        }
 
         if ($result?->temporaryPassword !== null) {
             $this->ownerTempPassword = $result->temporaryPassword;
@@ -397,9 +435,9 @@ new #[Title('Edit salon')] class extends Component {
 }; ?>
 
 <div>
-    <div class="mx-auto flex w-full max-w-2xl flex-col gap-7 px-4 py-6 sm:px-6 lg:px-8 lg:py-7">
+    <div class="mx-auto flex w-full max-w-5xl flex-col gap-7 px-4 py-6 sm:px-6 lg:px-8 lg:py-7">
         <x-ui.page-header :overline="__('Edit salon')" :title="$salon->name">
-            <x-slot:subtitle>{{ __('Edit salon profile and default booking policy.') }}</x-slot:subtitle>
+            <x-slot:subtitle>{{ __('Salon profile, owner, type, and integrations — managed by the agency.') }}</x-slot:subtitle>
             <x-slot:actions>
                 @if ($salon->active)
                     <span class="bts-pill" style="background-color:#E7EFE4;color:#3E5C3A;">{{ __('Active') }}</span>
@@ -409,145 +447,203 @@ new #[Title('Edit salon')] class extends Component {
             </x-slot:actions>
         </x-ui.page-header>
 
-        <x-ui.card>
-        <form wire:submit="save" class="flex flex-col gap-6" novalidate>
-            @include('partials.salon-profile-fields')
-
-            <flux:separator :text="__('Subdomain and preferences')" />
-
-            <div class="flex flex-col gap-2">
-                <flux:input wire:model.live="slug" :label="__('Subdomain')"
-                    :description="__('This is the salon\'s web address — changing it changes the URL. Lowercase letters, numbers, and hyphens only.')"
-                    required />
-                <p class="text-[13px] text-faint">
-                    {{ __('Web address:') }}
-                    <span class="font-mono text-body">{{ ($slug !== '' ? $slug : __('yoursalon')).'.'.config('app.domain') }}</span>
-                </p>
+        {{-- The salon-settings tab pattern, reused verbatim: vertical rail,
+             hash routing, hash WHITELISTED against the tabs this user can see
+             (unknown/unauthorized #fragment falls back to General, never a
+             blank panel), aria-current, back/forward via hashchange, and the
+             stacked mobile treatment. A failed save dispatches
+             salon-edit-tab to land on the offending panel. --}}
+        <div x-data="{
+                 tabs: ['general', 'policy', 'owner'@can('manageGhlConnection', $salon), 'ghl'@endcan],
+                 tab: 'general',
+                 resolve(hash) { return this.tabs.includes(hash) ? hash : 'general' },
+                 pick(name) { this.tab = name; window.location.hash = name },
+                 init() { this.tab = this.resolve(window.location.hash.slice(1)) },
+             }"
+             @hashchange.window="tab = resolve(window.location.hash.slice(1))"
+             @salon-edit-tab.window="pick($event.detail.tab)"
+             class="flex items-start gap-8 max-md:flex-col">
+            <div class="w-full md:w-[210px] md:shrink-0">
+                <nav class="flex gap-1 overflow-x-auto md:flex-col" aria-label="{{ __('Edit salon') }}">
+                    <button type="button" x-on:click="pick('general')" :aria-current="tab === 'general' ? 'page' : null"
+                            class="bts-nav-item shrink-0 text-left" :class="tab === 'general' && 'bts-nav-item-active'">{{ __('General') }}</button>
+                    <button type="button" x-on:click="pick('policy')" :aria-current="tab === 'policy' ? 'page' : null"
+                            class="bts-nav-item shrink-0 text-left" :class="tab === 'policy' && 'bts-nav-item-active'">{{ __('Booking policy & type') }}</button>
+                    <button type="button" x-on:click="pick('owner')" :aria-current="tab === 'owner' ? 'page' : null"
+                            class="bts-nav-item shrink-0 text-left" :class="tab === 'owner' && 'bts-nav-item-active'">{{ __('Owner') }}</button>
+                    @can('manageGhlConnection', $salon)
+                        <button type="button" x-on:click="pick('ghl')" :aria-current="tab === 'ghl' ? 'page' : null"
+                                class="bts-nav-item shrink-0 text-left" :class="tab === 'ghl' && 'bts-nav-item-active'">{{ __('GoHighLevel') }}</button>
+                    @endcan
+                </nav>
             </div>
 
-            <flux:select wire:model="timezone" :label="__('Timezone')">
-                @foreach ($this->timezones as $tz)
-                    <flux:select.option value="{{ $tz }}">{{ $tz }}</flux:select.option>
-                @endforeach
-            </flux:select>
+            <div class="flex min-w-0 flex-1 flex-col gap-6">
+                {{-- ONE form spans the General / Policy / Owner panels — the
+                     fields all belong to the single existing save action
+                     (UpdateSalon + the owner reconcile), which is preserved
+                     untouched; each panel just carries its own submit. --}}
+                <form wire:submit="save" class="contents" novalidate>
+                    {{-- General: business identity, address, web address, timezone, accent. --}}
+                    <section x-show="tab === 'general'" x-cloak class="flex flex-col gap-6">
+                        <x-ui.card class="flex flex-col gap-6">
+                            @include('partials.salon-business-fields')
 
-            <flux:input wire:model="accent" :label="__('Accent color')" :description="__('Optional hex color, e.g. #1F6F6B.')" placeholder="#1F6F6B" />
+                            <flux:separator :text="__('Subdomain and preferences')" />
 
-            <flux:separator :text="__('Default booking policy')" />
+                            <div class="flex flex-col gap-2">
+                                <flux:input wire:model.live="slug" :label="__('Subdomain')"
+                                    :description="__('This is the salon\'s web address — changing it changes the URL. Lowercase letters, numbers, and hyphens only.')"
+                                    required />
+                                <p class="text-[13px] text-faint">
+                                    {{ __('Web address:') }}
+                                    <span class="font-mono text-body">{{ ($slug !== '' ? $slug : __('yoursalon')).'.'.config('app.domain') }}</span>
+                                </p>
+                            </div>
 
-            <div class="flex flex-col gap-3">
-                <flux:checkbox wire:model="allow_walkins" :label="__('Allow walk-ins')" />
-                <flux:checkbox wire:model="allow_same_day" :label="__('Allow same-day booking')" />
-            </div>
-
-            <div class="grid gap-4 sm:grid-cols-2">
-                <flux:input type="number" wire:model="max_advance_days" :label="__('Max advance (days)')" min="1" max="365" />
-                <flux:input type="number" wire:model="min_notice_minutes" :label="__('Min notice (minutes)')" min="0" max="10080" />
-            </div>
-
-            <div class="flex items-center gap-3">
-                <x-ui.button type="submit">{{ __('Save changes') }}</x-ui.button>
-                <x-ui.button variant="secondary" :href="route('dashboard')" wire:navigate>{{ __('Back') }}</x-ui.button>
-            </div>
-        </form>
-        </x-ui.card>
-
-        @can('manageGhlConnection', $salon)
-            @include('partials.ghl-connection-card')
-        @endcan
-
-        <x-ui.card class="flex flex-col gap-4">
-            <div>
-                <h3 class="text-[16px] font-semibold text-ink">{{ __('Salon type') }}</h3>
-                <p class="mt-0.5 text-[14px] text-secondary">
-                    {{ __('Currently :type — :description', ['type' => $salon->salon_type->label(), 'description' => __($salon->salon_type->description())]) }}
-                </p>
-            </div>
-            <div class="flex flex-wrap items-end gap-3">
-                <flux:select wire:model.live="salonTypeChoice" :label="__('Change to')" class="max-w-64">
-                    <flux:select.option value="">{{ __('Choose a type') }}</flux:select.option>
-                    @foreach (\App\Enums\SalonType::cases() as $type)
-                        @if ($type !== $salon->salon_type)
-                            <flux:select.option value="{{ $type->value }}">{{ $type->label() }}</flux:select.option>
-                        @endif
-                    @endforeach
-                </flux:select>
-                @if ($salonTypeChoice !== '')
-                    <x-ui.button type="button" x-on:click="$store.confirm.ask({ title: {{ Js::from(__('Change salon type')) }}, message: {{ Js::from($this->typeConsequence($salonTypeChoice)) }}, confirmLabel: {{ Js::from(__('Change type')) }}, danger: true }, () => $wire.changeSalonType())">{{ __('Change type') }}</x-ui.button>
-                @endif
-            </div>
-        </x-ui.card>
-
-        <x-ui.card class="flex flex-col gap-4">
-            <div>
-                <h3 class="text-[16px] font-semibold text-ink">{{ __('Ownership') }}</h3>
-                <p class="mt-0.5 text-[14px] text-secondary">
-                    @if ($this->currentOwner)
-                        {{ __('Owned by :name (:email).', ['name' => $this->currentOwner->user->name, 'email' => $this->currentOwner->user->email]) }}
-                    @else
-                        {{ __('This salon has no owner yet. Assign one below — every salon needs exactly one.') }}
-                    @endif
-                </p>
-            </div>
-
-            @if ($this->canAssignOwner)
-                @if ($ownerTempPassword)
-                    <x-temp-password-panel :name="$ownerTempForName" :password="$ownerTempPassword" />
-                @endif
-
-                <div class="grid gap-5 sm:grid-cols-2">
-                    @if ($this->promotableMembers->isNotEmpty())
-                        <div class="flex flex-col gap-3">
-                            <div class="bts-field-label">{{ __('Promote an existing member') }}</div>
-                            <flux:select wire:model="promoteMembershipId" :label="__('Member')">
-                                <flux:select.option value="">{{ __('Choose a member') }}</flux:select.option>
-                                @foreach ($this->promotableMembers as $member)
-                                    <flux:select.option value="{{ $member->id }}">{{ $member->user->name }} ({{ $member->salon_role->label() }})</flux:select.option>
+                            <flux:select wire:model="timezone" :label="__('Timezone')">
+                                @foreach ($this->timezones as $tz)
+                                    <flux:select.option value="{{ $tz }}">{{ $tz }}</flux:select.option>
                                 @endforeach
                             </flux:select>
-                            <div>
-                                <x-ui.button type="button" variant="secondary" x-on:click="$store.confirm.ask({ title: {{ Js::from(__('Transfer ownership')) }}, message: {{ Js::from(__('Make this member the owner? The current owner (if any) becomes a manager — or a stylist if they take bookings. A salon always has exactly one owner.')) }}, confirmLabel: {{ Js::from(__('Transfer')) }}, danger: false }, () => $wire.promoteToOwner())">{{ __('Make owner') }}</x-ui.button>
+
+                            <flux:input wire:model="accent" :label="__('Accent color')" :description="__('Optional hex color, e.g. #1F6F6B.')" placeholder="#1F6F6B" />
+
+                            <div class="flex items-center gap-3">
+                                <x-ui.button type="submit">{{ __('Save changes') }}</x-ui.button>
+                                <x-ui.button variant="secondary" :href="route('dashboard')" wire:navigate>{{ __('Back') }}</x-ui.button>
                             </div>
-                        </div>
-                    @endif
+                        </x-ui.card>
 
-                    <div class="flex flex-col gap-3">
-                        <div class="bts-field-label">{{ __('Or provision a new owner') }}</div>
-                        <flux:input wire:model="ownerName" :label="__('Name')" />
-                        <flux:input wire:model="ownerEmail" type="email" :label="__('Email')" />
-                        <flux:input wire:model="ownerPhone" type="tel" :label="__('Phone')" />
-                        <div>
-                            <x-ui.button type="button" x-on:click="$store.confirm.ask({ title: {{ Js::from(__('Assign owner')) }}, message: {{ Js::from(__('Assign this person as the owner? New accounts get a temporary password (shown once) and the standard invite emails. The current owner (if any) becomes a manager — or a stylist if they take bookings.')) }}, confirmLabel: {{ Js::from(__('Assign')) }}, danger: false }, () => $wire.provisionOwner())">{{ __('Assign owner') }}</x-ui.button>
-                        </div>
-                    </div>
-                </div>
-            @else
-                <p class="text-[13px] text-faint">{{ __('Only the agency owner can assign or transfer salon ownership.') }}</p>
-            @endif
-        </x-ui.card>
+                        <x-ui.card padding="p-5" class="flex items-center justify-between gap-4">
+                            <div>
+                                <h3 class="text-[16px] font-semibold text-ink">{{ $salon->active ? __('Deactivate salon') : __('Reactivate salon') }}</h3>
+                                <p class="text-[14px] text-secondary">
+                                    {{ $salon->active ? __('Hides the salon from staff. No data is deleted.') : __('Make the salon available to staff again.') }}
+                                </p>
+                            </div>
+                            {{-- Themed confirm; reactivating commits without one, as before. --}}
+                            <button type="button"
+                                    @if ($salon->active)
+                                        x-on:click="$store.confirm.ask({ title: {{ Js::from(__('Deactivate salon')) }}, message: {{ Js::from(__('Deactivate :salon? All its staff lose access until it is reactivated. No data is deleted.', ['salon' => $salon->name])) }}, confirmLabel: {{ Js::from(__('Deactivate')) }}, danger: true }, () => $wire.toggleActive())"
+                                    @else
+                                        wire:click="toggleActive"
+                                    @endif
+                                    class="bts-btn bts-btn-sm shrink-0 {{ $salon->active ? 'border border-input-border bg-card text-danger hover:border-danger' : 'bts-btn-primary' }}">
+                                {{ $salon->active ? __('Deactivate') : __('Reactivate') }}
+                            </button>
+                        </x-ui.card>
+                    </section>
 
-        <x-ui.card padding="p-5" class="flex items-center justify-between gap-4">
-            <div>
-                <h3 class="text-[16px] font-semibold text-ink">{{ $salon->active ? __('Deactivate salon') : __('Reactivate salon') }}</h3>
-                <p class="text-[14px] text-secondary">
-                    {{ $salon->active ? __('Hides the salon from staff. No data is deleted.') : __('Make the salon available to staff again.') }}
-                </p>
+                    {{-- Booking policy & type: defaults + how stylists work here. --}}
+                    <section x-show="tab === 'policy'" x-cloak class="flex flex-col gap-6">
+                        <x-ui.card class="flex flex-col gap-6">
+                            <div class="flex flex-col gap-3">
+                                <flux:checkbox wire:model="allow_walkins" :label="__('Allow walk-ins')" />
+                                <flux:checkbox wire:model="allow_same_day" :label="__('Allow same-day booking')" />
+                            </div>
+
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <flux:input type="number" wire:model="max_advance_days" :label="__('Max advance (days)')" min="1" max="365" />
+                                <flux:input type="number" wire:model="min_notice_minutes" :label="__('Min notice (minutes)')" min="0" max="10080" />
+                            </div>
+
+                            <div>
+                                <x-ui.button type="submit">{{ __('Save changes') }}</x-ui.button>
+                            </div>
+                        </x-ui.card>
+
+                        <x-ui.card class="flex flex-col gap-4">
+                            <div>
+                                <h3 class="text-[16px] font-semibold text-ink">{{ __('Salon type') }}</h3>
+                                <p class="mt-0.5 text-[14px] text-secondary">
+                                    {{ __('Currently :type — :description', ['type' => $salon->salon_type->label(), 'description' => __($salon->salon_type->description())]) }}
+                                </p>
+                            </div>
+                            <div class="flex flex-wrap items-end gap-3">
+                                <flux:select wire:model.live="salonTypeChoice" :label="__('Change to')" class="max-w-64">
+                                    <flux:select.option value="">{{ __('Choose a type') }}</flux:select.option>
+                                    @foreach (\App\Enums\SalonType::cases() as $type)
+                                        @if ($type !== $salon->salon_type)
+                                            <flux:select.option value="{{ $type->value }}">{{ $type->label() }}</flux:select.option>
+                                        @endif
+                                    @endforeach
+                                </flux:select>
+                                @if ($salonTypeChoice !== '')
+                                    <x-ui.button type="button" x-on:click="$store.confirm.ask({ title: {{ Js::from(__('Change salon type')) }}, message: {{ Js::from($this->typeConsequence($salonTypeChoice)) }}, confirmLabel: {{ Js::from(__('Change type')) }}, danger: true }, () => $wire.changeSalonType())">{{ __('Change type') }}</x-ui.button>
+                                @endif
+                            </div>
+                        </x-ui.card>
+                    </section>
+
+                    {{-- Owner: the owner details (source of truth) + ownership assignment. --}}
+                    <section x-show="tab === 'owner'" x-cloak class="flex flex-col gap-6">
+                        <x-ui.card class="flex flex-col gap-6">
+                            @include('partials.salon-owner-fields')
+
+                            <div>
+                                <x-ui.button type="submit">{{ __('Save changes') }}</x-ui.button>
+                            </div>
+                        </x-ui.card>
+
+                        <x-ui.card class="flex flex-col gap-4">
+                            <div>
+                                <h3 class="text-[16px] font-semibold text-ink">{{ __('Ownership') }}</h3>
+                                <p class="mt-0.5 text-[14px] text-secondary">
+                                    @if ($this->currentOwner)
+                                        {{ __('Owned by :name (:email).', ['name' => $this->currentOwner->user->name, 'email' => $this->currentOwner->user->email]) }}
+                                    @else
+                                        {{ __('This salon has no owner yet. Assign one below — every salon needs exactly one.') }}
+                                    @endif
+                                </p>
+                            </div>
+
+                            @if ($this->canAssignOwner)
+                                @if ($ownerTempPassword)
+                                    <x-temp-password-panel :name="$ownerTempForName" :password="$ownerTempPassword" />
+                                @endif
+
+                                <div class="grid gap-5 sm:grid-cols-2">
+                                    @if ($this->promotableMembers->isNotEmpty())
+                                        <div class="flex flex-col gap-3">
+                                            <div class="bts-field-label">{{ __('Promote an existing member') }}</div>
+                                            <flux:select wire:model="promoteMembershipId" :label="__('Member')">
+                                                <flux:select.option value="">{{ __('Choose a member') }}</flux:select.option>
+                                                @foreach ($this->promotableMembers as $member)
+                                                    <flux:select.option value="{{ $member->id }}">{{ $member->user->name }} ({{ $member->salon_role->label() }})</flux:select.option>
+                                                @endforeach
+                                            </flux:select>
+                                            <div>
+                                                <x-ui.button type="button" variant="secondary" x-on:click="$store.confirm.ask({ title: {{ Js::from(__('Transfer ownership')) }}, message: {{ Js::from(__('Make this member the owner? The current owner (if any) becomes a manager — or a stylist if they take bookings. A salon always has exactly one owner.')) }}, confirmLabel: {{ Js::from(__('Transfer')) }}, danger: false }, () => $wire.promoteToOwner())">{{ __('Make owner') }}</x-ui.button>
+                                            </div>
+                                        </div>
+                                    @endif
+
+                                    <div class="flex flex-col gap-3">
+                                        <div class="bts-field-label">{{ __('Or provision a new owner') }}</div>
+                                        <flux:input wire:model="ownerName" :label="__('Name')" />
+                                        <flux:input wire:model="ownerEmail" type="email" :label="__('Email')" />
+                                        <flux:input wire:model="ownerPhone" type="tel" :label="__('Phone')" />
+                                        <div>
+                                            <x-ui.button type="button" x-on:click="$store.confirm.ask({ title: {{ Js::from(__('Assign owner')) }}, message: {{ Js::from(__('Assign this person as the owner? New accounts get a temporary password (shown once) and the standard invite emails. The current owner (if any) becomes a manager — or a stylist if they take bookings.')) }}, confirmLabel: {{ Js::from(__('Assign')) }}, danger: false }, () => $wire.provisionOwner())">{{ __('Assign owner') }}</x-ui.button>
+                                        </div>
+                                    </div>
+                                </div>
+                            @else
+                                <p class="text-[13px] text-faint">{{ __('Only the agency owner can assign or transfer salon ownership.') }}</p>
+                            @endif
+                        </x-ui.card>
+                    </section>
+                </form>
+
+                {{-- GoHighLevel: its own form (nested forms are invalid HTML),
+                     so this panel sits beside the big form, not inside it. --}}
+                @can('manageGhlConnection', $salon)
+                    <section x-show="tab === 'ghl'" x-cloak class="flex flex-col gap-6">
+                        @include('partials.ghl-connection-card')
+                    </section>
+                @endcan
             </div>
-            {{-- Themed confirm (replaces wire:confirm); reactivating commits without one, as before. --}}
-            <button type="button"
-                    @if ($salon->active)
-                        x-on:click="$store.confirm.ask({
-                            title: {{ Js::from(__('Deactivate salon')) }},
-                            message: {{ Js::from(__('Deactivate :salon? All its staff lose access until it is reactivated. No data is deleted.', ['salon' => $salon->name])) }},
-                            confirmLabel: {{ Js::from(__('Deactivate')) }},
-                            danger: true,
-                        }, () => $wire.toggleActive())"
-                    @else
-                        wire:click="toggleActive"
-                    @endif
-                    class="bts-btn bts-btn-sm shrink-0 {{ $salon->active ? 'border border-input-border bg-card text-danger hover:border-danger' : 'bts-btn-primary' }}">
-                {{ $salon->active ? __('Deactivate') : __('Reactivate') }}
-            </button>
-        </x-ui.card>
+        </div>
     </div>
 </div>
