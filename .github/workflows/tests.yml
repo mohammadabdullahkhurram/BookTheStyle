@@ -73,7 +73,17 @@ jobs:
         run: composer types:check
 
       - name: Run Tests
-        run: php artisan test
+        # On failure, surface the failing tests as workflow annotations —
+        # annotations are readable through the public checks API, full job
+        # logs are not.
+        run: |
+          set -o pipefail
+          php artisan test 2>&1 | tee /tmp/test-output.log || {
+            grep -E "FAILED|⨯|Failed asserting|Exception|Error:" /tmp/test-output.log | head -30 | while IFS= read -r line; do
+              echo "::error::${line}"
+            done
+            exit 1
+          }
 
   # The test suite runs on SQLite, which silently IGNORES MySQL-only schema
   # semantics — column positions (->after), strict ALTER validation, etc.
