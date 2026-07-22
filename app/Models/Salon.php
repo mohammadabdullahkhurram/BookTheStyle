@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
@@ -21,6 +22,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property string $slug
  * @property string $timezone
  * @property SalonType $salon_type
+ * @property bool $is_demo
+ * @property Carbon|null $demo_expires_at
  * @property string $currency
  * @property bool $active
  * @property array<string, mixed>|null $branding
@@ -65,6 +68,7 @@ class Salon extends Model
     protected $attributes = [
         'app_theme' => ThemeRegistry::DEFAULT_APP,
         'salon_type' => 'employee',
+        'is_demo' => false,
     ];
 
     protected $fillable = [
@@ -103,6 +107,8 @@ class Salon extends Model
     {
         return [
             'salon_type' => SalonType::class,
+            'is_demo' => 'boolean',
+            'demo_expires_at' => 'datetime',
             'active' => 'boolean',
             'branding' => 'array',
             'api_token_generated_at' => 'immutable_datetime',

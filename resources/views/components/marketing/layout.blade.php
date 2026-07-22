@@ -40,7 +40,7 @@
                 </a>
 
                 <nav class="ms-4 hidden items-center gap-6 md:flex" aria-label="{{ __('Main') }}">
-                    @foreach ([['home', __('Home')], ['marketing.services', __('Services')], ['marketing.features', __('Features')], ['marketing.contact', __('Contact')]] as [$routeName, $label])
+                    @foreach ([['home', __('Home')], ['marketing.services', __('Services')], ['marketing.features', __('Features')], ['demo.enter', __('Demo')], ['marketing.contact', __('Contact')]] as [$routeName, $label])
                         <a href="{{ route($routeName) }}"
                            @if (request()->routeIs($routeName)) aria-current="page" @endif
                            class="text-[15px] font-semibold transition {{ request()->routeIs($routeName) ? 'text-accent' : 'text-[#3A3833] hover:text-accent' }}">{{ $label }}</a>
@@ -57,7 +57,7 @@
                         <svg viewBox="0 0 20 20" fill="currentColor" class="size-5" aria-hidden="true"><path fill-rule="evenodd" d="M2 4.75A.75.75 0 0 1 2.75 4h14.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 4.75Zm0 5.25A.75.75 0 0 1 2.75 9.25h14.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 10Zm0 5.25a.75.75 0 0 1 .75-.75h14.5a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1-.75-.75Z" clip-rule="evenodd"/></svg>
                     </summary>
                     <nav class="absolute right-0 top-12 z-40 flex w-52 flex-col gap-1 rounded-[14px] border border-border bg-card p-2 shadow-[0_16px_40px_rgba(28,27,26,.12)]" aria-label="{{ __('Main') }}">
-                        @foreach ([['home', __('Home')], ['marketing.services', __('Services')], ['marketing.features', __('Features')], ['marketing.contact', __('Contact')]] as [$routeName, $label])
+                        @foreach ([['home', __('Home')], ['marketing.services', __('Services')], ['marketing.features', __('Features')], ['demo.enter', __('Demo')], ['marketing.contact', __('Contact')]] as [$routeName, $label])
                             <a href="{{ route($routeName) }}"
                                class="rounded-[10px] px-3 py-2.5 text-[15px] font-semibold {{ request()->routeIs($routeName) ? 'bg-accent-tint text-accent-ink' : 'text-body hover:bg-muted' }}">{{ $label }}</a>
                         @endforeach

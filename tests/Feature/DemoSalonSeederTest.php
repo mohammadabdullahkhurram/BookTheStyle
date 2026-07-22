@@ -23,7 +23,7 @@ use Illuminate\Support\Facades\DB;
 it('seeds a complete demo salon: staff, services, availability, clients, bookings, widget', function () {
     $this->seed(DemoSalonSeeder::class);
 
-    $salon = Salon::query()->where('slug', 'demo')->firstOrFail();
+    $salon = Salon::query()->where('slug', 'glamour')->firstOrFail();
 
     // Tenanted under the Bluejaypro agency, themed, onboarded.
     expect($salon->agency->name)->toBe('Bluejaypro');
@@ -88,13 +88,13 @@ it('is idempotent and strictly additive — existing data survives, nothing dupl
     Carbon::setTestNow();
 
     $this->seed(DemoSalonSeeder::class);
-    $demo = Salon::query()->where('slug', 'demo')->firstOrFail();
+    $demo = Salon::query()->where('slug', 'glamour')->firstOrFail();
     $bookingCount = $demo->bookings()->count();
     $clientCount = $demo->clients()->count();
 
     // Running again is a clean no-op — no duplicates of anything.
     $this->seed(DemoSalonSeeder::class);
-    expect(Salon::query()->where('slug', 'demo')->count())->toBe(1);
+    expect(Salon::query()->where('slug', 'glamour')->count())->toBe(1);
     expect($demo->bookings()->count())->toBe($bookingCount);
     expect($demo->clients()->count())->toBe($clientCount);
     expect(User::query()->where('email', 'owner@demo.test')->count())->toBe(1);
@@ -116,7 +116,7 @@ it('composes with the base seeder without conflict', function () {
 
     // One agency, shared by both seeders.
     expect(Agency::query()->where('name', 'Bluejaypro')->count())->toBe(1);
-    expect(Salon::query()->where('slug', 'demo')->firstOrFail()->agency->name)->toBe('Bluejaypro');
+    expect(Salon::query()->where('slug', 'glamour')->firstOrFail()->agency->name)->toBe('Bluejaypro');
 });
 
 it('refuses to run in production — demo accounts carry weak passwords', function () {
@@ -125,5 +125,5 @@ it('refuses to run in production — demo accounts carry weak passwords', functi
     expect(fn () => (new DemoSalonSeeder)->run())
         ->toThrow(RuntimeException::class, 'must never run in production');
 
-    expect(Salon::query()->where('slug', 'demo')->exists())->toBeFalse();
+    expect(Salon::query()->where('slug', 'glamour')->exists())->toBeFalse();
 });

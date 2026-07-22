@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\VoiceBookingController;
 use App\Http\Controllers\Auth\PasswordChangeController;
 use App\Http\Controllers\CalendarFeedController;
+use App\Http\Controllers\DemoController;
 use App\Http\Controllers\GhlWebhookController;
 use App\Http\Controllers\WidgetController;
 use App\Http\Middleware\AuthenticateBookingApi;
@@ -24,6 +25,14 @@ Route::domain($central)->group(function () {
     Route::view('services', 'marketing.services')->name('marketing.services');
     Route::view('features', 'marketing.features')->name('marketing.features');
     Route::view('contact', 'marketing.contact')->name('marketing.contact');
+    // The public no-signup demo: provisions (or re-enters) THIS visitor's
+    // isolated demo salon. Rate-limited + capacity-capped in the controller.
+    Route::get('demo', [DemoController::class, 'enter'])->name('demo.enter');
+});
+
+// demo.{domain} — the same public demo entry, on its own memorable host.
+Route::domain('demo.'.$central)->group(function () {
+    Route::get('/', [DemoController::class, 'enter'])->name('demo.host');
 });
 
 /*
@@ -175,4 +184,6 @@ Route::domain('{salon}.'.$central)->middleware(['auth', 'resolve.salon'])->group
     Route::livewire('widgets', 'pages::salon.widgets')->name('salon.widgets');
     Route::livewire('account', 'pages::salon.account')->name('salon.account');
     Route::livewire('setup', 'pages::salon.onboarding')->name('salon.onboarding');
+    // The demo banner's Reset (demo salons only — the controller 403s others).
+    Route::post('demo/reset', [DemoController::class, 'reset'])->name('salon.demo.reset');
 });

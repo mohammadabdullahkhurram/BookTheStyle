@@ -16,6 +16,7 @@ final class ReservedSlugs
      */
     public const LIST = [
         'www',
+        'demo',
         'app',
         'register',
         'api',

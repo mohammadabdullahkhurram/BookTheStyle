@@ -41,6 +41,8 @@ it('classifies every salon route in the stylist matrix (no route unaccounted)', 
         // the booking widget (guest) and its API, and the client param route.
         ->reject(fn (string $name) => $name === 'salon.widget' || str_starts_with($name, 'salon.widget.'))
         ->reject(fn (string $name) => $name === 'salon.client') // covered via salon.clients + param below
+        // POST-only, demo-salons-only (the controller 403s real salons).
+        ->reject(fn (string $name) => $name === 'salon.demo.reset')
         ->values()
         ->all();
 

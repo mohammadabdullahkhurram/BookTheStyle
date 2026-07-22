@@ -18,6 +18,7 @@ class Agency extends Model
     use HasFactory;
 
     protected $fillable = [
+        'is_demo',
         'name',
         'settings',
     ];
@@ -25,6 +26,7 @@ class Agency extends Model
     protected function casts(): array
     {
         return [
+            'is_demo' => 'boolean',
             'settings' => 'array',
         ];
     }

@@ -46,6 +46,9 @@ Schedule::command('ghl:reconcile')
 // state lives on bookings/clients columns). failed_jobs keeps 30 days of
 // failures visible for debugging (QUEUE_FAILED_RETENTION_HOURS), old ones
 // go. The same single crontab line drives both.
+// Expired public-demo salons are hard-deleted hourly (blast-radius control).
+Schedule::command('demo:sweep')->hourly()->withoutOverlapping();
+
 Schedule::command('model:prune')
     ->dailyAt('03:10')
     ->withoutOverlapping();

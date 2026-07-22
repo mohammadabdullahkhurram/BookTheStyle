@@ -36,6 +36,11 @@ class SyncGhlCalendarSlotSettings implements ShouldQueue
     /** Quiet no-op for unconnected salons. */
     public static function queueFor(Salon $salon): void
     {
+        // Demo salons are inert: nothing ever reaches GHL.
+        if ($salon->is_demo) {
+            return;
+        }
+
         if (! ($salon->ghlConnection()->first()?->isConnected() ?? false)) {
             return;
         }

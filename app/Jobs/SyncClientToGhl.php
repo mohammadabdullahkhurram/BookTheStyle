@@ -25,6 +25,11 @@ class SyncClientToGhl implements ShouldQueue
 
     public static function queueFor(Client $client): void
     {
+        // Demo salons are inert: nothing ever reaches GHL.
+        if ($client->salon->is_demo) {
+            return;
+        }
+
         self::dispatch($client->id)->afterCommit();
     }
 

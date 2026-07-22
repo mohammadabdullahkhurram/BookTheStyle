@@ -404,7 +404,9 @@ class WidgetController extends Controller
     /** Resolve the ACTIVE salon from the subdomain slug; 404 otherwise. */
     private function salon(string $slug): Salon
     {
-        return Salon::query()->where('slug', $slug)->where('active', true)->firstOrFail();
+        // Demo salons never expose a public booking surface: a real
+        // customer must not be able to book into (or via) a demo.
+        return Salon::query()->where('slug', $slug)->where('active', true)->where('is_demo', false)->firstOrFail();
     }
 
     /** A validated ?accent= override (hex or preset name), else null. */

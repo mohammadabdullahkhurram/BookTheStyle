@@ -60,6 +60,10 @@ class IntegrationChecks
      */
     public function run(Salon $salon, string $key, #[SensitiveParameter] ?string $voiceToken = null): IntegrationCheckResult
     {
+        if ($salon->is_demo) {
+            throw new \RuntimeException('Demo salons cannot run integration checks.');
+        }
+
         if (! in_array($key, self::KEYS, true)) {
             return IntegrationCheckResult::failed(__('Unknown check.'));
         }

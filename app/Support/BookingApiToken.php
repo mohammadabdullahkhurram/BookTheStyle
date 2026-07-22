@@ -16,6 +16,12 @@ final class BookingApiToken
     /** Generate + persist a new token for the salon; returns the plaintext ONCE. */
     public static function generate(Salon $salon): string
     {
+        // No real btsk_ tokens for demo salons — the voice API must be
+        // unreachable from a demo, full stop.
+        if ($salon->is_demo) {
+            throw new \RuntimeException('Demo salons cannot hold API tokens.');
+        }
+
         $plaintext = 'btsk_'.$salon->id.'_'.bin2hex(random_bytes(20));
 
         $salon->forceFill([
@@ -37,7 +43,8 @@ final class BookingApiToken
             return null;
         }
 
-        $salon = Salon::query()->whereKey((int) $m[1])->where('active', true)->first();
+        // Demo salons never hold API tokens (and are rejected here regardless).
+        $salon = Salon::query()->whereKey((int) $m[1])->where('active', true)->where('is_demo', false)->first();
 
         if ($salon === null || $salon->api_token_hash === null) {
             return null;

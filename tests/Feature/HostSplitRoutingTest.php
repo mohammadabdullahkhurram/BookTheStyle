@@ -75,10 +75,10 @@ it('sends an authenticated app. visitor to the salon picker', function () {
 });
 
 it('still resolves a salon subdomain and rejects app/register as slugs', function () {
-    $salon = Salon::factory()->create(['slug' => 'demo', 'name' => 'Demo Salon']);
+    $salon = Salon::factory()->create(['slug' => 'glamour', 'name' => 'Demo Salon']);
     $owner = salonOwnerOf($salon);
 
-    $this->actingAs($owner)->get('http://demo.'.apex().'/')->assertOk()->assertSee('Today at the salon');
+    $this->actingAs($owner)->get('http://glamour.'.apex().'/')->assertOk()->assertSee('Today at the salon');
 
     // app. / register. never resolve as tenants (explicit groups win; ResolveSalon
     // also rejects reserved slugs as a safety net).

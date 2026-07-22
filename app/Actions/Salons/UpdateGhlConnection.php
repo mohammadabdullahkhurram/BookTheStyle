@@ -30,6 +30,11 @@ class UpdateGhlConnection
      */
     public function handle(Salon $salon, array $data): SalonGhlConnection
     {
+        // A demo salon is structurally incapable of reaching GHL.
+        if ($salon->is_demo) {
+            throw new \RuntimeException('Demo salons cannot connect to GoHighLevel.');
+        }
+
         // Query the relation (not the possibly-cached dynamic property) so a
         // second call on the same instance updates the existing row.
         $connection = $salon->ghlConnection()->first() ?? $salon->ghlConnection()->make();

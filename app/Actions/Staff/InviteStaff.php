@@ -126,9 +126,11 @@ class InviteStaff
                 );
             });
 
-            rescue(fn () => Mail::to($existing->email)->send(
-                new StaffInviteMail($existing->name, $salon->name, $role->label(), $temporaryPassword, route('login')),
-            ));
+            if (! $salon->is_demo) {
+                rescue(fn () => Mail::to($existing->email)->send(
+                    new StaffInviteMail($existing->name, $salon->name, $role->label(), $temporaryPassword, route('login')),
+                ));
+            }
 
             return new ProvisionedUser($existing, $temporaryPassword);
         }
@@ -147,9 +149,11 @@ class InviteStaff
             );
 
             // Existing login, new salon/role: an invite without credentials.
-            rescue(fn () => Mail::to($existing->email)->send(
-                new StaffInviteMail($existing->name, $salon->name, $role->label(), null, route('login')),
-            ));
+            if (! $salon->is_demo) {
+                rescue(fn () => Mail::to($existing->email)->send(
+                    new StaffInviteMail($existing->name, $salon->name, $role->label(), null, route('login')),
+                ));
+            }
 
             return new ProvisionedUser($existing, temporaryPassword: null, existing: true);
         }
@@ -181,12 +185,14 @@ class InviteStaff
         // rescue() means a broken mail transport only gets reported, while the
         // plaintext still returns for one-time in-app display, so nobody is
         // ever locked out. The password is never logged.
-        rescue(fn () => Mail::to($user->email)->send(
-            new AccountCreatedMail($user->name, $salon->name, route('login')),
-        ));
-        rescue(fn () => Mail::to($user->email)->send(
-            new StaffInviteMail($user->name, $salon->name, $role->label(), $temporaryPassword, route('login')),
-        ));
+        if (! $salon->is_demo) {
+            rescue(fn () => Mail::to($user->email)->send(
+                new AccountCreatedMail($user->name, $salon->name, route('login')),
+            ));
+            rescue(fn () => Mail::to($user->email)->send(
+                new StaffInviteMail($user->name, $salon->name, $role->label(), $temporaryPassword, route('login')),
+            ));
+        }
 
         return new ProvisionedUser($user, $temporaryPassword);
     }

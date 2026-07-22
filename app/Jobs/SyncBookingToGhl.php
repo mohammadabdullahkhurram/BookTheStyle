@@ -40,6 +40,11 @@ class SyncBookingToGhl implements ShouldQueue
      */
     public static function queueFor(Booking $booking): void
     {
+        // Demo salons are inert: nothing ever reaches GHL.
+        if ($booking->salon->is_demo) {
+            return;
+        }
+
         Booking::query()->whereKey($booking->id)->toBase()->update([
             'ghl_sync_status' => GhlBookingPusher::STATUS_PENDING,
         ]);

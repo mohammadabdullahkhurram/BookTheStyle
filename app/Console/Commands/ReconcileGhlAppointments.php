@@ -52,6 +52,9 @@ class ReconcileGhlAppointments extends Command
 
         $connections = SalonGhlConnection::query()
             ->with('salon')
+            // Demo salons are inert (they can never hold a connection —
+            // UpdateGhlConnection refuses them — but never reconcile one).
+            ->whereHas('salon', fn ($q) => $q->where('is_demo', false))
             ->when($this->argument('salon') !== null, fn ($q) => $q->where('salon_id', (int) $this->argument('salon')))
             ->get()
             ->filter(fn (SalonGhlConnection $connection): bool => $connection->isConnected() && $connection->salon !== null);

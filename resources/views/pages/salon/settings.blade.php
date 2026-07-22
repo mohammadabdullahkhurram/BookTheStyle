@@ -601,6 +601,12 @@ new #[Title('Salon settings')] class extends Component {
 
     public function generateApiToken(GenerateBookingApiToken $action): void
     {
+        if ($this->salon->is_demo) {
+            Flux::toast(variant: 'danger', text: __('The demo salon cannot hold API tokens — nothing in the demo reaches the outside world.'));
+
+            return;
+        }
+
         $this->authorize('manage', $this->salon);
 
         $this->apiTokenPlain = $action->handle($this->salon);

@@ -44,7 +44,9 @@ class ResetStaffPassword
             'must_change_password' => true,
         ])->save();
 
-        $this->channel->send($user, $temporaryPassword, 'reset');
+        if (! $salon->is_demo) {
+            $this->channel->send($user, $temporaryPassword, 'reset');
+        }
 
         return $temporaryPassword;
     }

@@ -45,6 +45,11 @@ class SyncAvailabilityToGhl implements ShouldQueue
      */
     public static function queueFor(StylistProfile $profile): void
     {
+        // Demo salons are inert: nothing ever reaches GHL.
+        if ($profile->salon->is_demo) {
+            return;
+        }
+
         StylistProfile::query()->whereKey($profile->id)->toBase()->update([
             'ghl_availability_status' => GhlAvailabilityPusher::STATUS_PENDING,
         ]);
@@ -59,6 +64,11 @@ class SyncAvailabilityToGhl implements ShouldQueue
      */
     public static function queueForStylist(Salon $salon, int $stylistUserId): void
     {
+        // Demo salons are inert: nothing ever reaches GHL.
+        if ($salon->is_demo) {
+            return;
+        }
+
         if (! ($salon->ghlConnection()->first()?->isConnected() ?? false)) {
             return;
         }
@@ -79,6 +89,10 @@ class SyncAvailabilityToGhl implements ShouldQueue
      */
     public static function queueForSalon(Salon $salon): int
     {
+        if ($salon->is_demo) {
+            return 0;
+        }
+
         if (! ($salon->ghlConnection()->first()?->isConnected() ?? false)) {
             return 0;
         }

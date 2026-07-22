@@ -13,8 +13,10 @@ use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Http\Request;
+use Illuminate\Mail\Events\MessageSending;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
@@ -43,6 +45,20 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // RUNTIME demo-mail guard (belt to the per-action braces): demo
+        // accounts live only on reserved non-routable domains; any message
+        // addressed to one is cancelled before a transport ever sees it.
+        Event::listen(function (MessageSending $event): ?bool {
+            foreach ($event->message->getTo() as $address) {
+                $to = strtolower($address->getAddress());
+                if (str_ends_with($to, '.invalid') || str_ends_with($to, '@demo.test') || str_ends_with($to, '.test')) {
+                    return false;
+                }
+            }
+
+            return null;
+        });
+
         $this->configureDefaults();
         $this->configureAuthorization();
         $this->configureRateLimiting();

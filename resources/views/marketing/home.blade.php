@@ -17,6 +17,7 @@
             </p>
             <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
                 <x-ui.button href="#book">{{ __('Book a call') }}</x-ui.button>
+                <x-ui.button variant="secondary" :href="route('demo.enter')">{{ __('Try the live demo') }}</x-ui.button>
                 <x-ui.button variant="secondary" :href="route('marketing.services')">{{ __('See what we do') }}</x-ui.button>
             </div>
         </div>

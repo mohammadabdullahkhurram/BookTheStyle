@@ -98,6 +98,24 @@
                     </a>
                 </header>
 
+                @if ($salon?->is_demo)
+                    {{-- The demo banner: honest, persistent, and a sales asset.
+                         Reset uses the themed confirm; the CTA books a call. --}}
+                    <div role="status" class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-[#E3D9A8] bg-[#FBF6DC] px-4 py-2.5 text-[13.5px] text-[#5C531F] sm:px-6">
+                        <p class="min-w-0">
+                            <span class="font-semibold">{{ __('You\'re in the demo.') }}</span>
+                            {{ __('Everything here is fictional and yours alone — play freely; changes are wiped after a few hours. Refreshing keeps your session.') }}
+                        </p>
+                        <span class="flex shrink-0 items-center gap-3">
+                            <form method="POST" action="{{ route('salon.demo.reset', $salon) }}" novalidate x-data
+                                  x-on:submit.prevent="$store.confirm.ask({ title: {{ Js::from(__('Reset demo')) }}, message: {{ Js::from(__('Start over with a fresh demo salon? Everything you changed here is discarded.')) }}, confirmLabel: {{ Js::from(__('Reset')) }}, danger: false }, () => $el.submit())">
+                                @csrf
+                                <button type="submit" class="font-semibold underline underline-offset-2 transition hover:opacity-75">{{ __('Reset demo') }}</button>
+                            </form>
+                            <a href="https://register.{{ config('app.domain') }}" class="bts-btn bts-btn-sm bts-btn-primary">{{ __('Book a call') }}</a>
+                        </span>
+                    </div>
+                @endif
                 <main id="main-content" class="flex-1">
                     {{ $slot }}
                 </main>
