@@ -4,6 +4,7 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
+        "capture:launch": "node scripts/capture-launch-assets.mjs",
         "dev": "vite"
     },
     "dependencies": {
@@ -18,5 +19,8 @@
         "@rollup/rollup-linux-x64-gnu": "4.9.5",
         "@tailwindcss/oxide-linux-x64-gnu": "^4.0.1",
         "lightningcss-linux-x64-gnu": "^1.29.1"
+    },
+    "devDependencies": {
+        "playwright": "^1.61.1"
     }
 }

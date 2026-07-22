@@ -161,3 +161,21 @@ it('keeps branding tenant-scoped: staff cannot save it, and the gallery tab is g
         ->assertOk()
         ->assertDontSee('aria-label="Widget designs"', false);
 });
+
+it('recolors THEMED widget pages with the salon accent via the brand slot (the marble regression)', function () {
+    $salon = Salon::factory()->create(['branding' => ['accent' => '#5C7458']]);
+    $widget = $salon->defaultWidget();
+    expect($widget->themeKey())->toBe('marble'); // a themed body re-declares --accent
+
+    // Themed bodies read --accent from var(--brand-accent, <theme default>),
+    // so the page MUST fill the --brand-accent* slot: a bare :root --accent
+    // is overridden by body[data-theme] and the salon accent was silently
+    // dropped on every themed widget (they all rendered marble coral).
+    $html = $this->get('http://'.$salon->slug.'.'.config('app.domain').'/widget/'.$widget->public_id)
+        ->assertOk()
+        ->getContent();
+
+    expect($html)->toContain('--brand-accent: #5C7458');
+    expect($html)->toContain('--accent: #5C7458'); // classic (theme-less) widgets read this one
+    expect($html)->toContain('data-theme="marble"');
+});

@@ -35,4 +35,13 @@ yarn-error.log
 /public/how-to-documentation/**/*.mov
 /public/how-to-documentation/**/*.webm
 
+# Launch video — regenerable, never commit. (Contents-ignored rather than
+# dir-ignored: git refuses to re-include a file inside an excluded DIRECTORY,
+# so `assets/` + `!assets/.gitkeep` would silently drop the .gitkeep too.)
+docs/launch-video/assets/*
+!docs/launch-video/assets/.gitkeep
+out/
+*.mp4
+*.mov
+
 .DS_Store

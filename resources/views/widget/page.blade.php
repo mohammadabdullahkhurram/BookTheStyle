@@ -35,6 +35,18 @@
     @vite('resources/css/app.css')
     <style>
         :root {
+            {{-- The branded accent fills BOTH slots. The direct --accent* set
+                 covers the classic widget theme (no data-theme attribute, so
+                 nothing re-declares them); the --brand-accent* slot is what a
+                 THEMED body (e.g. marble) reads — its own block re-declares
+                 --accent as var(--brand-accent, <theme default>) for all
+                 descendants, so without the slot the salon/widget accent was
+                 silently discarded on every themed widget. --}}
+            --brand-accent: {{ $branding['accent']['accent'] }};
+            --brand-accent-hover: {{ $branding['accent']['hover'] }};
+            --brand-accent-tint: {{ $branding['accent']['tint'] }};
+            --brand-accent-ink: {{ $branding['accent']['ink'] }};
+            --brand-accent-foreground: {{ $branding['mode']['accent_ink'] }};
             --accent: {{ $branding['accent']['accent'] }};
             --accent-hover: {{ $branding['accent']['hover'] }};
             --accent-tint: {{ $branding['accent']['tint'] }};

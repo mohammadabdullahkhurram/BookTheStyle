@@ -59,6 +59,15 @@ class AppServiceProvider extends ServiceProvider
             return null;
         });
 
+        // Frozen clock for the launch-video capture harness: LOCAL ONLY.
+        // The capture server runs with APP_FAKE_NOW pinned to the
+        // LaunchSalonSeeder anchor so every screenshot shows the same
+        // "today". Any other environment ignores the variable entirely.
+        if ($this->app->environment('local') && is_string(config('app.fake_now')) && config('app.fake_now') !== '') {
+            Date::setTestNow(Date::parse(config('app.fake_now')));
+            CarbonImmutable::setTestNow(CarbonImmutable::parse(config('app.fake_now')));
+        }
+
         $this->configureDefaults();
         $this->configureAuthorization();
         $this->configureRateLimiting();

@@ -30,6 +30,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Frozen clock (local capture tooling only)
+    |--------------------------------------------------------------------------
+    |
+    | When set (an ISO-8601 instant, ideally with an explicit offset), the
+    | whole app's "now" is pinned to it — see AppServiceProvider. Exists so
+    | the launch-video capture harness (scripts/capture-launch-assets.mjs)
+    | renders the LaunchSalonSeeder's anchored dataset identically on every
+    | run. Ignored everywhere except APP_ENV=local; never set in production.
+    |
+    */
+
+    'fake_now' => env('APP_FAKE_NOW'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Debug Mode
     |--------------------------------------------------------------------------
     |

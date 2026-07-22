@@ -39,10 +39,21 @@ use Illuminate\Support\Str;
  */
 class DemoSalonBuilder
 {
+    /**
+     * $anchor pins "now" for the relative dataset (launch-video captures
+     * need a calendar that is IDENTICAL on every run); null keeps the
+     * default always-fresh behavior for the demo seeder and public demo.
+     */
     public function __construct(
         private string $emailDomain = 'demo.test',
         private string $password = 'password',
+        private ?CarbonImmutable $anchor = null,
     ) {}
+
+    private function now(string $timezone): CarbonImmutable
+    {
+        return $this->anchor?->setTimezone($timezone) ?? CarbonImmutable::now($timezone);
+    }
 
     private function email(string $handle): string
     {
@@ -211,7 +222,7 @@ class DemoSalonBuilder
         }
 
         $tz = $salon->timezone;
-        $nextMonday = CarbonImmutable::now($tz)->addWeek()->startOfWeek();
+        $nextMonday = $this->now($tz)->addWeek()->startOfWeek();
 
         // Jonah is away for two days next week (time off)…
         TimeOff::create([
@@ -313,7 +324,7 @@ class DemoSalonBuilder
         [$maya, $sofia, $jonah, $elise] = $stylists;
         [$cut, $colour, $blowout, $nails, $extensions] = $services;
         $tz = $salon->timezone;
-        $today = CarbonImmutable::now($tz)->startOfDay();
+        $today = $this->now($tz)->startOfDay();
 
         $count = 0;
         $make = function (Client $client, User $stylist, array $legs, CarbonImmutable $start, BookingStatus $status, BookingSource $source) use ($salon, $owner, &$count): void {

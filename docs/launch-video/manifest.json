@@ -1,0 +1,485 @@
+{
+  "fixture": {
+    "salon": "Marlowe & Sage",
+    "slug": "marlowe-sage",
+    "anchor": "2026-09-15 10:20",
+    "timezone": "America/Los_Angeles",
+    "fake_now": "2026-09-15T10:20:00-07:00",
+    "baseline_accent": "#824C71",
+    "note": "All data is fictional. Assets are regenerable and never committed — see docs/launch-video/README.md."
+  },
+  "capture": {
+    "desktop": {
+      "viewport": "1440x900",
+      "deviceScaleFactor": 3
+    },
+    "mobile": {
+      "viewport": "390x844",
+      "deviceScaleFactor": 3
+    }
+  },
+  "assets": [
+    {
+      "file": "owner-dashboard--marble.png",
+      "beat": "09 · The owner's morning — today at a glance",
+      "route": "/",
+      "viewport": "desktop",
+      "theme": "marble",
+      "accent": "#824C71",
+      "width": 4320,
+      "height": 2700,
+      "crop": false
+    },
+    {
+      "file": "crop-stat-tile.png",
+      "beat": "09a · Callout — a single stat tile",
+      "route": "/",
+      "viewport": "desktop",
+      "theme": "marble",
+      "accent": "#824C71",
+      "width": 744,
+      "height": 360,
+      "crop": true
+    },
+    {
+      "file": "crop-appointment-row.png",
+      "beat": "09b · Callout — a single appointment row",
+      "route": "/",
+      "viewport": "desktop",
+      "theme": "marble",
+      "accent": "#824C71",
+      "width": 3264,
+      "height": 195,
+      "crop": true
+    },
+    {
+      "file": "owner-calendar-week.png",
+      "beat": "10 · The whole week, every chair, one master calendar",
+      "route": "/calendar",
+      "viewport": "desktop",
+      "theme": "marble",
+      "accent": "#824C71",
+      "width": 4320,
+      "height": 2700,
+      "crop": false
+    },
+    {
+      "file": "owner-calendar-day.png",
+      "beat": "11 · Day view — the day, chair by chair",
+      "route": "/calendar",
+      "viewport": "desktop",
+      "theme": "marble",
+      "accent": "#824C71",
+      "width": 4320,
+      "height": 2700,
+      "crop": false
+    },
+    {
+      "file": "owner-clients-directory.png",
+      "beat": "12 · A real client book",
+      "route": "/clients",
+      "viewport": "desktop",
+      "theme": "marble",
+      "accent": "#824C71",
+      "width": 4320,
+      "height": 2700,
+      "crop": false
+    },
+    {
+      "file": "owner-client-profile.png",
+      "beat": "13 · One client — history, formulas, allergies",
+      "route": "/clients/{id}",
+      "viewport": "desktop",
+      "theme": "marble",
+      "accent": "#824C71",
+      "width": 4320,
+      "height": 2700,
+      "crop": false
+    },
+    {
+      "file": "owner-reports.png",
+      "beat": "14 · The month in numbers — source mix front and centre",
+      "route": "/reports",
+      "viewport": "desktop",
+      "theme": "marble",
+      "accent": "#824C71",
+      "width": 4320,
+      "height": 2700,
+      "crop": false
+    },
+    {
+      "file": "owner-settings-branding.png",
+      "beat": "15 · Branding — accent picker visible",
+      "route": "/settings#branding",
+      "viewport": "desktop",
+      "theme": "marble",
+      "accent": "#824C71",
+      "width": 4320,
+      "height": 2700,
+      "crop": false
+    },
+    {
+      "file": "owner-widgets.png",
+      "beat": "16 · Widgets — list and editor",
+      "route": "/widgets",
+      "viewport": "desktop",
+      "theme": "marble",
+      "accent": "#824C71",
+      "width": 4320,
+      "height": 2700,
+      "crop": false
+    },
+    {
+      "file": "crop-embed-code.png",
+      "beat": "17 · Callout — the embed snippet",
+      "route": "/widgets",
+      "viewport": "desktop",
+      "theme": "marble",
+      "accent": "#824C71",
+      "width": 2010,
+      "height": 300,
+      "crop": true
+    },
+    {
+      "file": "owner-availability.png",
+      "beat": "18a · Availability — the stylist schedule cards",
+      "route": "/availability",
+      "viewport": "desktop",
+      "theme": "marble",
+      "accent": "#824C71",
+      "width": 4320,
+      "height": 2700,
+      "crop": false
+    },
+    {
+      "file": "crop-availability-card.png",
+      "beat": "18b · Callout — the weekly availability card",
+      "route": "/availability",
+      "viewport": "desktop",
+      "theme": "marble",
+      "accent": "#824C71",
+      "width": 1209,
+      "height": 1086,
+      "crop": true
+    },
+    {
+      "file": "owner-onboarding-step.png",
+      "beat": "18 · Guided setup — one clean step (Salon basics)",
+      "route": "/setup",
+      "viewport": "desktop",
+      "theme": "marble",
+      "accent": "#824C71",
+      "width": 4320,
+      "height": 2700,
+      "crop": false
+    },
+    {
+      "file": "owner-dashboard--glacier.png",
+      "beat": "09 · Theme variant — same morning, Glacier",
+      "route": "/",
+      "viewport": "desktop",
+      "theme": "glacier",
+      "accent": "#824C71",
+      "width": 4320,
+      "height": 2700,
+      "crop": false
+    },
+    {
+      "file": "owner-dashboard--accent-01.png",
+      "beat": "19 · Accent beat (terracotta) — dashboard",
+      "route": "/",
+      "viewport": "desktop",
+      "theme": "marble",
+      "accent": "#C0613E",
+      "width": 4320,
+      "height": 2700,
+      "crop": false
+    },
+    {
+      "file": "owner-calendar-week--accent-01.png",
+      "beat": "19 · Accent beat (terracotta) — week calendar",
+      "route": "/calendar",
+      "viewport": "desktop",
+      "theme": "marble",
+      "accent": "#C0613E",
+      "width": 4320,
+      "height": 2700,
+      "crop": false
+    },
+    {
+      "file": "widget-landing--accent-01.png",
+      "beat": "19 · Accent beat (terracotta) — widget landing",
+      "route": "/widget",
+      "viewport": "mobile",
+      "theme": "marble",
+      "accent": "#C0613E",
+      "width": 1170,
+      "height": 2532,
+      "crop": false
+    },
+    {
+      "file": "widget-calendar--accent-01.png",
+      "beat": "19 · Accent beat (terracotta) — widget calendar step",
+      "route": "/widget",
+      "viewport": "mobile",
+      "theme": "marble",
+      "accent": "#C0613E",
+      "width": 1170,
+      "height": 2532,
+      "crop": false
+    },
+    {
+      "file": "owner-dashboard--accent-02.png",
+      "beat": "19 · Accent beat (deep violet) — dashboard",
+      "route": "/",
+      "viewport": "desktop",
+      "theme": "marble",
+      "accent": "#5B3E96",
+      "width": 4320,
+      "height": 2700,
+      "crop": false
+    },
+    {
+      "file": "owner-calendar-week--accent-02.png",
+      "beat": "19 · Accent beat (deep violet) — week calendar",
+      "route": "/calendar",
+      "viewport": "desktop",
+      "theme": "marble",
+      "accent": "#5B3E96",
+      "width": 4320,
+      "height": 2700,
+      "crop": false
+    },
+    {
+      "file": "widget-landing--accent-02.png",
+      "beat": "19 · Accent beat (deep violet) — widget landing",
+      "route": "/widget",
+      "viewport": "mobile",
+      "theme": "marble",
+      "accent": "#5B3E96",
+      "width": 1170,
+      "height": 2532,
+      "crop": false
+    },
+    {
+      "file": "widget-calendar--accent-02.png",
+      "beat": "19 · Accent beat (deep violet) — widget calendar step",
+      "route": "/widget",
+      "viewport": "mobile",
+      "theme": "marble",
+      "accent": "#5B3E96",
+      "width": 1170,
+      "height": 2532,
+      "crop": false
+    },
+    {
+      "file": "owner-dashboard--accent-03.png",
+      "beat": "19 · Accent beat (sage) — dashboard",
+      "route": "/",
+      "viewport": "desktop",
+      "theme": "marble",
+      "accent": "#5C7458",
+      "width": 4320,
+      "height": 2700,
+      "crop": false
+    },
+    {
+      "file": "owner-calendar-week--accent-03.png",
+      "beat": "19 · Accent beat (sage) — week calendar",
+      "route": "/calendar",
+      "viewport": "desktop",
+      "theme": "marble",
+      "accent": "#5C7458",
+      "width": 4320,
+      "height": 2700,
+      "crop": false
+    },
+    {
+      "file": "widget-landing--accent-03.png",
+      "beat": "19 · Accent beat (sage) — widget landing",
+      "route": "/widget",
+      "viewport": "mobile",
+      "theme": "marble",
+      "accent": "#5C7458",
+      "width": 1170,
+      "height": 2532,
+      "crop": false
+    },
+    {
+      "file": "widget-calendar--accent-03.png",
+      "beat": "19 · Accent beat (sage) — widget calendar step",
+      "route": "/widget",
+      "viewport": "mobile",
+      "theme": "marble",
+      "accent": "#5C7458",
+      "width": 1170,
+      "height": 2532,
+      "crop": false
+    },
+    {
+      "file": "owner-dashboard--accent-04.png",
+      "beat": "19 · Accent beat (near-black) — dashboard",
+      "route": "/",
+      "viewport": "desktop",
+      "theme": "marble",
+      "accent": "#211C18",
+      "width": 4320,
+      "height": 2700,
+      "crop": false
+    },
+    {
+      "file": "owner-calendar-week--accent-04.png",
+      "beat": "19 · Accent beat (near-black) — week calendar",
+      "route": "/calendar",
+      "viewport": "desktop",
+      "theme": "marble",
+      "accent": "#211C18",
+      "width": 4320,
+      "height": 2700,
+      "crop": false
+    },
+    {
+      "file": "widget-landing--accent-04.png",
+      "beat": "19 · Accent beat (near-black) — widget landing",
+      "route": "/widget",
+      "viewport": "mobile",
+      "theme": "marble",
+      "accent": "#211C18",
+      "width": 1170,
+      "height": 2532,
+      "crop": false
+    },
+    {
+      "file": "widget-calendar--accent-04.png",
+      "beat": "19 · Accent beat (near-black) — widget calendar step",
+      "route": "/widget",
+      "viewport": "mobile",
+      "theme": "marble",
+      "accent": "#211C18",
+      "width": 1170,
+      "height": 2532,
+      "crop": false
+    },
+    {
+      "file": "widget-01-landing.png",
+      "beat": "01 · Client meets the brand",
+      "route": "/widget",
+      "viewport": "mobile",
+      "theme": "marble",
+      "accent": "#824C71",
+      "width": 1170,
+      "height": 2532,
+      "crop": false
+    },
+    {
+      "file": "widget-02-services.png",
+      "beat": "02 · Pick a service — priced, timed",
+      "route": "/widget",
+      "viewport": "mobile",
+      "theme": "marble",
+      "accent": "#824C71",
+      "width": 1170,
+      "height": 2532,
+      "crop": false
+    },
+    {
+      "file": "widget-04-stylist.png",
+      "beat": "04 · Choose your stylist (or any)",
+      "route": "/widget",
+      "viewport": "mobile",
+      "theme": "marble",
+      "accent": "#824C71",
+      "width": 1170,
+      "height": 2532,
+      "crop": false
+    },
+    {
+      "file": "widget-05-calendar-open.png",
+      "beat": "05 · Real availability, inline — a date open",
+      "route": "/widget",
+      "viewport": "mobile",
+      "theme": "marble",
+      "accent": "#824C71",
+      "width": 1170,
+      "height": 2532,
+      "crop": false
+    },
+    {
+      "file": "crop-widget-calendar-card.png",
+      "beat": "05a · Callout — the availability calendar card",
+      "route": "/widget",
+      "viewport": "mobile",
+      "theme": "marble",
+      "accent": "#824C71",
+      "width": 966,
+      "height": 906,
+      "crop": true
+    },
+    {
+      "file": "widget-06-slots.png",
+      "beat": "06 · Pick a time — open slots only",
+      "route": "/widget",
+      "viewport": "mobile",
+      "theme": "marble",
+      "accent": "#824C71",
+      "width": 1170,
+      "height": 2532,
+      "crop": false
+    },
+    {
+      "file": "widget-03-multi-service.png",
+      "beat": "03 · Build a visit — two services, independent times",
+      "route": "/widget",
+      "viewport": "mobile",
+      "theme": "marble",
+      "accent": "#824C71",
+      "width": 1170,
+      "height": 2532,
+      "crop": false
+    },
+    {
+      "file": "widget-07-details.png",
+      "beat": "07 · No account, no app — name and phone",
+      "route": "/widget",
+      "viewport": "mobile",
+      "theme": "marble",
+      "accent": "#824C71",
+      "width": 1170,
+      "height": 2532,
+      "crop": false
+    },
+    {
+      "file": "widget-08-confirmed.png",
+      "beat": "08 · Booked — confirmation",
+      "route": "/widget",
+      "viewport": "mobile",
+      "theme": "marble",
+      "accent": "#824C71",
+      "width": 1170,
+      "height": 2532,
+      "crop": false
+    },
+    {
+      "file": "widget-desktop-services.png",
+      "beat": "W1 · The branded split container — service step",
+      "route": "/widget",
+      "viewport": "desktop",
+      "theme": "marble",
+      "accent": "#824C71",
+      "width": 4320,
+      "height": 2700,
+      "crop": false
+    },
+    {
+      "file": "widget-desktop-calendar.png",
+      "beat": "W2 · The branded split container — calendar step",
+      "route": "/widget",
+      "viewport": "desktop",
+      "theme": "marble",
+      "accent": "#824C71",
+      "width": 4320,
+      "height": 2700,
+      "crop": false
+    }
+  ]
+}

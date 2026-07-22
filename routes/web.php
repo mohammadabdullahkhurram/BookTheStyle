@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\VoiceBookingController;
 use App\Http\Controllers\Auth\PasswordChangeController;
 use App\Http\Controllers\CalendarFeedController;
 use App\Http\Controllers\DemoController;
+use App\Http\Controllers\Dev\CaptureLoginController;
 use App\Http\Controllers\GhlWebhookController;
 use App\Http\Controllers\WidgetController;
 use App\Http\Middleware\AuthenticateBookingApi;
@@ -136,6 +137,15 @@ Route::domain($app)
 | the full route-host allowlist. Public GET, no auth: entering IS signup.
 */
 Route::domain($app)->get('demo', [DemoController::class, 'enter'])->name('demo.enter');
+
+// LOCAL ONLY — the launch-capture harness's programmatic login
+// (scripts/capture-launch-assets.mjs). Registered exclusively when
+// APP_ENV=local; production caches routes under APP_ENV=production, so
+// this can never exist there. The controller re-asserts the environment.
+if (app()->environment('local')) {
+    Route::domain($app)->get('_capture/login', CaptureLoginController::class)
+        ->name('capture.login');
+}
 
 // Account settings live on app.{domain} too. Required before the wildcard salon
 // group so app.{domain}/settings/* wins over a salon path.
