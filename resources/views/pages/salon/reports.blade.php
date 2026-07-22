@@ -200,8 +200,11 @@ new #[Title('Reports')] class extends Component {
                                 <div class="h-2.5 flex-1 overflow-hidden rounded-[99px] bg-muted">
                                     <div class="h-full rounded-[99px] bg-accent" style="width: {{ max(2, round($row['count'] / $maxCount * 100)) }}%"></div>
                                 </div>
+                                {{-- Null revenue = booked but nothing completed in
+                                     range: show an explicit dash, never a bare
+                                     count that reads as a missing cell. --}}
                                 <span class="w-32 shrink-0 text-right text-secondary">
-                                    {{ $row['count'] }}@if ($row['revenue_cents'] !== null) · {{ \App\Support\Money::format($row['revenue_cents'], $salon->currency) }}@endif
+                                    {{ $row['count'] }} · {{ $row['revenue_cents'] !== null ? \App\Support\Money::format($row['revenue_cents'], $salon->currency) : '—' }}
                                 </span>
                             </div>
                         @empty

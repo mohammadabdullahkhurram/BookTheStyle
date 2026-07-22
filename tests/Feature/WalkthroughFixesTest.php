@@ -25,8 +25,13 @@ it('renders the full side nav with the user chip pinned and the scissor logo', f
         // The primary nav scrolls internally on short viewports instead of
         // pushing the chip out of view.
         ->assertSee('min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto', false)
-        // The scissor BookTheStyle lockup is untouched.
-        ->assertSee('/images/full-logo.png', false)
+        // The sidebar brand is the COMPACT lockup: scissors mark + the full
+        // word as real text — the raster full-logo reads "ROOKTHESTYLE"
+        // below ~40px (the scissors erase the B's bowls), so it no longer
+        // appears at sidebar size.
+        ->assertSee('/images/icon-logo.png', false)
+        ->assertSee('BookTheStyle</span>', false)
+        ->assertDontSee('/images/full-logo.png')
         // Batch 2 responsive contract intact.
         ->assertSee('aria-label="Open navigation"', false);
 

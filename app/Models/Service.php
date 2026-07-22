@@ -22,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  * @property int|null $price_cents
  * @property string|null $color_key
  * @property bool $active
+ * @property int $sort_order
  */
 class Service extends Model
 {
@@ -35,6 +36,7 @@ class Service extends Model
         'price_cents',
         'color_key',
         'active',
+        'sort_order',
     ];
 
     protected function casts(): array
@@ -43,7 +45,22 @@ class Service extends Model
             'duration_min' => 'integer',
             'price_cents' => 'integer',
             'active' => 'boolean',
+            'sort_order' => 'integer',
         ];
+    }
+
+    /**
+     * The owner-controlled menu order: sort_order first (0 = never reordered,
+     * so untouched menus keep their historical name ordering), name as the
+     * stable tiebreak. Every service-LISTING surface uses this — widget
+     * catalogue, admin list, booking pickers, filters.
+     *
+     * @param  Builder<Service>  $query
+     * @return Builder<Service>
+     */
+    public function scopeDisplayOrder(Builder $query): Builder
+    {
+        return $query->orderBy('sort_order')->orderBy('name');
     }
 
     /**

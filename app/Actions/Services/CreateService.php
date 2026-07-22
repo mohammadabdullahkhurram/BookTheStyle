@@ -28,6 +28,10 @@ class CreateService
             'price_cents' => $data['price_cents'] ?? null,
             'color_key' => $this->assignColorKey($salon),
             'active' => $data['active'] ?? true,
+            // New services join the END of the owner's menu order (never the
+            // top): max+1 beats every explicitly ordered row, and beats the
+            // legacy default 0 too.
+            'sort_order' => ((int) $salon->services()->max('sort_order')) + 1,
         ]);
 
         // Durations shape GHL's slot settings — mirror the master calendar.

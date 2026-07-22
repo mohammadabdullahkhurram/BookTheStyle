@@ -107,7 +107,7 @@ class WidgetController extends Controller
 
         return array_values($salon->services()
             ->where('active', true)
-            ->orderBy('name')
+            ->displayOrder()
             ->with('stylists:id,name')
             ->get()
             ->map(function (Service $service) use ($stylistIds, $salon): ?array {

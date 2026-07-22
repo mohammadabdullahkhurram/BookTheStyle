@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Services\CreateService;
+use App\Actions\Services\MoveService;
 use App\Actions\Services\SetServiceActive;
 use App\Actions\Services\SyncServiceStylists;
 use App\Actions\Services\UpdateService;
@@ -58,7 +59,7 @@ new #[Title('Services')] class extends Component {
     #[Computed]
     public function services()
     {
-        return $this->salon->services()->with('stylists:id,name')->orderBy('name')->get();
+        return $this->salon->services()->with('stylists:id,name')->displayOrder()->get();
     }
 
     #[Computed]
@@ -182,6 +183,14 @@ new #[Title('Services')] class extends Component {
         Flux::toast(variant: 'success', text: __('Service updated.'));
     }
 
+    /** Nudge a service one step up (-1) or down (+1) in the menu order. */
+    public function move(int $serviceId, int $direction, MoveService $action): void
+    {
+        $this->authorize('manageServices', $this->salon);
+        $action->handle($this->salon, $this->service($serviceId), $direction);
+        unset($this->services);
+    }
+
     public function toggleActive(int $serviceId, SetServiceActive $action): void
     {
         $this->authorize('manageServices', $this->salon);
@@ -243,6 +252,7 @@ new #[Title('Services')] class extends Component {
             <table class="w-full text-left">
                 <thead>
                     <tr class="bts-overline border-b border-divider">
+                        <th scope="col" class="py-3.5 pl-4 pr-0"><span class="sr-only">{{ __('Menu order') }}</span></th>
                         <th scope="col" class="px-6 py-3.5 font-semibold">{{ __('Service') }}</th>
                         <th scope="col" class="px-6 py-3.5 font-semibold">{{ __('Duration') }}</th>
                         <th scope="col" class="px-6 py-3.5 font-semibold">{{ __('Price') }}</th>
@@ -254,6 +264,22 @@ new #[Title('Services')] class extends Component {
                 <tbody class="divide-y divide-row">
                     @forelse ($this->services as $service)
                         <tr @class(['bg-muted/40' => ! $service->active])>
+                            {{-- Menu order: this list IS the order clients see in
+                                 the widget and every booking picker. --}}
+                            <td class="py-4 pl-4 pr-0">
+                                <div class="flex flex-col">
+                                    <button type="button" wire:click="move({{ $service->id }}, -1)" @disabled($loop->first)
+                                            aria-label="{{ __('Move :service up', ['service' => $service->name]) }}"
+                                            class="rounded-[6px] p-0.5 text-faint transition hover:text-ink disabled:pointer-events-none disabled:opacity-30">
+                                        <flux:icon.chevron-up variant="micro" />
+                                    </button>
+                                    <button type="button" wire:click="move({{ $service->id }}, 1)" @disabled($loop->last)
+                                            aria-label="{{ __('Move :service down', ['service' => $service->name]) }}"
+                                            class="rounded-[6px] p-0.5 text-faint transition hover:text-ink disabled:pointer-events-none disabled:opacity-30">
+                                        <flux:icon.chevron-down variant="micro" />
+                                    </button>
+                                </div>
+                            </td>
                             <td class="px-6 py-4">
                                 <div class="flex items-center gap-2.5">
                                     <span class="size-3 rounded-full" style="background-color: {{ $service->palette()['dot'] }}"></span>
@@ -295,7 +321,7 @@ new #[Title('Services')] class extends Component {
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-6 py-10 text-center text-[15px] text-faint">{{ __('No services yet. Add one above.') }}</td>
+                            <td colspan="7" class="px-6 py-10 text-center text-[15px] text-faint">{{ __('No services yet. Add one above.') }}</td>
                         </tr>
                     @endforelse
                 </tbody>

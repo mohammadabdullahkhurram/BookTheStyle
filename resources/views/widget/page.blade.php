@@ -203,18 +203,29 @@
         <div class="wb-shell">
             {{-- ── Info pane: brand + the LIVE running summary of the visit ── --}}
             <aside class="wb-info" aria-label="{{ __('Visit summary') }}">
+                {{-- The salon's identity ONCE: a logo usually carries the name,
+                     so repeating it as a visible h1 directly underneath was two
+                     redundant lines before the first tappable element (worst on
+                     the stacked mobile layout). With a logo the h1 goes
+                     screen-reader-only; without one it renders as before. --}}
                 @if ($branding['logo_url'])
                     <img src="{{ $branding['logo_url'] }}" alt="{{ $salon->name }}" class="wb-logo" />
+                    <p class="wb-overline">{{ __('Book an appointment') }}</p>
+                    <h1 style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">{{ $salon->name }}</h1>
+                @else
+                    <p class="wb-overline">{{ __('Book an appointment') }}</p>
+                    <h1 class="wb-display mt-1 text-[21px] font-semibold leading-tight">{{ $salon->name }}</h1>
                 @endif
-                <p class="wb-overline">{{ __('Book an appointment') }}</p>
-                <h1 class="wb-display mt-1 text-[21px] font-semibold leading-tight">{{ $salon->name }}</h1>
 
                 <div id="bts-items" class="mt-4 hidden" aria-live="polite">
                     <p class="wb-muted text-[12px] font-semibold uppercase tracking-wide">{{ __('Your visit') }}</p>
                     <div id="bts-item-lines" class="mt-1"></div>
                     <div class="wb-sumline" id="bts-summary-total" style="font-weight:600; border-top: 1.5px solid var(--wb-line);"></div>
                 </div>
-                <p id="bts-summary-empty" class="wb-muted mt-4 text-[13.5px]">{{ __('Choose a service to begin. Each service gets its own stylist and time.') }}</p>
+                {{-- Summary-pane empty state: describes THIS pane's job. The
+                     "each service gets its own stylist and time" guidance lives
+                     once, under the "Choose a service" step heading. --}}
+                <p id="bts-summary-empty" class="wb-muted mt-4 text-[13.5px]">{{ __('Your visit builds here — each service you add appears with its stylist and time.') }}</p>
             </aside>
 
             {{-- ── Scheduling pane: the per-service loop ── --}}

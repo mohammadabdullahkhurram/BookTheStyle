@@ -97,7 +97,7 @@ new #[Title('Clients')] class extends Component {
     #[Computed]
     public function services()
     {
-        return $this->salon->services()->orderBy('name')->get(['id', 'name']);
+        return $this->salon->services()->displayOrder()->get(['id', 'name']);
     }
 
     public function updatedSearch(): void

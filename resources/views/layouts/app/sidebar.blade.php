@@ -36,7 +36,7 @@
                     <a href="{{ $salon ? route('salon.show', $salon) : route('dashboard') }}" wire:navigate
                        aria-label="{{ __('BookTheStyle') }}"
                        class="flex min-w-0 flex-1 items-center" :class="collapsed ? 'justify-center' : ''">
-                        <x-app-logo x-show="!collapsed" x-cloak class="h-7" alt="" />
+                        <x-app-logo x-show="!collapsed" x-cloak class="h-7" compact />
                         <x-app-logo-icon x-show="collapsed" x-cloak class="size-8" alt="" />
                     </a>
                     <button type="button" x-show="!collapsed" x-cloak @click="collapsed = true"
@@ -68,7 +68,7 @@
                     <div class="flex items-center justify-between gap-3 px-4 pb-3 pt-4">
                         <a href="{{ $salon ? route('salon.show', $salon) : route('dashboard') }}" wire:navigate
                            @click="mobileNav = false" aria-label="{{ __('BookTheStyle') }}" class="flex min-w-0 items-center">
-                            <x-app-logo class="h-8" alt="" />
+                            <x-app-logo class="h-8" compact />
                         </a>
                         <button type="button" @click="mobileNav = false" aria-label="{{ __('Close navigation') }}"
                                 class="shrink-0 rounded-md p-1.5 text-faint transition hover:bg-muted hover:text-ink">
@@ -91,7 +91,7 @@
                     </button>
                     <a href="{{ $salon ? route('salon.show', $salon) : route('dashboard') }}" wire:navigate
                        aria-label="{{ __('BookTheStyle') }}" class="flex min-w-0 items-center gap-2.5">
-                        <x-app-logo class="h-7" alt="" />
+                        <x-app-logo class="h-7" compact />
                         @if ($salon)
                             <span class="truncate text-[14px] font-semibold text-secondary">{{ $salon->name }}</span>
                         @endif

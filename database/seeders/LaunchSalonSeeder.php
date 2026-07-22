@@ -109,8 +109,12 @@ class LaunchSalonSeeder extends Seeder
 
         $salon->forceFill(['branding' => ['accent' => self::ACCENT, 'logo_path' => $this->logo($salon)]])->save();
 
-        $summary = (new DemoSalonBuilder('marlowe-sage.test', self::PASSWORD, $anchor))->populate($salon);
+        $builder = new DemoSalonBuilder('marlowe-sage.test', self::PASSWORD, $anchor);
+        $summary = $builder->populate($salon);
         $this->extendMenu($salon, $summary['stylists'], $summary['owner'], $anchor);
+        // extendMenu added bookings after populate()'s alignment pass — re-run
+        // it so every stored preferred stylist matches the final visit history.
+        $builder->alignPreferredStylists($salon);
 
         $salon->widgets()->firstOrCreate(
             ['public_id' => self::WIDGET_PUBLIC_ID],
@@ -155,22 +159,27 @@ class LaunchSalonSeeder extends Seeder
         [$maya, $sofia, $jonah, $elise] = $stylists;
 
         $menu = [
-            // name, minutes, price cents, qualified stylists
+            // name, minutes, price cents, qualified stylists — LIST ORDER IS
+            // MENU ORDER, continuing after the builder's five (sort_order
+            // 6..10). Colour work up top with the rest of the signature menu;
+            // Beard trim closes the list — a women-leaning brand's menu never
+            // OPENS with it (the alphabetical widget used to).
             ['Root touch-up', 75, 9500, [$maya, $sofia]],
             ['Gloss & tone', 45, 6500, [$sofia]],
-            ['Beard trim', 25, 2500, [$jonah]],
             ['Deep conditioning ritual', 40, 5000, [$maya, $elise]],
             ['Event styling & updo', 75, 11000, [$elise, $sofia]],
+            ['Beard trim', 25, 2500, [$jonah]],
         ];
 
         $services = [];
-        foreach ($menu as [$name, $minutes, $cents, $qualified]) {
+        foreach ($menu as $position => [$name, $minutes, $cents, $qualified]) {
             $service = Service::create([
                 'salon_id' => $salon->id,
                 'name' => $name,
                 'duration_min' => $minutes,
                 'price_cents' => $cents,
                 'active' => true,
+                'sort_order' => 6 + $position,
             ]);
             foreach ($qualified as $stylist) {
                 $service->stylists()->attach($stylist->id, ['salon_id' => $salon->id]);

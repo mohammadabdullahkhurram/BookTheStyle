@@ -249,6 +249,10 @@ await shoot(page, 'owner-widgets.png', { beat: '16 · Widgets — list and edito
 await shoot(page, 'crop-embed-code.png', { beat: '17 · Callout — the embed snippet', route: '/widgets', viewport: 'desktop' },
     page.locator('div.bg-field').filter({ hasText: '<iframe' }).last());
 
+await page.goto(`${salonBase}/services`);
+await settle(page);
+await shoot(page, 'owner-services.png', { beat: '16b · The menu — owner-ordered, reorder controls visible', route: '/services', viewport: 'desktop' });
+
 await page.goto(`${salonBase}/availability`);
 await settle(page);
 await shoot(page, 'owner-availability.png', { beat: '18a · Availability — the stylist schedule cards', route: '/availability', viewport: 'desktop' });

@@ -89,7 +89,7 @@ new #[Title('New booking')] class extends Component {
     #[Computed]
     public function services()
     {
-        return $this->salon->services()->where('active', true)->orderBy('name')->get();
+        return $this->salon->services()->where('active', true)->displayOrder()->get();
     }
 
     #[Computed]

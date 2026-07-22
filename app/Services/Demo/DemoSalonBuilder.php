@@ -20,6 +20,7 @@ use App\Models\StylistProfile;
 use App\Models\TimeOff;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
@@ -70,6 +71,7 @@ class DemoSalonBuilder
         $this->availability($salon, $stylists);
         $clients = $this->clients($salon, $stylists);
         $bookings = $this->bookings($salon, $owner, $stylists, $services, $clients);
+        $this->alignPreferredStylists($salon);
 
         // Mix salons show both arrangements: Jonah and Elise rent booths.
         if ($salon->salon_type === SalonType::Mix) {
@@ -145,7 +147,9 @@ class DemoSalonBuilder
         [$maya, $sofia, $jonah, $elise] = $stylists;
 
         $menu = [
-            // name, minutes, price cents, qualified stylists
+            // name, minutes, price cents, qualified stylists — LIST ORDER IS
+            // MENU ORDER (services.sort_order): the owner's signature work
+            // leads, exactly as a real salon would arrange it.
             ['Hair cut', 45, 5500, [$maya, $sofia, $jonah]],
             ['Full colour', 120, 14000, [$maya, $sofia]],
             ['Blowout', 30, 3500, [$maya, $sofia, $elise]],
@@ -154,13 +158,14 @@ class DemoSalonBuilder
         ];
 
         $services = [];
-        foreach ($menu as [$name, $minutes, $cents, $qualified]) {
+        foreach ($menu as $position => [$name, $minutes, $cents, $qualified]) {
             $service = Service::create([
                 'salon_id' => $salon->id,
                 'name' => $name,
                 'duration_min' => $minutes,
                 'price_cents' => $cents,
                 'active' => true,
+                'sort_order' => $position + 1,
             ]);
             foreach ($qualified as $stylist) {
                 $service->stylists()->attach($stylist->id, ['salon_id' => $salon->id]);
@@ -401,5 +406,28 @@ class DemoSalonBuilder
         $make($pick(10), $sofia, [$colour, $blowout], $today->addDays(4)->setTime(10, 0), BookingStatus::Booked, BookingSource::InApp);
 
         return $count;
+    }
+
+    /**
+     * A client's stored "preferred stylist" must agree with the visit history
+     * every reviewer (and the launch-film camera) can see beside it: once
+     * bookings exist, re-derive it as each client's most-booked stylist.
+     * Clients with no bookings keep their assigned round-robin preference.
+     */
+    public function alignPreferredStylists(Salon $salon): void
+    {
+        DB::table('booking_items')
+            ->join('bookings', 'bookings.id', '=', 'booking_items.booking_id')
+            ->where('bookings.salon_id', $salon->id)
+            ->whereNotNull('bookings.client_id')
+            ->groupBy('bookings.client_id', 'booking_items.stylist_id')
+            ->selectRaw('bookings.client_id as client_id, booking_items.stylist_id as stylist_id, count(*) as visits')
+            ->orderByDesc('visits')
+            ->get()
+            ->groupBy('client_id')
+            ->each(function ($rows, int $clientId): void {
+                Client::query()->whereKey($clientId)
+                    ->update(['preferred_stylist_id' => (int) $rows->first()->stylist_id]);
+            });
     }
 }

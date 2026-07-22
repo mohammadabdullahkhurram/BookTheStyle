@@ -141,6 +141,17 @@
       "crop": true
     },
     {
+      "file": "owner-services.png",
+      "beat": "16b · The menu — owner-ordered, reorder controls visible",
+      "route": "/services",
+      "viewport": "desktop",
+      "theme": "marble",
+      "accent": "#824C71",
+      "width": 4320,
+      "height": 2700,
+      "crop": false
+    },
+    {
       "file": "owner-availability.png",
       "beat": "18a · Availability — the stylist schedule cards",
       "route": "/availability",
@@ -412,7 +423,7 @@
       "theme": "marble",
       "accent": "#824C71",
       "width": 966,
-      "height": 906,
+      "height": 903,
       "crop": true
     },
     {

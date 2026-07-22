@@ -75,6 +75,13 @@ APP_FAKE_NOW="2026-09-15T10:20:00-07:00" BOOKING_WIDGET_MIN_SECONDS=0 BOOKING_WI
   so without this the confirmation shot is impossible ("too fast", forever).
 - `BOOKING_WIDGET_RATE_LIMIT=1000` — the funnel + accent beat fire more
   widget-API calls per minute than the public per-IP throttle allows.
+
+**These are CAPTURE-ONLY overrides.** They exist solely in the environment of
+the server the capture script spawns (and the manual command above); no
+tracked `.env`, `.env.example`, or config default carries them.
+`BOOKING_WIDGET_MIN_SECONDS=0` disables the widget's bot gate outright and
+must never reach production — `LaunchCaptureTest` pins the committed defaults
+(min age ≥ 4 s, rate limit ≤ 30/min) so a leaked override fails the build.
 - The script verifies the freeze (the dashboard must say *Tuesday, 15
   September*) and aborts with instructions if the running server isn't frozen.
 - Stop `npm run dev` first — if `public/hot` exists the app asks the Vite dev
@@ -102,6 +109,7 @@ hex). Summary:
 | `owner-reports` | 14 · Charts with real shape |
 | `owner-settings-branding` | 15 · Branding, accent picker visible |
 | `owner-widgets` | 16 · Widget list + editor |
+| `owner-services` | 16b · The service menu — owner-ordered, reorder controls |
 | `owner-availability` | 18a · Stylist schedule cards |
 | `owner-onboarding-step` | 18 · Guided setup, one clean step |
 | `crop-stat-tile`, `crop-appointment-row`, `crop-availability-card`, `crop-embed-code`, `crop-widget-calendar-card` | Element-level callout crops for isolated film moments |
@@ -123,6 +131,25 @@ hex). Summary:
   initial avatars (`x-ui.avatar`), which is what the shots show. No service
   categories exist either; the 10-service menu is a flat list.
 - Nothing needed hand-editing after capture; every shot is fully scripted.
+
+## Known, deferred
+
+Findings from the 3x audit that are real but deliberately NOT fixed in the
+launch-video pass:
+
+- **Native file inputs** on Settings → Branding and the Widget editor
+  ("Choose File / No file chosen") clash with the design system. A proper
+  styled upload control is a bigger job than it looks (drag-drop, previews,
+  Livewire upload states); the film frames around it.
+- **Glacier reads faint on the salon shell** — glass stat tiles and a
+  background bloom, but the sidebar and tables barely change. A theme
+  redesign is not a launch-video task; the film's theme moment now uses the
+  four-accent cross-dissolve instead of a Marble→Glacier dissolve.
+- **The full-lockup PNG** (`public/images/full-logo.png`) still uses the
+  scissors-B as the word's first letter; below ~40px it needs the compact
+  text lockup (now used by the sidebar). Auth pages (h-10) and marketing
+  nav (h-9) sit just above the ambiguity threshold — an asset-level redraw
+  is with the brand owner.
 
 ## Storage rules
 

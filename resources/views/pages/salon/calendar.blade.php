@@ -321,12 +321,28 @@ new #[Title('Calendar')] class extends Component {
                                      never whole-block opacity, which dims the text. --}}
                                 @php($blockBg = $dimmed ? "color-mix(in srgb, {$b['color']['bg']} 45%, white)" : $b['color']['bg'])
                                 @php($blockBorder = $dimmed ? "color-mix(in srgb, {$b['color']['border']} 55%, white)" : $b['color']['border'])
+                                {{-- Whole lines only: a line that would cross the
+                                     chip's bottom edge is dropped entirely (or the
+                                     chip collapses to the one-line "time · client"
+                                     form) — a half-rendered glyph is worse than a
+                                     hidden line. The thresholds are the sum of the
+                                     explicit leading-* heights below + padding. --}}
+                                @php($chipH = max(28, ($b['endMin'] - $b['startMin']) * $ppm - 2))
+                                @php($padY = $chipH >= 52 ? 8 : 4)
+                                @php($fitsTwo = $chipH - 2 * $padY >= 33)
+                                @php($fitsThree = $chipH - 2 * $padY >= 49)
                                 <button type="button" wire:click="openBooking({{ $b['bookingId'] }})"
-                                        class="absolute overflow-hidden rounded-[11px] border px-[11px] py-2 text-start transition hover:brightness-[.97]"
-                                        style="{{ $lane }} top: {{ ($b['startMin'] - $startMin) * $ppm }}px; height: {{ max(28, ($b['endMin'] - $b['startMin']) * $ppm - 2) }}px; background-color: {{ $blockBg }}; border-color: {{ $blockBorder }}; color: {{ $b['color']['ink'] }};">
-                                    <div class="text-[11px] font-semibold">{{ $b['startLabel'] }}–{{ $b['endLabel'] }}</div>
-                                    <div class="truncate text-[13px] font-semibold leading-tight">{{ $b['client'] }}</div>
-                                    <div class="truncate text-[12px] leading-tight">{{ $b['service'] }}</div>
+                                        class="absolute overflow-hidden rounded-[11px] border px-[11px] text-start transition hover:brightness-[.97]"
+                                        style="{{ $lane }} top: {{ ($b['startMin'] - $startMin) * $ppm }}px; height: {{ $chipH }}px; padding-top: {{ $padY }}px; padding-bottom: {{ $padY }}px; background-color: {{ $blockBg }}; border-color: {{ $blockBorder }}; color: {{ $b['color']['ink'] }};">
+                                    @if ($fitsTwo)
+                                        <div class="text-[11px] font-semibold leading-[16px]">{{ $b['startLabel'] }}–{{ $b['endLabel'] }}</div>
+                                        <div class="truncate text-[13px] font-semibold leading-[17px]">{{ $b['client'] }}</div>
+                                        @if ($fitsThree)
+                                            <div class="truncate text-[12px] leading-[16px]">{{ $b['service'] }}</div>
+                                        @endif
+                                    @else
+                                        <div class="truncate text-[11.5px] font-semibold leading-[16px]">{{ $b['startLabel'] }} · {{ $b['client'] }}</div>
+                                    @endif
                                 </button>
                                 {{-- Cleanup buffer: muted, non-bookable tail (same lane as its block). --}}
                                 @if (($b['bufferMin'] ?? 0) > 0)

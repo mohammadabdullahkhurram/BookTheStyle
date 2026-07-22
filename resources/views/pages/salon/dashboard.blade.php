@@ -92,7 +92,7 @@ new #[Title('Today')] class extends Component {
     #[Computed]
     public function services()
     {
-        return $this->salon->services()->orderBy('name')->get(['id', 'name']);
+        return $this->salon->services()->displayOrder()->get(['id', 'name']);
     }
 }; ?>
 

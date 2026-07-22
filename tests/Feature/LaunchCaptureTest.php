@@ -46,6 +46,23 @@ it('seeds the launch salon: busy, anchored to a fixed date, and idempotent', fun
     expect($min->between($anchor->subWeeks(4), $anchor))->toBeTrue();
     expect($max->between($anchor, $anchor->addWeeks(4)))->toBeTrue();
 
+    // The story is internally consistent on camera: a client's stored
+    // preferred stylist is the one their visit history actually shows.
+    $visits = $salon->bookings()->whereNotNull('client_id')->with('items')->get()
+        ->flatMap(fn ($booking) => $booking->items->map(fn ($item) => ['client' => $booking->client_id, 'stylist' => $item->stylist_id]))
+        ->groupBy('client');
+    foreach ($visits as $clientId => $rows) {
+        $counts = $rows->countBy('stylist');
+        $tiedForMax = $counts->filter(fn (int $c) => $c === $counts->max())->keys()->all();
+        expect($tiedForMax)->toContain($salon->clients()->whereKey($clientId)->value('preferred_stylist_id'));
+    }
+
+    // Menu order is deliberate, not alphabetical: the signature work leads
+    // and Beard trim closes the list.
+    $menu = $salon->services()->displayOrder()->pluck('name');
+    expect($menu->first())->toBe('Hair cut');
+    expect($menu->last())->toBe('Beard trim');
+
     // Idempotent: a second run is a no-op — nothing new, nothing touched.
     $before = [Salon::count(), $salon->bookings()->count(), $salon->clients()->count(), $salon->services()->count()];
     (new LaunchSalonSeeder)->run();
@@ -121,6 +138,16 @@ it('refuses launch:capture outside local and testing environments', function () 
     } finally {
         $this->app['env'] = $original;
     }
+});
+
+it('keeps the widget bot gate and rate limit at their protective defaults — capture overrides never ship', function () {
+    // The capture harness lifts these ONLY inside the environment of the
+    // server it spawns itself (scripts/capture-launch-assets.mjs); nothing
+    // tracked sets them. BOOKING_WIDGET_MIN_SECONDS=0 disables the bot gate
+    // outright and must never reach production — this pins the committed
+    // defaults so a leaked override fails the build.
+    expect((int) config('booking_api.widget_min_seconds'))->toBeGreaterThanOrEqual(4);
+    expect((int) config('booking_api.widget_rate_limit'))->toBeLessThanOrEqual(30);
 });
 
 it('never registers the programmatic capture login outside APP_ENV=local', function () {
