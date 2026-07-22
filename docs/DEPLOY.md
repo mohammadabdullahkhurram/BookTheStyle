@@ -27,6 +27,20 @@ ln -s ~/bookthestyle/public ~/domains/bookthestyle.com/public_html
 DNS: the app needs the apex + wildcard (`*.bookthestyle.com` → same server)
 because salons live on subdomains and the app on `app.bookthestyle.com`.
 
+**Hostnames are hand-created, never runtime-minted.** The DNS wildcard makes
+any label resolve, but the ORIGIN only holds certificates for subdomains a
+human created in hPanel (wildcard origin SSL is VPS-only on this plan), and
+Cloudflare runs Full (strict) — so a hostname the app invents at runtime
+answers **525 (SSL handshake failed)** for every visitor. Every served
+hostname — apex, `app.`, `register.`, `demo.`, and each salon's slug — must
+exist in hPanel BEFORE anything links to it (salon subdomains are part of the
+onboarding runbook, `docs/OPERATIONS.md`). Application code must never
+generate a subdomain; `tests/Feature/Demo/HostnameGuardTest.php` fails the
+build if a route appears on a host outside the hand-created set. The public
+demo therefore runs entirely on `app.` (entry `/demo`) + the static `demo.`
+host, with the visitor's salon resolved from the session — never from a
+hostname.
+
 ## First deploy
 
 ```sh

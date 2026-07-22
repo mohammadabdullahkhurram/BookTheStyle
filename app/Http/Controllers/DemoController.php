@@ -18,11 +18,22 @@ use Illuminate\Support\Facades\RateLimiter;
  * session (they don't lose their place mid-tour); the banner's Reset demo
  * reprovisions instantly, and the hourly sweeper removes expired demos.
  *
+ * URL scheme: entry is app.{domain}/demo; the tour itself runs on the static
+ * demo.{domain} host, where ResolveSalon picks the visitor's salon from the
+ * session — never from a hostname. NO per-visitor hostname exists anywhere
+ * (this hosting cannot mint subdomains at runtime — Salon::getRouteKey()).
+ *
  * Public endpoint = blast radius capped: provisioning is rate-limited per
  * IP and globally ceilinged (a bot spamming /demo cannot fill the disk).
  */
 class DemoController extends Controller
 {
+    /** The retired apex entry URL (bookmarks, backlinks) → the real entry. */
+    public function redirectToEntry(): RedirectResponse
+    {
+        return redirect()->route('demo.enter');
+    }
+
     public function enter(Request $request, ProvisionDemoSalon $provision): RedirectResponse
     {
         // Session already owns a live demo? Walk back in (refresh-friendly).
@@ -41,9 +52,15 @@ class DemoController extends Controller
      * start a fresh one. Its own (slightly looser) limiter — resetting is a
      * legitimate tour action; provisioning floods are not.
      */
-    public function reset(Request $request, Salon $salon, ProvisionDemoSalon $provision, DeleteDemoSalon $delete): RedirectResponse
+    public function reset(Request $request, ProvisionDemoSalon $provision, DeleteDemoSalon $delete): RedirectResponse
     {
-        abort_unless($salon->is_demo, 403);
+        // No Salon type-hint: on the demo host the {salon} domain param is the
+        // literal "demo" (implicit binding would 404 it). resolve.salon already
+        // ran and bound THIS session's salon; the checks below stay as belt
+        // and braces — on a real salon's subdomain currentSalon is that real
+        // salon and the is_demo assert refuses it.
+        $salon = app('currentSalon');
+        abort_unless($salon instanceof Salon && $salon->is_demo, 403);
         abort_unless($request->session()->get('demo_salon_id') === $salon->id, 403);
 
         Auth::logout();

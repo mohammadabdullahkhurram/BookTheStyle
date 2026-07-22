@@ -10,6 +10,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Middleware\SubstituteBindings;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -57,6 +58,27 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'resolve.salon' => ResolveSalon::class,
         ]);
+
+        // ResolveSalon must run BEFORE implicit route binding: on the static
+        // demo host the {salon} domain param is the literal "demo" (no such
+        // slug — binding would 404 before the session lookup runs).
+        // ResolveSalon rebinds the param to the active-checked instance and
+        // ImplicitRouteBinding skips already-bound models, so real salons
+        // keep their exact behavior minus one duplicate query.
+        $middleware->prependToPriorityList(
+            SubstituteBindings::class,
+            ResolveSalon::class,
+        );
+
+        // Guests bounce to login — except on the static demo host, whose
+        // natural logged-out destination IS the demo entry (it signs the
+        // visitor into their session's demo salon, provisioning one first
+        // if needed). Keeps demo.{domain} a working front door on its own.
+        $middleware->redirectGuestsTo(function (Request $request): string {
+            return $request->getHost() === 'demo.'.config('app.domain')
+                ? route('demo.enter')
+                : route('login');
+        });
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

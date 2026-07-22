@@ -136,6 +136,23 @@ class Salon extends Model
     }
 
     /**
+     * Demo salons are the one exception: their slug is a database identifier
+     * only — NEVER a hostname. This hosting cannot serve runtime-minted
+     * subdomains (the origin holds certificates only for subdomains a human
+     * created in hPanel; Cloudflare Full (strict) answers 525 for anything
+     * else — see docs/DEPLOY.md), so every generated URL for a demo salon
+     * lands on the static, hand-created demo.{app.domain} host, where
+     * ResolveSalon picks WHICH demo salon from the visitor's session.
+     * Overriding the route key here means every route('salon.*', $salon)
+     * call site inherits this automatically — no code path can leak a demo
+     * slug into a Host.
+     */
+    public function getRouteKey(): string
+    {
+        return $this->is_demo ? 'demo' : (string) $this->slug;
+    }
+
+    /**
      * @return BelongsTo<Agency, $this>
      */
     public function agency(): BelongsTo

@@ -25,14 +25,9 @@ Route::domain($central)->group(function () {
     Route::view('services', 'marketing.services')->name('marketing.services');
     Route::view('features', 'marketing.features')->name('marketing.features');
     Route::view('contact', 'marketing.contact')->name('marketing.contact');
-    // The public no-signup demo: provisions (or re-enters) THIS visitor's
-    // isolated demo salon. Rate-limited + capacity-capped in the controller.
-    Route::get('demo', [DemoController::class, 'enter'])->name('demo.enter');
-});
-
-// demo.{domain} — the same public demo entry, on its own memorable host.
-Route::domain('demo.'.$central)->group(function () {
-    Route::get('/', [DemoController::class, 'enter'])->name('demo.host');
+    // The demo entry moved to the app host (see demo.enter below); the old
+    // marketing URL stays alive for bookmarks and backlinks.
+    Route::get('demo', [DemoController::class, 'redirectToEntry']);
 });
 
 /*
@@ -128,6 +123,20 @@ Route::domain($app)
         Route::post('create', [VoiceBookingController::class, 'create'])->name('api.booking.create');
     });
 
+/*
+| The public no-signup demo — entered at app.{domain}/demo (a static,
+| cert-valid hostname; the marketing "Demo" link points here). Provisions
+| (or re-enters) THIS visitor's isolated demo salon — rate-limited +
+| capacity-capped in the controller — then redirects to demo.{domain},
+| the equally static, hand-created demo host, where ResolveSalon resolves
+| WHICH demo salon from the visitor's SESSION. No id in the URL, and no
+| per-visitor hostname anywhere: this hosting cannot mint subdomains at
+| runtime (origin certs exist only for hPanel-created subdomains and
+| Cloudflare runs Full (strict) — docs/DEPLOY.md). HostnameGuardTest pins
+| the full route-host allowlist. Public GET, no auth: entering IS signup.
+*/
+Route::domain($app)->get('demo', [DemoController::class, 'enter'])->name('demo.enter');
+
 // Account settings live on app.{domain} too. Required before the wildcard salon
 // group so app.{domain}/settings/* wins over a salon path.
 require __DIR__.'/settings.php';
@@ -165,6 +174,11 @@ Route::domain($app)->get('widget.js', [WidgetController::class, 'script'])->name
 | take precedence on "/". The active salon is resolved from the subdomain slug;
 | ResolveSalon enforces active status + membership (and rejects reserved slugs
 | such as "app"/"register" as a safety net) before anything inside renders.
+|
+| demo.{domain} lands here too (slug "demo") — the static, hand-created demo
+| host. ResolveSalon resolves the visitor's demo salon from their SESSION for
+| that slug, so demo tours reuse every route below verbatim; a guest on the
+| demo host is bounced to the demo entry instead of login (bootstrap/app.php).
 */
 Route::domain('{salon}.'.$central)->middleware(['auth', 'resolve.salon'])->group(function () {
     Route::livewire('/', 'pages::salon.dashboard')->name('salon.show');

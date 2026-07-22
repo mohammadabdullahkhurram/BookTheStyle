@@ -80,6 +80,10 @@ Three cooperating layers — all server-side:
 
 The webhook and voice API are deliberately **outside** the session/scope system (no session exists); they resolve their salon from the secret/token itself and query explicitly by `salon_id`.
 
+**Hostnames are a closed, hand-created set (hosting constraint — load-bearing).** The DNS wildcard makes any label resolve, but the origin holds certificates only for subdomains a human created in hPanel (wildcard origin SSL is VPS-only on this plan) and Cloudflare runs Full (strict) — a hostname invented at runtime answers 525 for every visitor. So code may link only to hosts that already exist; new ones are a human step (hPanel → then extend `HostnameGuardTest`'s allowlist). This burned once: the public demo minted `demo-{random}.{domain}` per visitor and was unreachable in production.
+
+**The demo is the one salon surface not resolved from a hostname.** Demo salons live behind the single static `demo.{app.domain}` host (hand-created): `Salon::getRouteKey()` returns `demo` for demo salons, so every `route('salon.*', $salon)` call site generates onto that host and can never leak a per-visitor slug into a Host; `ResolveSalon` treats the `demo` slug specially and resolves WHICH demo salon from the visitor's session (`demo_salon_id`), filtered `is_demo = true` — while normal slug resolution filters `is_demo = false`. Those two filters are the demo/real isolation seam: a demo session can never resolve a real salon, and a demo slug is never a reachable tenant subdomain (both directions pinned in `DemoModeTest`). `ResolveSalon` is priority-ordered before `SubstituteBindings` (bootstrap/app.php) because the literal `demo` param would otherwise 404 at implicit binding.
+
 ## 5. Runtime shape
 
 - **Queue**: `database` driver drained by the per-minute scheduler (`queue:work --stop-when-empty --max-time=55 --tries=3`) — no supervisor exists on the host. GHL syncs land within ~1 minute of the triggering action; that latency is by design.

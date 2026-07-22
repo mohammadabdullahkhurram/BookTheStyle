@@ -22,6 +22,11 @@ use Illuminate\Support\Str;
  * non-routable domain {slug}.demo.invalid with a random password (the
  * visitor is session-authenticated, never shown credentials), and it
  * expires for the hourly sweeper. Salon type MIX — the fullest surface.
+ *
+ * The random slug is a DATABASE identifier only — it is never a hostname.
+ * Demo salons are reached at the static, hand-created demo.{app.domain}
+ * host via the visitor's session (Salon::getRouteKey() + ResolveSalon);
+ * this hosting cannot serve a runtime-minted subdomain (docs/DEPLOY.md).
  */
 class ProvisionDemoSalon
 {
