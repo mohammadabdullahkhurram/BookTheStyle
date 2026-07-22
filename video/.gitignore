@@ -1,0 +1,9 @@
+node_modules/
+out/
+.DS_Store
+# Binary deliverables — regenerable (fonts sync from the app build) or
+# dropped in by hand (VO reads, music). Never committed. Contents-ignored
+# so the .gitkeep can hold the drop-slot open across clones.
+public/audio/*
+!public/audio/.gitkeep
+public/fonts/

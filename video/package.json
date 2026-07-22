@@ -1,0 +1,23 @@
+{
+    "name": "bookthestyle-launch-video",
+    "private": true,
+    "description": "Remotion project for the BookTheStyle launch film. Own package — never entangled with the app's JS build.",
+    "scripts": {
+        "predev": "node scripts/sync-fonts.mjs",
+        "dev": "remotion studio",
+        "prerender": "node scripts/sync-fonts.mjs",
+        "render": "node scripts/render.mjs",
+        "render:draft": "node scripts/render.mjs --draft"
+    },
+    "dependencies": {
+        "@remotion/cli": "^4.0.496",
+        "react": "^19.2.8",
+        "react-dom": "^19.2.8",
+        "remotion": "^4.0.496"
+    },
+    "devDependencies": {
+        "@types/react": "^19.2.17",
+        "@types/react-dom": "^19.2.3",
+        "typescript": "^5.9.3"
+    }
+}

@@ -132,6 +132,44 @@ hex). Summary:
   categories exist either; the 10-service menu is a flat list.
 - Nothing needed hand-editing after capture; every shot is fully scripted.
 
+## The film itself (video/ — Remotion)
+
+The Remotion project lives in `video/` with its **own** package.json — never
+entangled with the app's JS build. It reads the captured assets through a
+committed symlink (`video/public/assets → docs/launch-video/assets`) and this
+manifest; scenes reference assets by manifest key only. `video/SCRIPT.md` is
+the VO's single source of truth; `video/src/beats.ts` is the timing sheet
+every scene reads from (beats marked `provisional` are timed at ~2.7
+words/sec until the real read lands).
+
+```sh
+cd video && npm install
+npm run dev                       # Remotion studio
+npm run render                    # full-res Preview (beats A+B) → ~/Movies/BookTheStyle-Launch/
+npm run render -- --draft         # half-res draft for fast iteration
+npm run render -- --comp=LaunchFilm --out=/abs/path   # full 78s timeline, custom dir
+```
+
+Renders NEVER enter git — the render script writes outside the repo
+(`--out` / `BTS_RENDER_OUT`, default `~/Movies/BookTheStyle-Launch/`).
+Fonts are the app's own self-hosted woff2 binaries, auto-synced from
+`public/build/assets` by `video/scripts/sync-fonts.mjs` (runs before
+dev/render; requires a root `npm run build` to exist). Audio drop-slots
+(gitignored): `video/public/audio/voiceover-final.mp3` (wins),
+`voiceover-scratch.mp3`, `music.mp3` — the composition uses whatever exists.
+
+**Widget motion** (the "her side" beat wants real screen motion, not stills):
+
+```sh
+node scripts/capture-launch-assets.mjs --motion
+```
+
+records the full mobile booking flow (land → service → stylist → calendar →
+slot → details → confirm) with human pacing, reduced-motion OFF, the same
+frozen clock, and the same local-only guard, writing
+`assets/widget-motion.webm` (gitignored) and registering it in the manifest
+with its duration. Capture-only env overrides apply exactly as above.
+
 ## Known, deferred
 
 Findings from the 3x audit that are real but deliberately NOT fixed in the

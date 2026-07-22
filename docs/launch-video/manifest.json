@@ -491,6 +491,18 @@
       "width": 4320,
       "height": 2700,
       "crop": false
+    },
+    {
+      "file": "widget-motion.webm",
+      "beat": "03 · Her side — the real booking, end to end",
+      "route": "/widget",
+      "viewport": "mobile",
+      "theme": "marble",
+      "accent": "#824C71",
+      "width": 390,
+      "height": 844,
+      "type": "video",
+      "duration_ms": 13207
     }
   ]
 }

@@ -122,6 +122,94 @@ if (await up()) {
 }
 
 // ---------------------------------------------------------------------------
+// Motion mode (--motion): record the mobile widget booking flow as VIDEO for
+// the film's "her side" beat — the ONE place real screen motion beats stills.
+// Same fixture, same frozen clock, same local-only guard; reduced-motion is
+// deliberately OFF here so the app's real transitions are on tape, and the
+// pacing between steps is slow and human-plausible. Output lands next to the
+// stills (gitignored) and registers in the manifest under its own key.
+// ---------------------------------------------------------------------------
+
+if (args.motion) {
+    const motionBrowser = await chromium.launch();
+    const motionContext = await motionBrowser.newContext({
+        viewport: {width: 390, height: 844},
+        deviceScaleFactor: 3,
+        isMobile: true,
+        hasTouch: true,
+        colorScheme: 'light',
+        recordVideo: {dir: outDir, size: {width: 390, height: 844}},
+    });
+    const motionPage = await motionContext.newPage();
+    const pause = (ms) => motionPage.waitForTimeout(ms);
+
+    const widgetInfoUrl = `${salonBase}/widget/${info.widget_public_id}`;
+    console.log('Recording widget motion (reduced-motion OFF, human pacing)…');
+    const started = Date.now();
+
+    await motionPage.goto(widgetInfoUrl);
+    await motionPage.waitForSelector('#bts-services .wb-opt');
+    await motionPage.evaluate(async () => { await document.fonts.ready; });
+    await pause(1400); // land — let the brand read
+
+    await motionPage.locator('#bts-services .wb-opt', {hasText: 'Full colour'}).click();
+    await pause(1100); // service picked → stylist step
+
+    await motionPage.locator('#bts-stylists .wb-opt', {hasText: 'Sofia'}).click();
+    await motionPage.waitForSelector('.wb-day[data-available="true"]');
+    await pause(1300); // the availability calendar breathes
+
+    await motionPage.locator('.wb-day[data-available="true"]').nth(2).click();
+    await motionPage.waitForSelector('.wb-chip');
+    await pause(1500); // open times appear
+
+    await motionPage.locator('.wb-chip').first().click();
+    await pause(1300); // added — the visit summary fills in
+
+    await motionPage.locator('#bts-finalize').click();
+    await pause(900);
+    await motionPage.locator('#bts-name').pressSequentially('Jamie Rivera', {delay: 55});
+    await pause(350);
+    await motionPage.locator('#bts-phone').pressSequentially(info.capture_client_phone, {delay: 45});
+    await pause(700);
+
+    await motionPage.locator('#bts-submit').click();
+    await motionPage.waitForSelector('section[data-step="confirmed"]:not([hidden])');
+    await pause(2000); // hold the confirmation
+
+    const durationMs = Date.now() - started;
+    await motionPage.close();
+    await motionContext.close();
+    const recording = await (motionPage.video()).path();
+    const finalPath = path.join(outDir, 'widget-motion.webm');
+    fs.renameSync(recording, finalPath);
+    await motionBrowser.close();
+
+    // Merge into the committed manifest without touching the stills entries.
+    const manifestPath = path.join(repoRoot, 'docs/launch-video/manifest.json');
+    const existing = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    existing.assets = existing.assets.filter((asset) => asset.file !== 'widget-motion.webm');
+    existing.assets.push({
+        file: 'widget-motion.webm',
+        beat: '03 · Her side — the real booking, end to end',
+        route: '/widget',
+        viewport: 'mobile',
+        theme: 'marble',
+        accent: info.accent,
+        width: 390,
+        height: 844,
+        type: 'video',
+        duration_ms: durationMs,
+    });
+    fs.writeFileSync(manifestPath, JSON.stringify(existing, null, 2) + '\n');
+
+    if (serverProc) serverProc.kill();
+    console.log(`\nMotion capture done: ${finalPath} (~${(durationMs / 1000).toFixed(1)}s)`);
+    console.log(`Manifest updated: ${manifestPath}`);
+    process.exit(0);
+}
+
+// ---------------------------------------------------------------------------
 // Capture plumbing
 // ---------------------------------------------------------------------------
 
@@ -456,7 +544,14 @@ await shoot(widgetDesktop, 'widget-desktop-calendar.png', { beat: 'W2 · The bra
 // Manifest + teardown
 // ---------------------------------------------------------------------------
 
+// A stills run must not clobber the motion entries (--motion runs merge
+// theirs the same way in reverse).
 const manifestPath = path.join(repoRoot, 'docs/launch-video/manifest.json');
+let motionEntries = [];
+try {
+    motionEntries = JSON.parse(fs.readFileSync(manifestPath, 'utf8')).assets.filter((a) => a.type === 'video');
+} catch { /* first run — no manifest yet */ }
+manifest.push(...motionEntries);
 fs.writeFileSync(manifestPath, JSON.stringify({
     fixture: {
         salon: info.name,
