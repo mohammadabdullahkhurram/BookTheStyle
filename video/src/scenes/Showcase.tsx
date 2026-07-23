@@ -114,6 +114,75 @@ const TickingStats: React.FC<{at: number}> = ({at}) => {
     );
 };
 
+/** Row-highlight sweep down the visit history — the profile being READ,
+ *  row by row, one full beat per row. Bands are deliberately soft-registered
+ *  (they tint whole rows, not pixel edges) so the cover-crop shift across
+ *  aspects never breaks them. */
+const RowSweep: React.FC = () => {
+    const frame = useCurrentFrame();
+    const aspect = useAspect();
+    const beat = (60 / 117.5) * FPS;
+    const stops = aspect === 'wide' ? [40, 51.5, 62.5, 72.5] : [36, 47, 58, 68];
+    if (frame < 4) return null;
+    const step = Math.min(stops.length - 1, Math.floor((frame - 4) / beat));
+    return (
+        <div
+            style={{
+                position: 'absolute',
+                left: aspect === 'wide' ? '30%' : '10%',
+                right: aspect === 'wide' ? '13%' : '6%',
+                top: `${stops[step]}%`,
+                height: '9.5%',
+                borderRadius: 14,
+                backgroundColor: 'rgba(130,76,113,0.16)',
+                border: '1.5px solid rgba(130,76,113,0.4)',
+                mixBlendMode: 'multiply',
+            }}
+        />
+    );
+};
+
+/** The month's number ARRIVING: the revenue figure ticks up while the real
+ *  source-mix proportions draw in as growing bars — the film's callout
+ *  vocabulary (dark feather, token palette), aspect-safe, values lifted
+ *  straight from the captured reports screen (59 bookings · $2,010; mix
+ *  45.8 / 25.4 / 22.0 / 6.8%). */
+const ReportPulse: React.FC<{at: number}> = ({at}) => {
+    const frame = useCurrentFrame();
+    const aspect = useAspect();
+    const halfBeat = (60 / 117.5) * FPS / 2;
+    const ticked = Math.round(interpolate(frame, [at, at + 26], [0, 2010], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}));
+    const inAt = interpolate(frame, [at, at + 4], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+    const BARS = [45.8, 25.4, 22.0, 6.8];
+    return (
+        <div style={{position: 'absolute', left: aspect === 'wide' ? 110 : 70, bottom: aspect === 'tall' ? 240 : 150, opacity: inAt}}>
+            <div
+                style={{
+                    fontFamily: font.display,
+                    fontWeight: 600,
+                    fontSize: aspect === 'wide' ? 96 : 74,
+                    lineHeight: 1.05,
+                    color: color.marble.butter,
+                    textShadow: '0 4px 26px rgba(0,0,0,0.45)',
+                }}
+            >
+                ${ticked.toLocaleString('en-US')}.
+            </div>
+            <div style={{display: 'flex', flexDirection: 'column', gap: 10, marginTop: 26}}>
+                {BARS.map((pct, index) => {
+                    const start = at + 8 + index * halfBeat;
+                    const grow = interpolate(frame, [start, start + 11], [0, pct], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+                    return (
+                        <div key={pct} style={{width: aspect === 'wide' ? 430 : 340, height: 12, borderRadius: 99, backgroundColor: 'rgba(255,248,239,0.16)'}}>
+                            <div style={{width: `${(grow / BARS[0]) * 100}%`, height: '100%', borderRadius: 99, backgroundColor: index === 0 ? color.marble.paper : 'rgba(255,248,239,0.62)'}} />
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
+
 type Shot = {fromBeat: number; toBeat: number; label?: string; chipLabel?: boolean; render: (at: number) => React.ReactNode};
 
 const SHOTS: Shot[] = [
@@ -139,6 +208,7 @@ const SHOTS: Shot[] = [
         render: (at) => (
             <AbsoluteFill>
                 <ProductStill src={getAsset('owner-client-profile').src} at={at} focus="45% 18%" />
+                <RowSweep />
                 <Feather strength={0.7} />
             </AbsoluteFill>
         ),
@@ -146,11 +216,11 @@ const SHOTS: Shot[] = [
     {
         fromBeat: 28,
         toBeat: 32,
-        label: 'Every number.',
         render: (at) => (
             <AbsoluteFill>
                 <ProductStill src={getAsset('owner-reports').src} at={at} focus="55% 45%" />
-                <Feather strength={0.7} />
+                <Feather strength={0.85} />
+                <ReportPulse at={at + 3} />
             </AbsoluteFill>
         ),
     },
