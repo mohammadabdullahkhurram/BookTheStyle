@@ -1,38 +1,29 @@
 import React from 'react';
 import {AbsoluteFill, Sequence} from 'remotion';
-import {BEATS, type BeatId} from './beats';
+import {SCENES, type SceneId} from './beats';
 import {Soundtrack} from './Soundtrack';
-import {AccentHero} from './scenes/AccentHero';
-import {Close} from './scenes/Close';
-import {ColdOpen} from './scenes/ColdOpen';
-import {HerSide} from './scenes/HerSide';
-import {LogoPromise} from './scenes/LogoPromise';
-import {Proof} from './scenes/Proof';
-import {YourSide} from './scenes/YourSide';
+import {Build} from './scenes/Build';
+import {Drop} from './scenes/Drop';
+import {Intro} from './scenes/Intro';
+import {Outro} from './scenes/Outro';
+import {Showcase} from './scenes/Showcase';
 import './fonts';
 
-const SCENES: Record<BeatId, (durationInFrames: number) => React.ReactNode> = {
-    'cold-open': () => <ColdOpen />,
-    'logo-promise': () => <LogoPromise />,
-    'her-side': () => <HerSide />,
-    'your-side': () => <YourSide />,
-    'accent-hero': (d) => <AccentHero durationInFrames={d} />,
-    proof: () => <Proof />,
-    close: () => <Close />,
+const COMPONENTS: Record<SceneId, React.ReactNode> = {
+    intro: <Intro />,
+    showcase: <Showcase />,
+    build: <Build />,
+    drop: <Drop />,
+    outro: <Outro />,
 };
 
-/** The full 78s film — every beat mounted from the timing sheet, VO from
- *  the assembled read (music slot silent until part 4). */
+/** The music cut: 33.07s, every boundary on a detected beat, the recolor on
+ *  the drop. The track is the only voice. */
 export const LaunchFilm: React.FC = () => (
     <AbsoluteFill style={{backgroundColor: '#241C22'}}>
-        {BEATS.map((beat) => (
-            <Sequence
-                key={beat.id}
-                name={beat.id}
-                from={beat.startFrame}
-                durationInFrames={beat.durationInFrames}
-            >
-                {SCENES[beat.id](beat.durationInFrames)}
+        {SCENES.map((s) => (
+            <Sequence key={s.id} name={`${s.id} (b${s.fromBeat}–${s.toBeat})`} from={s.startFrame} durationInFrames={s.durationInFrames}>
+                {COMPONENTS[s.id]}
             </Sequence>
         ))}
         <Soundtrack />

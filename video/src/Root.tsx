@@ -1,30 +1,11 @@
 import React from 'react';
-import {AbsoluteFill, Composition, Sequence} from 'remotion';
-import {beat, FPS, TOTAL_DURATION_IN_FRAMES} from './beats';
+import {Composition} from 'remotion';
+import {FPS, TOTAL_DURATION_IN_FRAMES} from './beats';
 import {LaunchFilm} from './LaunchFilm';
-import {AccentHero} from './scenes/AccentHero';
-import {ColdOpen} from './scenes/ColdOpen';
 import './fonts';
 
-const coldOpen = beat('cold-open');
-const accentHero = beat('accent-hero');
-
-/** The two built beats, back to back — real frames to judge, nothing else. */
-const Preview: React.FC = () => (
-    <AbsoluteFill style={{backgroundColor: '#241C22'}}>
-        <Sequence name="Beat A — cold open" durationInFrames={coldOpen.durationInFrames}>
-            <ColdOpen />
-        </Sequence>
-        <Sequence
-            name="Beat B — accent hero"
-            from={coldOpen.durationInFrames}
-            durationInFrames={accentHero.durationInFrames}
-        >
-            <AccentHero durationInFrames={accentHero.durationInFrames} />
-        </Sequence>
-    </AbsoluteFill>
-);
-
+/** Three aspects of the same cut — the scenes reframe themselves via
+ *  useAspect() (kinetic.tsx), no letterboxing anywhere. */
 export const Root: React.FC = () => (
     <>
         <Composition
@@ -36,11 +17,19 @@ export const Root: React.FC = () => (
             height={1080}
         />
         <Composition
-            id="Preview"
-            component={Preview}
-            durationInFrames={coldOpen.durationInFrames + accentHero.durationInFrames}
+            id="LaunchFilmVertical"
+            component={LaunchFilm}
+            durationInFrames={TOTAL_DURATION_IN_FRAMES}
             fps={FPS}
-            width={1920}
+            width={1080}
+            height={1920}
+        />
+        <Composition
+            id="LaunchFilmSquare"
+            component={LaunchFilm}
+            durationInFrames={TOTAL_DURATION_IN_FRAMES}
+            fps={FPS}
+            width={1080}
             height={1080}
         />
     </>

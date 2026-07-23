@@ -134,6 +134,18 @@ hex). Summary:
 
 ## The film itself (video/ — Remotion)
 
+**Current direction: the MUSIC CUT** — 33.07s, no voiceover, cut to the
+track in `video/public/audio/music.mp3` (gitignored; drop the track in
+after a clean clone). `video/src/beat-map.json` is the edit grid: librosa
+beat detection (117.5 BPM, 62 beats — `video/scripts/analyze-track.py`
+documents the method and regenerates the evidence) plus curated sections;
+every scene boundary and in-scene cut derives from it, and beats.ts refuses
+boundaries off the grid. The recolor lands on the track's global energy
+peak (beat 48, 24.64s). Renders: `--comp=LaunchFilm` (16:9),
+`LaunchFilmVertical` (9:16), `LaunchFilmSquare` (1:1) — scenes reframe via
+useAspect(), no letterboxing. The retired VO cut's pipeline (generate-vo*,
+vo-timing.json, voiceover mp3s) stays on disk, unwired.
+
 The Remotion project lives in `video/` with its **own** package.json — never
 entangled with the app's JS build. It reads the captured assets through a
 committed symlink (`video/public/assets → docs/launch-video/assets`) and this
