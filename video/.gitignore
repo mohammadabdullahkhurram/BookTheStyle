@@ -7,3 +7,6 @@ out/
 public/audio/*
 !public/audio/.gitkeep
 public/fonts/
+# Screen-recorded footage — dropped in by hand from Screen Studio exports.
+public/footage/*
+!public/footage/README.md
