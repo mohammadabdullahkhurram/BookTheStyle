@@ -1,25 +1,27 @@
 /**
  * THE TIMING SHEET — the film's spine. Every scene reads its window from
  * here; nothing hardcodes frame numbers inline. Beats breathe to the
- * narration (video/SCRIPT.md — the single source of truth for the VO), not
- * to type reveals.
+ * narration (video/SCRIPT.md), and since the real read exists the numbers
+ * come from src/vo-timing.json — the SINGLE timing source shared with the
+ * VO assembler (scripts/generate-vo.mjs --assemble), so the sheet and the
+ * audio can never drift apart. Regenerating the VO with different lengths
+ * makes the asserts below fail loudly: retime vo-timing.json, re-assemble,
+ * done.
  *
- * `provisional: true` = timed against SCRIPT.md word counts at a natural
- * ~2.7 words/sec because no VO read exists yet. When the real read lands in
- * public/audio/voiceover-final.mp3, retime those beats to the actual audio
- * and drop the flag.
+ * Timing decisions encoded in vo-timing.json (from the measured read):
+ *  - cold-open ends 0.47s after "…somewhere else." — a HARD CUT into the
+ *    logo promise (its stolen tail went to the logo beat).
+ *  - accent-hero keeps its full 12s recolor; "Not ours." is placed at
+ *    57.85s so it lands INSIDE the held near-black variant (~1.8s of
+ *    directed silence after "…your salon.").
+ *  - close holds ~3.2s of brand after the VO — the poster frame.
  */
+import timing from './vo-timing.json';
 
-export const FPS = 30;
+export const FPS = timing.sheet.fps;
 
 /** 78 seconds — the single total-duration constant. */
-export const TOTAL_DURATION_IN_FRAMES = 78 * FPS; // 2340
-
-/** Provisional VO pace used to lay type against narration pre-read. */
-export const WORDS_PER_SECOND = 2.7;
-
-export const wordsToFrames = (words: number): number =>
-    Math.round((words / WORDS_PER_SECOND) * FPS);
+export const TOTAL_DURATION_IN_FRAMES = timing.sheet.total_frames;
 
 export type BeatId =
     | 'cold-open'
@@ -39,50 +41,20 @@ export type Beat = {
     /** Manifest keys the scene draws (see src/manifest.ts). */
     assets: string[];
     built: boolean;
-    provisional?: boolean;
 };
 
-const sec = (s: number) => Math.round(s * FPS);
-
-export const BEATS: Beat[] = [
-    {
-        id: 'cold-open',
-        script: '[0:00–0:14 — Cold open]',
-        startFrame: sec(0),
-        durationInFrames: sec(14),
-        assets: [],
-        built: true,
-        provisional: true, // 35 words ≈ 13.0s VO + breathing room
-    },
-    {
-        id: 'logo-promise',
-        script: '[0:14–0:20 — Logo promise]',
-        startFrame: sec(14),
-        durationInFrames: sec(6),
-        assets: [],
-        built: false,
-    },
-    {
-        id: 'her-side',
-        script: '[0:20–0:36 — Her side]',
-        startFrame: sec(20),
-        durationInFrames: sec(16),
-        assets: ['widget-motion'], // real screen motion — scripts/capture-launch-assets.mjs --motion
-        built: false,
-    },
+const META: Array<{id: BeatId; script: string; assets: string[]}> = [
+    {id: 'cold-open', script: '[0:00–0:14 — Cold open]', assets: []},
+    {id: 'logo-promise', script: '[0:14–0:20 — Logo promise]', assets: []},
+    {id: 'her-side', script: '[0:20–0:36 — Her side]', assets: ['widget-motion', 'widget-08-confirmed']},
     {
         id: 'your-side',
         script: '[0:36–0:50 — Your side]',
-        startFrame: sec(36),
-        durationInFrames: sec(14),
         assets: ['owner-dashboard--marble', 'owner-calendar-week', 'owner-client-profile'],
-        built: false,
     },
     {
         id: 'accent-hero',
         script: '[0:50–1:02 — Make it yours]',
-        startFrame: sec(50),
-        durationInFrames: sec(12),
         assets: [
             'owner-dashboard--accent-01',
             'owner-dashboard--accent-02',
@@ -93,37 +65,38 @@ export const BEATS: Beat[] = [
             'widget-calendar--accent-03',
             'widget-calendar--accent-04',
         ],
-        built: true,
-        provisional: true, // 22 words ≈ 8.1s VO inside a 12s visual beat
     },
-    {
-        id: 'proof',
-        script: '[1:02–1:12 — Proof]',
-        startFrame: sec(62),
-        durationInFrames: sec(10),
-        assets: ['owner-reports', 'crop-embed-code'],
-        built: false,
-    },
-    {
-        id: 'close',
-        script: '[1:12–1:18 — Close]',
-        startFrame: sec(72),
-        durationInFrames: sec(6),
-        assets: [],
-        built: false,
-    },
+    {id: 'proof', script: '[1:02–1:12 — Proof]', assets: ['crop-appointment-row', 'crop-stat-tile']},
+    {id: 'close', script: '[1:12–1:18 — Close]', assets: []},
 ];
 
-// The sheet must tile the film exactly — no gaps, no overlaps, no drift.
-BEATS.reduce((cursor, beat) => {
-    if (beat.startFrame !== cursor) {
-        throw new Error(`Timing sheet gap/overlap at "${beat.id}": starts ${beat.startFrame}, expected ${cursor}`);
+let cursor = 0;
+export const BEATS: Beat[] = META.map(({id, script, assets}) => {
+    const durationInFrames = timing.sheet.beats[id];
+    if (typeof durationInFrames !== 'number') {
+        throw new Error(`vo-timing.json sheet has no duration for beat "${id}"`);
     }
-    return beat.startFrame + beat.durationInFrames;
-}, 0);
+    const built: Beat = {id, script, startFrame: cursor, durationInFrames, assets, built: true};
+    cursor += durationInFrames;
+    return built;
+});
 
-if (BEATS.reduce((sum, b) => sum + b.durationInFrames, 0) !== TOTAL_DURATION_IN_FRAMES) {
-    throw new Error('Timing sheet does not sum to TOTAL_DURATION_IN_FRAMES');
+// The sheet must tile the film exactly — no gaps, no overlaps, no drift.
+if (cursor !== TOTAL_DURATION_IN_FRAMES) {
+    throw new Error(`Timing sheet sums to ${cursor}, expected ${TOTAL_DURATION_IN_FRAMES}`);
+}
+
+// Every VO segment must start inside its beat and end before the next
+// beat's narration begins — the placement half of the same guarantee.
+for (const [segmentId, segment] of Object.entries(timing.segments)) {
+    const beatId = (segmentId === 'accent-hero-closer' ? 'accent-hero' : segmentId) as BeatId;
+    const beat = BEATS.find((b) => b.id === beatId);
+    if (!beat) continue;
+    const startFrame = Math.round(segment.start_seconds * FPS);
+    const endFrame = Math.round((segment.start_seconds + segment.seconds) * FPS);
+    if (startFrame < beat.startFrame || endFrame > beat.startFrame + beat.durationInFrames) {
+        throw new Error(`VO segment "${segmentId}" (${startFrame}–${endFrame}) escapes beat "${beatId}" (${beat.startFrame}–${beat.startFrame + beat.durationInFrames})`);
+    }
 }
 
 export const beat = (id: BeatId): Beat => {
@@ -133,3 +106,13 @@ export const beat = (id: BeatId): Beat => {
     }
     return found;
 };
+
+/** Frames (relative to a beat's start) at which its VO segment begins. */
+export const voLeadIn = (id: BeatId | 'accent-hero-closer'): number => {
+    const segment = timing.segments[id];
+    const parent = beat(id === 'accent-hero-closer' ? 'accent-hero' : id);
+    return Math.round(segment.start_seconds * FPS) - parent.startFrame;
+};
+
+export const voDurationInFrames = (id: BeatId | 'accent-hero-closer'): number =>
+    Math.round(timing.segments[id].seconds * FPS);

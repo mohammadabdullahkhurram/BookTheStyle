@@ -1,6 +1,6 @@
 import React from 'react';
 import {AbsoluteFill, Img, interpolate, spring, useCurrentFrame, useVideoConfig} from 'remotion';
-import {wordsToFrames} from '../beats';
+import {voDurationInFrames, voLeadIn} from '../beats';
 import {getAsset} from '../manifest';
 import {color, font, overlayShadow, type} from '../theme';
 
@@ -24,11 +24,16 @@ const VARIANTS = ['01', '02', '03', '04'].map((n) => ({
 
 const CROSSFADE = 18; // frames of dissolve between variants
 
-/** Opacity of variant i at `frame`, given equal segments across `total`. */
+/** Variant windows are deliberately UNEVEN: the first three recolors move
+ *  briskly (2.6s each) so the near-black finale arrives at 7.8s and HOLDS
+ *  4.2s — long enough that the late-placed "…Not ours." (57.85s absolute,
+ *  local ~8.85s) lands squarely inside it, VO and visual resolving
+ *  together. Boundaries in frames from beat start. */
+const BOUNDARIES = [0, 78, 156, 234];
+
 const variantOpacity = (index: number, frame: number, total: number): number => {
-    const segment = total / VARIANTS.length;
-    const start = index * segment;
-    const end = start + segment;
+    const start = BOUNDARIES[index];
+    const end = index === VARIANTS.length - 1 ? total : BOUNDARIES[index + 1];
 
     const fadeIn = index === 0
         ? 1 // the first variant is already on screen when the beat opens
@@ -49,8 +54,7 @@ const variantOpacity = (index: number, frame: number, total: number): number => 
 export const AccentHero: React.FC<{durationInFrames: number}> = ({durationInFrames}) => {
     const frame = useCurrentFrame();
     const {fps} = useVideoConfig();
-    const segment = durationInFrames / VARIANTS.length;
-    const active = Math.min(VARIANTS.length - 1, Math.floor(frame / segment));
+    const active = BOUNDARIES.filter((b) => frame >= b).length - 1;
 
     // A slow push-in gives the stills life without reading as a slideshow.
     const zoom = interpolate(frame, [0, durationInFrames], [1.03, 1.085]);
@@ -59,11 +63,12 @@ export const AccentHero: React.FC<{durationInFrames: number}> = ({durationInFram
     const phoneIn = spring({frame: frame - 26, fps, config: {damping: 32, stiffness: 90, mass: 1.1}});
     const phoneX = interpolate(phoneIn, [0, 1], [340, 0]);
 
-    // Type: "One color." lands with the VO's "One color" (~word 5); the
-    // closing "Not ours." with word 20.
-    const titleAt = wordsToFrames(5);
+    // Type lands with the MEASURED read: "One color…" is ~word 6 of the
+    // 21-word segment; "Not ours." has its own placed segment.
+    const voStart = voLeadIn('accent-hero');
+    const titleAt = voStart + Math.round((5 / 21) * voDurationInFrames('accent-hero'));
     const titleIn = spring({frame: frame - titleAt, fps, config: {damping: 30, stiffness: 120}});
-    const closerAt = wordsToFrames(20);
+    const closerAt = voLeadIn('accent-hero-closer');
     const closerIn = spring({frame: frame - closerAt, fps, config: {damping: 30, stiffness: 120}});
 
     return (

@@ -1,6 +1,6 @@
 import React from 'react';
 import {AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig} from 'remotion';
-import {wordsToFrames} from '../beats';
+import {voDurationInFrames, voLeadIn} from '../beats';
 import {color, font, type} from '../theme';
 
 /**
@@ -47,8 +47,14 @@ const MOMENTS: Moment[] = [
     },
 ];
 
-/** VO lead-in: narration starts a breath after first frame. */
-const LEAD_IN = 12;
+/** VO lead-in + word→frame mapping, scaled to the MEASURED read: the
+ *  segment's 36 words span its real duration, so phrase timing tracks the
+ *  actual narration instead of a wpm guess. */
+const LEAD_IN = voLeadIn('cold-open');
+// (The final moment's toWord of 38 > 36 keeps it on screen through the
+// beat's hard cut — the Sequence clips it.)
+const wordsToFrames = (words: number): number =>
+    Math.round((words / 36) * voDurationInFrames('cold-open'));
 
 const EMPHASIS: Record<'butter' | 'coral', string> = {
     butter: color.marble.butter,

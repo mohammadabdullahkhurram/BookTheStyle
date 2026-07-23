@@ -25,6 +25,7 @@ import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {parseSegments} from './lib/segments.mjs';
 
 const videoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const audioDir = path.join(videoRoot, 'public/audio');
@@ -34,36 +35,10 @@ const timingPath = path.join(videoRoot, 'src/vo-timing.json');
 const args = new Set(process.argv.slice(2));
 
 // ---------------------------------------------------------------------------
-// SCRIPT.md → clean narration segments (beat markers and headers stripped)
+// SCRIPT.md → clean narration segments (shared parser — scripts/lib/segments.mjs)
 // ---------------------------------------------------------------------------
 
-const BEAT_IDS = ['cold-open', 'logo-promise', 'her-side', 'your-side', 'accent-hero', 'proof', 'close'];
-
-const script = fs.readFileSync(path.join(videoRoot, 'SCRIPT.md'), 'utf8');
-const paragraphs = [...script.matchAll(/^\[\d+:\d+–\d+:\d+ — [^\]]+\] (.+)$/gm)].map((m) => m[1].trim());
-
-if (paragraphs.length !== BEAT_IDS.length) {
-    console.error(`SCRIPT.md parsed into ${paragraphs.length} beats, expected ${BEAT_IDS.length}.`);
-    process.exit(1);
-}
-
-/** @type {Array<{id: string, text: string}>} */
-const segments = [];
-for (const [index, id] of BEAT_IDS.entries()) {
-    const text = paragraphs[index];
-    if (id === 'accent-hero') {
-        // The directed pause: "Not ours." is its own segment, placed late.
-        const splitAt = text.lastIndexOf('Not ours.');
-        if (splitAt === -1) {
-            console.error('SCRIPT.md accent-hero beat no longer ends with "Not ours." — update this split.');
-            process.exit(1);
-        }
-        segments.push({id: 'accent-hero', text: text.slice(0, splitAt).trim()});
-        segments.push({id: 'accent-hero-closer', text: text.slice(splitAt).trim()});
-    } else {
-        segments.push({id, text});
-    }
-}
+const segments = parseSegments(videoRoot);
 
 if (args.has('--dry-run')) {
     for (const {id, text} of segments) {

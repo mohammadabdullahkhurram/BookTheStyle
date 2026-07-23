@@ -147,35 +147,41 @@ if (args.motion) {
     console.log('Recording widget motion (reduced-motion OFF, human pacing)…');
     const started = Date.now();
 
+    // Waits are paced to the MEASURED her-side read (video/src/vo-timing.json,
+    // ~10.5s at Samantha/172wpm; the film starts this recording ~0.3s into
+    // the beat, VO at 0.6s): the service tap sits under "She picks the
+    // service.", the stylist tap under "Her stylist.", the calendar + slot
+    // under "A time that works." → "Thirty seconds…", and the typed details
+    // + confirmation ride the "No call. No wait." run-out.
     await motionPage.goto(widgetInfoUrl);
     await motionPage.waitForSelector('#bts-services .wb-opt');
     await motionPage.evaluate(async () => { await document.fonts.ready; });
-    await pause(1400); // land — let the brand read
+    await pause(1900); // land — "She picks the service." begins
 
     await motionPage.locator('#bts-services .wb-opt', {hasText: 'Full colour'}).click();
-    await pause(1100); // service picked → stylist step
+    await pause(950); // → "Her stylist."
 
     await motionPage.locator('#bts-stylists .wb-opt', {hasText: 'Sofia'}).click();
     await motionPage.waitForSelector('.wb-day[data-available="true"]');
-    await pause(1300); // the availability calendar breathes
+    await pause(1100); // "A time that works." — the calendar breathes
 
     await motionPage.locator('.wb-day[data-available="true"]').nth(2).click();
     await motionPage.waitForSelector('.wb-chip');
-    await pause(1500); // open times appear
+    await pause(900); // open times appear
 
     await motionPage.locator('.wb-chip').first().click();
-    await pause(1300); // added — the visit summary fills in
+    await pause(800); // added — "Thirty seconds, from her phone…"
 
     await motionPage.locator('#bts-finalize').click();
-    await pause(900);
-    await motionPage.locator('#bts-name').pressSequentially('Jamie Rivera', {delay: 55});
-    await pause(350);
-    await motionPage.locator('#bts-phone').pressSequentially(info.capture_client_phone, {delay: 45});
     await pause(700);
+    await motionPage.locator('#bts-name').pressSequentially('Jamie Rivera', {delay: 55});
+    await pause(300);
+    await motionPage.locator('#bts-phone').pressSequentially(info.capture_client_phone, {delay: 45});
+    await pause(600);
 
     await motionPage.locator('#bts-submit').click();
     await motionPage.waitForSelector('section[data-step="confirmed"]:not([hidden])');
-    await pause(2000); // hold the confirmation
+    await pause(2500); // hold the confirmation — "No maybe-I'll-try-later."
 
     const durationMs = Date.now() - started;
     await motionPage.close();

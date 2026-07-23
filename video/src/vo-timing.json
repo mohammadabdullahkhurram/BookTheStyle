@@ -1,0 +1,54 @@
+{
+  "voice": {
+    "engine": "macos-say",
+    "name": "Samantha",
+    "rate_wpm": 172
+  },
+  "segments": {
+    "cold-open": {
+      "seconds": 11.99,
+      "start_seconds": 0.4
+    },
+    "logo-promise": {
+      "seconds": 3.918,
+      "start_seconds": 13.2
+    },
+    "her-side": {
+      "seconds": 10.475,
+      "start_seconds": 19.4
+    },
+    "your-side": {
+      "seconds": 8.411,
+      "start_seconds": 35.3
+    },
+    "accent-hero": {
+      "seconds": 6.452,
+      "start_seconds": 49.6
+    },
+    "accent-hero-closer": {
+      "seconds": 0.731,
+      "start_seconds": 57.85
+    },
+    "proof": {
+      "seconds": 4.989,
+      "start_seconds": 61.5
+    },
+    "close": {
+      "seconds": 3.37,
+      "start_seconds": 71.4
+    }
+  },
+  "sheet": {
+    "fps": 30,
+    "total_frames": 2340,
+    "beats": {
+      "cold-open": 386,
+      "logo-promise": 178,
+      "her-side": 480,
+      "your-side": 426,
+      "accent-hero": 360,
+      "proof": 300,
+      "close": 210
+    }
+  }
+}

@@ -150,8 +150,18 @@ npm run render -- --draft         # half-res draft for fast iteration
 npm run render -- --comp=LaunchFilm --out=/abs/path   # full 78s timeline, custom dir
 ```
 
-**Voiceover generation** (`video/scripts/generate-vo.mjs`) needs
-`ELEVENLABS_API_KEY` in the environment — required ONLY to (re)generate the
+**Voiceover generation** has two engines writing into the same slot
+(`video/public/audio/voiceover-final.mp3`):
+
+- **macOS `say` (default — free, local, no key):** `node
+  scripts/generate-vo-say.mjs` then `node scripts/generate-vo.mjs
+  --assemble`. Voice preference Ava (Premium) → Zoe (Premium) → Ava
+  (Enhanced) → Samantha (override: `VO_VOICE`), 172 wpm; the machine that
+  produced the current read had only Samantha installed — installing a
+  premium voice (System Settings → Accessibility → Spoken Content → System
+  Voice → Manage Voices) and re-running upgrades the read in one command.
+- **ElevenLabs (warmer, optional):** `scripts/generate-vo.mjs` needs
+  `ELEVENLABS_API_KEY` in the environment — required ONLY to (re)generate the
 read; rendering needs nothing but the mp3 already on disk. The key is never
 committed anywhere. The script parses `SCRIPT.md` into per-beat segments
 (markers stripped), synthesizes each with prosody continuity

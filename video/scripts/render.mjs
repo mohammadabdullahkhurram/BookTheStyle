@@ -27,12 +27,20 @@ fs.mkdirSync(outDir, {recursive: true});
 
 const composition = String(args.comp ?? 'Preview');
 const draft = Boolean(args.draft);
-const outFile = path.join(outDir, `${composition.toLowerCase()}${draft ? '-draft' : ''}.mp4`);
+const social = Boolean(args.social);
+const suffix = draft ? '-draft' : social ? '-social' : '';
+const defaultName = composition === 'LaunchFilm' ? 'launch-master' : composition.toLowerCase();
+const outFile = path.join(outDir, `${String(args.name ?? defaultName + suffix)}.mp4`);
 
-const renderArgs = [
-    'remotion', 'render', composition, outFile,
-    ...(draft ? ['--scale=0.5', '--jpeg-quality=60', '--crf=30'] : ['--crf=17']),
-];
+// draft: fast half-res iteration. social: 1080p H.264 tuned small enough
+// for Instagram/LinkedIn upload without a long encode. default: master.
+const profile = draft
+    ? ['--scale=0.5', '--jpeg-quality=60', '--crf=30']
+    : social
+        ? ['--crf=23', '--x264-preset=medium']
+        : ['--crf=17'];
+
+const renderArgs = ['remotion', 'render', composition, outFile, ...profile];
 
 console.log(`Rendering ${composition} ${draft ? '(draft)' : '(full res)'} → ${outFile}`);
 execFileSync('npx', renderArgs, {cwd: videoRoot, stdio: 'inherit'});
