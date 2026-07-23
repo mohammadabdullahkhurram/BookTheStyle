@@ -150,6 +150,23 @@ npm run render -- --draft         # half-res draft for fast iteration
 npm run render -- --comp=LaunchFilm --out=/abs/path   # full 78s timeline, custom dir
 ```
 
+**Voiceover generation** (`video/scripts/generate-vo.mjs`) needs
+`ELEVENLABS_API_KEY` in the environment — required ONLY to (re)generate the
+read; rendering needs nothing but the mp3 already on disk. The key is never
+committed anywhere. The script parses `SCRIPT.md` into per-beat segments
+(markers stripped), synthesizes each with prosody continuity
+(`previous_text`/`next_text`), and measures real durations into
+`video/src/vo-timing.json` — the single timing source the beat sheet reads.
+The film's two directed pauses (a beat of silence before "Not ours.", a hard
+stop after "somewhere else.") are handled by per-segment PLACEMENT at
+explicit offsets (`--assemble` builds `voiceover-final.mp3` with ffmpeg
+adelay/amix), not SSML — deterministic and re-timeable. Voice: first
+available premade from the shortlist Rachel → Matilda → Sarah → Alice (warm,
+conversational, owner-to-owner — not announcer), overridable with
+`ELEVENLABS_VOICE_ID`; the chosen id lands in `vo-timing.json` for
+reproducibility. Dry-run without the key: `node scripts/generate-vo.mjs
+--dry-run`.
+
 Renders NEVER enter git — the render script writes outside the repo
 (`--out` / `BTS_RENDER_OUT`, default `~/Movies/BookTheStyle-Launch/`).
 Fonts are the app's own self-hosted woff2 binaries, auto-synced from
