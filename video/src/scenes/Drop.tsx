@@ -1,6 +1,6 @@
 import {Armchair, AudioLines, BellRing, CalendarDays, ChartColumn, Clock, Users} from 'lucide-react';
 import React from 'react';
-import {AbsoluteFill, interpolate, useCurrentFrame} from 'remotion';
+import {AbsoluteFill, Easing, interpolate, useCurrentFrame} from 'remotion';
 import {localBeat} from '../beats';
 import {color} from '../theme';
 import {BrandLockup} from './Brand';
@@ -54,12 +54,16 @@ export const Drop: React.FC = () => {
     const light = filmLight ? !inverted : inverted;
 
     const pull = aspect === 'wide' ? 0 : aspect === 'square' ? 90 : 170;
+    // The film's biggest camera moment: a slow majestic S-ARC around the
+    // constellation while the recolors hit (each swap mid-sweep), then a
+    // violent RUSH-IN that lands exactly on the 24.64s peak with the
+    // inversion flash. Arc = ceremony; rush = slam.
     const camera = cameraPath(frame, [
-        {f: 0, cam: cam([0, 0, 190 + pull], -7, 0, -1.2)},
-        {f: swaps[1], cam: cam([0, 10, 430 + pull], -2, 0, 0), ease: whip},
-        {f: swaps[2], cam: cam([0, -8, 560 + pull], 4, 0, 0.8), ease: whip},
-        {f: peak, cam: cam([0, 0, 280 + pull], 0, 0, 0), ease: whip},
-        {f: end, cam: cam([0, 0, 216 + pull], 0)},
+        {f: 0, cam: cam([-280, 30, 200 + pull], -14, 0, -2.5)},
+        {f: swaps[1], cam: cam([210, -30, 420 + pull], 8, 1, 1.2), ease: Easing.bezier(0.4, 0, 0.2, 1)},
+        {f: swaps[2], cam: cam([-150, 20, 580 + pull], -9, -1, -1.5), ease: Easing.bezier(0.4, 0, 0.2, 1)},
+        {f: peak, cam: cam([0, 0, 240 + pull], 0, 0, 0), ease: whip},
+        {f: end, cam: cam([0, 0, 212 + pull], 0)},
     ]);
 
     const [rx, ry] = aspect === 'wide' ? [730, 400] : aspect === 'square' ? [545, 545] : [430, 740];

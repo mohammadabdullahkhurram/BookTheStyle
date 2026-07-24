@@ -12,19 +12,39 @@ import {RemindersVignette, RentalVignette, ReportsVignette} from './vignettes';
  * stage creeping in as the riser climbs into the drop.
  */
 
-const CUTS: Array<{vignette: React.FC<{t: number}>; yaw: number}> = [
-    {vignette: RentalVignette, yaw: -3},
-    {vignette: RemindersVignette, yaw: 3},
-    {vignette: ReportsVignette, yaw: -2},
+// Each cut jolts in from a DIFFERENT direction: rental snap-zooms straight
+// in with a dutch kick, reminders rises from below, reports slides in from
+// the left and keeps panning past. Same beats, three characters.
+const CUTS: Array<{vignette: React.FC<{t: number}>; keys: (typeof cam extends (...a: never[]) => infer R ? Array<{f: number; cam: R; ease?: (t: number) => number}> : never)}> = [
+    {
+        vignette: RentalVignette,
+        keys: [
+            {f: 0, cam: cam([0, 0, 240], -6, 0, 6)},
+            {f: 5, cam: cam([0, 0, -6], 0, 0, 0), ease: whip},
+            {f: 60, cam: cam([0, 0, -84], 1.5)},
+        ],
+    },
+    {
+        vignette: RemindersVignette,
+        keys: [
+            {f: 0, cam: cam([0, 300, 70], 0, -14, -2)},
+            {f: 6, cam: cam([0, 0, 6], 0, 0, 0), ease: whip},
+            {f: 60, cam: cam([0, -14, -66], 0, 1.5)},
+        ],
+    },
+    {
+        vignette: ReportsVignette,
+        keys: [
+            {f: 0, cam: cam([-380, 0, 60], -9, 0, -3)},
+            {f: 6, cam: cam([-6, 0, 0], 0, 0, 0), ease: whip},
+            {f: 60, cam: cam([44, 0, -60], 2.5)},
+        ],
+    },
 ];
 
-const Cut: React.FC<{vignette: React.FC<{t: number}>; yaw: number; index: number}> = ({vignette: Vignette, yaw, index}) => {
+const Cut: React.FC<{vignette: React.FC<{t: number}>; keys: (typeof CUTS)[number]['keys']; index: number}> = ({vignette: Vignette, keys, index}) => {
     const frame = useCurrentFrame(); // local to this cut's Sequence
-    const camera = cameraPath(frame, [
-        {f: 0, cam: cam([0, 0, 130], yaw * 2, 0, yaw)},
-        {f: 6, cam: cam([0, 0, 10], yaw, 0, 0), ease: whip},
-        {f: 60, cam: cam([0, 0, -70], yaw * 0.6)},
-    ]);
+    const camera = cameraPath(frame, keys);
     return (
         <Stage3D camera={camera}>
             <Particles camera={camera} frame={frame} seed={`build-${index}`} min={[-800, -560, -700]} max={[800, 560, 300]} count={70} />
@@ -49,9 +69,9 @@ export const Build: React.FC = () => {
         <AbsoluteFill>
             <Void />
             <AbsoluteFill style={{scale: String(1 + ramp * (aspect === 'wide' ? 0.05 : 0.035))}}>
-                {CUTS.map(({vignette, yaw}, i) => (
+                {CUTS.map(({vignette, keys}, i) => (
                     <Sequence key={i} name={`build cut ${i + 1}`} from={bounds[i]} durationInFrames={bounds[i + 1] - bounds[i]}>
-                        <Cut vignette={vignette} yaw={yaw} index={i} />
+                        <Cut vignette={vignette} keys={keys} index={i} />
                     </Sequence>
                 ))}
             </AbsoluteFill>
