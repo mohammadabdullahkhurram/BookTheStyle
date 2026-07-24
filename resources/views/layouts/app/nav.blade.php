@@ -193,12 +193,14 @@
             <span x-show="!collapsed" x-cloak>{{ __('Settings') }}</span>
         </a>
     @else
-        <a href="{{ route('profile.edit') }}" wire:navigate @click="mobileNav = false"
-           aria-label="{{ __('Settings') }}" :title="collapsed ? '{{ __('Settings') }}' : null"
-           class="bts-nav-item {{ request()->routeIs('profile.*') ? 'bts-nav-item-active' : '' }}">
-            <flux:icon.cog-6-tooth variant="micro" class="shrink-0" />
-            <span x-show="!collapsed" x-cloak>{{ __('Settings') }}</span>
-        </a>
+        @unless ($user?->isDemoAccount())
+            <a href="{{ route('profile.edit') }}" wire:navigate @click="mobileNav = false"
+               aria-label="{{ __('Settings') }}" :title="collapsed ? '{{ __('Settings') }}' : null"
+               class="bts-nav-item {{ request()->routeIs('profile.*') ? 'bts-nav-item-active' : '' }}">
+                <flux:icon.cog-6-tooth variant="micro" class="shrink-0" />
+                <span x-show="!collapsed" x-cloak>{{ __('Settings') }}</span>
+            </a>
+        @endunless
     @endif
 </nav>
 
@@ -228,9 +230,13 @@
                     {{ __('All salons') }}
                 </flux:menu.item>
             @endif
-            <flux:menu.item :href="route('profile.edit')" icon="cog" wire:navigate>
-                {{ __('Account settings') }}
-            </flux:menu.item>
+            {{-- No account settings for demo visitors — there is no real
+                 account behind the session (deny.demo guards the routes). --}}
+            @unless ($user?->isDemoAccount())
+                <flux:menu.item :href="route('profile.edit')" icon="cog" wire:navigate>
+                    {{ __('Account settings') }}
+                </flux:menu.item>
+            @endunless
             <flux:menu.separator />
             <form method="POST" action="{{ route('logout') }}" class="w-full" novalidate>
                 @csrf
