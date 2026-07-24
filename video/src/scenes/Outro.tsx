@@ -1,9 +1,10 @@
 import React from 'react';
 import {AbsoluteFill, interpolate, useCurrentFrame} from 'remotion';
 import {localBeat} from '../beats';
-import {color, type} from '../theme';
+import {type} from '../theme';
 import {BrandLockup} from './Brand';
 import {slam, useAspect} from './kinetic';
+import {usePalette} from './mode';
 import {cam, cameraPath, Particles, Stage3D, Void} from './space';
 
 /**
@@ -15,6 +16,7 @@ import {cam, cameraPath, Particles, Stage3D, Void} from './space';
 export const Outro: React.FC = () => {
     const frame = useCurrentFrame();
     const aspect = useAspect();
+    const p = usePalette();
     const lb = (n: number) => localBeat('outro', n);
 
     // The last breath of camera: a barely-there settle, then stillness.
@@ -41,7 +43,7 @@ export const Outro: React.FC = () => {
                     style={{
                         ...type.display,
                         fontSize: aspect === 'wide' ? 118 : 92,
-                        color: color.marble.paper,
+                        color: p.fg,
                         transform: `scale(${ask.scale})`,
                         opacity: ask.opacity,
                         textAlign: 'center',
@@ -50,8 +52,8 @@ export const Outro: React.FC = () => {
                     Fill every chair.
                 </div>
                 <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24, opacity: url}}>
-                    <div style={{width: 72, height: 1, backgroundColor: color.marble.paper, opacity: 0.22}} />
-                    <div style={{...type.overline, fontSize: 26, color: color.marble.butter}}>
+                    <div style={{width: 72, height: 1, backgroundColor: p.fg, opacity: 0.22}} />
+                    <div style={{...type.overline, fontSize: 26, color: p.emphasis}}>
                         bookthestyle.com
                     </div>
                 </div>

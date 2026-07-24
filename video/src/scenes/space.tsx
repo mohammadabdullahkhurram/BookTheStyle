@@ -1,6 +1,7 @@
 import React from 'react';
 import {AbsoluteFill, Easing, interpolate, random, useVideoConfig} from 'remotion';
 import {color} from '../theme';
+import {useFilmLight} from './mode';
 
 /**
  * The film's 3D world — a CSS-perspective camera rig. The camera is the
@@ -126,15 +127,31 @@ export const Plate3D: React.FC<{
     );
 };
 
-/** The dark branded void — warm Marble dark, accent-tinted fog, vignette.
+/** The branded void, in either mode — warm Marble dark with accent fog, or
+ *  the bright Marble field with a soft accent breath and an edge vignette.
  *  `breath` is the accent fog's hex alpha — the drop turns it up. */
-export const Void: React.FC<{accent?: string; light?: boolean; breath?: string}> = ({accent = color.accent, light = false, breath = '30'}) =>
-    light ? (
-        <AbsoluteFill
-            style={{
-                background: `radial-gradient(120% 90% at 50% 44%, ${color.marble.paper} 0%, #F3E9DC 70%, #E9DCCC 100%)`,
-            }}
-        />
+export const Void: React.FC<{accent?: string; light?: boolean; breath?: string}> = ({accent = color.accent, light: lightProp, breath = '30'}) => {
+    const light = lightProp ?? useFilmLight();
+
+    return light ? (
+        <AbsoluteFill>
+            <AbsoluteFill
+                style={{
+                    background: `radial-gradient(120% 90% at 50% 44%, ${color.marble.paper} 0%, #F3E9DC 70%, #E9DCCC 100%)`,
+                }}
+            />
+            {/* The accent breath survives on light too — softer, higher. */}
+            <AbsoluteFill
+                style={{
+                    background: `radial-gradient(75% 60% at 50% 40%, ${accent}1c 0%, ${accent}00 62%)`,
+                }}
+            />
+            <AbsoluteFill
+                style={{
+                    background: 'radial-gradient(130% 105% at 50% 50%, rgba(74,56,46,0) 66%, rgba(74,56,46,0.12) 100%)',
+                }}
+            />
+        </AbsoluteFill>
     ) : (
         <AbsoluteFill>
             <AbsoluteFill
@@ -155,10 +172,13 @@ export const Void: React.FC<{accent?: string; light?: boolean; breath?: string}>
             />
         </AbsoluteFill>
     );
+};
 
 /** Faint floor grid receding to the horizon — the strongest dolly-parallax cue. */
-export const GroundGrid: React.FC<{center: Vec3; light?: boolean; extent?: number}> = ({center, light = false, extent = 7000}) => {
-    const line = light ? 'rgba(74,56,46,0.10)' : 'rgba(255,248,239,0.055)';
+export const GroundGrid: React.FC<{center: Vec3; light?: boolean; extent?: number}> = ({center, light: lightProp, extent = 7000}) => {
+    const light = lightProp ?? useFilmLight();
+    // Kept faint on light — through the frosted cards a stronger grid moirés.
+    const line = light ? 'rgba(74,56,46,0.07)' : 'rgba(255,248,239,0.055)';
     return (
         <div
             style={{
@@ -203,7 +223,8 @@ export const Particles: React.FC<{
     max: Vec3;
     accent?: string;
     light?: boolean;
-}> = ({camera, frame, seed, count = 110, min, max, accent = color.accent, light = false}) => {
+}> = ({camera, frame, seed, count = 110, min, max, accent = color.accent, light: lightProp}) => {
+    const light = lightProp ?? useFilmLight();
     const specs = React.useMemo(() => makeParticles(seed, count, min, max), [seed, count, min, max]);
     return (
         <>
@@ -215,8 +236,12 @@ export const Particles: React.FC<{
                 });
                 if (opacity <= 0.01) return null;
                 const bob = Math.sin(frame * 0.035 + p.phase) * 16;
+                // Light keeps the accent share (saturated, no glow) so the
+                // drop's recolor still touches the atmosphere.
                 const tint = light
-                    ? 'rgba(74,56,46,0.5)'
+                    ? p.accent
+                        ? accent
+                        : 'rgba(74,56,46,0.5)'
                     : p.accent
                         ? accent
                         : 'rgba(255,248,239,0.75)';
@@ -244,25 +269,34 @@ export const Particles: React.FC<{
 
 export type PanelSpec = {pos: Vec3; w: number; h: number; yaw?: number};
 
+/** The decorative slab look, per mode: paper-ghost glass on dark; on light,
+ *  a barely-there white pane whose SHADOW does the depth work glow did. */
+const panelStyle = (light: boolean, w: number, h: number): React.CSSProperties => ({
+    width: w,
+    height: h,
+    borderRadius: 22,
+    border: light ? '1px solid rgba(74,56,46,0.12)' : '1px solid rgba(255,248,239,0.10)',
+    background: light
+        ? 'linear-gradient(160deg, rgba(255,255,255,0.55), rgba(255,248,239,0.25))'
+        : 'linear-gradient(160deg, rgba(255,248,239,0.05), rgba(255,248,239,0.012))',
+    boxShadow: light ? '0 22px 50px rgba(52,33,45,0.10)' : 'none',
+});
+
 /** Hand-placed decorative slabs — for spaces where random placement would
  *  drift panels across the content cards (the groove flight path). */
-export const PlacedPanels: React.FC<{camera: CameraState; specs: PanelSpec[]}> = ({camera, specs}) => (
-    <>
-        {specs.map((g, i) => (
-            <Plate3D key={i} pos={g.pos} yaw={g.yaw ?? 0} camera={camera} fog={[1100, 2600]}>
-                <div
-                    style={{
-                        width: g.w,
-                        height: g.h,
-                        borderRadius: 22,
-                        border: '1px solid rgba(255,248,239,0.10)',
-                        background: 'linear-gradient(160deg, rgba(255,248,239,0.05), rgba(255,248,239,0.012))',
-                    }}
-                />
-            </Plate3D>
-        ))}
-    </>
-);
+export const PlacedPanels: React.FC<{camera: CameraState; specs: PanelSpec[]}> = ({camera, specs}) => {
+    const light = useFilmLight();
+
+    return (
+        <>
+            {specs.map((g, i) => (
+                <Plate3D key={i} pos={g.pos} yaw={g.yaw ?? 0} camera={camera} fog={[1100, 2600]}>
+                    <div style={panelStyle(light, g.w, g.h)} />
+                </Plate3D>
+            ))}
+        </>
+    );
+};
 
 /** Decorative empty glass slabs to fly past — depth extras, never content. */
 export const GhostPanels: React.FC<{camera: CameraState; seed: string; count?: number; min: Vec3; max: Vec3}> = ({
@@ -286,19 +320,13 @@ export const GhostPanels: React.FC<{camera: CameraState; seed: string; count?: n
             })),
         [seed, count, min, max],
     );
+    const light = useFilmLight();
+
     return (
         <>
             {specs.map((g, i) => (
                 <Plate3D key={i} pos={g.pos} yaw={g.yaw} camera={camera} fog={[1100, 2600]}>
-                    <div
-                        style={{
-                            width: g.w,
-                            height: g.h,
-                            borderRadius: 22,
-                            border: '1px solid rgba(255,248,239,0.10)',
-                            background: 'linear-gradient(160deg, rgba(255,248,239,0.05), rgba(255,248,239,0.012))',
-                        }}
-                    />
+                    <div style={panelStyle(light, g.w, g.h)} />
                 </Plate3D>
             ))}
         </>
@@ -308,7 +336,12 @@ export const GhostPanels: React.FC<{camera: CameraState; seed: string; count?: n
 /** Screen-space light streaks in the travel direction — garnish over the real
  *  motion blur, only visible while the camera is actually fast. */
 export const SpeedStreaks: React.FC<{intensity: number; seed?: string}> = ({intensity, seed = 'streaks'}) => {
+    const light = useFilmLight();
     if (intensity <= 0.02) return null;
+    // Light streaks on dark; ink streaks (softer) on light — white-on-light
+    // simply vanishes.
+    const tone = light ? '74,56,46' : '255,248,239';
+    const peak = light ? 0.28 : 0.5;
     return (
         <AbsoluteFill style={{overflow: 'hidden', opacity: Math.min(1, intensity)}}>
             {Array.from({length: 9}, (_, i) => {
@@ -325,7 +358,7 @@ export const SpeedStreaks: React.FC<{intensity: number; seed?: string}> = ({inte
                             width: w,
                             height: 2,
                             borderRadius: 2,
-                            background: 'linear-gradient(90deg, rgba(255,248,239,0) 0%, rgba(255,248,239,0.5) 50%, rgba(255,248,239,0) 100%)',
+                            background: `linear-gradient(90deg, rgba(${tone},0) 0%, rgba(${tone},${peak}) 50%, rgba(${tone},0) 100%)`,
                         }}
                     />
                 );

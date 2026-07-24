@@ -15,7 +15,7 @@ import {Easing, interpolate} from 'remotion';
 import {FRAMES_PER_BEAT} from '../beats';
 import {color, font, type} from '../theme';
 import {CardTitle, GlassCard, IconBadge} from './glass';
-import {lit} from './space';
+import {paletteFor, usePalette, type Palette} from './mode';
 
 /**
  * The seven capability vignettes — each card face abstractly ACTS OUT its
@@ -42,25 +42,29 @@ const kick = (t: number, at: number, amount = 0.1): number => {
 
 const row: React.CSSProperties = {display: 'flex', alignItems: 'center', gap: 18};
 
-const RowIcon: React.FC<{icon: LucideIcon}> = ({icon: Icon}) => (
-    <div
-        style={{
-            width: 52,
-            height: 52,
-            borderRadius: 15,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'rgba(255,248,239,0.09)',
-            border: '1px solid rgba(255,248,239,0.16)',
-        }}
-    >
-        <Icon size={26} color={color.marble.paper} strokeWidth={1.8} />
-    </div>
-);
+const RowIcon: React.FC<{icon: LucideIcon}> = ({icon: Icon}) => {
+    const p = usePalette();
 
-const rowText: React.CSSProperties = {fontFamily: font.body, fontWeight: 500, fontSize: 27, color: color.marble.paper};
-const rowSub: React.CSSProperties = {fontFamily: font.body, fontWeight: 400, fontSize: 21, color: 'rgba(255,248,239,0.55)'};
+    return (
+        <div
+            style={{
+                width: 52,
+                height: 52,
+                borderRadius: 15,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: p.chipBg,
+                border: `1px solid ${p.chipBorder}`,
+            }}
+        >
+            <Icon size={26} color={p.fg} strokeWidth={1.8} />
+        </div>
+    );
+};
+
+const rowText = (p: Palette): React.CSSProperties => ({fontFamily: font.body, fontWeight: 500, fontSize: 27, color: p.fg});
+const rowSub = (p: Palette): React.CSSProperties => ({fontFamily: font.body, fontWeight: 400, fontSize: 21, color: p.sub});
 
 const Header: React.FC<{icon: LucideIcon; eyebrow: string; title: string}> = ({icon, eyebrow, title}) => (
     <div style={{display: 'flex', alignItems: 'center', gap: 26}}>
@@ -75,6 +79,7 @@ const PAD = 52;
 
 /** 1 — Online Booking: service → stylist → slots → confirmed ON the accent hit. */
 export const BookingVignette: React.FC<{t: number}> = ({t}) => {
+    const p = usePalette();
     const service = pop(t, BEAT * 1);
     const stylist = pop(t, BEAT * 2);
     const chipsAt = BEAT * 2.5;
@@ -89,8 +94,8 @@ export const BookingVignette: React.FC<{t: number}> = ({t}) => {
                 <div style={{...row, scale: String(service.scale), opacity: service.opacity}}>
                     <RowIcon icon={Scissors} />
                     <div>
-                        <div style={rowText}>Balayage & tone</div>
-                        <div style={rowSub}>90 min</div>
+                        <div style={rowText(p)}>Balayage & tone</div>
+                        <div style={rowSub(p)}>90 min</div>
                     </div>
                 </div>
                 <div style={{...row, scale: String(stylist.scale), opacity: stylist.opacity}}>
@@ -102,19 +107,19 @@ export const BookingVignette: React.FC<{t: number}> = ({t}) => {
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            background: `${color.accent}44`,
-                            border: `1.5px solid ${lit(color.accent)}77`,
+                            background: `${color.accent}33`,
+                            border: `1.5px solid ${p.accentText(color.accent)}88`,
                             fontFamily: font.body,
                             fontWeight: 600,
                             fontSize: 20,
-                            color: color.marble.paper,
+                            color: p.fg,
                         }}
                     >
                         MR
                     </div>
                     <div>
-                        <div style={rowText}>Maya Rivera</div>
-                        <div style={rowSub}>Senior stylist</div>
+                        <div style={rowText(p)}>Maya Rivera</div>
+                        <div style={rowSub(p)}>Senior stylist</div>
                     </div>
                 </div>
                 <div style={{display: 'flex', gap: 16}}>
@@ -132,10 +137,10 @@ export const BookingVignette: React.FC<{t: number}> = ({t}) => {
                                     fontFamily: font.body,
                                     fontWeight: 600,
                                     fontSize: 23,
-                                    color: selected ? color.marble.paper : 'rgba(255,248,239,0.8)',
-                                    background: selected ? color.accent : 'rgba(255,248,239,0.08)',
-                                    border: `1.5px solid ${selected ? lit(color.accent) : 'rgba(255,248,239,0.2)'}`,
-                                    boxShadow: selected ? `0 0 30px ${color.accent}66` : 'none',
+                                    color: selected ? color.marble.paper : p.fg,
+                                    background: selected ? color.accent : p.chipBg,
+                                    border: `1.5px solid ${selected ? p.accentText(color.accent) : p.chipBorder}`,
+                                    boxShadow: selected ? p.accentGlow(color.accent, 30) : 'none',
                                 }}
                             >
                                 {s}
@@ -153,7 +158,7 @@ export const BookingVignette: React.FC<{t: number}> = ({t}) => {
                                 position: 'absolute',
                                 inset: 0,
                                 borderRadius: '50%',
-                                border: `2px solid ${lit(color.accent)}`,
+                                border: `2px solid ${p.accentText(color.accent)}`,
                                 scale: String(1 + ring * 1.1),
                                 opacity: 1 - ring,
                             }}
@@ -167,7 +172,7 @@ export const BookingVignette: React.FC<{t: number}> = ({t}) => {
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 background: color.accent,
-                                boxShadow: `0 0 44px ${color.accent}aa`,
+                                boxShadow: p.accentGlow(color.accent, 44, 'aa'),
                                 scale: String(confirm.scale),
                                 opacity: confirm.opacity,
                             }}
@@ -175,7 +180,7 @@ export const BookingVignette: React.FC<{t: number}> = ({t}) => {
                             <Check size={44} color={color.marble.paper} strokeWidth={2.6} />
                         </div>
                     </div>
-                    <div style={{...type.heading, fontSize: 40, color: color.marble.paper, scale: String(confirm.scale), opacity: confirm.opacity}}>
+                    <div style={{...type.heading, fontSize: 40, color: p.fg, scale: String(confirm.scale), opacity: confirm.opacity}}>
                         Confirmed
                     </div>
                 </div>
@@ -195,7 +200,8 @@ export const VoiceVignette: React.FC<{t: number}> = ({t}) => {
     const nodeLit = t >= BEAT * 2.25;
     const node = pop(t, BEAT * 2.25, 1.2);
     const pill = pop(t, BEAT * 3, 1.16);
-    const a = lit(color.accent);
+    const p = usePalette();
+    const a = p.accentText(color.accent);
     return (
         <GlassCard w={CARD_W} h={CARD_H} glow={1 + orbKick * 3}>
             <div style={{position: 'absolute', inset: 0, padding: PAD, display: 'flex', flexDirection: 'column'}}>
@@ -227,9 +233,9 @@ export const VoiceVignette: React.FC<{t: number}> = ({t}) => {
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                background: `radial-gradient(circle at 34% 30%, ${a}55 0%, ${color.accent}99 45%, ${color.accent}33 100%)`,
+                                background: `radial-gradient(circle at 34% 30%, ${a}55 0%, ${color.accent}99 45%, ${color.accent}55 100%)`,
                                 border: `1.5px solid ${a}88`,
-                                boxShadow: `0 0 ${60 + orbKick * 300}px ${color.accent}88`,
+                                boxShadow: p.accentGlow(color.accent, 60 + orbKick * 300, '88'),
                                 scale: String(1 + orbKick),
                             }}
                         >
@@ -259,12 +265,12 @@ export const VoiceVignette: React.FC<{t: number}> = ({t}) => {
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                background: nodeLit ? `${color.accent}55` : 'rgba(255,248,239,0.07)',
-                                border: `1.5px solid ${nodeLit ? a : 'rgba(255,248,239,0.18)'}`,
-                                boxShadow: nodeLit ? `0 0 50px ${color.accent}77` : 'none',
+                                background: nodeLit ? `${color.accent}55` : p.chipBg,
+                                border: `1.5px solid ${nodeLit ? a : p.chipBorder}`,
+                                boxShadow: nodeLit ? p.accentGlow(color.accent, 50, '77') : 'none',
                             }}
                         >
-                            <CalendarDays size={48} color={nodeLit ? color.marble.paper : 'rgba(255,248,239,0.5)'} strokeWidth={1.7} />
+                            <CalendarDays size={48} color={nodeLit ? p.fg : p.faint} strokeWidth={1.7} />
                         </div>
                     </div>
                     <div
@@ -276,7 +282,7 @@ export const VoiceVignette: React.FC<{t: number}> = ({t}) => {
                             borderRadius: 99,
                             background: color.accent,
                             border: `1.5px solid ${a}`,
-                            boxShadow: `0 0 32px ${color.accent}66`,
+                            boxShadow: p.accentGlow(color.accent, 32),
                             fontFamily: font.body,
                             fontWeight: 600,
                             fontSize: 22,
@@ -303,7 +309,8 @@ export const CalendarVignette: React.FC<{t: number}> = ({t}) => {
     ];
     const grid = pop(t, 0, 1.05);
     const sweep = interpolate(t, [BEAT * 1.5, BEAT * 4], [0, 100], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
-    const a = lit(color.accent);
+    const p = usePalette();
+    const a = p.accentText(color.accent);
     return (
         <GlassCard w={CARD_W} h={CARD_H}>
             <div style={{position: 'absolute', inset: 0, padding: PAD, display: 'flex', flexDirection: 'column', gap: 28}}>
@@ -321,12 +328,12 @@ export const CalendarVignette: React.FC<{t: number}> = ({t}) => {
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        background: 'rgba(255,248,239,0.09)',
-                                        border: '1px solid rgba(255,248,239,0.2)',
+                                        background: p.chipBg,
+                                        border: `1px solid ${p.chipBorder}`,
                                         fontFamily: font.body,
                                         fontWeight: 600,
                                         fontSize: 17,
-                                        color: 'rgba(255,248,239,0.85)',
+                                        color: p.fg,
                                     }}
                                 >
                                     {who}
@@ -336,8 +343,8 @@ export const CalendarVignette: React.FC<{t: number}> = ({t}) => {
                                         flex: 1,
                                         position: 'relative',
                                         borderRadius: 14,
-                                        border: '1px solid rgba(255,248,239,0.1)',
-                                        backgroundImage: 'repeating-linear-gradient(0deg, rgba(255,248,239,0.06) 0 1px, transparent 1px 20%)',
+                                        border: `1px solid ${p.line}`,
+                                        backgroundImage: `repeating-linear-gradient(0deg, ${p.line} 0 1px, transparent 1px 20%)`,
                                     }}
                                 >
                                     {blocks
@@ -357,7 +364,7 @@ export const CalendarVignette: React.FC<{t: number}> = ({t}) => {
                                                         borderRadius: 10,
                                                         background: strong ? `${color.accent}cc` : `${color.accent}55`,
                                                         border: `1px solid ${a}${strong ? 'cc' : '55'}`,
-                                                        boxShadow: strong ? `0 0 22px ${color.accent}55` : 'none',
+                                                        boxShadow: strong ? p.accentGlow(color.accent, 22, '55') : 'none',
                                                         scale: String(b.scale),
                                                         opacity: b.opacity,
                                                     }}
@@ -378,7 +385,7 @@ export const CalendarVignette: React.FC<{t: number}> = ({t}) => {
                                 top: `${14 + sweep * 0.8}%`,
                                 height: 2,
                                 background: `linear-gradient(90deg, transparent, ${a} 18%, ${a} 82%, transparent)`,
-                                boxShadow: `0 0 14px ${color.accent}`,
+                                boxShadow: p.accentGlow(color.accent, 14, 'ff'),
                                 opacity: 0.9,
                             }}
                         />
@@ -397,7 +404,8 @@ export const ClientsVignette: React.FC<{t: number}> = ({t}) => {
     ];
     const links: Array<[number, number]> = [[0, 1], [0, 2], [0, 5], [1, 3], [1, 4], [2, 6], [1, 6]];
     const profile = pop(t, BEAT * 2.25, 1.16);
-    const a = lit(color.accent);
+    const p = usePalette();
+    const a = p.accentText(color.accent);
     const dots = 8;
     return (
         <GlassCard w={CARD_W} h={CARD_H}>
@@ -427,7 +435,7 @@ export const ClientsVignette: React.FC<{t: number}> = ({t}) => {
                         })}
                     </svg>
                     {chips.map((c, i) => {
-                        const p = pop(t, i * (BEAT / 3), 1.3);
+                        const arrive = pop(t, i * (BEAT / 3), 1.3);
                         const isHero = i === 0;
                         return (
                             <div
@@ -442,15 +450,15 @@ export const ClientsVignette: React.FC<{t: number}> = ({t}) => {
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    background: isHero ? color.accent : 'rgba(255,248,239,0.1)',
-                                    border: `1.5px solid ${isHero ? a : 'rgba(255,248,239,0.28)'}`,
-                                    boxShadow: isHero ? `0 0 34px ${color.accent}77` : 'none',
+                                    background: isHero ? color.accent : p.chipBg,
+                                    border: `1.5px solid ${isHero ? a : p.chipBorder}`,
+                                    boxShadow: isHero ? p.accentGlow(color.accent, 34, '77') : 'none',
                                     fontFamily: font.body,
                                     fontWeight: 600,
                                     fontSize: 19,
-                                    color: color.marble.paper,
-                                    scale: String(p.scale + (isHero ? kick(t, BEAT * 2.25, 0.14) : 0)),
-                                    opacity: p.opacity,
+                                    color: isHero ? color.marble.paper : p.fg,
+                                    scale: String(arrive.scale + (isHero ? kick(t, BEAT * 2.25, 0.14) : 0)),
+                                    opacity: arrive.opacity,
                                 }}
                             >
                                 {c.who}
@@ -466,15 +474,15 @@ export const ClientsVignette: React.FC<{t: number}> = ({t}) => {
                             width: 236,
                             borderRadius: 22,
                             padding: '26px 28px',
-                            background: 'linear-gradient(165deg, rgba(255,248,239,0.14), rgba(255,248,239,0.05))',
+                            background: p.nestedBg,
                             border: `1.5px solid ${a}55`,
-                            boxShadow: `0 18px 50px rgba(0,0,0,0.4), 0 0 40px ${color.accent}22`,
+                            boxShadow: p.nestedShadow(color.accent),
                             scale: String(profile.scale),
                             opacity: profile.opacity,
                         }}
                     >
-                        <div style={{...type.heading, fontSize: 31, color: color.marble.paper}}>Sofia M.</div>
-                        <div style={{...rowSub, marginTop: 6}}>12 visits · balayage regular</div>
+                        <div style={{...type.heading, fontSize: 31, color: p.fg}}>Sofia M.</div>
+                        <div style={{...rowSub(p), marginTop: 6}}>12 visits · balayage regular</div>
                         <div style={{display: 'flex', gap: 7, marginTop: 20}}>
                             {Array.from({length: dots}, (_, i) => {
                                 const on = t >= BEAT * 2.75 + i * (BEAT / 8);
@@ -485,14 +493,14 @@ export const ClientsVignette: React.FC<{t: number}> = ({t}) => {
                                             width: 15,
                                             height: 15,
                                             borderRadius: '50%',
-                                            background: on ? (i === dots - 1 ? color.marble.butter : color.accent) : 'rgba(255,248,239,0.12)',
-                                            border: `1px solid ${on ? a : 'rgba(255,248,239,0.2)'}`,
+                                            background: on ? (i === dots - 1 ? p.emphasis : color.accent) : p.chipBg,
+                                            border: `1px solid ${on ? a : p.chipBorder}`,
                                         }}
                                     />
                                 );
                             })}
                         </div>
-                        <div style={{...type.overline, fontSize: 14, color: 'rgba(255,248,239,0.5)', marginTop: 10}}>Visit history</div>
+                        <div style={{...type.overline, fontSize: 14, color: p.faint, marginTop: 10}}>Visit history</div>
                     </div>
                 </div>
             </div>
@@ -505,6 +513,7 @@ const BUILD_H = 540;
 
 /** 5 — Chair & booth rental: the team-model tags snap in. The differentiator. */
 export const RentalVignette: React.FC<{t: number}> = ({t}) => {
+    const p = usePalette();
     const tags = ['Employee', 'Booth rental', 'Mix'];
     return (
         <GlassCard w={BUILD_W} h={BUILD_H} glow={1.3}>
@@ -512,7 +521,7 @@ export const RentalVignette: React.FC<{t: number}> = ({t}) => {
                 <Header icon={Armchair} eyebrow="Chair & booth rental" title="Run any team model" />
                 <div style={{display: 'flex', gap: 24, flexWrap: 'wrap'}}>
                     {tags.map((tag, i) => {
-                        const p = pop(t, i * (BEAT / 2), 1.3);
+                        const arrive = pop(t, i * (BEAT / 2), 1.3);
                         const isMix = i === 2;
                         return (
                             <div
@@ -523,12 +532,12 @@ export const RentalVignette: React.FC<{t: number}> = ({t}) => {
                                     fontFamily: font.body,
                                     fontWeight: 600,
                                     fontSize: 34,
-                                    color: color.marble.paper,
-                                    background: isMix ? color.accent : 'rgba(255,248,239,0.09)',
-                                    border: `1.5px solid ${isMix ? lit(color.accent) : 'rgba(255,248,239,0.24)'}`,
-                                    boxShadow: isMix ? `0 0 40px ${color.accent}77` : 'none',
-                                    scale: String(p.scale),
-                                    opacity: p.opacity,
+                                    color: isMix ? color.marble.paper : p.fg,
+                                    background: isMix ? color.accent : p.chipBg,
+                                    border: `1.5px solid ${isMix ? p.accentText(color.accent) : p.chipBorder}`,
+                                    boxShadow: isMix ? p.accentGlow(color.accent, 40, '77') : 'none',
+                                    scale: String(arrive.scale),
+                                    opacity: arrive.opacity,
                                 }}
                             >
                                 {tag}
@@ -536,7 +545,7 @@ export const RentalVignette: React.FC<{t: number}> = ({t}) => {
                         );
                     })}
                 </div>
-                <div style={{...rowSub, fontSize: 26}}>Commission staff and renters — one roof, one calendar.</div>
+                <div style={{...rowSub(p), fontSize: 26}}>Commission staff and renters — one roof, one calendar.</div>
             </div>
         </GlassCard>
     );
@@ -551,7 +560,8 @@ export const RemindersVignette: React.FC<{t: number}> = ({t}) => {
         easing: Easing.bezier(0.6, 0, 0.3, 1),
     });
     const showFilled = flip >= 90;
-    const a = lit(color.accent);
+    const p = usePalette();
+    const a = p.accentText(color.accent);
     return (
         <GlassCard w={BUILD_W} h={BUILD_H} glow={1 + kick(t, 0, 1.4)}>
             <div style={{position: 'absolute', inset: 0, padding: 56, display: 'flex', flexDirection: 'column', gap: 46}}>
@@ -586,15 +596,15 @@ export const RemindersVignette: React.FC<{t: number}> = ({t}) => {
                                 paddingLeft: 40,
                                 gap: 5,
                                 transform: `rotateX(${flip}deg)`,
-                                background: showFilled ? `${color.accent}dd` : 'rgba(255,248,239,0.08)',
-                                border: `1.5px solid ${showFilled ? a : 'rgba(255,248,239,0.2)'}`,
-                                boxShadow: showFilled ? `0 0 44px ${color.accent}66` : 'none',
+                                background: showFilled ? `${color.accent}dd` : p.chipBg,
+                                border: `1.5px solid ${showFilled ? a : p.chipBorder}`,
+                                boxShadow: showFilled ? p.accentGlow(color.accent, 44) : 'none',
                             }}
                         >
                             {/* Both faces counter-rotate so the text never mirrors. */}
                             <div style={{transform: showFilled ? 'rotateX(180deg)' : undefined}}>
-                                <div style={{...rowText, fontSize: 34}}>{showFilled ? 'Filled from waitlist' : '2:00 pm — no-show risk'}</div>
-                                <div style={{...rowSub, fontSize: 23}}>{showFilled ? 'Auto-reminder → rebooked' : 'No reply to reminder'}</div>
+                                <div style={{...rowText(p), fontSize: 34, color: showFilled ? color.marble.paper : p.fg}}>{showFilled ? 'Filled from waitlist' : '2:00 pm — no-show risk'}</div>
+                                <div style={{...rowSub(p), fontSize: 23, color: showFilled ? 'rgba(255,248,239,0.75)' : p.sub}}>{showFilled ? 'Auto-reminder → rebooked' : 'No reply to reminder'}</div>
                             </div>
                         </div>
                     </div>
@@ -620,7 +630,8 @@ export const ReportsVignette: React.FC<{t: number}> = ({t}) => {
         }),
     );
     const numPop = pop(t, BEAT * 2, 1.12);
-    const a = lit(color.accent);
+    const p = usePalette();
+    const a = p.accentText(color.accent);
     return (
         <GlassCard w={BUILD_W} h={BUILD_H}>
             <div style={{position: 'absolute', inset: 0, padding: 56, display: 'flex', flexDirection: 'column', gap: 34}}>
@@ -642,7 +653,7 @@ export const ReportsVignette: React.FC<{t: number}> = ({t}) => {
                                         borderRadius: 10,
                                         background: i === bars.length - 1 ? `${color.accent}dd` : `${color.accent}66`,
                                         border: `1px solid ${a}66`,
-                                        boxShadow: i === bars.length - 1 ? `0 0 26px ${color.accent}55` : 'none',
+                                        boxShadow: i === bars.length - 1 ? p.accentGlow(color.accent, 26, '55') : 'none',
                                     }}
                                 />
                             );
@@ -651,7 +662,7 @@ export const ReportsVignette: React.FC<{t: number}> = ({t}) => {
                             <path
                                 d="M 27 157 L 101 111 L 175 131 L 249 63 L 323 27"
                                 fill="none"
-                                stroke={color.marble.paper}
+                                stroke={p.fg}
                                 strokeWidth={2.5}
                                 strokeLinecap="round"
                                 strokeDasharray={400}
@@ -661,10 +672,10 @@ export const ReportsVignette: React.FC<{t: number}> = ({t}) => {
                         </svg>
                     </div>
                     <div style={{scale: String(numPop.scale), opacity: t >= BEAT * 0.5 ? 1 : 0}}>
-                        <div style={{...type.display, fontSize: 90, color: color.marble.butter}}>
+                        <div style={{...type.display, fontSize: 90, color: p.emphasis}}>
                             ${figure.toLocaleString('en-US')}
                         </div>
-                        <div style={{...type.overline, fontSize: 19, color: 'rgba(255,248,239,0.6)', marginTop: 8}}>This week</div>
+                        <div style={{...type.overline, fontSize: 19, color: p.faint, marginTop: 8}}>This week</div>
                     </div>
                 </div>
             </div>
@@ -682,7 +693,7 @@ export const MiniCard: React.FC<{icon: LucideIcon; label: string; accent: string
         light={light}
         radius={24}
         glow={1.8}
-        style={light ? undefined : {border: `1.5px solid ${lit(accent)}88`}}
+        style={light ? undefined : {border: `1.5px solid ${paletteFor(false).accentText(accent)}88`}}
     >
         <div style={{position: 'absolute', inset: 0, padding: 32, display: 'flex', flexDirection: 'column', gap: 22, alignItems: 'flex-start'}}>
             <IconBadge icon={icon} size={72} accent={accent} light={light} />

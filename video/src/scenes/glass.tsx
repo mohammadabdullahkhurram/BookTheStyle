@@ -1,6 +1,7 @@
 import type {LucideIcon} from 'lucide-react';
 import React from 'react';
 import {color, type} from '../theme';
+import {useFilmLight} from './mode';
 import {lit} from './space';
 
 /**
@@ -8,18 +9,24 @@ import {lit} from './space';
  * paper, hairline border, top rim-light, a restrained accent glow. The
  * backdrop-filter genuinely blurs whatever drifts behind (particles, grid);
  * the gradient fill carries the look even where nothing does.
+ *
+ * `light` defaults from the film mode (mode.tsx); the drop still passes it
+ * explicitly to flip the environment mid-scene.
  */
 export const GlassCard: React.FC<{
     w: number;
     h?: number;
     accent?: string;
-    /** Post-invert (drop finale) variant — ink glass on the light field. */
+    /** Ink glass on the light field. Defaults from the film mode. */
     light?: boolean;
     glow?: number;
     radius?: number;
     style?: React.CSSProperties;
     children?: React.ReactNode;
-}> = ({w, h, accent = color.accent, light = false, glow = 1, radius = 30, style, children}) => (
+}> = ({w, h, accent = color.accent, light: lightProp, glow = 1, radius = 30, style, children}) => {
+    const light = lightProp ?? useFilmLight();
+
+    return (
     <div
         style={{
             width: w,
@@ -54,15 +61,19 @@ export const GlassCard: React.FC<{
         />
         {children}
     </div>
-);
+    );
+};
 
 /** Rounded icon chip — one clear line icon per capability. */
 export const IconBadge: React.FC<{icon: LucideIcon; accent?: string; size?: number; light?: boolean}> = ({
     icon: Icon,
     accent = color.accent,
     size = 78,
-    light = false,
-}) => (
+    light: lightProp,
+}) => {
+    const light = lightProp ?? useFilmLight();
+
+    return (
     <div
         style={{
             width: size,
@@ -78,18 +89,23 @@ export const IconBadge: React.FC<{icon: LucideIcon; accent?: string; size?: numb
     >
         <Icon size={size * 0.5} color={light ? accent : lit(accent)} strokeWidth={1.8} absoluteStrokeWidth />
     </div>
-);
+    );
+};
 
 /** Card header: accent overline + Fraunces title. The label treatment. */
 export const CardTitle: React.FC<{eyebrow: string; title: string; accent?: string; light?: boolean; size?: number}> = ({
     eyebrow,
     title,
     accent = color.accent,
-    light = false,
+    light: lightProp,
     size = 46,
-}) => (
-    <div style={{display: 'flex', flexDirection: 'column', gap: 12}}>
-        <div style={{...type.overline, fontSize: 19, color: light ? accent : lit(accent)}}>{eyebrow}</div>
-        <div style={{...type.heading, fontSize: size, color: light ? color.ink : color.marble.paper}}>{title}</div>
-    </div>
-);
+}) => {
+    const light = lightProp ?? useFilmLight();
+
+    return (
+        <div style={{display: 'flex', flexDirection: 'column', gap: 12}}>
+            <div style={{...type.overline, fontSize: 19, color: light ? accent : lit(accent)}}>{eyebrow}</div>
+            <div style={{...type.heading, fontSize: size, color: light ? color.ink : color.marble.paper}}>{title}</div>
+        </div>
+    );
+};

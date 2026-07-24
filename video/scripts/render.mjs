@@ -33,9 +33,19 @@ const TARGETS = {
     social: {comp: 'LaunchFilm', file: 'launch-social.mp4', flags: ['--crf=23', '--x264-preset=medium']},
     vertical: {comp: 'LaunchFilmVertical', file: 'launch-vertical.mp4', flags: ['--crf=18']},
     square: {comp: 'LaunchFilmSquare', file: 'launch-square.mp4', flags: ['--crf=18']},
+    'master-light': {comp: 'LaunchFilmLight', file: 'launch-master-light.mp4', flags: ['--crf=17']},
+    'social-light': {comp: 'LaunchFilmLight', file: 'launch-social-light.mp4', flags: ['--crf=23', '--x264-preset=medium']},
+    'vertical-light': {comp: 'LaunchFilmLightVertical', file: 'launch-vertical-light.mp4', flags: ['--crf=18']},
+    'square-light': {comp: 'LaunchFilmLightSquare', file: 'launch-square-light.mp4', flags: ['--crf=18']},
 };
 
-const names = args.only ? String(args.only).split(',') : Object.keys(TARGETS);
+// Default render set = the four DARK finals; light targets are explicit
+// (--only=master-light,... or --only=light for all four).
+const names = args.only
+    ? String(args.only) === 'light'
+        ? Object.keys(TARGETS).filter((n) => n.endsWith('-light'))
+        : String(args.only).split(',')
+    : Object.keys(TARGETS).filter((n) => !n.endsWith('-light'));
 
 for (const name of names) {
     const target = TARGETS[name];

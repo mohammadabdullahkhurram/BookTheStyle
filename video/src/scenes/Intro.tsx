@@ -4,6 +4,7 @@ import {localBeat} from '../beats';
 import {color, font, type} from '../theme';
 import {GlassCard} from './glass';
 import {useAspect} from './kinetic';
+import {useFilmLight, usePalette} from './mode';
 import {cam, cameraPath, GhostPanels, GroundGrid, Particles, Plate3D, Stage3D, Void, whip} from './space';
 
 /**
@@ -15,6 +16,8 @@ import {cam, cameraPath, GhostPanels, GroundGrid, Particles, Plate3D, Stage3D, V
 export const Intro: React.FC = () => {
     const frame = useCurrentFrame();
     const aspect = useAspect();
+    const isLight = useFilmLight();
+    const p = usePalette();
     const b0 = localBeat('intro', 0);
     const b2 = localBeat('intro', 2);
     const b4 = localBeat('intro', 4);
@@ -68,11 +71,14 @@ export const Intro: React.FC = () => {
                                     width: iconSize,
                                     height: iconSize,
                                     borderRadius: iconSize * 0.24,
-                                    backgroundColor: color.marble.paper,
+                                    backgroundColor: isLight ? '#FFFFFF' : color.marble.paper,
+                                    border: isLight ? '1px solid rgba(74,56,46,0.14)' : 'none',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    boxShadow: `0 16px 40px rgba(0,0,0,0.35), 0 0 ${90 * glow}px rgba(255,248,239,${0.55 * glow})`,
+                                    boxShadow: isLight
+                                        ? `0 20px 50px rgba(52,33,45,${0.16 + 0.14 * glow}), 0 0 ${60 * glow}px ${color.accent}${glow > 0.4 ? '2e' : '1a'}`
+                                        : `0 16px 40px rgba(0,0,0,0.35), 0 0 ${90 * glow}px rgba(255,248,239,${0.55 * glow})`,
                                     overflow: 'hidden',
                                 }}
                             >
@@ -97,7 +103,7 @@ export const Intro: React.FC = () => {
                                 fontSize: aspect === 'tall' ? 40 : 36,
                                 letterSpacing: `${0.22 + (1 - resolve) * 0.5}em`,
                                 textTransform: 'uppercase',
-                                color: color.marble.paper,
+                                color: p.fg,
                                 whiteSpace: 'nowrap',
                             }}
                         >
@@ -121,7 +127,7 @@ export const Intro: React.FC = () => {
                                     textAlign: 'center',
                                     ...type.display,
                                     fontSize: aspect === 'wide' ? 64 : 56,
-                                    color: color.marble.paper,
+                                    color: p.fg,
                                 }}
                             >
                                 Everything your salon needs.

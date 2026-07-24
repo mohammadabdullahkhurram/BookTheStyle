@@ -6,6 +6,7 @@ import {color, type} from '../theme';
 import {BrandLockup} from './Brand';
 import {GlassCard} from './glass';
 import {KineticCard, useAspect} from './kinetic';
+import {useFilmLight} from './mode';
 import {cam, cameraPath, GroundGrid, Particles, Plate3D, Stage3D, Void, whip} from './space';
 import {MiniCard} from './vignettes';
 
@@ -44,7 +45,13 @@ export const Drop: React.FC = () => {
 
     const active = swaps.filter((s) => frame >= s).length - 1;
     const accent = ACCENTS[active];
-    const light = frame >= peak;
+    // THE MIRROR: the peak inverts the environment. The dark film slams to
+    // the bright Marble field (ink cards, near-black accent); the LIGHT film
+    // slams to the dark void — its single dark beat, pure contrast — so the
+    // climax lands with equal force instead of near-black-on-light mud.
+    const filmLight = useFilmLight();
+    const inverted = frame >= peak;
+    const light = filmLight ? !inverted : inverted;
 
     const pull = aspect === 'wide' ? 0 : aspect === 'square' ? 90 : 170;
     const camera = cameraPath(frame, [
@@ -65,7 +72,7 @@ export const Drop: React.FC = () => {
 
     return (
         <AbsoluteFill>
-            <Void accent={accent} light={light} breath="4d" />
+            <Void accent={accent} light={light} breath={light ? '30' : '4d'} />
             <AbsoluteFill style={{scale: String(settle)}}>
                 <Stage3D camera={camera}>
                     <GroundGrid center={[0, 600, -700]} light={light} />
@@ -92,9 +99,9 @@ export const Drop: React.FC = () => {
                     {/* The wordmark holds the centre of the system... */}
                     <Plate3D pos={[0, 0, RING_Z]} camera={camera} dof={false}>
                         <div style={{opacity: lockupOut, scale: String(1 + (1 - lockupOut) * 0.1)}}>
-                            <GlassCard w={480} h={430} accent={accent} glow={1.6}>
+                            <GlassCard w={480} h={430} accent={accent} light={light} glow={1.6}>
                                 <div style={{position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
-                                    <BrandLockup iconSize={168} wordSize={30} />
+                                    <BrandLockup iconSize={168} wordSize={30} light={light} />
                                 </div>
                             </GlassCard>
                         </div>
@@ -102,10 +109,13 @@ export const Drop: React.FC = () => {
                 </Stage3D>
             </AbsoluteFill>
 
-            {/* Shockwave on every recolor. */}
+            {/* Shockwave on every recolor — the arriving accent, except the
+                peak's ring, which reads in contrast against the JUST-inverted
+                environment (ink on light, paper on dark). */}
             {swaps.slice(1).map((s) => {
                 const w = interpolate(frame, [s, s + 16], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
                 if (w <= 0 || w >= 1) return null;
+                const isPeakRing = swaps.indexOf(s) === 3;
                 return (
                     <AbsoluteFill key={s} style={{alignItems: 'center', justifyContent: 'center'}}>
                         <div
@@ -113,7 +123,7 @@ export const Drop: React.FC = () => {
                                 width: 340,
                                 height: 340,
                                 borderRadius: '50%',
-                                border: `3px solid ${light ? color.ink : ACCENTS[swaps.indexOf(s)]}`,
+                                border: `3px solid ${isPeakRing ? (light ? color.ink : color.marble.paper) : ACCENTS[swaps.indexOf(s)]}`,
                                 scale: String(0.4 + w * 5),
                                 opacity: (1 - w) * 0.5,
                             }}
@@ -127,7 +137,7 @@ export const Drop: React.FC = () => {
             <KineticCard
                 at={peak}
                 center
-                tone="ink"
+                tone={filmLight ? 'paper' : 'ink'}
                 size={aspect === 'wide' ? 190 : 150}
                 position={{bottom: aspect === 'tall' ? '47%' : '42%'}}
             >
