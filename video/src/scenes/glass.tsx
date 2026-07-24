@@ -35,10 +35,12 @@ export const GlassCard: React.FC<{
             position: 'relative',
             border: light ? '1.5px solid rgba(33,28,24,0.28)' : '1px solid rgba(255,248,239,0.17)',
             background: light
-                ? 'linear-gradient(165deg, rgba(255,255,255,0.72), rgba(255,248,239,0.5))'
+                ? 'linear-gradient(165deg, rgba(255,255,255,0.92), rgba(255,248,239,0.8))'
                 : `linear-gradient(160deg, rgba(255,248,239,0.105) 0%, rgba(255,248,239,0.04) 52%, ${accent}14 100%)`,
-            backdropFilter: 'blur(22px) saturate(120%)',
-            WebkitBackdropFilter: 'blur(22px) saturate(120%)',
+            // No backdrop blur on light — sampling the grid through it moirés
+            // diagonal stripes across the face; the near-opaque fill is clean.
+            backdropFilter: light ? undefined : 'blur(22px) saturate(120%)',
+            WebkitBackdropFilter: light ? undefined : 'blur(22px) saturate(120%)',
             boxShadow: light
                 ? `0 30px 70px rgba(52,33,45,0.16), 0 0 ${44 * glow}px ${accent}22, inset 0 1px 0 rgba(255,255,255,0.85)`
                 : `0 34px 90px rgba(0,0,0,0.5), 0 0 ${56 * glow}px ${accent}2e, inset 0 1px 0 rgba(255,248,239,0.22)`,

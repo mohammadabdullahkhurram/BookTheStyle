@@ -54,6 +54,10 @@ export type Palette = {
     nestedBg: string;
     /** Shadow for that nested card — glow-assisted on dark, soft ink on light. */
     nestedShadow: (accent: string) => string;
+    /** Bespoke vignette panel: near-opaque surface (no backdrop moiré). */
+    panelBg: string;
+    panelBorder: string;
+    panelShadow: string;
 };
 
 const dark: Palette = {
@@ -69,6 +73,9 @@ const dark: Palette = {
     emphasis: color.marble.butter,
     nestedBg: 'linear-gradient(165deg, rgba(255,248,239,0.14), rgba(255,248,239,0.05))',
     nestedShadow: (accent) => `0 18px 50px rgba(0,0,0,0.4), 0 0 40px ${accent}22`,
+    panelBg: 'linear-gradient(165deg, rgba(56,42,34,0.92), rgba(42,31,26,0.9))',
+    panelBorder: 'rgba(255,248,239,0.16)',
+    panelShadow: '0 34px 90px rgba(0,0,0,0.5)',
 };
 
 const light: Palette = {
@@ -83,8 +90,11 @@ const light: Palette = {
     accentGlow: (accent, px) => `0 ${Math.round(px / 4)}px ${px}px ${accent}22`,
     streak: 'rgba(74,56,46,0.4)',
     emphasis: color.marble.coral,
-    nestedBg: 'linear-gradient(165deg, rgba(255,255,255,0.85), rgba(255,248,239,0.6))',
+    nestedBg: 'linear-gradient(165deg, rgba(255,255,255,0.95), rgba(255,248,239,0.85))',
     nestedShadow: (accent) => `0 16px 40px rgba(52,33,45,0.16), 0 4px 18px ${accent}1e`,
+    panelBg: 'linear-gradient(165deg, rgba(255,255,255,0.94), rgba(255,248,239,0.86))',
+    panelBorder: 'rgba(74,56,46,0.14)',
+    panelShadow: '0 30px 70px rgba(52,33,45,0.16)',
 };
 
 const palettes: Record<FilmMode, Palette> = {dark, light};
