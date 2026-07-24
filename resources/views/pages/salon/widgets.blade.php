@@ -229,8 +229,15 @@ new #[Title('Widgets')] class extends Component {
             <x-ui.card class="flex flex-col gap-5">
                 <div class="flex items-center justify-between gap-3">
                     <h2 class="bts-card-title">{{ $current->name }}</h2>
-                    <a href="{{ route('salon.widget', ['salon' => $salon, 'widget' => $current->public_id]) }}" target="_blank" rel="noopener"
-                       class="bts-btn bts-btn-secondary bts-btn-sm">{{ __('Preview') }}</a>
+                    @if ($salon->is_demo)
+                        {{-- The public widget surface is structurally inert for demo
+                             salons (WidgetController refuses them), so the preview
+                             link would 404 — say so instead of offering a dead door. --}}
+                        <span class="text-[13px] text-faint">{{ __('Preview is disabled in the demo') }}</span>
+                    @else
+                        <a href="{{ route('salon.widget', ['salon' => $salon, 'widget' => $current->public_id]) }}" target="_blank" rel="noopener"
+                           class="bts-btn bts-btn-secondary bts-btn-sm">{{ __('Preview') }}</a>
+                    @endif
                 </div>
 
                 <form wire:submit="save" class="flex flex-col gap-5" novalidate>
@@ -326,6 +333,9 @@ new #[Title('Widgets')] class extends Component {
             {{-- Embed code — unique to THIS widget. --}}
             <x-ui.card class="flex flex-col gap-5">
                 <h2 class="bts-card-title">{{ __('Embed this widget') }}</h2>
+                @if ($salon->is_demo)
+                    <p class="text-[13px] text-body">{{ __('Embeds are switched off in the demo. In your real salon, this code drops the booking form into any website.') }}</p>
+                @endif
                 {{-- Inline php directives only — a literal script tag never
                      appears inside this single-file component. --}}
                 @php($tag = 'scr'.'ipt')
