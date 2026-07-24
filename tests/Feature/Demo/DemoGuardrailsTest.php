@@ -56,6 +56,45 @@ it('keeps personal settings fully reachable for real users', function () {
         ->assertSee(__('Account settings'));
 });
 
+// ---------------------------------------------------------------------------
+// Item 3 — My calendar: the personal feed link cannot be generated in demo
+// ---------------------------------------------------------------------------
+
+it('blocks calendar-feed link generation in demo and hides the control', function () {
+    $salon = enterDemoSalon($this);
+
+    $this->get(route('salon.account', $salon))
+        ->assertOk()
+        ->assertSee(__('Calendar links are disabled in the demo.'))
+        ->assertDontSee(__('Generate calendar link'));
+
+    // The action itself is a no-op even when invoked directly.
+    Livewire\Livewire::actingAs(auth()->user())
+        ->test('pages::settings.calendar-feed')
+        ->call('generate')
+        ->assertSet('subscribeUrl', null)
+        ->assertSet('connected', false);
+
+    expect(auth()->user()->calendarConnection()->first()?->hasFeed())->not->toBeTrue();
+});
+
+it('keeps calendar-feed generation working for real users', function () {
+    $salon = Salon::factory()->create();
+    $owner = salonOwnerOf($salon);
+
+    $this->actingAs($owner)
+        ->get(route('salon.account', $salon))
+        ->assertOk()
+        ->assertSee(__('Generate calendar link'));
+
+    Livewire\Livewire::actingAs($owner)
+        ->test('pages::settings.calendar-feed')
+        ->call('generate')
+        ->assertSet('connected', true);
+
+    expect($owner->fresh()->calendarConnection()->first()?->hasFeed())->toBeTrue();
+});
+
 it('never flags real accounts as demo accounts', function () {
     $salon = Salon::factory()->create();
     $owner = salonOwnerOf($salon);

@@ -25,6 +25,12 @@ new class extends Component {
     /** Generate or rotate the feed token; show the fresh link once. */
     public function generate(CalendarFeedService $service): void
     {
+        if (Auth::user()->isDemoAccount()) {
+            Flux::toast(variant: 'danger', text: __('Calendar links are disabled in the demo.'));
+
+            return;
+        }
+
         $token = $service->regenerate(Auth::user());
 
         $this->subscribeUrl = $service->subscribeUrl($token);
@@ -36,6 +42,12 @@ new class extends Component {
 
     public function revoke(CalendarFeedService $service): void
     {
+        if (Auth::user()->isDemoAccount()) {
+            Flux::toast(variant: 'danger', text: __('Calendar links are disabled in the demo.'));
+
+            return;
+        }
+
         $service->revoke(Auth::user());
 
         $this->subscribeUrl = null;
@@ -315,6 +327,10 @@ new class extends Component {
                 </button>
             </div>
         </div>
+    @elseif (auth()->user()->isDemoAccount())
+        {{-- Demo: the link would expose a throwaway account's feed URL and
+             dead-end when the demo is swept — say so instead of offering it. --}}
+        <p class="text-[13px] text-faint">{{ __('Calendar links are disabled in the demo. In your real salon, every staff member gets a private feed for Google, Apple, or Outlook calendar.') }}</p>
     @else
         <div class="flex flex-col gap-3">
             <p class="text-[14px] leading-relaxed text-secondary">
