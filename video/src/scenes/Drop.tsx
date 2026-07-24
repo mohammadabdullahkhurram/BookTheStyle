@@ -2,7 +2,7 @@ import {Armchair, AudioLines, BellRing, CalendarDays, ChartColumn, Clock, Users}
 import React from 'react';
 import {AbsoluteFill, interpolate, useCurrentFrame} from 'remotion';
 import {localBeat} from '../beats';
-import {color, type} from '../theme';
+import {color} from '../theme';
 import {BrandLockup} from './Brand';
 import {GlassCard} from './glass';
 import {KineticCard, useAspect} from './kinetic';
@@ -156,6 +156,7 @@ export const Drop: React.FC = () => {
                     gap: 20,
                 }}
             >
+                {/* Swatches only — no hex readout; the color speaks for itself. */}
                 {ACCENTS.map((a, i) => (
                     <div
                         key={a}
@@ -169,9 +170,6 @@ export const Drop: React.FC = () => {
                         }}
                     />
                 ))}
-                <div style={{...type.overline, fontSize: 20, color: light ? color.ink : '#FFFFFF', opacity: 0.92, marginLeft: 8}}>
-                    {accent}
-                </div>
             </div>
         </AbsoluteFill>
     );
