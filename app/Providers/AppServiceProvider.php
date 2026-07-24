@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Http\Middleware\ResolveSalon;
 use App\Models\Agency;
 use App\Models\Salon;
 use App\Models\User;
@@ -22,6 +23,7 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
+use Livewire\Livewire;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -45,6 +47,20 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Livewire updates replay the original page's route through a
+        // PERSISTENT-middleware subset — by default that includes
+        // SubstituteBindings but not resolve.salon. On the static demo host
+        // the {salon} domain param is the literal "demo" (no such slug), so
+        // without ResolveSalon in the subset, implicit binding 404'd every
+        // Livewire interaction mid-tour. Registering it here means update
+        // requests resolve + authorise the salon exactly like page loads
+        // (session lookup on the demo host, slug + membership everywhere
+        // else) and bind `currentSalon`, so SalonScope now applies to
+        // update-request queries too. bootstrap/app.php already orders
+        // ResolveSalon ahead of SubstituteBindings in the priority list; it
+        // only ever runs where the replayed route carried resolve.salon.
+        Livewire::addPersistentMiddleware([ResolveSalon::class]);
+
         // RUNTIME demo-mail guard (belt to the per-action braces): demo
         // accounts live only on reserved non-routable domains; any message
         // addressed to one is cancelled before a transport ever sees it.
