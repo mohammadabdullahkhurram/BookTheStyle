@@ -1,10 +1,16 @@
 # Launch-video asset capture
 
-Everything the launch film shoots comes from this harness. The screenshots
-themselves are **never committed** (`assets/` is gitignored — git keeps every
-binary version forever); this README + `manifest.json` + the seeder + the
-capture script are the committed reproducibility record. After a clean clone,
-the pipeline below is the *only* path back to the assets.
+> **The film no longer uses these captures.** The current cut (see "The film
+> itself" below) is pure animated motion graphics — no screenshots, no screen
+> recordings, no product UI on screen. The capture harness stays maintained
+> because it is the only reproducible path to product screenshots for OTHER
+> marketing surfaces (site, app-store listings, decks).
+
+Everything this harness shoots is reproducible product screenshots. The
+screenshots themselves are **never committed** (`assets/` is gitignored — git
+keeps every binary version forever); this README + `manifest.json` + the
+seeder + the capture script are the committed reproducibility record. After a
+clean clone, the pipeline below is the *only* path back to the assets.
 
 **Hard rule: capture is LOCAL ONLY.** Production holds real client PII and
 must never appear in a marketing asset. The script refuses any non-local
@@ -134,33 +140,77 @@ hex). Summary:
 
 ## The film itself (video/ — Remotion)
 
-**Current direction: the MUSIC CUT** — 33.07s, no voiceover, cut to the
-track in `video/public/audio/music.mp3` (gitignored; drop the track in
-after a clean clone). `video/src/beat-map.json` is the edit grid: librosa
-beat detection (117.5 BPM, 62 beats — `video/scripts/analyze-track.py`
-documents the method and regenerates the evidence) plus curated sections;
-every scene boundary and in-scene cut derives from it, and beats.ts refuses
-boundaries off the grid. The recolor lands on the track's global energy
-peak (beat 48, 24.64s). Renders: `--comp=LaunchFilm` (16:9),
-`LaunchFilmVertical` (9:16), `LaunchFilmSquare` (1:1) — scenes reframe via
-useAspect(), no letterboxing. The retired VO cut's pipeline (generate-vo*,
-vo-timing.json, voiceover mp3s) stays on disk, unwired.
+**Current direction: the MOTION-GRAPHICS CUT** — 33.07s, no voiceover, no
+screen imagery of any kind. Everything on screen is a designed, animated
+object: frosted-glass capability cards floating in a dark Marble-branded 3D
+void, a camera flying between them, building to an environment-wide accent
+recolor on the drop. The earlier screenshot/slideshow cuts and the Screen
+Studio footage plan are fully retired.
+
+**Edit grid:** cut to the track in `video/public/audio/music.mp3`
+(gitignored; drop the track in after a clean clone). `video/src/beat-map.json`
+is the grid: librosa beat detection (117.5 BPM, 62 beats —
+`video/scripts/analyze-track.py` documents the method and regenerates the
+evidence) plus curated sections; every scene boundary and in-scene cut
+derives from it, and beats.ts refuses boundaries off the grid. The recolor
+lands on the track's global energy peak (beat 48, 24.64s): terracotta →
+violet → sage on beats 39/42/45, then the near-black accent inverts the whole
+void to Marble paper on beat 48 with "Yours." on the same frame.
+
+### 3D approach — CSS-perspective camera rig (documented choice)
+
+The "camera traveling between floating cards" is a **faux-3D CSS rig**, not
+WebGL: `video/src/scenes/space.tsx` implements a real view matrix (the world
+container gets the mathematical inverse of the camera transform under a fixed
+`perspective`), so depth, parallax, dolly and fog are all genuinely
+3D-correct — while card faces stay DOM. That was the deciding factor: the
+cards are dense typographic UI-metaphor faces (Fraunces, line icons, real
+`backdrop-filter` frosted glass), which render crisp as DOM and would be
+texture-uploaded bitmaps inside a WebGL canvas. Motion blur on camera moves
+comes from `@remotion/motion-blur`'s `<CameraMotionBlur>` (6 samples, 240°
+shutter) plus screen-space speed streaks tied to actual camera velocity.
+
+Tooling installed for this cut (all pinned by `video/package-lock.json`):
+
+| Package | Version | Status |
+| --- | --- | --- |
+| `remotion` / `@remotion/cli` | 4.0.496 | core |
+| `@remotion/motion-blur` | 4.0.496 | **used** — `<CameraMotionBlur>` on the groove flight |
+| `@remotion/three` | 4.0.496 | installed via `npx remotion add @remotion/three`, **currently unused** — kept as the escape hatch if a future cut needs true WebGL (particle fields, transmission glass) |
+| `three` | 0.185.1 | peer of `@remotion/three`, unused with it |
+| `@react-three/fiber` | 9.6.1 | peer of `@remotion/three`, unused with it |
+| `lucide-react` | 1.26.0 | **used** — line iconography on the card faces |
+| `typescript` | 5.9.3 | no conflicts with Remotion 4.0.496 (its `tsc --noEmit` is clean) |
+
+`@react-three/drei` was considered and **not** installed — its value
+(RoundedBox, MeshTransmissionMaterial, Float helpers) only pays off inside a
+WebGL scene, which this cut deliberately avoids.
+
+The scene system: `space.tsx` (camera rig, void, ground grid, particles,
+decorative panels, fog/DoF), `glass.tsx` (frosted card + icon + title
+language), `vignettes.tsx` (the seven capability card faces, each acting out
+its feature on the beat grid), and one file per section (Intro → Showcase →
+Build → Drop → Outro). Palette discipline: cream + ink + the plum accent
+only, so the drop's recolor is the payoff.
 
 The Remotion project lives in `video/` with its **own** package.json — never
-entangled with the app's JS build. It reads the captured assets through a
-committed symlink (`video/public/assets → docs/launch-video/assets`) and this
-manifest; scenes reference assets by manifest key only. `video/SCRIPT.md` is
-the VO's single source of truth; `video/src/beats.ts` is the timing sheet
-every scene reads from (beats marked `provisional` are timed at ~2.7
-words/sec until the real read lands).
+entangled with the app's JS build. The retired VO cut's pipeline
+(generate-vo*, vo-timing.json, voiceover mp3s, `video/SCRIPT.md`) stays on
+disk, unwired.
 
 ```sh
 cd video && npm install
-npm run dev                       # Remotion studio
-npm run render                    # full-res Preview (beats A+B) → ~/Movies/BookTheStyle-Launch/
-npm run render -- --draft         # half-res draft for fast iteration
-npm run render -- --comp=LaunchFilm --out=/abs/path   # full 78s timeline, custom dir
+npm run dev                        # Remotion studio
+npm run render                     # ALL FOUR finals → ~/Movies/BookTheStyle-Launch/
+npm run render -- --only=master    # one target: master | social | vertical | square
+npm run render:draft               # half-res 16:9 draft for fast iteration
+npm run render -- --out=/abs/path  # custom output dir (BTS_RENDER_OUT works too)
 ```
+
+Final targets: `launch-master.mp4` (1920×1080, CRF 17), `launch-social.mp4`
+(1080p H.264, CRF 23, upload-sized), `launch-vertical.mp4` (1080×1920),
+`launch-square.mp4` (1080×1080). The scenes reframe per aspect via
+`useAspect()` — camera pull-back and layout re-centering, no letterboxing.
 
 **Voiceover generation** has two engines writing into the same slot
 (`video/public/audio/voiceover-final.mp3`):

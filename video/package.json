@@ -7,10 +7,13 @@
         "dev": "remotion studio",
         "prerender": "node scripts/sync-fonts.mjs",
         "render": "node scripts/render.mjs",
-        "render:draft": "node scripts/render.mjs --draft"
+        "render:draft": "node scripts/render.mjs --draft --only=master"
     },
     "dependencies": {
         "@remotion/cli": "^4.0.496",
+        "@remotion/motion-blur": "4.0.496",
+        "@remotion/three": "4.0.496",
+        "lucide-react": "^1.26.0",
         "react": "^19.2.8",
         "react-dom": "^19.2.8",
         "remotion": "^4.0.496"
