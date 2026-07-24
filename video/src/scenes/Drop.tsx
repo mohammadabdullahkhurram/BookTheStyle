@@ -1,122 +1,168 @@
+import {Armchair, AudioLines, BellRing, CalendarDays, ChartColumn, Clock, Users} from 'lucide-react';
 import React from 'react';
-import {AbsoluteFill, Img, interpolate, useCurrentFrame} from 'remotion';
+import {AbsoluteFill, interpolate, useCurrentFrame} from 'remotion';
 import {localBeat} from '../beats';
-import {getAsset} from '../manifest';
 import {color, type} from '../theme';
-import {KineticCard, PhoneFrame, useAspect} from './kinetic';
+import {BrandLockup} from './Brand';
+import {GlassCard} from './glass';
+import {KineticCard, useAspect} from './kinetic';
+import {cam, cameraPath, GroundGrid, Particles, Plate3D, Stage3D, Void, whip} from './space';
+import {MiniCard} from './vignettes';
 
 /**
- * DROP (track 20.06–27.14 — beats 39–52). The film's reason to exist: the
- * SAME screen recoloring through the four captured accent variants, variant
- * changes ON beats 39/42/45/48 — and the near-black finale lands exactly on
- * beat 48 (24.64s), the track's global energy peak, holding through the
- * fall. Phone widget matches every change; the swatch rail carries the hex;
- * "Yours." slams with the peak. This must feel like product behavior at the
- * speed of the music.
+ * DROP (track 20.06–27.14 — beats 39–52). The payoff: the camera pulls back
+ * to the whole system — every capability card orbiting the wordmark — and
+ * the ENTIRE ENVIRONMENT recolors on beats 39/42/45: terracotta → violet →
+ * sage. Every rim, glow, particle and breath of fog swaps. On beat 48
+ * (24.64s, the track's global energy peak) the near-black accent lands as a
+ * full inversion — the dark void slams to Marble paper — and "Yours." hits
+ * the same frame. Custom branding IS the climax: make it yours.
  */
 
-const VARIANTS = ['01', '02', '03', '04'].map((n) => ({
-    dashboard: getAsset(`owner-dashboard--accent-${n}`),
-    widget: getAsset(`widget-calendar--accent-${n}`),
-}));
+const ACCENTS = ['#C0613E', '#5B3E96', '#5C7458', '#211C18'];
 
-const CROSSFADE = 8; // two frames shy of a sixteenth — a musical snap
+const FEATURES = [
+    {icon: CalendarDays, label: 'Booking'},
+    {icon: AudioLines, label: 'Voice AI'},
+    {icon: Clock, label: 'Scheduling'},
+    {icon: Users, label: 'Clients'},
+    {icon: Armchair, label: 'Rental'},
+    {icon: BellRing, label: 'Reminders'},
+    {icon: ChartColumn, label: 'Reports'},
+];
+
+const RING_Z = -420;
+const Z_WOBBLE = [-160, 130, -110, 150, -180, 100, -140];
 
 export const Drop: React.FC = () => {
     const frame = useCurrentFrame();
     const aspect = useAspect();
     const lb = (n: number) => localBeat('drop', n);
-    const boundaries = [0, lb(42), lb(45), lb(48)];
+    const swaps = [0, lb(42), lb(45), lb(48)];
     const end = lb(53);
-    const active = boundaries.filter((b) => frame >= b).length - 1;
+    const peak = lb(48);
 
-    const opacityOf = (index: number): number => {
-        const start = boundaries[index];
-        const stop = index === VARIANTS.length - 1 ? end : boundaries[index + 1];
-        const fadeIn = index === 0
-            ? 1
-            : interpolate(frame, [start - CROSSFADE / 2, start + CROSSFADE / 2], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
-        const fadeOut = index === VARIANTS.length - 1
-            ? 1
-            : interpolate(frame, [stop - CROSSFADE / 2, stop + CROSSFADE / 2], [1, 0], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
-        return Math.min(fadeIn, fadeOut);
-    };
+    const active = swaps.filter((s) => frame >= s).length - 1;
+    const accent = ACCENTS[active];
+    const light = frame >= peak;
 
-    const zoom = interpolate(frame, [0, end], [1.04, 1.1]);
-    const phoneWidth = aspect === 'tall' ? 620 : aspect === 'square' ? 440 : 402;
+    const pull = aspect === 'wide' ? 0 : aspect === 'square' ? 90 : 170;
+    const camera = cameraPath(frame, [
+        {f: 0, cam: cam([0, 0, 190 + pull], -7, 0, -1.2)},
+        {f: swaps[1], cam: cam([0, 10, 430 + pull], -2, 0, 0), ease: whip},
+        {f: swaps[2], cam: cam([0, -8, 560 + pull], 4, 0, 0.8), ease: whip},
+        {f: peak, cam: cam([0, 0, 280 + pull], 0, 0, 0), ease: whip},
+        {f: end, cam: cam([0, 0, 216 + pull], 0)},
+    ]);
+
+    const [rx, ry] = aspect === 'wide' ? [730, 400] : aspect === 'square' ? [545, 545] : [430, 740];
+
+    // The lockup yields the centre to "Yours." exactly on the peak.
+    const lockupOut = interpolate(frame, [peak - 4, peak], [1, 0], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+    // Gated: interpolate would clamp LEFT to 0.85 and whitewash the whole pre-peak drop.
+    const flash = frame < peak ? 0 : interpolate(frame, [peak, peak + 5], [0.85, 0], {extrapolateRight: 'clamp'});
+    const settle = interpolate(frame, [0, 5], [1.05, 1], {extrapolateRight: 'clamp'});
 
     return (
-        <AbsoluteFill style={{backgroundColor: color.marble.paper}}>
-            <AbsoluteFill style={{transform: `scale(${zoom})`, transformOrigin: '42% 38%'}}>
-                {VARIANTS.map(({dashboard}, index) => (
-                    <AbsoluteFill key={dashboard.key} style={{opacity: opacityOf(index)}}>
-                        <Img
-                            src={dashboard.src}
-                            style={{width: '100%', height: '100%', objectFit: 'cover', objectPosition: aspect === 'wide' ? '50% 30%' : '30% 25%'}}
-                        />
-                    </AbsoluteFill>
-                ))}
+        <AbsoluteFill>
+            <Void accent={accent} light={light} breath="4d" />
+            <AbsoluteFill style={{scale: String(settle)}}>
+                <Stage3D camera={camera}>
+                    <GroundGrid center={[0, 600, -700]} light={light} />
+                    <Particles
+                        camera={camera}
+                        frame={frame}
+                        seed="drop"
+                        min={[-1100, -700, -1500]}
+                        max={[1100, 700, 300]}
+                        count={130}
+                        accent={accent}
+                        light={light}
+                    />
+                    {FEATURES.map((f, i) => {
+                        const angle = (-90 + i * (360 / FEATURES.length)) * (Math.PI / 180);
+                        const pos = [Math.cos(angle) * rx, Math.sin(angle) * ry, RING_Z + Z_WOBBLE[i]] as const;
+                        const bob = Math.sin((frame + i * 34) * 0.05) * 8;
+                        return (
+                            <Plate3D key={f.label} pos={pos} yaw={(i % 2 ? -1 : 1) * 5} camera={camera} local={`translateY(${bob}px)`} fog={[1900, 3600]}>
+                                <MiniCard icon={f.icon} label={f.label} accent={accent} light={light} />
+                            </Plate3D>
+                        );
+                    })}
+                    {/* The wordmark holds the centre of the system... */}
+                    <Plate3D pos={[0, 0, RING_Z]} camera={camera} dof={false}>
+                        <div style={{opacity: lockupOut, scale: String(1 + (1 - lockupOut) * 0.1)}}>
+                            <GlassCard w={480} h={430} accent={accent} glow={1.6}>
+                                <div style={{position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+                                    <BrandLockup iconSize={168} wordSize={30} />
+                                </div>
+                            </GlassCard>
+                        </div>
+                    </Plate3D>
+                </Stage3D>
             </AbsoluteFill>
 
-            {/* The dark feather — Beat-A world bleeding over the product. */}
-            <AbsoluteFill
-                style={{
-                    background: 'linear-gradient(94deg, rgba(36,28,34,0.95) 0%, rgba(36,28,34,0.85) 22%, rgba(36,28,34,0.4) 38%, rgba(36,28,34,0) 55%)',
-                }}
-            />
-
-            {/* Matching branded widget — the recolor is the WHOLE product. */}
-            <div
-                style={{
-                    position: 'absolute',
-                    right: aspect === 'wide' ? 120 : '50%',
-                    top: '50%',
-                    transform: aspect === 'wide' ? 'translateY(-50%)' : 'translate(50%, -46%)',
-                }}
-            >
-                <PhoneFrame width={phoneWidth}>
-                    {VARIANTS.map(({widget}, index) => (
-                        <Img
-                            key={widget.key}
-                            src={widget.src}
-                            style={{position: 'absolute', inset: 0, width: '100%', objectFit: 'cover', objectPosition: 'top', opacity: opacityOf(index)}}
+            {/* Shockwave on every recolor. */}
+            {swaps.slice(1).map((s) => {
+                const w = interpolate(frame, [s, s + 16], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+                if (w <= 0 || w >= 1) return null;
+                return (
+                    <AbsoluteFill key={s} style={{alignItems: 'center', justifyContent: 'center'}}>
+                        <div
+                            style={{
+                                width: 340,
+                                height: 340,
+                                borderRadius: '50%',
+                                border: `3px solid ${light ? color.ink : ACCENTS[swaps.indexOf(s)]}`,
+                                scale: String(0.4 + w * 5),
+                                opacity: (1 - w) * 0.5,
+                            }}
                         />
-                    ))}
-                </PhoneFrame>
-            </div>
+                    </AbsoluteFill>
+                );
+            })}
 
-            {/* Swatch rail: the live hex, snapping with each recolor. */}
+            {/* ...and on the peak, the inversion flash + the word. */}
+            {flash > 0 && <AbsoluteFill style={{backgroundColor: '#FFFFFF', opacity: flash}} />}
+            <KineticCard
+                at={peak}
+                center
+                tone="ink"
+                size={aspect === 'wide' ? 190 : 150}
+                position={{bottom: aspect === 'tall' ? '47%' : '42%'}}
+            >
+                Yours.
+            </KineticCard>
+
+            {/* The swatch rail — the live accent, snapping with each recolor. */}
             <div
                 style={{
                     position: 'absolute',
-                    left: aspect === 'wide' ? 110 : 70,
-                    bottom: aspect === 'tall' ? 170 : 96,
+                    left: '50%',
+                    translate: '-50% 0',
+                    bottom: aspect === 'tall' ? 150 : 84,
                     display: 'flex',
                     alignItems: 'center',
                     gap: 20,
                 }}
             >
-                {VARIANTS.map(({dashboard}, index) => (
+                {ACCENTS.map((a, i) => (
                     <div
-                        key={dashboard.key}
+                        key={a}
                         style={{
-                            width: index === active ? 52 : 32,
-                            height: index === active ? 52 : 32,
+                            width: i === active ? 50 : 30,
+                            height: i === active ? 50 : 30,
                             borderRadius: '50%',
-                            backgroundColor: dashboard.accent,
-                            border: `3px solid ${index === active ? '#FFFFFF' : 'rgba(255,255,255,0.45)'}`,
+                            backgroundColor: a,
+                            border: `3px solid ${light ? 'rgba(33,28,24,0.65)' : i === active ? '#FFFFFF' : 'rgba(255,255,255,0.45)'}`,
+                            boxShadow: i === active && !light ? `0 0 26px ${a}aa` : 'none',
                         }}
                     />
                 ))}
-                <div style={{...type.overline, fontSize: 20, color: '#FFFFFF', opacity: 0.92, marginLeft: 8}}>
-                    {VARIANTS[active].dashboard.accent}
+                <div style={{...type.overline, fontSize: 20, color: light ? color.ink : '#FFFFFF', opacity: 0.92, marginLeft: 8}}>
+                    {accent}
                 </div>
             </div>
-
-            {/* The word, ON the peak. */}
-            <KineticCard at={lb(48)} accent size={aspect === 'wide' ? 150 : 110} position={aspect === 'tall' ? {left: 70, top: 200, bottom: 'auto'} : {left: aspect === 'wide' ? 110 : 70, bottom: 220}}>
-                Yours.
-            </KineticCard>
         </AbsoluteFill>
     );
 };

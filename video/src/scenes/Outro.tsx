@@ -2,19 +2,26 @@ import React from 'react';
 import {AbsoluteFill, interpolate, useCurrentFrame} from 'remotion';
 import {localBeat} from '../beats';
 import {color, type} from '../theme';
-import {BrandLockup, DarkField} from './Brand';
+import {BrandLockup} from './Brand';
 import {slam, useAspect} from './kinetic';
+import {cam, cameraPath, Particles, Stage3D, Void} from './space';
 
 /**
- * Outro (track 27.14s → end — the collapse and fade). The poster frame,
- * assembled on the last real beats: lockup on beat 53, the ask on 54, the
- * address on 56 — then DEAD STILL while the track fades out under it. The
- * film ends exactly where the audio does.
+ * Outro (track 27.14s → end — the collapse and fade). Hard cut back to the
+ * dark void: lockup on beat 53, the ask on 54, the address on 56 — then
+ * DEAD STILL while the track fades out under it. The strongest single frame
+ * in the film; the poster.
  */
 export const Outro: React.FC = () => {
     const frame = useCurrentFrame();
     const aspect = useAspect();
     const lb = (n: number) => localBeat('outro', n);
+
+    // The last breath of camera: a barely-there settle, then stillness.
+    const camera = cameraPath(frame, [
+        {f: 0, cam: cam([0, 0, 70], 0)},
+        {f: lb(56) + 8, cam: cam([0, 0, 0], 0)},
+    ]);
 
     const lockup = slam(frame, lb(53), 1.16);
     const ask = slam(frame, lb(54), 1.1);
@@ -22,7 +29,10 @@ export const Outro: React.FC = () => {
 
     return (
         <AbsoluteFill>
-            <DarkField />
+            <Void />
+            <Stage3D camera={camera}>
+                <Particles camera={camera} frame={frame} seed="outro" min={[-950, -620, -800]} max={[950, 620, 260]} count={70} />
+            </Stage3D>
             <AbsoluteFill style={{justifyContent: 'center', alignItems: 'center', gap: aspect === 'tall' ? 56 : 44}}>
                 <div style={{transform: `scale(${lockup.scale})`, opacity: lockup.opacity}}>
                     <BrandLockup iconSize={aspect === 'tall' ? 170 : 132} wordSize={aspect === 'tall' ? 36 : 31} />

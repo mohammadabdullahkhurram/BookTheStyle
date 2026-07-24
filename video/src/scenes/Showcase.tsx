@@ -1,246 +1,107 @@
+import {CameraMotionBlur} from '@remotion/motion-blur';
 import React from 'react';
-import {AbsoluteFill, Img, OffthreadVideo, Sequence, interpolate, useCurrentFrame} from 'remotion';
-import {FPS, localBeat} from '../beats';
-import {getAsset} from '../manifest';
-import {color, font, type} from '../theme';
-import {DarkField} from './Brand';
-import {Feather, KineticCard, PhoneFrame, ProductStill, useAspect} from './kinetic';
+import {AbsoluteFill, useCurrentFrame} from 'remotion';
+import {FRAMES_PER_BEAT, localBeat} from '../beats';
+import {useAspect} from './kinetic';
+import {
+    cam,
+    cameraPath,
+    cameraSpeed,
+    GroundGrid,
+    PlacedPanels,
+    Particles,
+    Plate3D,
+    SpeedStreaks,
+    Stage3D,
+    Void,
+    whip,
+    type CamKey,
+    type CameraState,
+    type Vec3,
+} from './space';
+import {BookingVignette, CalendarVignette, ClientsVignette, VoiceVignette} from './vignettes';
 
 /**
- * Showcase (track 4.30–16.51 — the groove, beats 8–31). Rapid feature reel,
- * every cut ON a beat: the real widget recording in three tight cuts (the
- * confirmation lands on the track's 0.97 hit at beat 12), the week filling
- * itself in column by column on half-beats, the dashboard with stats
- * ticking up, the client book, the numbers. Hard cuts, no dissolves —
- * the product is the motion.
+ * Groove (track 4.30–16.51 — beats 8–31). One continuous camera flight
+ * between four floating feature cards: booking → voice AI → calendar →
+ * clients. Arrivals land ON beats 8/14/20/26; each hold is ~4.5 beats of
+ * push-in while the vignette acts out its feature; the whips between
+ * stations ride real motion blur. The booking confirmation lands on beat 12
+ * — the 6.34s accent hit.
  */
 
-/** Windows (seconds) inside the motion recording (see --motion pacing). */
-const MOTION_CUTS = {
-    booking: {from: 0.9, to: 2.1},   // landing + the service tap
-    slot: {from: 4.5, to: 5.7},      // calendar day + slot tap
-    confirmed: {from: 9.7, to: 12.0} // submit → "You're booked"
-};
+type Station = {pos: Vec3; yaw: number; vignette: React.FC<{t: number}>};
 
-const lb = (n: number) => localBeat('showcase', n);
+const STATIONS: Station[] = [
+    {pos: [0, 0, 0], yaw: 0, vignette: BookingVignette},
+    {pos: [1560, -70, -780], yaw: 12, vignette: VoiceVignette},
+    {pos: [3160, 90, -1360], yaw: -9, vignette: CalendarVignette},
+    {pos: [4680, -50, -640], yaw: 7, vignette: ClientsVignette},
+];
 
-const WidgetCut: React.FC<{window: {from: number; to: number}}> = ({window}) => {
-    const aspect = useAspect();
-    const motion = getAsset('widget-motion');
-    return (
-        <AbsoluteFill style={{justifyContent: 'center', alignItems: aspect === 'wide' ? 'flex-end' : 'center'}}>
-            <PhoneFrame width={aspect === 'tall' ? 640 : 430} style={{marginRight: aspect === 'wide' ? 190 : 0}}>
-                <OffthreadVideo
-                    src={motion.src}
-                    muted
-                    startFrom={Math.round(window.from * FPS)}
-                    endAt={Math.round(window.to * FPS)}
-                    style={{position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top'}}
-                />
-            </PhoneFrame>
-        </AbsoluteFill>
-    );
-};
+const stationCam = (s: Station, dz: number, pull: number): CameraState =>
+    cam([s.pos[0], s.pos[1], s.pos[2] + dz + pull], s.yaw);
 
-/** The master week filling itself in: columns snap on on half-beats. */
-const WeekFills: React.FC<{at: number}> = ({at}) => {
-    const frame = useCurrentFrame();
-    const halfBeat = (60 / 117.5) * FPS / 2;
-    // Steps aligned to the still's actual day-column edges, snapping on
-    // half-beats — the week visibly fills, column by column.
-    const EDGES = [22, 33, 44, 55, 66, 78, 89, 100];
-    const steps = Math.max(0, Math.floor((frame - at) / halfBeat) + 1);
-    const revealed = EDGES[Math.min(EDGES.length - 1, steps - 1)] ?? 22;
-    return (
-        <AbsoluteFill>
-            <ProductStill src={getAsset('owner-calendar-week').src} at={at} focus="30% 30%" />
-            {/* Unfilled future: the paper field waiting for bookings. */}
-            <div
-                style={{
-                    position: 'absolute',
-                    inset: 0,
-                    background: color.marble.paper,
-                    clipPath: `inset(0 0 0 ${revealed}%)`,
-                }}
-            />
-        </AbsoluteFill>
-    );
-};
-
-/** Film-voice count-ups on the dark feather — the morning's numbers
- *  arriving, without faking UI over the real dashboard's identical stats. */
-const TickingStats: React.FC<{at: number}> = ({at}) => {
-    const frame = useCurrentFrame();
-    const aspect = useAspect();
-    const lines = [
-        {value: 6, suffix: ' booked.', beatOffset: 0.5},
-        {value: 0, suffix: ' no-shows.', beatOffset: 2},
-    ];
-    return (
-        <div
-            style={{
-                position: 'absolute',
-                left: aspect === 'wide' ? 110 : 70,
-                bottom: aspect === 'tall' ? 240 : 210,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 14,
-            }}
-        >
-            {lines.map(({value, suffix, beatOffset}) => {
-                const start = at + Math.round(beatOffset * (60 / 117.5) * FPS);
-                const inAt = interpolate(frame, [start, start + 4], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
-                const ticked = Math.round(interpolate(frame, [start, start + 22], [0, value], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}));
-                return (
-                    <div
-                        key={suffix}
-                        style={{
-                            fontFamily: font.display,
-                            fontWeight: 600,
-                            fontSize: aspect === 'wide' ? 72 : 58,
-                            lineHeight: 1.12,
-                            color: color.marble.paper,
-                            opacity: inAt,
-                            transform: `translateY(${(1 - inAt) * 16}px)`,
-                            textShadow: '0 4px 26px rgba(0,0,0,0.45)',
-                        }}
-                    >
-                        {ticked}
-                        {suffix}
-                    </div>
-                );
-            })}
-        </div>
-    );
-};
-
-/** Row-highlight sweep down the visit history — the profile being READ,
- *  row by row, one full beat per row. Bands are deliberately soft-registered
- *  (they tint whole rows, not pixel edges) so the cover-crop shift across
- *  aspects never breaks them. */
-const RowSweep: React.FC = () => {
-    const frame = useCurrentFrame();
-    const aspect = useAspect();
-    const beat = (60 / 117.5) * FPS;
-    const stops = aspect === 'wide' ? [40, 51.5, 62.5, 72.5] : [36, 47, 58, 68];
-    if (frame < 4) return null;
-    const step = Math.min(stops.length - 1, Math.floor((frame - 4) / beat));
-    return (
-        <div
-            style={{
-                position: 'absolute',
-                left: aspect === 'wide' ? '30%' : '10%',
-                right: aspect === 'wide' ? '13%' : '6%',
-                top: `${stops[step]}%`,
-                height: '9.5%',
-                borderRadius: 14,
-                backgroundColor: 'rgba(130,76,113,0.16)',
-                border: '1.5px solid rgba(130,76,113,0.4)',
-                mixBlendMode: 'multiply',
-            }}
-        />
-    );
-};
-
-/** The month's number ARRIVING: the revenue figure ticks up while the real
- *  source-mix proportions draw in as growing bars — the film's callout
- *  vocabulary (dark feather, token palette), aspect-safe, values lifted
- *  straight from the captured reports screen (59 bookings · $2,010; mix
- *  45.8 / 25.4 / 22.0 / 6.8%). */
-const ReportPulse: React.FC<{at: number}> = ({at}) => {
-    const frame = useCurrentFrame();
-    const aspect = useAspect();
-    const halfBeat = (60 / 117.5) * FPS / 2;
-    const ticked = Math.round(interpolate(frame, [at, at + 26], [0, 2010], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}));
-    const inAt = interpolate(frame, [at, at + 4], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
-    const BARS = [45.8, 25.4, 22.0, 6.8];
-    return (
-        <div style={{position: 'absolute', left: aspect === 'wide' ? 110 : 70, bottom: aspect === 'tall' ? 240 : 150, opacity: inAt}}>
-            <div
-                style={{
-                    fontFamily: font.display,
-                    fontWeight: 600,
-                    fontSize: aspect === 'wide' ? 96 : 74,
-                    lineHeight: 1.05,
-                    color: color.marble.butter,
-                    textShadow: '0 4px 26px rgba(0,0,0,0.45)',
-                }}
-            >
-                ${ticked.toLocaleString('en-US')}.
-            </div>
-            <div style={{display: 'flex', flexDirection: 'column', gap: 10, marginTop: 26}}>
-                {BARS.map((pct, index) => {
-                    const start = at + 8 + index * halfBeat;
-                    const grow = interpolate(frame, [start, start + 11], [0, pct], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
-                    return (
-                        <div key={pct} style={{width: aspect === 'wide' ? 430 : 340, height: 12, borderRadius: 99, backgroundColor: 'rgba(255,248,239,0.16)'}}>
-                            <div style={{width: `${(grow / BARS[0]) * 100}%`, height: '100%', borderRadius: 99, backgroundColor: index === 0 ? color.marble.paper : 'rgba(255,248,239,0.62)'}} />
-                        </div>
-                    );
-                })}
-            </div>
-        </div>
-    );
-};
-
-type Shot = {fromBeat: number; toBeat: number; label?: string; chipLabel?: boolean; render: (at: number) => React.ReactNode};
-
-const SHOTS: Shot[] = [
-    {fromBeat: 8, toBeat: 10, label: 'She books.', render: () => <WidgetCut window={MOTION_CUTS.booking} />},
-    {fromBeat: 10, toBeat: 12, render: () => <WidgetCut window={MOTION_CUTS.slot} />},
-    {fromBeat: 12, toBeat: 16, label: 'Booked.', render: () => <WidgetCut window={MOTION_CUTS.confirmed} />},
-    {fromBeat: 16, toBeat: 20, label: 'Your week.', chipLabel: true, render: (at) => <WeekFills at={at} />},
-    {
-        fromBeat: 20,
-        toBeat: 24,
-        render: (at) => (
-            <AbsoluteFill>
-                <ProductStill src={getAsset('owner-dashboard--marble').src} at={at} focus="35% 25%" />
-                <Feather strength={0.8} />
-                <TickingStats at={at + 2} />
-            </AbsoluteFill>
-        ),
-    },
-    {
-        fromBeat: 24,
-        toBeat: 28,
-        label: 'Every client.',
-        render: (at) => (
-            <AbsoluteFill>
-                <ProductStill src={getAsset('owner-client-profile').src} at={at} focus="45% 18%" />
-                <RowSweep />
-                <Feather strength={0.7} />
-            </AbsoluteFill>
-        ),
-    },
-    {
-        fromBeat: 28,
-        toBeat: 32,
-        render: (at) => (
-            <AbsoluteFill>
-                <ProductStill src={getAsset('owner-reports').src} at={at} focus="55% 45%" />
-                <Feather strength={0.85} />
-                <ReportPulse at={at + 3} />
-            </AbsoluteFill>
-        ),
-    },
+// Depth extras placed BETWEEN the stations, well off the flight axis and
+// always behind the card they neighbour — never across content.
+const PANELS: import('./space').PanelSpec[] = [
+    {pos: [-560, 280, -700], w: 340, h: 210, yaw: 18},
+    {pos: [700, -340, -620], w: 300, h: 190, yaw: -14},
+    {pos: [860, 330, -1050], w: 380, h: 230, yaw: 10},
+    {pos: [2320, -360, -1150], w: 340, h: 200, yaw: -12},
+    {pos: [2460, 340, -820], w: 300, h: 190, yaw: 16},
+    {pos: [3920, -320, -1080], w: 360, h: 220, yaw: 12},
+    {pos: [4020, 330, -1600], w: 400, h: 240, yaw: -10},
+    {pos: [5260, -260, -1150], w: 340, h: 210, yaw: -16},
 ];
 
 export const Showcase: React.FC = () => {
+    const frame = useCurrentFrame();
     const aspect = useAspect();
+    // Non-wide frames pull the camera back a touch so 800px cards breathe.
+    const pull = aspect === 'wide' ? 0 : aspect === 'square' ? 70 : 130;
+
+    const arrivals = STATIONS.map((_, i) => localBeat('showcase', 8 + 6 * i));
+    const departs = arrivals.map((a) => a + Math.round(4.5 * FRAMES_PER_BEAT));
+
+    const keys: CamKey[] = STATIONS.flatMap((s, i) => [
+        {f: arrivals[i], cam: stationCam(s, 46, pull), ease: whip},
+        {f: departs[i], cam: stationCam(s, -26, pull)},
+    ]);
+    // Fly-out past the last card, straight into the build cut.
+    keys.push({f: localBeat('showcase', 32), cam: cam([5500, -40, 420], -4, 0, 1.5), ease: whip});
+
+    const camera = cameraPath(frame, keys);
+    const speed = cameraSpeed(frame, keys);
+
     return (
         <AbsoluteFill>
-            <DarkField />
-            {SHOTS.map(({fromBeat, toBeat, label, chipLabel, render}) => (
-                <Sequence key={fromBeat} from={lb(fromBeat)} durationInFrames={lb(toBeat) - lb(fromBeat)} name={`shot@b${fromBeat}`}>
-                    {render(0)}
-                    {label ? (
-                        <KineticCard at={2} chip={chipLabel} size={aspect === 'wide' ? 76 : 62} position={aspect === 'tall' ? {bottom: 200} : undefined}>
-                            {label}
-                        </KineticCard>
-                    ) : null}
-                </Sequence>
-            ))}
+            <Void />
+            <CameraMotionBlur shutterAngle={240} samples={6}>
+                <Stage3D camera={camera}>
+                    <GroundGrid center={[2300, 590, -900]} extent={9000} />
+                    <Particles camera={camera} frame={frame} seed="groove" min={[-700, -640, -2100]} max={[5600, 640, 700]} count={150} />
+                    <PlacedPanels camera={camera} specs={PANELS} />
+                    {STATIONS.map((s, i) => {
+                        const Vignette = s.vignette;
+                        // Gentle idle drift so the card is never dead-still.
+                        const bob = Math.sin((frame + i * 40) * 0.045) * 7;
+                        const tilt = Math.sin((frame + i * 40) * 0.03) * 0.7;
+                        return (
+                            <Plate3D
+                                key={i}
+                                pos={s.pos}
+                                yaw={s.yaw}
+                                camera={camera}
+                                local={`translateY(${bob}px) rotateZ(${tilt}deg)`}
+                            >
+                                <Vignette t={frame - arrivals[i]} />
+                            </Plate3D>
+                        );
+                    })}
+                </Stage3D>
+            </CameraMotionBlur>
+            <SpeedStreaks intensity={(speed - 14) / 60} />
         </AbsoluteFill>
     );
 };

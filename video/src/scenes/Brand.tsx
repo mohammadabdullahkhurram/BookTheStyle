@@ -49,17 +49,3 @@ export const BrandLockup: React.FC<{iconSize?: number; wordSize?: number; stacke
         </div>
     </div>
 );
-
-/** The shared dark Marble field from the cold open — beats reuse it so the
- *  film keeps one continuous world. */
-export const DarkField: React.FC<{children?: React.ReactNode}> = ({children}) => (
-    <div
-        style={{
-            position: 'absolute',
-            inset: 0,
-            background: `radial-gradient(120% 90% at 50% 42%, ${color.marble.sidebarDark} 0%, ${color.sidebarDarkPlum} 68%, #1B141A 100%)`,
-        }}
-    >
-        {children}
-    </div>
-);

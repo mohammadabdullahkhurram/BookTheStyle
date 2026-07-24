@@ -1,71 +1,61 @@
 import React from 'react';
-import {AbsoluteFill, Img, Sequence, interpolate, useCurrentFrame} from 'remotion';
+import {AbsoluteFill, Sequence, interpolate, useCurrentFrame} from 'remotion';
 import {localBeat} from '../beats';
-import {getAsset} from '../manifest';
-import {DarkField} from './Brand';
-import {slam, useAspect} from './kinetic';
+import {useAspect} from './kinetic';
+import {cam, cameraPath, Particles, Plate3D, SpeedStreaks, Stage3D, Void, whip} from './space';
+import {RemindersVignette, RentalVignette, ReportsVignette} from './vignettes';
 
 /**
- * Build (track 16.51–20.06 — the riser, beats 32–38). One product hit PER
- * BEAT, slamming onto the dark field with alternating tilt — the strongest
- * crops and frames stacked, cuts tightening into the drop. No text: the
- * escalation is the message.
+ * Build (track 16.51–20.06 — the riser, beats 32–38). Three rapid-fire
+ * vignettes on HARD cuts — rental (the differentiator), reminders, reports
+ * — each jolting in with its own camera, streaks thickening and the whole
+ * stage creeping in as the riser climbs into the drop.
  */
 
-const HITS: Array<{key: string; width: number; tilt: number}> = [
-    {key: 'crop-widget-calendar-card', width: 700, tilt: -1.6},
-    {key: 'crop-appointment-row', width: 1500, tilt: 1.2},
-    {key: 'crop-stat-tile', width: 480, tilt: -1.4},
-    {key: 'widget-05-calendar-open', width: 460, tilt: 1.6},
-    {key: 'owner-services', width: 1500, tilt: -1.2},
-    {key: 'crop-availability-card', width: 640, tilt: 1.4},
-    {key: 'owner-calendar-day', width: 1560, tilt: 0},
+const CUTS: Array<{vignette: React.FC<{t: number}>; yaw: number}> = [
+    {vignette: RentalVignette, yaw: -3},
+    {vignette: RemindersVignette, yaw: 3},
+    {vignette: ReportsVignette, yaw: -2},
 ];
+
+const Cut: React.FC<{vignette: React.FC<{t: number}>; yaw: number; index: number}> = ({vignette: Vignette, yaw, index}) => {
+    const frame = useCurrentFrame(); // local to this cut's Sequence
+    const camera = cameraPath(frame, [
+        {f: 0, cam: cam([0, 0, 130], yaw * 2, 0, yaw)},
+        {f: 6, cam: cam([0, 0, 10], yaw, 0, 0), ease: whip},
+        {f: 60, cam: cam([0, 0, -70], yaw * 0.6)},
+    ]);
+    return (
+        <Stage3D camera={camera}>
+            <Particles camera={camera} frame={frame} seed={`build-${index}`} min={[-800, -560, -700]} max={[800, 560, 300]} count={70} />
+            <Plate3D pos={[0, 0, 0]} yaw={0} camera={camera} dof={false}>
+                <Vignette t={frame} />
+            </Plate3D>
+        </Stage3D>
+    );
+};
 
 export const Build: React.FC = () => {
     const frame = useCurrentFrame();
     const aspect = useAspect();
-    const lb = (n: number) => localBeat('build', n);
-    const end = lb(39);
+    const b = (n: number) => localBeat('build', n);
+    const end = b(39);
+    const bounds = [0, b(34), b(36), end];
 
-    // The field tightens: a slow push through the whole riser.
-    const fieldZoom = interpolate(frame, [0, end], [1, 1.06]);
+    // The riser: the whole stage creeps forward, streaks thicken.
+    const ramp = interpolate(frame, [0, end], [0, 1]);
 
     return (
         <AbsoluteFill>
-            <DarkField />
-            <AbsoluteFill style={{transform: `scale(${fieldZoom})`, justifyContent: 'center', alignItems: 'center'}}>
-                {HITS.map(({key, width, tilt}, index) => {
-                    const from = lb(32 + index);
-                    const to = index === HITS.length - 1 ? end : lb(33 + index);
-                    const asset = getAsset(key);
-                    const scaled = aspect === 'wide' ? width : Math.round(width * 0.62);
-                    return (
-                        <Sequence key={key} from={from} durationInFrames={to - from} name={`hit@b${32 + index}`} layout="none">
-                            <HitCard src={asset.src} width={scaled} tilt={tilt} />
-                        </Sequence>
-                    );
-                })}
+            <Void />
+            <AbsoluteFill style={{scale: String(1 + ramp * (aspect === 'wide' ? 0.05 : 0.035))}}>
+                {CUTS.map(({vignette, yaw}, i) => (
+                    <Sequence key={i} name={`build cut ${i + 1}`} from={bounds[i]} durationInFrames={bounds[i + 1] - bounds[i]}>
+                        <Cut vignette={vignette} yaw={yaw} index={i} />
+                    </Sequence>
+                ))}
             </AbsoluteFill>
+            <SpeedStreaks intensity={0.12 + ramp * 0.4} seed="riser" />
         </AbsoluteFill>
-    );
-};
-
-const HitCard: React.FC<{src: string; width: number; tilt: number}> = ({src, width, tilt}) => {
-    const frame = useCurrentFrame();
-    const {scale, opacity} = slam(frame, 0, 1.22);
-    return (
-        <div
-            style={{
-                transform: `rotate(${tilt}deg) scale(${scale})`,
-                opacity,
-                borderRadius: 16,
-                overflow: 'hidden',
-                boxShadow: '0 26px 70px rgba(0,0,0,0.5)',
-                border: '1px solid rgba(255,248,239,0.14)',
-            }}
-        >
-            <Img src={src} style={{width, display: 'block'}} />
-        </div>
     );
 };
