@@ -2,7 +2,7 @@ import React from 'react';
 import {AbsoluteFill, Sequence, interpolate, useCurrentFrame} from 'remotion';
 import {localBeat} from '../beats';
 import {useAspect} from './kinetic';
-import {cam, cameraPath, Particles, Plate3D, SpeedStreaks, Stage3D, Void, whip} from './space';
+import {cam, cameraPath, Particles, Plate3D, Stage3D, Void, whip} from './space';
 import {RemindersVignette, RentalVignette, ReportsVignette} from './vignettes';
 
 /**
@@ -55,7 +55,6 @@ export const Build: React.FC = () => {
                     </Sequence>
                 ))}
             </AbsoluteFill>
-            <SpeedStreaks intensity={0.12 + ramp * 0.4} seed="riser" />
         </AbsoluteFill>
     );
 };

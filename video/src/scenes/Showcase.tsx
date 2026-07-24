@@ -6,12 +6,10 @@ import {useAspect} from './kinetic';
 import {
     cam,
     cameraPath,
-    cameraSpeed,
     GroundGrid,
     PlacedPanels,
     Particles,
     Plate3D,
-    SpeedStreaks,
     Stage3D,
     Void,
     whip,
@@ -72,7 +70,6 @@ export const Showcase: React.FC = () => {
     keys.push({f: localBeat('showcase', 32), cam: cam([5500, -40, 420], -4, 0, 1.5), ease: whip});
 
     const camera = cameraPath(frame, keys);
-    const speed = cameraSpeed(frame, keys);
 
     return (
         <AbsoluteFill>
@@ -101,7 +98,6 @@ export const Showcase: React.FC = () => {
                     })}
                 </Stage3D>
             </CameraMotionBlur>
-            <SpeedStreaks intensity={(speed - 14) / 60} />
         </AbsoluteFill>
     );
 };
