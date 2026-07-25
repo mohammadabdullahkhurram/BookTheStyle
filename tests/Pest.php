@@ -8,6 +8,7 @@ use App\Models\Salon;
 use App\Models\SalonMembership;
 use App\Models\Service;
 use App\Models\User;
+use App\Support\DemoMode;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -20,6 +21,15 @@ pest()->extend(TestCase::class)->in('Unit');
 /*
 | Shared salon-role helpers used across feature tests.
 */
+
+/** Seed (idempotently) and return THE canonical demo showcase salon. */
+function demoShowcase(): Salon
+{
+    test()->artisan('demo:seed-showcase')->assertExitCode(0);
+
+    return DemoMode::showcaseSalon()
+        ?? throw new RuntimeException('demo showcase missing after seeding');
+}
 
 function salonOwnerOf(Salon $salon): User
 {

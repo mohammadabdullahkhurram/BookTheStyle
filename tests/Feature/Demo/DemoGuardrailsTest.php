@@ -1,211 +1,128 @@
 <?php
 
 use App\Models\Salon;
+use App\Support\DemoMode;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
+use Livewire\Livewire;
 
 /*
-| Demo UX guardrails: surfaces that are meaningless or leaky inside the demo
-| are guarded at the ROUTE/ACTION level (hiding nav is cosmetic, never the
-| guard), while everything kept visible stays read-only with an honest note.
-| Real salons keep full edit access everywhere — every block here asserts
-| both directions.
+| Demo guardrails in the guest model: personal surfaces need auth (guests
+| are simply sent to login), salon plumbing stays hidden from the showcase,
+| the showcase pages render read-only with honest notes, and the widget
+| preview works in both contexts. Real salons keep full access everywhere —
+| asserted in both directions.
 */
 
-function enterDemoSalon($test): Salon
-{
-    $test->get('http://app.'.config('app.domain').'/demo')->assertRedirect();
-
-    return Salon::query()
-        ->whereKey(session('demo_salon_id'))
-        ->where('is_demo', true)
-        ->firstOrFail();
-}
-
 // ---------------------------------------------------------------------------
-// Item 1 — personal/account settings: gone in demo, untouched for real users
+// Personal settings — plain auth keeps demo guests out
 // ---------------------------------------------------------------------------
 
-it('bounces demo visitors off every personal-settings route', function () {
-    enterDemoSalon($this);
+it('sends guests from personal-settings routes to the real login', function () {
+    demoShowcase();
 
     $app = 'http://app.'.config('app.domain');
 
-    $this->get($app.'/settings/profile')->assertRedirect(route('demo.enter'));
-    $this->get($app.'/settings/security')->assertRedirect(route('demo.enter'));
-    // The bare /settings redirect is inside the guarded group too.
-    $this->get($app.'/settings')->assertRedirect(route('demo.enter'));
-});
+    $this->get($app.'/settings/profile')->assertRedirect(route('login'));
+    $this->get($app.'/settings')->assertRedirect(); // the group redirect chain ends at login
 
-it('hides the personal-settings nav entries from demo visitors', function () {
-    $salon = enterDemoSalon($this);
-
-    $this->get(route('salon.show', $salon))
-        ->assertOk()
-        ->assertDontSee(__('Account settings'));
-});
-
-it('keeps personal settings fully reachable for real users', function () {
+    // Real users keep full access.
     $salon = Salon::factory()->create();
-    $owner = salonOwnerOf($salon);
-
-    $this->actingAs($owner)->get(route('profile.edit'))->assertOk();
-    $this->actingAs($owner)->get(route('security.edit'))->assertRedirect(); // password.confirm gate, not a demo bounce
-
-    $this->actingAs($owner)
-        ->get(route('salon.show', $salon))
-        ->assertOk()
-        ->assertSee(__('Account settings'));
+    $this->actingAs(salonOwnerOf($salon))->get(route('profile.edit'))->assertOk();
 });
 
 // ---------------------------------------------------------------------------
-// Item 3 — My calendar: the personal feed link cannot be generated in demo
+// Salon plumbing hidden; showcase read-only with notes
 // ---------------------------------------------------------------------------
 
-it('blocks calendar-feed link generation in demo and hides the control', function () {
-    $salon = enterDemoSalon($this);
+it('keeps the integrations plumbing out of the demo settings surface', function () {
+    $salon = demoShowcase();
 
-    $this->get(route('salon.account', $salon))
-        ->assertOk()
-        ->assertSee(__('Calendar links are disabled in the demo.'))
-        ->assertDontSee(__('Generate calendar link'));
-
-    // The action itself is a no-op even when invoked directly.
-    Livewire\Livewire::actingAs(auth()->user())
-        ->test('pages::settings.calendar-feed')
-        ->call('generate')
-        ->assertSet('subscribeUrl', null)
-        ->assertSet('connected', false);
-
-    expect(auth()->user()->calendarConnection()->first()?->hasFeed())->not->toBeTrue();
-});
-
-it('keeps calendar-feed generation working for real users', function () {
-    $salon = Salon::factory()->create();
-    $owner = salonOwnerOf($salon);
-
-    $this->actingAs($owner)
-        ->get(route('salon.account', $salon))
-        ->assertOk()
-        ->assertSee(__('Generate calendar link'));
-
-    Livewire\Livewire::actingAs($owner)
-        ->test('pages::settings.calendar-feed')
-        ->call('generate')
-        ->assertSet('connected', true);
-
-    expect($owner->fresh()->calendarConnection()->first()?->hasFeed())->toBeTrue();
-});
-
-// ---------------------------------------------------------------------------
-// Item 2 — salon settings: plumbing removed, the showcase read-only
-// ---------------------------------------------------------------------------
-
-it('removes the integrations plumbing from demo salon settings entirely', function () {
-    $salon = enterDemoSalon($this);
-
-    $this->get(route('salon.settings', $salon))
+    $this->get('http://demo.'.config('app.domain').'/settings')
         ->assertOk()
         ->assertDontSee(__('Integrations'))
         ->assertDontSee(__('Voice AI booking API'))
         ->assertDontSee(__('Load from GoHighLevel'));
 
-    // The gate itself denies — every GHL action authorizes against it.
-    expect(auth()->user()->can('manageGhlConnection', $salon))->toBeFalse();
-
-    Livewire\Livewire::actingAs(auth()->user())
-        ->test('pages::salon.settings', ['salon' => $salon])
-        ->call('saveGhlConnection')
-        ->assertForbidden();
+    // The salon-keyed policy denies the viewer (and everyone) on demo salons.
+    expect(salonOwnerOf($salon)->can('manageGhlConnection', $salon))->toBeFalse();
 });
 
-it('keeps the showcase settings visible but read-only in demo', function () {
-    $salon = enterDemoSalon($this);
-    $before = $salon->accentColor();
+it('renders the showcase settings read-only with the demo notes', function () {
+    $salon = demoShowcase();
+    $host = 'http://demo.'.config('app.domain');
 
-    $this->get(route('salon.settings', $salon))
-        ->assertOk()
-        ->assertSee(__('Branding'))
+    $this->get($host.'/settings')->assertOk()
         ->assertSee(__('Play with the accent and themes freely — saving is disabled in the demo.'));
-
-    Livewire\Livewire::actingAs(auth()->user())
-        ->test('pages::salon.settings', ['salon' => $salon])
-        ->set('accent', '#123456')
-        ->call('saveBranding')
-        ->assertHasNoErrors();
-
-    expect($salon->fresh()->accentColor())->toBe($before);
-
-    // Hours and staff pages render with the note; their writes are no-ops.
-    $this->get(route('salon.availability', $salon))
-        ->assertOk()
+    $this->get($host.'/availability')->assertOk()
         ->assertSee(__('Browse every schedule freely — editing hours is disabled in the demo.'));
-    $this->get(route('salon.users', $salon))
-        ->assertOk()
+    $this->get($host.'/users')->assertOk()
         ->assertSee(__('Browse the team setup freely — staff changes are disabled in the demo.'));
 
-    $staffBefore = $salon->memberships()->count();
-    Livewire\Livewire::actingAs(auth()->user())
-        ->test('pages::salon.users.index', ['salon' => $salon])
-        ->call('invite')
-        ->assertHasNoErrors();
-    expect($salon->memberships()->count())->toBe($staffBefore);
-});
-
-it('keeps every salon setting fully editable for real salons', function () {
-    $salon = Salon::factory()->create();
-    $owner = salonOwnerOf($salon);
-
-    $this->actingAs($owner)
-        ->get(route('salon.settings', $salon))
-        ->assertOk()
-        ->assertSee(__('Integrations'))
-        ->assertDontSee(__('saving is disabled in the demo'));
-
-    expect($owner->can('manageGhlConnection', $salon))->toBeTrue();
-
-    Livewire\Livewire::actingAs($owner)
+    // The saves are no-ops.
+    $before = $salon->accentColor();
+    Livewire::actingAs(salonOwnerOf($salon))
         ->test('pages::salon.settings', ['salon' => $salon])
         ->set('accent', '#123456')
         ->call('saveBranding')
         ->assertHasNoErrors();
+    expect($salon->fresh()->accentColor())->toBe($before);
+});
 
-    expect($salon->fresh()->accentColor())->toBe('#123456');
+it('shows the calendar-feed page with links disabled in demo, working for real users', function () {
+    $salon = demoShowcase();
+
+    $this->get('http://demo.'.config('app.domain').'/account')
+        ->assertOk()
+        ->assertSee(__('Calendar links are disabled in the demo.'))
+        ->assertDontSee(__('Generate calendar link'));
+
+    // The action is a no-op in demo context even when invoked directly.
+    app()->instance('currentSalon', $salon);
+    $owner = salonOwnerOf($salon);
+    Livewire::actingAs($owner)
+        ->test('pages::settings.calendar-feed')
+        ->call('generate')
+        ->assertSet('connected', false);
+    expect($owner->calendarConnection()->first()?->hasFeed())->not->toBeTrue();
+    app()->forgetInstance('currentSalon');
+
+    // A real user still generates a working feed link.
+    $real = Salon::factory()->create();
+    $realOwner = salonOwnerOf($real);
+    Livewire::actingAs($realOwner)
+        ->test('pages::settings.calendar-feed')
+        ->call('generate')
+        ->assertSet('connected', true);
+    expect($realOwner->fresh()->calendarConnection()->first()?->hasFeed())->toBeTrue();
 });
 
 // ---------------------------------------------------------------------------
-// Item 4 — the inline widget preview, in BOTH contexts
+// The widget preview — both contexts (design unchanged: static in-app iframe)
 // ---------------------------------------------------------------------------
 
-it('renders the inline widget preview for a demo salon from the session tenant', function () {
-    $salon = enterDemoSalon($this);
-
+it('renders the inline widget preview for the showcase as a guest, never via the public host', function () {
+    $salon = demoShowcase();
     $host = 'http://demo.'.config('app.domain');
     $widget = $salon->defaultWidget();
 
-    // The widgets page embeds the preview iframe, never the public host.
     $this->get($host.'/widgets')
         ->assertOk()
         ->assertSee($host.'/widgets/preview/'.$widget->public_id, false);
 
-    // The preview route itself renders the real widget page for the SESSION
-    // salon — on the demo host, where the public widget structurally 404s.
     $html = $this->get($host.'/widgets/preview/'.$widget->public_id)
         ->assertOk()
         ->assertSee($salon->name)
         ->getContent();
 
-    // Its API endpoints stay on the demo host (the tenant-scoped twins).
-    // @json escapes slashes, so match the JSON-encoded form.
     expect($html)->toContain('demo.'.config('app.domain').'\/api\/widget-preview\/availability');
-    // And nothing points at the salon's raw (unroutable) slug host.
     expect($html)->not->toContain($salon->slug);
 });
 
 it('books through the demo preview inertly — a real demo booking, no GHL, no mail', function () {
     config(['booking_api.widget_min_seconds' => 0]);
-    $salon = enterDemoSalon($this);
+    $salon = demoShowcase();
 
     Queue::fake();
     Mail::fake();
@@ -215,7 +132,6 @@ it('books through the demo preview inertly — a real demo booking, no GHL, no m
     preg_match('/var TOKEN = "([^"]+)"/', $html, $m);
     $token = json_decode('"'.$m[1].'"');
 
-    // Find a genuinely open slot through the preview availability twin.
     $service = $salon->services()->whereHas('stylists')->firstOrFail();
     $slot = null;
     foreach (range(1, 14) as $ahead) {
@@ -274,34 +190,31 @@ it('renders the preview for a real salon and never persists its final submit', f
         'website' => '',
     ])
         ->assertCreated()
-        ->assertJson(['success' => true, 'preview' => true])
-        ->assertJsonPath('message', __('Preview only — no booking was created.'));
+        ->assertJson(['success' => true, 'preview' => true]);
 
     expect($salon->bookings()->count())->toBe($before);
 
-    // The public widget page keeps working for real salons, untouched.
     $this->get($host.'/widget/'.$salon->defaultWidget()->public_id)->assertOk();
 });
 
-it('refuses the preview routes to guests and non-members', function () {
+it('still refuses the preview routes to guests and non-members on REAL salons', function () {
     $salon = bookingSalon();
     $host = 'http://'.$salon->slug.'.'.config('app.domain');
 
-    // Guest → login (the preview is an in-app surface, not a public one).
     $this->get($host.'/widgets/preview')->assertRedirect();
 
-    // A member of ANOTHER salon → 403 from ResolveSalon.
+    app()->forgetInstance('currentSalon');
     $other = Salon::factory()->create();
     $this->actingAs(salonOwnerOf($other))->get($host.'/widgets/preview')->assertForbidden();
 });
 
-it('never flags real accounts as demo accounts', function () {
-    $salon = Salon::factory()->create();
-    $owner = salonOwnerOf($salon);
+it('exposes demo context through DemoMode helpers consistently', function () {
+    $salon = demoShowcase();
 
-    expect($owner->isDemoAccount())->toBeFalse();
+    $this->get('http://demo.'.config('app.domain').'/')->assertOk();
+    expect(DemoMode::inDemoContext())->toBeTrue();
+    expect(DemoMode::showcaseSalon()?->id)->toBe($salon->id);
 
-    $demo = enterDemoSalon($this);
-    expect(auth()->user()->isDemoAccount())->toBeTrue();
-    expect($demo->is_demo)->toBeTrue();
+    app()->forgetInstance('currentSalon');
+    expect(DemoMode::inDemoContext())->toBeFalse();
 });

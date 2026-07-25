@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Salon;
+use App\Support\DemoMode;
 
 /*
 | THE HOSTING CONSTRAINT THIS GUARDS (a live 525 regression): this host can
@@ -26,8 +27,8 @@ it('registers every route on the fixed, hand-created host allowlist', function (
         '{salon}.'.$central,  // tenant wildcard — each REAL salon slug is itself a
         // subdomain a human creates in hPanel at onboarding
         // (docs/OPERATIONS.md); the static demo.{domain}
-        // host resolves through this group too (session-
-        // scoped, ResolveSalon), so no demo group exists.
+        // host resolves through this group too (the fixed
+        // showcase salon, ResolveSalon), so no demo group exists.
     ];
 
     foreach (app('router')->getRoutes() as $route) {
@@ -43,8 +44,9 @@ it('registers every route on the fixed, hand-created host allowlist', function (
 });
 
 it('generates every demo-salon URL on the static demo host — never a per-visitor hostname', function () {
-    $this->get('http://app.'.config('app.domain').'/demo')->assertRedirect();
-    $salon = Salon::query()->whereKey(session('demo_salon_id'))->firstOrFail();
+    $this->artisan('demo:seed-showcase')->assertExitCode(0);
+    $salon = DemoMode::showcaseSalon();
+    expect($salon)->not->toBeNull();
 
     $salonRoutes = collect(app('router')->getRoutes()->getRoutesByName())
         ->keys()
@@ -66,11 +68,14 @@ it('generates every demo-salon URL on the static demo host — never a per-visit
 });
 
 it('walks the whole demo entry flow without touching a non-existent host', function () {
+    $this->artisan('demo:seed-showcase')->assertExitCode(0);
+
     $response = $this->get('http://app.'.config('app.domain').'/demo');
 
     $location = (string) $response->headers->get('Location');
     expect(parse_url($location, PHP_URL_HOST))->toBe('demo.'.config('app.domain'));
 
-    // Following the redirect renders the visitor's dashboard on that host.
+    // Following the redirect renders the showcase calendar on that host —
+    // as a logged-out guest, no session required.
     $this->get($location)->assertOk();
 });
