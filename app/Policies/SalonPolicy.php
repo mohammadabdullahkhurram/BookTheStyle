@@ -143,6 +143,15 @@ class SalonPolicy
      */
     public function manageGhlConnection(User $user, Salon $salon): bool
     {
+        // Demo salons have no integrations surface at all: the Integrations
+        // tab (and every GHL action behind it) is plumbing that leaks
+        // implementation detail and can never function inertly. This gate is
+        // what both the tab visibility and every GHL action authorize
+        // against, so denying here removes the whole surface in one place.
+        if ($salon->is_demo) {
+            return false;
+        }
+
         return $user->membershipFor($salon)?->salon_role->isManager() ?? false;
     }
 

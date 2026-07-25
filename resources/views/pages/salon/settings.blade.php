@@ -666,6 +666,10 @@ new #[Title('Salon settings')] class extends Component {
     {
         $this->authorize('manage', $this->salon);
 
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Branding changes are disabled in the demo.'))) {
+            return;
+        }
+
         $this->accent = \App\Support\HexColor::tryNormalize($this->accent);
 
         $this->validate([
@@ -697,6 +701,10 @@ new #[Title('Salon settings')] class extends Component {
     {
         $this->authorize('manage', $this->salon);
 
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Theme changes are disabled in the demo.'))) {
+            return;
+        }
+
         if (! \App\Support\ThemeRegistry::selectable($key, \App\Support\ThemeRegistry::SCOPE_APP)) {
             Flux::toast(variant: 'danger', text: __('That theme is not available yet.'));
 
@@ -714,6 +722,10 @@ new #[Title('Salon settings')] class extends Component {
     public function removeLogo(UpdateBranding $action): void
     {
         $this->authorize('manage', $this->salon);
+
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Branding changes are disabled in the demo.'))) {
+            return;
+        }
 
         $action->handle($this->salon, ['remove_logo' => true]);
         $this->logo = null;
@@ -940,6 +952,9 @@ new #[Title('Salon settings')] class extends Component {
         <section x-show="tab === 'branding'" x-cloak class="flex flex-col gap-6">
         <x-ui.card class="flex flex-col gap-5">
             <h2 class="bts-card-title">{{ __('Branding') }}</h2>
+            @if ($salon->is_demo)
+                <p class="text-[13px] text-faint">{{ __('Play with the accent and themes freely — saving is disabled in the demo.') }}</p>
+            @endif
             <form wire:submit="saveBranding" class="flex flex-col gap-5" novalidate>
                 {{-- Accent: a colour-wheel swatch + hex, synced both ways.
                      The swatch is the styled trigger; the picker itself is
@@ -1345,7 +1360,10 @@ new #[Title('Salon settings')] class extends Component {
         @endcan
 
         {{-- Voice-AI Booking API: the per-salon bearer token GHL Custom
-             Actions authenticate with. Hash-only storage; shown once. --}}
+             Actions authenticate with. Hash-only storage; shown once. Behind
+             the same gate as the rest of the integrations plumbing, so demo
+             salons (where the gate always denies) never render it. --}}
+        @can('manageGhlConnection', $salon)
         <x-ui.card class="flex flex-col gap-4">
             <h2 class="bts-card-title">{{ __('Voice AI booking API') }}</h2>
             <p class="text-[13.5px] leading-relaxed text-secondary">
@@ -1397,6 +1415,7 @@ new #[Title('Salon settings')] class extends Component {
                 </div>
             @endcan
         </x-ui.card>
+        @endcan
         </section>
 
             </div>

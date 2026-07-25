@@ -101,6 +101,10 @@ new #[Title('Users')] class extends Component {
     {
         $this->authorize('manageStaff', $this->salon);
 
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Managing staff is disabled in the demo.'))) {
+            return;
+        }
+
         $validated = $this->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255'],
@@ -150,6 +154,10 @@ new #[Title('Users')] class extends Component {
 
     public function saveEdit(UpdateStaffMembership $action, UpdateStylistProfile $profile): void
     {
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Managing staff is disabled in the demo.'))) {
+            return;
+        }
+
         $membership = $this->membership((int) $this->editingId);
 
         $this->validate([
@@ -177,6 +185,10 @@ new #[Title('Users')] class extends Component {
 
     public function toggleActive(int $membershipId, SetMembershipActive $action): void
     {
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Managing staff is disabled in the demo.'))) {
+            return;
+        }
+
         $membership = $this->membership($membershipId);
         $action->handle(Auth::user(), $this->salon, $membership, ! $membership->active);
         unset($this->memberships);
@@ -186,6 +198,10 @@ new #[Title('Users')] class extends Component {
 
     public function deleteMember(int $membershipId, DeleteStaffUser $action): void
     {
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Managing staff is disabled in the demo.'))) {
+            return;
+        }
+
         $membership = $this->membership($membershipId);
         $accountDeleted = $action->handle(Auth::user(), $this->salon, $membership);
         unset($this->memberships);
@@ -197,6 +213,10 @@ new #[Title('Users')] class extends Component {
 
     public function resetPassword(int $membershipId, ResetStaffPassword $action): void
     {
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Password resets are disabled in the demo.'))) {
+            return;
+        }
+
         $membership = $this->membership($membershipId);
         $this->temporaryPassword = $action->handle(Auth::user(), $this->salon, $membership);
         $this->tempForName = $membership->user->name;
@@ -238,6 +258,10 @@ new #[Title('Users')] class extends Component {
 
     public function saveOwnerDetails(): void
     {
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Managing staff is disabled in the demo.'))) {
+            return;
+        }
+
         $membership = $this->membership((int) $this->ownerEditId);
         abort_unless($this->canEditOwnerDetails($membership), 403);
 
@@ -267,6 +291,10 @@ new #[Title('Users')] class extends Component {
      */
     public function toggleOwnerBookable(int $membershipId): void
     {
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Managing staff is disabled in the demo.'))) {
+            return;
+        }
+
         $membership = $this->membership($membershipId);
 
         abort_unless(
@@ -310,6 +338,9 @@ new #[Title('Users')] class extends Component {
 
 <div>
     <div class="mx-auto flex w-full max-w-6xl flex-col gap-7 px-4 py-6 sm:px-6 lg:px-8 lg:py-7">
+        @if ($salon->is_demo)
+            <p class="text-[13px] text-faint">{{ __('Browse the team setup freely — staff changes are disabled in the demo.') }}</p>
+        @endif
         <x-ui.page-header :overline="__('Manage')" :title="__('Users')">
             <x-slot:subtitle>{{ __('Everyone with access to this salon.') }}</x-slot:subtitle>
             <x-slot:actions>

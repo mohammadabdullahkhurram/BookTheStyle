@@ -95,6 +95,82 @@ it('keeps calendar-feed generation working for real users', function () {
     expect($owner->fresh()->calendarConnection()->first()?->hasFeed())->toBeTrue();
 });
 
+// ---------------------------------------------------------------------------
+// Item 2 — salon settings: plumbing removed, the showcase read-only
+// ---------------------------------------------------------------------------
+
+it('removes the integrations plumbing from demo salon settings entirely', function () {
+    $salon = enterDemoSalon($this);
+
+    $this->get(route('salon.settings', $salon))
+        ->assertOk()
+        ->assertDontSee(__('Integrations'))
+        ->assertDontSee(__('Voice AI booking API'))
+        ->assertDontSee(__('Load from GoHighLevel'));
+
+    // The gate itself denies — every GHL action authorizes against it.
+    expect(auth()->user()->can('manageGhlConnection', $salon))->toBeFalse();
+
+    Livewire\Livewire::actingAs(auth()->user())
+        ->test('pages::salon.settings', ['salon' => $salon])
+        ->call('saveGhlConnection')
+        ->assertForbidden();
+});
+
+it('keeps the showcase settings visible but read-only in demo', function () {
+    $salon = enterDemoSalon($this);
+    $before = $salon->accentColor();
+
+    $this->get(route('salon.settings', $salon))
+        ->assertOk()
+        ->assertSee(__('Branding'))
+        ->assertSee(__('Play with the accent and themes freely — saving is disabled in the demo.'));
+
+    Livewire\Livewire::actingAs(auth()->user())
+        ->test('pages::salon.settings', ['salon' => $salon])
+        ->set('accent', '#123456')
+        ->call('saveBranding')
+        ->assertHasNoErrors();
+
+    expect($salon->fresh()->accentColor())->toBe($before);
+
+    // Hours and staff pages render with the note; their writes are no-ops.
+    $this->get(route('salon.availability', $salon))
+        ->assertOk()
+        ->assertSee(__('Browse every schedule freely — editing hours is disabled in the demo.'));
+    $this->get(route('salon.users', $salon))
+        ->assertOk()
+        ->assertSee(__('Browse the team setup freely — staff changes are disabled in the demo.'));
+
+    $staffBefore = $salon->memberships()->count();
+    Livewire\Livewire::actingAs(auth()->user())
+        ->test('pages::salon.users.index', ['salon' => $salon])
+        ->call('invite')
+        ->assertHasNoErrors();
+    expect($salon->memberships()->count())->toBe($staffBefore);
+});
+
+it('keeps every salon setting fully editable for real salons', function () {
+    $salon = Salon::factory()->create();
+    $owner = salonOwnerOf($salon);
+
+    $this->actingAs($owner)
+        ->get(route('salon.settings', $salon))
+        ->assertOk()
+        ->assertSee(__('Integrations'))
+        ->assertDontSee(__('saving is disabled in the demo'));
+
+    expect($owner->can('manageGhlConnection', $salon))->toBeTrue();
+
+    Livewire\Livewire::actingAs($owner)
+        ->test('pages::salon.settings', ['salon' => $salon])
+        ->set('accent', '#123456')
+        ->call('saveBranding')
+        ->assertHasNoErrors();
+
+    expect($salon->fresh()->accentColor())->toBe('#123456');
+});
+
 it('never flags real accounts as demo accounts', function () {
     $salon = Salon::factory()->create();
     $owner = salonOwnerOf($salon);

@@ -309,6 +309,10 @@ new #[Title('Availability')] class extends Component {
 
     public function saveHours(SaveWeeklyHours $action): void
     {
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Editing hours is disabled in the demo.'))) {
+            return;
+        }
+
         $week = [];
 
         foreach ($this->days as $weekday => $day) {
@@ -474,6 +478,10 @@ new #[Title('Availability')] class extends Component {
      */
     public function dsSubmit(AddTimeOff $add, RemoveTimeOff $remove): void
     {
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Editing time off is disabled in the demo.'))) {
+            return;
+        }
+
         $this->validate([
             'dsDates' => ['required', 'array', 'min:1'],
         ], [], ['dsDates' => __('dates')]);
@@ -605,6 +613,9 @@ new #[Title('Availability')] class extends Component {
 <div x-data
      x-on:availability-panel-closed.window="document.getElementById('availability-card-' + $event.detail.stylistId)?.focus()">
     <div class="mx-auto flex w-full max-w-4xl flex-col gap-7 px-4 py-6 sm:px-6 lg:px-8 lg:py-7">
+        @if ($salon->is_demo)
+            <p class="text-[13px] text-faint">{{ __('Browse every schedule freely — editing hours is disabled in the demo.') }}</p>
+        @endif
         <x-ui.page-header :overline="__('Schedule')" :title="__('Availability')">
             <x-slot:subtitle>{{ __('Weekly hours and date-specific time off for every stylist. Select a card to view a schedule.') }}</x-slot:subtitle>
         </x-ui.page-header>
