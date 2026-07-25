@@ -253,25 +253,6 @@ class User extends Authenticatable implements PasskeyUser
     }
 
     /**
-     * Whether this account exists ONLY for the public demo: it has salon
-     * memberships and every one of them is a demo salon. Demo accounts are
-     * provisioned per visitor and swept — there is no real person behind
-     * them, so personal/account surfaces (profile, security, feeds) are
-     * meaningless and are guarded off. Agency staff (agency_id set) and
-     * anyone with a real membership are never demo accounts. Rides the same
-     * `salons.is_demo` flag as every other demo guard.
-     */
-    public function isDemoAccount(): bool
-    {
-        if ($this->agency_id !== null) {
-            return false;
-        }
-
-        return $this->salons()->where('is_demo', true)->exists()
-            && $this->salons()->where('is_demo', false)->doesntExist();
-    }
-
-    /**
      * Get the user's initials
      */
     public function initials(): string

@@ -5,9 +5,9 @@ use Illuminate\Support\Facades\Route;
 // Account settings live on the application subdomain (app.{domain}) alongside
 // auth and the agency console (a salon subdomain's "/settings" is the salon
 // settings). Pinned to app. so route('profile.edit') generates app. URLs.
-// deny.demo: demo visitors have no real account behind them — every personal
-// settings surface bounces them back into their demo.
-Route::domain('app.'.config('app.domain'))->middleware(['auth', 'deny.demo'])->group(function () {
+// Demo visitors are logged-out guests, so plain auth already keeps them out
+// of every personal surface — no demo-specific guard is needed here.
+Route::domain('app.'.config('app.domain'))->middleware(['auth'])->group(function () {
     Route::redirect('settings', 'settings/profile');
 
     Route::livewire('settings/profile', 'pages::settings.profile')->name('profile.edit');

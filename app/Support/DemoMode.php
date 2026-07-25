@@ -28,6 +28,13 @@ final class DemoMode
         return $request->getHost() === 'demo.'.config('app.domain');
     }
 
+    /** True when the current request resolved a demo salon as its tenant —
+     *  the demo-context test for components without a salon property. */
+    public static function inDemoContext(): bool
+    {
+        return app()->bound('currentSalon') && app('currentSalon')->is_demo;
+    }
+
     /** The one fixed salon the demo shows, or null when not yet seeded. */
     public static function showcaseSalon(): ?Salon
     {

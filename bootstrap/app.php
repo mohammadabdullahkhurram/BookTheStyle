@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Middleware\DenyDemoAccount;
 use App\Http\Middleware\EnsurePasswordChanged;
 use App\Http\Middleware\ResolveSalon;
 use App\Http\Middleware\SecurityHeaders;
@@ -56,11 +55,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: ['webhooks/*', 'api/*']);
 
         // Resolves + authorises the active salon (tenant-isolation boundary).
-        // deny.demo blocks demo visitors from personal/account surfaces that
-        // presume a real person behind the session (routes/settings.php).
         $middleware->alias([
             'resolve.salon' => ResolveSalon::class,
-            'deny.demo' => DenyDemoAccount::class,
         ]);
 
         // ResolveSalon must run BEFORE implicit route binding: on the static
