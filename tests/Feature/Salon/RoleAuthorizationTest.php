@@ -158,7 +158,9 @@ it('shows a manager the staff cards with a panel opener per stylist', function (
 
     // The old dropdown picker is gone; every stylist is a clickable card.
     expect($html)->not->toContain('wire:model.live="selectedStylistId"');
-    expect($html)->toContain('openPanel('.$stylist->id.')')->toContain($stylist->name);
+    // e(): Faker occasionally deals apostrophe surnames (O'Kon), which Blade
+    // escapes in the HTML — compare the escaped form or the test flakes.
+    expect($html)->toContain('openPanel('.$stylist->id.')')->toContain(e($stylist->name));
 });
 
 // ---------------------------------------------------------------------------
