@@ -229,15 +229,7 @@ new #[Title('Widgets')] class extends Component {
             <x-ui.card class="flex flex-col gap-5">
                 <div class="flex items-center justify-between gap-3">
                     <h2 class="bts-card-title">{{ $current->name }}</h2>
-                    @if ($salon->is_demo)
-                        {{-- The public widget surface is structurally inert for demo
-                             salons (WidgetController refuses them), so the preview
-                             link would 404 — say so instead of offering a dead door. --}}
-                        <span class="text-[13px] text-faint">{{ __('Preview is disabled in the demo') }}</span>
-                    @else
-                        <a href="{{ route('salon.widget', ['salon' => $salon, 'widget' => $current->public_id]) }}" target="_blank" rel="noopener"
-                           class="bts-btn bts-btn-secondary bts-btn-sm">{{ __('Preview') }}</a>
-                    @endif
+                    <a href="#widget-preview" class="bts-btn bts-btn-secondary bts-btn-sm">{{ __('Preview') }}</a>
                 </div>
 
                 <form wire:submit="save" class="flex flex-col gap-5" novalidate>
@@ -328,6 +320,28 @@ new #[Title('Widgets')] class extends Component {
                         @endif
                     @endforeach
                 </div>
+            </x-ui.card>
+
+            {{-- Inline preview — the REAL widget for the CURRENT salon,
+                 rendered by the in-app preview route (resolve.salon supplies
+                 the tenant, so this works identically in demo and real).
+                 Real-salon submits are non-committal; demo submits land in
+                 the demo calendar, inert like everything else here. --}}
+            <x-ui.card id="widget-preview" class="flex flex-col gap-4">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <h2 class="bts-card-title">{{ __('Preview') }}</h2>
+                    <p class="text-[13px] text-faint">
+                        @if ($salon->is_demo)
+                            {{ __('Fully interactive — bookings you make here land in your demo calendar.') }}
+                        @else
+                            {{ __('Fully interactive — the final step never creates a real booking from here.') }}
+                        @endif
+                    </p>
+                </div>
+                <iframe src="{{ route('salon.widget.preview', ['salon' => $salon, 'widget' => $current->public_id]) }}"
+                        title="{{ __('Widget preview') }}"
+                        class="w-full rounded-[14px] border border-input-border"
+                        style="min-height: 680px"></iframe>
             </x-ui.card>
 
             {{-- Embed code — unique to THIS widget. --}}

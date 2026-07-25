@@ -186,14 +186,16 @@ it('never leaks one visitor\'s demo bookings into another\'s pages', function ()
     $this->get($host.'/appointments/all')->assertOk()->assertDontSee($marker);
 });
 
-it('shows the widgets page in demo without the dead preview link', function () {
+it('shows the widgets page in demo with the inline preview instead of a dead link', function () {
     enterDemo($this);
 
     $this->get('http://demo.'.config('app.domain').'/widgets')
         ->assertOk()
-        ->assertSee(__('Preview is disabled in the demo'))
+        // The real in-app preview replaced the old disabled-in-demo stopgap.
+        ->assertSee('/widgets/preview/', false)
+        ->assertDontSee(__('Preview is disabled in the demo'))
         ->assertSee(__('Embeds are switched off in the demo. In your real salon, this code drops the booking form into any website.'))
-        // No clickable door to the (structurally inert → 404) public widget.
-        // The embed SNIPPETS stay visible as labeled, entity-encoded copy-text.
+        // Still no clickable door to the (structurally inert → 404) public
+        // widget host. The embed SNIPPETS stay as entity-encoded copy-text.
         ->assertDontSee('href="http://demo.'.config('app.domain').'/widget/', false);
 });

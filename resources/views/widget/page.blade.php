@@ -337,9 +337,9 @@
         var MIN_DATE = @json($minDate);
         var MAX_DATE = @json($maxDate);
         var API = {
-            availability: @json(route('salon.widget.availability', ['salon' => $salon->slug])),
-            month: @json(route('salon.widget.month', ['salon' => $salon->slug])),
-            book: @json(route('salon.widget.book', ['salon' => $salon->slug])),
+            availability: @json(($endpoints ?? [])['availability'] ?? route('salon.widget.availability', ['salon' => $salon->slug])),
+            month: @json(($endpoints ?? [])['month'] ?? route('salon.widget.month', ['salon' => $salon->slug])),
+            book: @json(($endpoints ?? [])['book'] ?? route('salon.widget.book', ['salon' => $salon->slug])),
         };
         var I18N = {
             any: @json(__('Any available stylist')),

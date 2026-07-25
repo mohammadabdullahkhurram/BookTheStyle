@@ -50,10 +50,25 @@ class WidgetController extends Controller
      */
     public function page(Request $request, string $salon, ?string $widget = null): Response
     {
-        $salon = $this->salon($salon);
+        return $this->renderPage($request, $this->salon($salon), $widget, preview: false);
+    }
 
-        $widgetModel = $widget !== null
-            ? $salon->widgets()->where('public_id', $widget)->firstOrFail()
+    /**
+     * The IN-APP preview of the same page (salon.widget.preview): lives in
+     * the tenant route group, so ResolveSalon has already bound the CURRENT
+     * salon — the session tenant on the demo host, the subdomain tenant on a
+     * real salon. Never touches the public widget host, which structurally
+     * refuses demo salons (the very reason the old preview link 404'd).
+     */
+    public function previewPage(Request $request, Salon $salon, ?string $widget = null): Response
+    {
+        return $this->renderPage($request, $salon, $widget, preview: true);
+    }
+
+    private function renderPage(Request $request, Salon $salon, ?string $widgetId, bool $preview): Response
+    {
+        $widgetModel = $widgetId !== null
+            ? $salon->widgets()->where('public_id', $widgetId)->firstOrFail()
             : $salon->defaultWidget();
 
         return response()->view('widget.page', [
@@ -71,6 +86,13 @@ class WidgetController extends Controller
             'maxDate' => now($salon->timezone)
                 ->addDays(min((int) config('booking_api.widget_days_ahead'), $salon->max_advance_days))
                 ->format('Y-m-d'),
+            // The preview page calls the tenant-scoped preview endpoints
+            // same-origin; the public page keeps its slug-host endpoints.
+            'endpoints' => $preview ? [
+                'availability' => route('salon.widget.preview.availability', $salon),
+                'month' => route('salon.widget.preview.month', $salon),
+                'book' => route('salon.widget.preview.book', $salon),
+            ] : null,
         ]);
     }
 
@@ -144,8 +166,17 @@ class WidgetController extends Controller
      */
     public function availability(Request $request, string $salon): JsonResponse
     {
-        $salon = $this->salon($salon);
+        return $this->availabilityFor($request, $this->salon($salon));
+    }
 
+    /** Preview twin — the salon comes from the resolved tenant context. */
+    public function previewAvailability(Request $request, Salon $salon): JsonResponse
+    {
+        return $this->availabilityFor($request, $salon);
+    }
+
+    private function availabilityFor(Request $request, Salon $salon): JsonResponse
+    {
         try {
             $input = $request->validate([
                 'service' => ['required_without:services', 'integer'],
@@ -181,8 +212,17 @@ class WidgetController extends Controller
      */
     public function month(Request $request, string $salon): JsonResponse
     {
-        $salon = $this->salon($salon);
+        return $this->monthFor($request, $this->salon($salon));
+    }
 
+    /** Preview twin — the salon comes from the resolved tenant context. */
+    public function previewMonth(Request $request, Salon $salon): JsonResponse
+    {
+        return $this->monthFor($request, $salon);
+    }
+
+    private function monthFor(Request $request, Salon $salon): JsonResponse
+    {
         try {
             $input = $request->validate([
                 'service' => ['required_without:services', 'integer'],
@@ -224,8 +264,23 @@ class WidgetController extends Controller
     /** Create the booking through the shared engine (source: web_widget). */
     public function book(Request $request, string $salon): JsonResponse
     {
-        $salon = $this->salon($salon);
+        return $this->bookFor($request, $this->salon($salon), commit: true);
+    }
 
+    /**
+     * Preview submit. A DEMO salon commits for real — the booking is a demo
+     * booking like any other (isolated, inert: no GHL, no mail). A REAL
+     * salon is deliberately non-committal: the full flow runs (validation +
+     * bot gate) but nothing persists, so an owner poking at their settings
+     * never plants junk appointments in their live calendar.
+     */
+    public function previewBook(Request $request, Salon $salon): JsonResponse
+    {
+        return $this->bookFor($request, $salon, commit: $salon->is_demo);
+    }
+
+    private function bookFor(Request $request, Salon $salon, bool $commit): JsonResponse
+    {
         try {
             $input = $request->validate([
                 // Three visit shapes: the per-service loop (`items`, each with
@@ -270,6 +325,15 @@ class WidgetController extends Controller
                 'error' => 'rejected',
                 'message' => __('The booking could not be submitted. Reload the page and try again.'),
             ], 422);
+        }
+
+        if (! $commit) {
+            // Non-committal preview: the flow completed, nothing persisted.
+            return response()->json([
+                'success' => true,
+                'preview' => true,
+                'message' => __('Preview only — no booking was created.'),
+            ], 201);
         }
 
         try {

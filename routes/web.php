@@ -210,4 +210,17 @@ Route::domain('{salon}.'.$central)->middleware(['auth', 'resolve.salon'])->group
     Route::livewire('setup', 'pages::salon.onboarding')->name('salon.onboarding');
     // The demo banner's Reset (demo salons only — the controller 403s others).
     Route::post('demo/reset', [DemoController::class, 'reset'])->name('salon.demo.reset');
+
+    // In-app widget preview (salon.widgets → iframe). Inside THIS group on
+    // purpose: ResolveSalon supplies the current tenant — the session salon
+    // on the demo host, the subdomain salon for real tenants — so the
+    // preview never touches the public widget host (which structurally
+    // refuses demo salons). Real-salon submits are non-committal; demo
+    // submits create ordinary inert demo bookings (WidgetController).
+    Route::get('widgets/preview/{widget?}', [WidgetController::class, 'previewPage'])->name('salon.widget.preview');
+    Route::prefix('api/widget-preview')->group(function () {
+        Route::get('availability', [WidgetController::class, 'previewAvailability'])->name('salon.widget.preview.availability');
+        Route::get('month', [WidgetController::class, 'previewMonth'])->name('salon.widget.preview.month');
+        Route::post('book', [WidgetController::class, 'previewBook'])->name('salon.widget.preview.book');
+    });
 });

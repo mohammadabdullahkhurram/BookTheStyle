@@ -1,6 +1,9 @@
 <?php
 
 use App\Models\Salon;
+use Carbon\CarbonInterface;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Queue;
 
 /*
 | Demo UX guardrails: surfaces that are meaningless or leaky inside the demo
@@ -169,6 +172,127 @@ it('keeps every salon setting fully editable for real salons', function () {
         ->assertHasNoErrors();
 
     expect($salon->fresh()->accentColor())->toBe('#123456');
+});
+
+// ---------------------------------------------------------------------------
+// Item 4 — the inline widget preview, in BOTH contexts
+// ---------------------------------------------------------------------------
+
+it('renders the inline widget preview for a demo salon from the session tenant', function () {
+    $salon = enterDemoSalon($this);
+
+    $host = 'http://demo.'.config('app.domain');
+    $widget = $salon->defaultWidget();
+
+    // The widgets page embeds the preview iframe, never the public host.
+    $this->get($host.'/widgets')
+        ->assertOk()
+        ->assertSee($host.'/widgets/preview/'.$widget->public_id, false);
+
+    // The preview route itself renders the real widget page for the SESSION
+    // salon — on the demo host, where the public widget structurally 404s.
+    $html = $this->get($host.'/widgets/preview/'.$widget->public_id)
+        ->assertOk()
+        ->assertSee($salon->name)
+        ->getContent();
+
+    // Its API endpoints stay on the demo host (the tenant-scoped twins).
+    // @json escapes slashes, so match the JSON-encoded form.
+    expect($html)->toContain('demo.'.config('app.domain').'\/api\/widget-preview\/availability');
+    // And nothing points at the salon's raw (unroutable) slug host.
+    expect($html)->not->toContain($salon->slug);
+});
+
+it('books through the demo preview inertly — a real demo booking, no GHL, no mail', function () {
+    config(['booking_api.widget_min_seconds' => 0]);
+    $salon = enterDemoSalon($this);
+
+    Queue::fake();
+    Mail::fake();
+
+    $host = 'http://demo.'.config('app.domain');
+    $html = $this->get($host.'/widgets/preview/'.$salon->defaultWidget()->public_id)->assertOk()->getContent();
+    preg_match('/var TOKEN = "([^"]+)"/', $html, $m);
+    $token = json_decode('"'.$m[1].'"');
+
+    // Find a genuinely open slot through the preview availability twin.
+    $service = $salon->services()->whereHas('stylists')->firstOrFail();
+    $slot = null;
+    foreach (range(1, 14) as $ahead) {
+        $date = now($salon->timezone)->addDays($ahead)->format('Y-m-d');
+        $data = $this->getJson($host.'/api/widget-preview/availability?service='.$service->id.'&date='.$date)->json();
+        if (($data['slots'] ?? []) !== []) {
+            $slot = ['date' => $date, 'slot' => $data['slots'][0]];
+
+            break;
+        }
+    }
+    expect($slot)->not->toBeNull('no open preview slot found in 14 days');
+
+    $before = $salon->bookings()->count();
+    $this->postJson($host.'/api/widget-preview/book', [
+        'service' => $service->id,
+        'stylist' => (string) $slot['slot']['stylist_id'],
+        'date' => $slot['date'],
+        'time' => $slot['slot']['time'],
+        'client' => ['name' => 'Preview Guest', 'phone' => '555-0100', 'email' => 'guest@gmail.com'],
+        'token' => $token,
+        'website' => '',
+    ])->assertCreated();
+
+    expect($salon->bookings()->count())->toBe($before + 1);
+    Queue::assertNothingPushed();
+    Mail::assertNothingOutgoing();
+});
+
+it('renders the preview for a real salon and never persists its final submit', function () {
+    config(['booking_api.widget_min_seconds' => 0]);
+    $salon = bookingSalon();
+    $stylist = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
+    $service = serviceFor($salon, $stylist, 60);
+    $owner = salonOwnerOf($salon);
+
+    $host = 'http://'.$salon->slug.'.'.config('app.domain');
+
+    $html = $this->actingAs($owner)
+        ->get($host.'/widgets/preview/'.$salon->defaultWidget()->public_id)
+        ->assertOk()
+        ->getContent();
+    preg_match('/var TOKEN = "([^"]+)"/', $html, $m);
+    $token = json_decode('"'.$m[1].'"');
+
+    $date = now($salon->timezone)->next(CarbonInterface::MONDAY)->format('Y-m-d');
+    $before = $salon->bookings()->count();
+
+    $this->actingAs($owner)->postJson($host.'/api/widget-preview/book', [
+        'service' => $service->id,
+        'stylist' => (string) $stylist->id,
+        'date' => $date,
+        'time' => '10:00',
+        'client' => ['name' => 'Owner Poking', 'phone' => '555-0101'],
+        'token' => $token,
+        'website' => '',
+    ])
+        ->assertCreated()
+        ->assertJson(['success' => true, 'preview' => true])
+        ->assertJsonPath('message', __('Preview only — no booking was created.'));
+
+    expect($salon->bookings()->count())->toBe($before);
+
+    // The public widget page keeps working for real salons, untouched.
+    $this->get($host.'/widget/'.$salon->defaultWidget()->public_id)->assertOk();
+});
+
+it('refuses the preview routes to guests and non-members', function () {
+    $salon = bookingSalon();
+    $host = 'http://'.$salon->slug.'.'.config('app.domain');
+
+    // Guest → login (the preview is an in-app surface, not a public one).
+    $this->get($host.'/widgets/preview')->assertRedirect();
+
+    // A member of ANOTHER salon → 403 from ResolveSalon.
+    $other = Salon::factory()->create();
+    $this->actingAs(salonOwnerOf($other))->get($host.'/widgets/preview')->assertForbidden();
 });
 
 it('never flags real accounts as demo accounts', function () {
