@@ -204,8 +204,17 @@
     @endif
 </nav>
 
-{{-- User chip — pinned at the bottom, always visible. --}}
+{{-- User chip — pinned at the bottom, always visible. In the demo the
+     visitor is a logged-out guest: no account menu, no salon switcher, no
+     logout — a Login button to the REAL login instead. --}}
 <div class="shrink-0 border-t border-border px-2.5 py-2">
+    @if ($salon?->is_demo)
+        <a href="{{ route('login') }}" class="bts-btn bts-btn-primary w-full justify-center"
+           aria-label="{{ __('Log in') }}" :title="collapsed ? '{{ __('Log in') }}' : null">
+            <flux:icon.arrow-right-end-on-rectangle variant="micro" class="shrink-0" />
+            <span x-show="!collapsed" x-cloak>{{ __('Log in') }}</span>
+        </a>
+    @else
     <flux:dropdown position="top" align="start" class="w-full">
         <button type="button" data-test="sidebar-menu-button" aria-label="{{ __('Account menu') }}"
                 class="flex w-full items-center gap-2.5 rounded-[13px] p-1.5 text-start transition hover:bg-muted">
@@ -247,4 +256,5 @@
             </form>
         </flux:menu>
     </flux:dropdown>
+    @endif
 </div>

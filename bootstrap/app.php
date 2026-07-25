@@ -74,15 +74,10 @@ return Application::configure(basePath: dirname(__DIR__))
             ResolveSalon::class,
         );
 
-        // Guests bounce to login — except on the static demo host, whose
-        // natural logged-out destination IS the demo entry (it signs the
-        // visitor into their session's demo salon, provisioning one first
-        // if needed). Keeps demo.{domain} a working front door on its own.
-        $middleware->redirectGuestsTo(function (Request $request): string {
-            return $request->getHost() === 'demo.'.config('app.domain')
-                ? route('demo.enter')
-                : route('login');
-        });
+        // Guests bounce to login. (The demo host never authenticates —
+        // AuthenticateUnlessDemo skips auth there entirely, so no demo
+        // branch is needed here.)
+        $middleware->redirectGuestsTo(fn (Request $request): string => route('login'));
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

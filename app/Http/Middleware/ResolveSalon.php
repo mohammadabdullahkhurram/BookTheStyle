@@ -2,10 +2,13 @@
 
 namespace App\Http\Middleware;
 
+use App\Enums\SalonRole;
 use App\Models\Salon;
+use App\Support\DemoMode;
 use App\Support\ReservedSlugs;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\View;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -21,15 +24,19 @@ use Symfony\Component\HttpFoundation\Response;
  * otherwise we abort 403. This is the request-level tenant-isolation boundary —
  * it is what stops a logged-in user from reaching another salon's subdomain.
  *
- * THE DEMO EXCEPTION — the one salon surface not resolved from a hostname.
- * The slug `demo` is the static demo.{app.domain} host (hand-created in
- * hPanel; this hosting cannot serve runtime-minted subdomains, see
- * docs/DEPLOY.md). WHICH demo salon it shows is never in the URL: it comes
- * from the visitor's session (`demo_salon_id`), so one visitor can never
- * address another's demo. The `is_demo` filters cut BOTH directions: the
- * session lookup accepts only demo salons (a tampered pointer at a real
- * salon resolves nothing), and the slug lookup accepts only real salons (a
- * demo slug is never a reachable tenant subdomain).
+ * THE DEMO EXCEPTION — the one salon surface not resolved from a hostname
+ * slug lookup. The slug `demo` is the static demo.{app.domain} host
+ * (hand-created in hPanel; this hosting cannot serve runtime-minted
+ * subdomains, see docs/DEPLOY.md). It always renders THE canonical showcase
+ * salon (DemoMode::SHOWCASE_SLUG) as a LOGGED-OUT guest preview: no auth is
+ * required or consulted, and a request-scoped VIEWER (the showcase owner)
+ * is installed via Auth::setUser purely so the dashboard shell — built
+ * around a member — can render. setUser never writes the session, sets no
+ * cookie identity and fires no Login event; the chrome still presents as
+ * logged out (demo context drives the UI). The `is_demo` filters cut BOTH
+ * directions as always: the showcase lookup accepts only demo salons, and
+ * the slug lookup accepts only real salons (a demo slug is never a
+ * reachable tenant subdomain).
  *
  * On success the resolved Salon is bound in the container as `currentSalon`,
  * re-bound as the `salon` route parameter (so component mounts receive the
@@ -39,12 +46,6 @@ class ResolveSalon
 {
     public function handle(Request $request, Closure $next): Response
     {
-        $user = $request->user();
-
-        if ($user === null) {
-            abort(403);
-        }
-
         // The {salon} domain parameter. Implicit binding may already have turned
         // it into a Salon; otherwise it is the raw slug string from the Host.
         $param = $request->route('salon');
@@ -54,24 +55,32 @@ class ResolveSalon
             abort(404);
         }
 
-        $salon = $slug === 'demo'
-            ? $this->demoSalonFromSession($request)
-            : $this->tenantBySlug($slug);
+        $isDemo = $slug === 'demo';
 
-        if ($salon === null) {
-            if ($slug === 'demo') {
-                // A dead demo pointer (expired, swept, tampered, or never
-                // provisioned) bounces to the entry for a fresh demo rather
-                // than 404ing mid-tour.
-                return redirect()->route('demo.enter');
+        if ($isDemo) {
+            $salon = DemoMode::showcaseSalon();
+
+            // Not seeded yet (fresh deploy before demo:seed-showcase ran).
+            abort_if($salon === null, 404);
+
+            $this->installViewer($salon);
+        } else {
+            $user = $request->user();
+
+            if ($user === null) {
+                abort(403);
             }
 
-            abort(404);
-        }
+            $salon = $this->tenantBySlug($slug);
 
-        // The ownership check. No salon data is exposed before this passes.
-        if (! $user->belongsToSalon($salon)) {
-            abort(403);
+            if ($salon === null) {
+                abort(404);
+            }
+
+            // The ownership check. No salon data is exposed before this passes.
+            if (! $user->belongsToSalon($salon)) {
+                abort(403);
+            }
         }
 
         app()->instance('currentSalon', $salon);
@@ -86,7 +95,7 @@ class ResolveSalon
      * is not a reachable tenant. (Active status is checked here, not by route
      * binding, so deactivated salons disappear from the public subdomain
      * entirely.) Demo salons are excluded outright — they are reachable only
-     * through the session on the static demo host, never at {slug}.
+     * through the static demo host, never at {slug}.
      */
     private function tenantBySlug(string $slug): ?Salon
     {
@@ -105,22 +114,22 @@ class ResolveSalon
     }
 
     /**
-     * The visitor's own demo salon, from their session — and ONLY a live demo:
-     * flagged is_demo, active, and unexpired. Anything else resolves nothing.
+     * The request-scoped guest-preview viewer: the showcase owner, set on
+     * the guard for THIS request only. Auth::setUser writes nothing to the
+     * session and fires no auth events — any real session the visitor has
+     * elsewhere is neither read nor touched, and the next request starts
+     * from scratch. This exists solely because the dashboard shell renders
+     * around a member; the demo chrome still presents as logged out.
      */
-    private function demoSalonFromSession(Request $request): ?Salon
+    private function installViewer(Salon $salon): void
     {
-        $id = $request->session()->get('demo_salon_id');
+        $owner = $salon->memberships()
+            ->where('salon_role', SalonRole::Owner->value)
+            ->with('user')
+            ->first()?->user;
 
-        if ($id === null) {
-            return null;
-        }
+        abort_if($owner === null, 404);
 
-        return Salon::query()
-            ->whereKey($id)
-            ->where('is_demo', true)
-            ->where('active', true)
-            ->where('demo_expires_at', '>', now())
-            ->first();
+        Auth::setUser($owner);
     }
 }

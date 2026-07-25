@@ -8,6 +8,7 @@ use App\Http\Controllers\Dev\CaptureLoginController;
 use App\Http\Controllers\GhlWebhookController;
 use App\Http\Controllers\WidgetController;
 use App\Http\Middleware\AuthenticateBookingApi;
+use App\Http\Middleware\AuthenticateUnlessDemo;
 use Illuminate\Support\Facades\Route;
 
 $central = config('app.domain');     // apex, e.g. bookthestyle.com / lvh.me
@@ -126,15 +127,13 @@ Route::domain($app)
 
 /*
 | The public no-signup demo — entered at app.{domain}/demo (a static,
-| cert-valid hostname; the marketing "Demo" link points here). Provisions
-| (or re-enters) THIS visitor's isolated demo salon — rate-limited +
-| capacity-capped in the controller — then redirects to demo.{domain},
-| the equally static, hand-created demo host, where ResolveSalon resolves
-| WHICH demo salon from the visitor's SESSION. No id in the URL, and no
-| per-visitor hostname anywhere: this hosting cannot mint subdomains at
-| runtime (origin certs exist only for hPanel-created subdomains and
-| Cloudflare runs Full (strict) — docs/DEPLOY.md). HostnameGuardTest pins
-| the full route-host allowlist. Public GET, no auth: entering IS signup.
+| cert-valid hostname; the marketing "Demo" link points here). A plain
+| redirect onto demo.{domain}, the equally static, hand-created demo host,
+| where the ONE canonical showcase salon renders as a logged-out guest
+| preview. No login, no per-visitor salons, and no per-visitor hostname
+| anywhere: this hosting cannot mint subdomains at runtime (origin certs
+| exist only for hPanel-created subdomains and Cloudflare runs Full
+| (strict) — docs/DEPLOY.md). HostnameGuardTest pins the host allowlist.
 */
 Route::domain($app)->get('demo', [DemoController::class, 'enter'])->name('demo.enter');
 
@@ -186,11 +185,12 @@ Route::domain($app)->get('widget.js', [WidgetController::class, 'script'])->name
 | such as "app"/"register" as a safety net) before anything inside renders.
 |
 | demo.{domain} lands here too (slug "demo") — the static, hand-created demo
-| host. ResolveSalon resolves the visitor's demo salon from their SESSION for
-| that slug, so demo tours reuse every route below verbatim; a guest on the
-| demo host is bounced to the demo entry instead of login (bootstrap/app.php).
+| host. It renders THE canonical showcase salon as a LOGGED-OUT guest
+| preview: AuthenticateUnlessDemo skips auth there, and ResolveSalon
+| installs the showcase context (and a request-scoped viewer) so every
+| route below renders verbatim, read-only.
 */
-Route::domain('{salon}.'.$central)->middleware(['auth', 'resolve.salon'])->group(function () {
+Route::domain('{salon}.'.$central)->middleware([AuthenticateUnlessDemo::class, 'resolve.salon'])->group(function () {
     Route::livewire('/', 'pages::salon.dashboard')->name('salon.show');
     Route::livewire('calendar', 'pages::salon.calendar')->name('salon.calendar');
     Route::livewire('appointments', 'pages::salon.appointments.index')->name('salon.appointments');
@@ -208,9 +208,6 @@ Route::domain('{salon}.'.$central)->middleware(['auth', 'resolve.salon'])->group
     Route::livewire('widgets', 'pages::salon.widgets')->name('salon.widgets');
     Route::livewire('account', 'pages::salon.account')->name('salon.account');
     Route::livewire('setup', 'pages::salon.onboarding')->name('salon.onboarding');
-    // The demo banner's Reset (demo salons only — the controller 403s others).
-    Route::post('demo/reset', [DemoController::class, 'reset'])->name('salon.demo.reset');
-
     // In-app widget preview (salon.widgets → iframe). Inside THIS group on
     // purpose: ResolveSalon supplies the current tenant — the session salon
     // on the demo host, the subdomain salon for real tenants — so the
