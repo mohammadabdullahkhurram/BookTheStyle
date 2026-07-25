@@ -86,6 +86,8 @@ class WidgetController extends Controller
             'maxDate' => now($salon->timezone)
                 ->addDays(min((int) config('booking_api.widget_days_ahead'), $salon->max_advance_days))
                 ->format('Y-m-d'),
+            // Preview mode also arms the live-draft postMessage listener.
+            'preview' => $preview,
             // The preview page calls the tenant-scoped preview endpoints
             // same-origin; the public page keeps its slug-host endpoints.
             'endpoints' => $preview ? [
