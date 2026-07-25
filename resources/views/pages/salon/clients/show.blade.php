@@ -114,6 +114,10 @@ new #[Title('Client')] class extends Component {
 
     public function addNote(AddClientNote $action): void
     {
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Client changes are disabled in the demo.'))) {
+            return;
+        }
+
         $data = $this->validate(['noteBody' => ['required', 'string', 'max:2000']]);
 
         $action->handle(Auth::user(), $this->salon, $this->client, $data['noteBody']);
@@ -138,6 +142,10 @@ new #[Title('Client')] class extends Component {
 
     public function savePreferences(UpdateClientPreferences $action): void
     {
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Client changes are disabled in the demo.'))) {
+            return;
+        }
+
         $this->authorize('manageBookings', $this->salon);
 
         $data = $this->validate([
@@ -174,6 +182,10 @@ new #[Title('Client')] class extends Component {
 
     public function saveContact(UpdateClient $action): void
     {
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Client changes are disabled in the demo.'))) {
+            return;
+        }
+
         $this->authorize('manageBookings', $this->salon);
 
         $data = $this->validate([

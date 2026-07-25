@@ -153,6 +153,10 @@ new #[Title('Clients')] class extends Component {
 
     public function create(CreateClient $action): void
     {
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Client changes are disabled in the demo.'))) {
+            return;
+        }
+
         $this->authorize('manageBookings', $this->salon);
 
         $data = $this->validate([
@@ -183,6 +187,10 @@ new #[Title('Clients')] class extends Component {
 
     public function saveEdit(UpdateClient $action): void
     {
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Client changes are disabled in the demo.'))) {
+            return;
+        }
+
         $this->authorize('manageBookings', $this->salon);
         $client = $this->client((int) $this->editingId);
 

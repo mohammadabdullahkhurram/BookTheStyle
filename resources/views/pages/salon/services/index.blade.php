@@ -70,6 +70,10 @@ new #[Title('Services')] class extends Component {
 
     public function create(CreateService $action, SyncServiceStylists $sync): void
     {
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Service changes are disabled in the demo.'))) {
+            return;
+        }
+
         $this->authorize('manageServices', $this->salon);
 
         $data = $this->validate([
@@ -152,6 +156,10 @@ new #[Title('Services')] class extends Component {
 
     public function saveEdit(UpdateService $update, SyncServiceStylists $sync): void
     {
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Service changes are disabled in the demo.'))) {
+            return;
+        }
+
         $this->authorize('manageServices', $this->salon);
 
         $service = $this->service((int) $this->editingId);
@@ -186,6 +194,10 @@ new #[Title('Services')] class extends Component {
     /** Nudge a service one step up (-1) or down (+1) in the menu order. */
     public function move(int $serviceId, int $direction, MoveService $action): void
     {
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Service changes are disabled in the demo.'))) {
+            return;
+        }
+
         $this->authorize('manageServices', $this->salon);
         $action->handle($this->salon, $this->service($serviceId), $direction);
         unset($this->services);
@@ -193,6 +205,10 @@ new #[Title('Services')] class extends Component {
 
     public function toggleActive(int $serviceId, SetServiceActive $action): void
     {
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Service changes are disabled in the demo.'))) {
+            return;
+        }
+
         $this->authorize('manageServices', $this->salon);
         $service = $this->service($serviceId);
         $action->handle($this->salon, $service, ! $service->active);

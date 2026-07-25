@@ -348,6 +348,10 @@ new #[Title('New booking')] class extends Component {
 
     public function save(CreateBooking $action): void
     {
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Booking is disabled in the demo.'))) {
+            return;
+        }
+
         $this->authorize('createBookings', $this->salon);
 
         $rules = [

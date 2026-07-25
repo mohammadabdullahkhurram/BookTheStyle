@@ -163,6 +163,10 @@ new #[Title('Calendar')] class extends Component {
 
     public function changeStatus(int $bookingId, string $to, TransitionBookingStatus $action): void
     {
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Status changes are disabled in the demo.'))) {
+            return;
+        }
+
         $booking = $this->booking($bookingId);
         $status = BookingStatus::from($to);
         $action->handle(Auth::user(), $this->salon, $booking, $status);

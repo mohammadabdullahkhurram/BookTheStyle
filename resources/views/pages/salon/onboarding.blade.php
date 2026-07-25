@@ -212,6 +212,10 @@ new #[Title('Salon setup')] class extends Component {
     /** "I've done this in GHL" for the steps the app cannot observe. */
     public function attest(string $step, bool $done = true): void
     {
+        if (\App\Support\DemoMode::blocksWrite($this->salon)) {
+            return;
+        }
+
         $this->authorize('manage', $this->salon);
 
         $this->onboarding()->attest($this->salon, $step, $done);

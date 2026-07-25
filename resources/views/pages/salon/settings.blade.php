@@ -589,6 +589,10 @@ new #[Title('Salon settings')] class extends Component {
      */
     public function saveTimezone(UpdateTimezone $action): void
     {
+        if (\App\Support\DemoMode::blocksWrite($this->salon)) {
+            return;
+        }
+
         $this->authorize('manage', $this->salon);
 
         $this->validate(['timezone' => ['required', 'timezone:all']]);
@@ -617,6 +621,10 @@ new #[Title('Salon settings')] class extends Component {
 
     public function saveCurrency(UpdateCurrency $action): void
     {
+        if (\App\Support\DemoMode::blocksWrite($this->salon)) {
+            return;
+        }
+
         $this->authorize('manage', $this->salon);
 
         $data = $this->validate([
@@ -631,6 +639,10 @@ new #[Title('Salon settings')] class extends Component {
 
     public function savePolicy(UpdateBookingPolicy $action): void
     {
+        if (\App\Support\DemoMode::blocksWrite($this->salon)) {
+            return;
+        }
+
         $this->authorize('manage', $this->salon);
 
         $data = $this->validate([
@@ -766,6 +778,10 @@ new #[Title('Salon settings')] class extends Component {
 
     public function saveProfile(UpdateSalonProfile $action, \App\Actions\Salons\ReconcileSalonOwner $reconcile): void
     {
+        if (\App\Support\DemoMode::blocksWrite($this->salon)) {
+            return;
+        }
+
         $this->authorize('manageProfile', $this->salon);
 
         $data = $this->validate([...SalonProfile::rules(), 'owner_is_stylist' => ['boolean']]);

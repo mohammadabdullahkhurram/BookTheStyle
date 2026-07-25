@@ -105,6 +105,10 @@ new #[Title('Appointments')] class extends Component {
 
     public function changeStatus(int $bookingId, string $to, \App\Actions\Bookings\TransitionBookingStatus $action): void
     {
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Status changes are disabled in the demo.'))) {
+            return;
+        }
+
         $booking = $this->booking($bookingId);
         $status = BookingStatus::from($to);
         $action->handle(Auth::user(), $this->salon, $booking, $status);
@@ -177,6 +181,10 @@ new #[Title('Appointments')] class extends Component {
     /** Commits the SELECTED time — chips only select; this button confirms. */
     public function reschedule(\App\Actions\Bookings\RescheduleBooking $action): void
     {
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Rescheduling is disabled in the demo.'))) {
+            return;
+        }
+
         $this->validate(
             ['rescheduleTime' => ['required', 'date_format:H:i']],
             ['rescheduleTime.required' => __('Pick a new start time first.')],

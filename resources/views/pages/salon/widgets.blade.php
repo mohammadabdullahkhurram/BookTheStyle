@@ -68,6 +68,10 @@ new #[Title('Widgets')] class extends Component {
      */
     public function createWidget(string $type = \App\Support\WidgetTypeRegistry::DEFAULT): void
     {
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Widget changes are disabled in the demo.'))) {
+            return;
+        }
+
         $this->authorize('manage', $this->salon);
 
         if (! \App\Support\WidgetTypeRegistry::selectable($type)) {
@@ -91,6 +95,10 @@ new #[Title('Widgets')] class extends Component {
 
     public function save(): void
     {
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Widget changes are disabled in the demo.'))) {
+            return;
+        }
+
         $this->authorize('manage', $this->salon);
 
         // Accept 1F6F6B / #1f6f6b / whitespace — canonical #RRGGBB. Only
@@ -133,6 +141,10 @@ new #[Title('Widgets')] class extends Component {
     /** Pick this widget's theme — only registry-available widget themes. */
     public function saveTheme(string $key): void
     {
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Widget changes are disabled in the demo.'))) {
+            return;
+        }
+
         $this->authorize('manage', $this->salon);
 
         if (! ThemeRegistry::selectable($key, ThemeRegistry::SCOPE_WIDGET)) {
@@ -147,6 +159,10 @@ new #[Title('Widgets')] class extends Component {
 
     public function removeLogo(): void
     {
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Widget changes are disabled in the demo.'))) {
+            return;
+        }
+
         $this->authorize('manage', $this->salon);
 
         $widget = $this->widget($this->selectedId);
@@ -163,6 +179,10 @@ new #[Title('Widgets')] class extends Component {
 
     public function deleteWidget(int $widgetId): void
     {
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Widget changes are disabled in the demo.'))) {
+            return;
+        }
+
         $this->authorize('manage', $this->salon);
 
         if ($this->salon->widgets()->count() <= 1) {
