@@ -39,6 +39,9 @@ new #[Title('Widgets')] class extends Component {
 
     public $logo = null;
 
+    /** Customizer draft: the theme picked client-side, persisted on Save. */
+    public string $pendingTheme = '';
+
     public function mount(Salon $salon): void
     {
         $this->authorize('manage', $salon);
@@ -70,6 +73,10 @@ new #[Title('Widgets')] class extends Component {
     {
         $this->authorize('manage', $this->salon);
 
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Saving widgets is disabled in the demo.'))) {
+            return;
+        }
+
         if (! \App\Support\WidgetTypeRegistry::selectable($type)) {
             Flux::toast(variant: 'danger', text: __('That widget type is not available yet.'));
 
@@ -92,6 +99,10 @@ new #[Title('Widgets')] class extends Component {
     public function save(): void
     {
         $this->authorize('manage', $this->salon);
+
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Saving widgets is disabled in the demo — the live preview shows your draft.'))) {
+            return;
+        }
 
         // Accept 1F6F6B / #1f6f6b / whitespace — canonical #RRGGBB. Only
         // genuinely invalid colours reach the regex rule below.
@@ -124,7 +135,11 @@ new #[Title('Widgets')] class extends Component {
             }
         }
 
-        $widget->update(['name' => $this->name, 'branding' => $branding]);
+        $data = ['name' => $this->name, 'branding' => $branding];
+        if ($this->pendingTheme !== '' && ThemeRegistry::selectable($this->pendingTheme, ThemeRegistry::SCOPE_WIDGET)) {
+            $data['theme'] = $this->pendingTheme;
+        }
+        $widget->update($data);
         $this->logo = null;
 
         Flux::toast(variant: 'success', text: __('Widget saved.'));
@@ -134,6 +149,10 @@ new #[Title('Widgets')] class extends Component {
     public function saveTheme(string $key): void
     {
         $this->authorize('manage', $this->salon);
+
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Saving widgets is disabled in the demo — the live preview shows your draft.'))) {
+            return;
+        }
 
         if (! ThemeRegistry::selectable($key, ThemeRegistry::SCOPE_WIDGET)) {
             Flux::toast(variant: 'danger', text: __('That theme is not available yet.'));
@@ -148,6 +167,10 @@ new #[Title('Widgets')] class extends Component {
     public function removeLogo(): void
     {
         $this->authorize('manage', $this->salon);
+
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Saving widgets is disabled in the demo — the live preview shows your draft.'))) {
+            return;
+        }
 
         $widget = $this->widget($this->selectedId);
         $branding = $widget->branding ?? [];
@@ -164,6 +187,10 @@ new #[Title('Widgets')] class extends Component {
     public function deleteWidget(int $widgetId): void
     {
         $this->authorize('manage', $this->salon);
+
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Saving widgets is disabled in the demo.'))) {
+            return;
+        }
 
         if ($this->salon->widgets()->count() <= 1) {
             Flux::toast(variant: 'danger', text: __('A salon keeps at least one widget.'));
@@ -187,6 +214,18 @@ new #[Title('Widgets')] class extends Component {
         return $this->salon->widgets()->findOrFail($widgetId);
     }
 
+    /**
+     * THE PROMOTE SWITCH — the two-pane live customizer currently renders
+     * for DEMO salons only; real salons keep the classic page below as the
+     * untouched fallback. To promote the customizer to everyone, change
+     * this to `return true;` (one line) — the classic branch then becomes
+     * dead code to delete at leisure.
+     */
+    private function customizerEnabled(): bool
+    {
+        return $this->salon->is_demo;
+    }
+
     public function with(): array
     {
         $widget = $this->widget($this->selectedId);
@@ -195,6 +234,10 @@ new #[Title('Widgets')] class extends Component {
             'widgets' => $this->salon->widgets()->orderBy('id')->get(),
             'current' => $widget,
             'theme' => WidgetBranding::for($this->salon, null, $widget),
+            'customizer' => $this->customizerEnabled(),
+            // Salon-level effective branding — the live preview's fallback
+            // for any field the draft leaves blank.
+            'salonDefaults' => WidgetBranding::for($this->salon),
         ];
     }
 }; ?>
@@ -205,6 +248,203 @@ new #[Title('Widgets')] class extends Component {
         <p class="mt-1 text-[14px] text-secondary">{{ __('Embeddable booking widgets for your websites — each with its own name, look, theme and embed code. Bookings land here like any other, tagged "Booking widget".') }}</p>
     </div>
 
+    @if ($customizer)
+    {{-- ============== THE LIVE CUSTOMIZER (demo-gated) ==============
+         Two panes: controls left, sticky live preview right. Every
+         appearance edit is pushed into the preview iframe over
+         postMessage (same-origin, origin-scoped) — no save, no reload.
+         The classic page below stays intact for real salons until the
+         PROMOTE SWITCH (customizerEnabled) flips. --}}
+    <div data-customizer
+         x-data="{
+             pane: 'edit',
+             draftTheme: @js($current->theme),
+             draftLogo: null,
+             logoCleared: false,
+             fallback: {
+                 accent: @js($salonDefaults['accent']['accent']),
+                 secondary: @js($salonDefaults['secondary']),
+                 surface: @js($salonDefaults['surface']),
+                 font: @js($salonDefaults['font']['key']),
+                 logo: @js($theme['logo_url']),
+             },
+             hex(v, fb) {
+                 v = (v || '').trim();
+                 if (v && !v.startsWith('#')) v = '#' + v;
+                 return /^#[0-9a-fA-F]{6}$/.test(v) ? v : fb;
+             },
+             push() {
+                 const frame = this.$refs.preview;
+                 if (!frame || !frame.contentWindow) return;
+                 frame.contentWindow.postMessage({
+                     type: 'bts-widget-draft',
+                     accent: this.hex(this.$wire.accent, this.fallback.accent),
+                     secondary: this.hex(this.$wire.secondary, this.fallback.secondary),
+                     surface: this.hex(this.$wire.surface, this.fallback.surface),
+                     font: this.$wire.font || this.fallback.font,
+                     theme: this.draftTheme,
+                     logoUrl: this.logoCleared ? null : (this.draftLogo || this.fallback.logo),
+                 }, window.location.origin);
+             },
+             pickTheme(key) { this.draftTheme = key; this.$wire.pendingTheme = key; this.push(); },
+             pickLogo(ev) {
+                 const file = ev.target.files && ev.target.files[0];
+                 if (!file) return;
+                 this.draftLogo = URL.createObjectURL(file);
+                 this.logoCleared = false;
+                 this.push();
+             },
+             clearLogo() { this.draftLogo = null; this.logoCleared = true; this.push(); },
+         }"
+         x-on:input.debounce.150ms="push()"
+         x-on:change="push()">
+
+        {{-- Mobile: tab between the panes; lg+: both visible. --}}
+        <div class="mb-4 flex gap-1 rounded-[13px] border border-border bg-muted p-1 lg:hidden" role="tablist" aria-label="{{ __('Customizer panes') }}">
+            <button type="button" role="tab" :aria-selected="pane === 'edit'" x-on:click="pane = 'edit'"
+                    class="flex-1 rounded-[10px] px-3 py-2 text-[13.5px] font-semibold transition"
+                    :class="pane === 'edit' ? 'bg-card text-ink shadow-sm' : 'text-secondary'">{{ __('Customize') }}</button>
+            <button type="button" role="tab" :aria-selected="pane === 'preview'" x-on:click="pane = 'preview'; $nextTick(() => push())"
+                    class="flex-1 rounded-[10px] px-3 py-2 text-[13.5px] font-semibold transition"
+                    :class="pane === 'preview' ? 'bg-card text-ink shadow-sm' : 'text-secondary'">{{ __('Preview') }}</button>
+        </div>
+
+        <div class="grid items-start gap-6 lg:grid-cols-[400px_minmax(0,1fr)]">
+            {{-- LEFT — the controls. --}}
+            <div class="flex flex-col gap-5 max-lg:w-full" :class="pane !== 'edit' && 'max-lg:hidden'">
+                {{-- Widget switcher. --}}
+                <div class="flex flex-wrap items-center gap-2">
+                    @foreach ($widgets as $widget)
+                        <button type="button" wire:click="select({{ $widget->id }})"
+                                aria-current="{{ $widget->id === $selectedId ? 'page' : 'false' }}"
+                                class="rounded-full border px-3.5 py-1.5 text-[13px] font-semibold transition {{ $widget->id === $selectedId ? 'border-accent bg-accent-tint text-accent-ink' : 'border-input-border bg-field text-secondary hover:border-faint' }}">
+                            {{ $widget->name }}
+                        </button>
+                    @endforeach
+                    <button type="button" wire:click="$set('showTypePicker', true)"
+                            class="rounded-full border border-dashed border-input-border px-3.5 py-1.5 text-[13px] font-semibold text-accent-ink transition hover:border-accent">
+                        + {{ __('New') }}
+                    </button>
+                </div>
+
+                {{-- Appearance — every field here re-themes the preview live. --}}
+                <x-ui.card class="flex flex-col gap-5">
+                    <div>
+                        <h2 class="bts-card-title">{{ __('Appearance') }}</h2>
+                        <p class="mt-1 text-[13.5px] text-secondary">{{ __('Everything you change shows in the preview instantly.') }}</p>
+                    </div>
+                    <form wire:submit="save" class="flex flex-col gap-5" novalidate>
+                        <flux:input wire:model="name" :label="__('Name')" :description="__('Internal only — e.g. \'Main site\' or \'Downtown location\'.')" />
+                        <div class="grid gap-4 sm:grid-cols-3">
+                            <flux:input wire:model="accent" :label="__('Accent color')" placeholder="{{ $salon->accentColor() ?? '#824C71' }}" :description="__('Blank = the salon brand accent.')" />
+                            <flux:input wire:model="secondary" :label="__('Secondary color')" placeholder="{{ \App\Support\WidgetBranding::DEFAULT_SECONDARY }}" :description="__('Blank = salon default.')" />
+                            <flux:input wire:model="surface" :label="__('Background color')" placeholder="{{ \App\Support\WidgetBranding::DEFAULT_SURFACE }}" :description="__('Blank = salon default.')" />
+                        </div>
+                        <flux:select wire:model="font" :label="__('Font')" :description="__('The type this widget renders in. Blank = salon default.')">
+                            <flux:select.option value="">{{ __('Salon default') }}</flux:select.option>
+                            @foreach (\App\Support\WidgetBranding::FONTS as $key => $fontOption)
+                                <flux:select.option value="{{ $key }}">{{ $fontOption['label'] }}</flux:select.option>
+                            @endforeach
+                        </flux:select>
+
+                        <div class="flex flex-col gap-2">
+                            <div class="bts-field-label">{{ __('Logo') }}</div>
+                            <input type="file" wire:model="logo" x-on:change="pickLogo($event)" accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                                   class="text-[14px] file:mr-3 file:rounded-[9px] file:border file:border-input-border file:bg-field file:px-3 file:py-1.5 file:text-[13px] file:font-semibold file:text-body" />
+                            <div class="flex items-center gap-3">
+                                <p class="text-[12.5px] text-faint">{{ __('PNG, JPG, WebP or SVG, up to 1 MB.') }}</p>
+                                <button type="button" x-on:click="clearLogo()" class="text-[12.5px] font-medium text-secondary transition hover:text-danger">{{ __('Hide logo in preview') }}</button>
+                            </div>
+                            @error('logo') <p class="text-[13px] text-danger">{{ $message }}</p> @enderror
+                        </div>
+
+                        {{-- Theme — draft-picked client-side, persisted on Save. --}}
+                        <div class="flex flex-col gap-2">
+                            <div class="bts-field-label">{{ __('Widget theme') }}</div>
+                            <div class="grid gap-2.5 sm:grid-cols-2">
+                                @foreach (\App\Support\ThemeRegistry::picker(\App\Support\ThemeRegistry::SCOPE_WIDGET) as $themeKey => $themeMeta)
+                                    @if ($themeMeta['status'] === 'available')
+                                        <button type="button" x-on:click="pickTheme('{{ $themeKey }}')"
+                                                :aria-pressed="draftTheme === '{{ $themeKey }}' ? 'true' : 'false'"
+                                                class="flex flex-col gap-1.5 rounded-[13px] border p-3 text-left transition"
+                                                :class="draftTheme === '{{ $themeKey }}' ? 'border-accent bg-accent-tint' : 'border-input-border bg-field hover:border-faint'">
+                                            <span class="flex items-center gap-1.5" aria-hidden="true">
+                                                @foreach ($themeMeta['swatches'] as $swatch)
+                                                    <span class="size-4 rounded-full border border-border" style="background-color: {{ $swatch }}"></span>
+                                                @endforeach
+                                            </span>
+                                            <span class="text-[14px] font-semibold text-ink">{{ $themeMeta['name'] }}</span>
+                                        </button>
+                                    @endif
+                                @endforeach
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col gap-2">
+                            <div><x-ui.button type="submit" loading="save">{{ __('Save widget') }}</x-ui.button></div>
+                            @if ($salon->is_demo)
+                                <p class="text-[12.5px] text-faint">{{ __('Saving is disabled in the demo — the preview is your playground.') }}</p>
+                            @endif
+                        </div>
+                    </form>
+                </x-ui.card>
+
+                {{-- Embed code — the reason this page exists. --}}
+                <x-ui.card class="flex flex-col gap-4">
+                    <h2 class="bts-card-title">{{ __('Embed this widget') }}</h2>
+                    @if ($salon->is_demo)
+                        <p class="text-[13px] text-body">{{ __('Embeds are switched off in the demo. In your real salon, this code drops the booking form into any website.') }}</p>
+                    @endif
+                    @php($tag = 'scr'.'ipt')
+                    @php($scriptSnippet = '<div data-bookthestyle-salon="'.$salon->slug.'" data-bookthestyle-widget="'.$current->public_id.'"></div>'.PHP_EOL.'<'.$tag.' src="'.route('widget.script').'" async></'.$tag.'>')
+                    @php($iframeSnippet = '<iframe src="'.route('salon.widget', ['salon' => $salon, 'widget' => $current->public_id]).'" style="width:100%;border:0;min-height:640px" title="Book an appointment"></iframe>')
+                    <div class="flex flex-col gap-2">
+                        <h3 class="text-[14px] font-semibold text-ink">{{ __('Recommended: script embed (auto-sizes to content)') }}</h3>
+                        <x-ui.copy-field :label="__('Paste where the form should appear')" :value="$scriptSnippet" />
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <h3 class="text-[14px] font-semibold text-ink">{{ __('Alternative: plain iframe') }}</h3>
+                        <x-ui.copy-field :label="__('For builders that only accept an iframe')" :value="$iframeSnippet" />
+                    </div>
+                </x-ui.card>
+
+                @if ($widgets->count() > 1)
+                    <div>
+                        <button type="button"
+                                x-on:click="$store.confirm.ask({
+                                    title: {{ Js::from(__('Delete widget')) }},
+                                    message: {{ Js::from(__('Delete this widget? Sites embedding it stop showing a booking form. Existing bookings are kept.')) }},
+                                    confirmLabel: {{ Js::from(__('Delete')) }},
+                                    danger: true,
+                                }, () => $wire.deleteWidget({{ $current->id }}))"
+                                class="text-[13.5px] font-medium text-secondary transition hover:text-danger">{{ __('Delete this widget') }}</button>
+                    </div>
+                @endif
+            </div>
+
+            {{-- RIGHT — the sticky live preview. --}}
+            <div class="max-lg:w-full lg:sticky lg:top-6" :class="pane !== 'preview' && 'max-lg:hidden'">
+                <x-ui.card class="flex flex-col gap-3">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <h2 class="bts-card-title">{{ __('Live preview') }}</h2>
+                        <p class="text-[13px] text-faint">
+                            @if ($salon->is_demo)
+                                {{ __('Fully interactive — bookings you make here land in your demo calendar.') }}
+                            @else
+                                {{ __('Fully interactive — the final step never creates a real booking from here.') }}
+                            @endif
+                        </p>
+                    </div>
+                    <iframe x-ref="preview" x-on:load="push()"
+                            src="{{ route('salon.widget.preview', ['salon' => $salon, 'widget' => $current->public_id]) }}"
+                            title="{{ __('Widget preview') }}"
+                            class="w-full rounded-[14px] border border-input-border"
+                            style="min-height: 720px"></iframe>
+                </x-ui.card>
+            </div>
+        </div>
+    </div>
+    @else
     <div class="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
         {{-- Widget list: name + its TYPE, so mixed-type lists read at a glance --}}
         <nav aria-label="{{ __('Your widgets') }}" class="flex flex-col gap-1">
@@ -390,6 +630,7 @@ new #[Title('Widgets')] class extends Component {
             @endif
         </div>
     </div>
+    @endif
 
     {{-- Type picker: the first step of creating a widget. Available types
          are selectable cards; coming-soon ones are locked previews (same
