@@ -39,6 +39,11 @@ new #[Title('Widgets')] class extends Component {
 
     public $logo = null;
 
+    /** The preview popup (fresh iframe per open — see openPreview). */
+    public bool $showPreview = false;
+
+    public string $previewNonce = '';
+
     public function mount(Salon $salon): void
     {
         $this->authorize('manage', $salon);
@@ -201,6 +206,17 @@ new #[Title('Widgets')] class extends Component {
         Flux::toast(variant: 'success', text: __('Widget deleted. Embeds using its id stop rendering.'));
     }
 
+    /**
+     * Open the preview popup for the CURRENTLY-SELECTED widget. A fresh
+     * nonce busts the iframe src every open, so the popup always loads the
+     * latest saved config — never a stale render.
+     */
+    public function openPreview(): void
+    {
+        $this->previewNonce = \Illuminate\Support\Str::random(8);
+        $this->showPreview = true;
+    }
+
     /** Resolve a widget id STRICTLY within this salon — never trust the id alone. */
     private function widget(int $widgetId): Widget
     {
@@ -249,7 +265,7 @@ new #[Title('Widgets')] class extends Component {
             <x-ui.card class="flex flex-col gap-5">
                 <div class="flex items-center justify-between gap-3">
                     <h2 class="bts-card-title">{{ $current->name }}</h2>
-                    <a href="#widget-preview" class="bts-btn bts-btn-secondary bts-btn-sm">{{ __('Preview') }}</a>
+                    <button type="button" wire:click="openPreview" class="bts-btn bts-btn-secondary bts-btn-sm">{{ __('Preview') }}</button>
                 </div>
 
                 <form wire:submit="save" class="flex flex-col gap-5" novalidate>
@@ -342,28 +358,6 @@ new #[Title('Widgets')] class extends Component {
                 </div>
             </x-ui.card>
 
-            {{-- Inline preview — the REAL widget for the CURRENT salon,
-                 rendered by the in-app preview route (resolve.salon supplies
-                 the tenant, so this works identically in demo and real).
-                 Real-salon submits are non-committal; demo submits land in
-                 the demo calendar, inert like everything else here. --}}
-            <x-ui.card id="widget-preview" class="flex flex-col gap-4">
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                    <h2 class="bts-card-title">{{ __('Preview') }}</h2>
-                    <p class="text-[13px] text-faint">
-                        @if ($salon->is_demo)
-                            {{ __('Fully interactive — bookings you make here land in your demo calendar.') }}
-                        @else
-                            {{ __('Fully interactive — the final step never creates a real booking from here.') }}
-                        @endif
-                    </p>
-                </div>
-                <iframe src="{{ route('salon.widget.preview', ['salon' => $salon, 'widget' => $current->public_id]) }}"
-                        title="{{ __('Widget preview') }}"
-                        class="w-full rounded-[14px] border border-input-border"
-                        style="min-height: 680px"></iframe>
-            </x-ui.card>
-
             {{-- Embed code — unique to THIS widget. --}}
             <x-ui.card class="flex flex-col gap-5">
                 <h2 class="bts-card-title">{{ __('Embed this widget') }}</h2>
@@ -410,6 +404,33 @@ new #[Title('Widgets')] class extends Component {
             @endif
         </div>
     </div>
+
+    {{-- Preview popup: the same-origin in-app preview route (NEVER the
+         public widget host), loading the currently-selected widget FRESH on
+         every open. Sized snugly to the widget via the bts:resize height
+         message the widget page already posts for public embeds — SIZING
+         ONLY, never re-theming. Same behavior in demo (inert) and real
+         salons (non-committal submit). --}}
+    <x-ui.modal wire:model="showPreview" class="max-w-[min(960px,95vw)] !p-0"
+                x-data="{
+                    fit(e) {
+                        if (!e.data || e.data.type !== 'bts:resize') return;
+                        if (e.origin !== window.location.origin) return;
+                        const frame = $refs.previewFrame;
+                        if (!frame || e.source !== frame.contentWindow) return;
+                        const h = parseInt(e.data.height, 10);
+                        if (h > 0) frame.style.height = Math.min(h + 2, window.innerHeight * 0.85) + 'px';
+                    },
+                }"
+                x-on:message.window="fit($event)">
+        @if ($showPreview)
+            <iframe x-ref="previewFrame"
+                    src="{{ route('salon.widget.preview', ['salon' => $salon, 'widget' => $current->public_id, 'fresh' => $previewNonce]) }}"
+                    title="{{ __('Widget preview') }}"
+                    class="block w-full"
+                    style="height: min(680px, 80dvh); border: 0"></iframe>
+        @endif
+    </x-ui.modal>
 
     {{-- Type picker: the first step of creating a widget. Available types
          are selectable cards; coming-soon ones are locked previews (same

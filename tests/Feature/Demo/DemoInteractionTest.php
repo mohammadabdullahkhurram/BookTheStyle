@@ -102,12 +102,15 @@ it('keeps every link, form action, and Livewire endpoint on static hosts', funct
     }
 });
 
-it('shows the widgets page in demo with the inline preview and inert embeds', function () {
+it('shows the widgets page in demo with the preview popup trigger and inert embeds', function () {
     demoShowcase();
 
     $this->get('http://demo.'.config('app.domain').'/widgets')
         ->assertOk()
-        ->assertSee('/widgets/preview/', false)
+        // The preview is a popup now: trigger present, no embedded iframe
+        // until it opens.
+        ->assertSee('openPreview', false)
+        ->assertDontSee('<iframe', false)
         ->assertSee(__('Embeds are switched off in the demo. In your real salon, this code drops the booking form into any website.'))
         // No clickable door to the (structurally inert → 404) public widget
         // host; the embed snippets stay as entity-encoded copy-text.

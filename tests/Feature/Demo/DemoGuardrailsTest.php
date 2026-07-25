@@ -102,22 +102,63 @@ it('shows the calendar-feed page with links disabled in demo, working for real u
 // The widget preview — both contexts (design unchanged: static in-app iframe)
 // ---------------------------------------------------------------------------
 
-it('renders the inline widget preview for the showcase as a guest, never via the public host', function () {
+it('opens the widget preview popup onto the in-app route, never the public host', function () {
     $salon = demoShowcase();
     $host = 'http://demo.'.config('app.domain');
     $widget = $salon->defaultWidget();
 
+    // Closed: trigger only, no iframe on the page.
     $this->get($host.'/widgets')
         ->assertOk()
-        ->assertSee($host.'/widgets/preview/'.$widget->public_id, false);
+        ->assertSee('openPreview', false)
+        ->assertDontSee('/widgets/preview/', false);
 
+    // Open: the modal iframe targets the in-app preview route for the
+    // CURRENTLY-SELECTED widget, on the demo host.
+    $component = Livewire::actingAs(salonOwnerOf($salon))
+        ->test('pages::salon.widgets', ['salon' => $salon])
+        ->call('openPreview')
+        ->assertSet('showPreview', true)
+        ->assertSeeHtml('/widgets/preview/'.$widget->public_id);
+    $first = $component->get('previewNonce');
+
+    // Re-opening busts the src — a fresh load every time, never stale.
+    $component->set('showPreview', false)
+        ->call('openPreview')
+        ->assertSet('showPreview', true);
+    expect($component->get('previewNonce'))->not->toBe($first)->not->toBe('');
+
+    // The popup's target renders as before (in-app, guest-reachable)…
     $html = $this->get($host.'/widgets/preview/'.$widget->public_id)
         ->assertOk()
         ->assertSee($salon->name)
         ->getContent();
 
+    // …with tenant-scoped endpoints and no slug-host leak anywhere.
     expect($html)->toContain('demo.'.config('app.domain').'\/api\/widget-preview\/availability');
     expect($html)->not->toContain($salon->slug);
+});
+
+it('opens the preview popup for a real salon onto its own subdomain route', function () {
+    $salon = bookingSalon();
+    $owner = salonOwnerOf($salon);
+    $widget = $salon->defaultWidget();
+
+    $this->actingAs($owner)
+        ->get(route('salon.widgets', $salon))
+        ->assertOk()
+        ->assertSee('openPreview', false)
+        ->assertDontSee('/widgets/preview/', false);
+
+    $html = Livewire::actingAs($owner)
+        ->test('pages::salon.widgets', ['salon' => $salon])
+        ->call('openPreview')
+        ->assertSet('showPreview', true)
+        ->assertSeeHtml('/widgets/preview/'.$widget->public_id)
+        ->html();
+
+    // In-app host only — never the public widget host ({slug}./widget/…).
+    expect($html)->not->toContain('/widget/'.$widget->public_id.'"');
 });
 
 it('books through the demo preview inertly — a real demo booking, no GHL, no mail', function () {
