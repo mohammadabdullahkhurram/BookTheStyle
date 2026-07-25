@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Actions\Demo\DeleteDemoSalon;
 use App\Models\Salon;
+use App\Support\DemoMode;
 use Illuminate\Console\Command;
 
 /**
@@ -21,6 +22,9 @@ class SweepDemoSalons extends Command
     {
         $expired = Salon::query()
             ->where('is_demo', true)
+            // The canonical showcase never expires (demo_expires_at null
+            // already excludes it); the slug exclusion is belt-and-braces.
+            ->whereNot('slug', DemoMode::SHOWCASE_SLUG)
             ->where('demo_expires_at', '<', now())
             ->get();
 
