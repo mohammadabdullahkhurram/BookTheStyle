@@ -41,7 +41,7 @@
                                 class="rounded-[9px] border px-3 py-1.5 text-[14px] transition {{ $selected
                                     ? 'border-accent bg-accent-soft font-semibold text-accent-ink'
                                     : 'border-input-border bg-field font-medium text-body hover:border-accent hover:text-accent-ink' }}">
-                            {{ $slot }}
+                            {{ \App\Support\TimeDisplay::twelveHour($slot) }}
                         </button>
                     @endforeach
                 </div>
