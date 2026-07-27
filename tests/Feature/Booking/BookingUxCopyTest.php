@@ -7,8 +7,8 @@ use Livewire\Livewire;
 
 /*
 | Booking-flow copy + formatting: times display 12-hour with AM/PM (values
-| stay 'H:i' internally), the in-app booking source reads "Staff member",
-| and the client selector pairs "New client" / "Existing client".
+| stay 'H:i' internally), the in-app booking source reads "Staff Member",
+| and the client selector pairs "New Client" / "Existing".
 */
 
 it('formats display times as 12-hour with AM/PM', function () {
@@ -40,12 +40,12 @@ it('shows 12-hour slot chips in the booking wizard — never 24-hour', function 
     CarbonImmutable::setTestNow();
 });
 
-it('labels the in-app booking source "Staff member" everywhere the enum renders', function () {
-    expect(BookingSource::InApp->label())->toBe('Staff member');
+it('labels the in-app booking source "Staff Member" everywhere the enum renders', function () {
+    expect(BookingSource::InApp->label())->toBe('Staff Member');
     expect(BookingSource::InApp->value)->toBe('in_app'); // stored value unchanged
 });
 
-it('shows Staff member in the reports source mix', function () {
+it('shows Staff Member in the reports source mix', function () {
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-06-22 12:00:00', 'UTC'));
     $salon = bookingSalon();
     $stylist = stylistWithHours($salon, 0, 9 * 60, 17 * 60);
@@ -55,19 +55,20 @@ it('shows Staff member in the reports source mix', function () {
     $this->actingAs(salonOwnerOf($salon))
         ->get(route('salon.reports', $salon))
         ->assertOk()
-        ->assertSee(__('Staff member'))
+        ->assertSee(__('Staff Member'))
         ->assertDontSee(__('In app'));
 
     CarbonImmutable::setTestNow();
 });
 
-it('pairs New client / Existing client in the create-appointment selector', function () {
+it('pairs New Client / Existing in the create-appointment selector', function () {
     $salon = bookingSalon();
 
     $this->actingAs(salonOwnerOf($salon))
         ->get(route('salon.bookings.create', $salon))
         ->assertOk()
-        ->assertSee(__('New client'))
-        ->assertSee(__('Existing client'))
+        ->assertSee(__('New Client'))
+        ->assertSee(__('Existing'))
+        ->assertDontSee(__('Existing client'))
         ->assertDontSee(__('Quick add'));
 });

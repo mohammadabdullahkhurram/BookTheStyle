@@ -415,8 +415,8 @@ new #[Title('New booking')] class extends Component {
             <x-ui.card class="flex flex-col gap-4">
                 <h2 class="bts-card-title">{{ __('Client') }}</h2>
                 <flux:radio.group wire:model.live="clientMode" variant="segmented">
-                    <flux:radio value="existing" label="{{ __('Existing client') }}" />
-                    <flux:radio value="new" label="{{ __('New client') }}" />
+                    <flux:radio value="existing" label="{{ __('Existing') }}" />
+                    <flux:radio value="new" label="{{ __('New Client') }}" />
                 </flux:radio.group>
 
                 @if ($clientMode === 'existing')

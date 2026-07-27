@@ -21,7 +21,7 @@ enum BookingSource: string
     public function label(): string
     {
         return match ($this) {
-            self::InApp => 'Staff member',
+            self::InApp => 'Staff Member',
             self::VoiceAi => 'Voice AI',
             self::ChatWidget => 'Chat widget',
             self::WebWidget => 'Booking widget',
