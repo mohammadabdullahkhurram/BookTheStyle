@@ -49,6 +49,13 @@ Schedule::command('ghl:reconcile')
 // Expired public-demo salons are hard-deleted hourly (blast-radius control).
 Schedule::command('demo:sweep')->hourly()->withoutOverlapping();
 
+// The demo showcase resets nightly: visitor-created bookings (the demo's
+// one try-it exemption) are cleared and the seeded calendar re-anchors to
+// "now", so every day's demo looks current and tidy. Same single cron line.
+Schedule::command('demo:reset-showcase')
+    ->dailyAt('03:30')
+    ->withoutOverlapping();
+
 Schedule::command('model:prune')
     ->dailyAt('03:10')
     ->withoutOverlapping();

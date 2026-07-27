@@ -348,10 +348,11 @@ new #[Title('New booking')] class extends Component {
 
     public function save(CreateBooking $action): void
     {
-        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Booking is disabled in the demo.'))) {
-            return;
-        }
-
+        // DELIBERATELY not demo-guarded: booking creation is the demo's one
+        // try-it exemption — the booking persists to the showcase salon
+        // (inert: the salon's is_demo flag structurally blocks GHL + mail)
+        // and demo:reset-showcase restores the seeded baseline daily. Every
+        // OTHER mutation (edit/reschedule/cancel/settings) stays blocked.
         $this->authorize('createBookings', $this->salon);
 
         $rules = [
@@ -414,8 +415,8 @@ new #[Title('New booking')] class extends Component {
             <x-ui.card class="flex flex-col gap-4">
                 <h2 class="bts-card-title">{{ __('Client') }}</h2>
                 <flux:radio.group wire:model.live="clientMode" variant="segmented">
-                    <flux:radio value="existing" label="{{ __('Existing') }}" />
-                    <flux:radio value="new" label="{{ __('Quick add') }}" />
+                    <flux:radio value="existing" label="{{ __('Existing client') }}" />
+                    <flux:radio value="new" label="{{ __('New client') }}" />
                 </flux:radio.group>
 
                 @if ($clientMode === 'existing')
@@ -491,7 +492,7 @@ new #[Title('New booking')] class extends Component {
                                                     <button type="button" wire:click="pickTime({{ $i }}, '{{ $slot }}')"
                                                             aria-pressed="{{ $item['time'] === $slot ? 'true' : 'false' }}"
                                                             class="rounded-[9px] border px-3 py-1.5 text-[14px] font-medium transition {{ $item['time'] === $slot ? 'border-accent bg-accent-tint text-accent-ink' : 'border-input-border bg-field text-body hover:border-faint' }}">
-                                                        {{ $slot }}
+                                                        {{ \App\Support\TimeDisplay::twelveHour($slot) }}
                                                     </button>
                                                 @endforeach
                                             </div>

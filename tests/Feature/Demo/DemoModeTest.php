@@ -8,6 +8,7 @@ use App\Enums\AgencyRole;
 use App\Enums\BookingStatus;
 use App\Models\Agency;
 use App\Models\Booking;
+use App\Models\Client;
 use App\Models\Salon;
 use App\Models\User;
 use App\Support\BookingApiToken;
@@ -163,18 +164,12 @@ it('keeps the real login working after browsing the demo', function () use ($dem
 // View-only
 // ---------------------------------------------------------------------------
 
-it('blocks representative mutations on the demo dashboard', function () {
+it('blocks every demo mutation EXCEPT booking creation', function () {
     $salon = demoShowcase();
     $owner = salonOwnerOf($salon);
 
-    $bookings = $salon->bookings()->count();
     $clients = $salon->clients()->count();
     $booked = $salon->bookings()->where('status', BookingStatus::Booked)->with('items')->first();
-
-    Livewire::actingAs($owner)
-        ->test('pages::salon.bookings.create', ['salon' => $salon])
-        ->call('save')
-        ->assertHasNoErrors();
 
     Livewire::actingAs($owner)
         ->test('pages::salon.clients.index', ['salon' => $salon])
@@ -187,9 +182,97 @@ it('blocks representative mutations on the demo dashboard', function () {
         ->call('changeStatus', $booked->id, 'arrived')
         ->assertHasNoErrors();
 
-    expect($salon->bookings()->count())->toBe($bookings);
+    Livewire::actingAs($owner)
+        ->test('pages::salon.appointments.index', ['salon' => $salon])
+        ->call('openReschedule', $booked->id)
+        ->call('reschedule')
+        ->assertHasNoErrors();
+
+    Livewire::actingAs($owner)
+        ->test('pages::salon.settings', ['salon' => $salon])
+        ->set('accent', '#123456')
+        ->call('saveBranding')
+        ->assertHasNoErrors();
+
     expect($salon->clients()->count())->toBe($clients);
     expect($booked->fresh()->status)->toBe(BookingStatus::Booked);
+    expect($salon->fresh()->accentColor())->not->toBe('#123456');
+});
+
+it('lets a demo visitor CREATE a booking — the one try-it exemption — inertly', function () {
+    $salon = demoShowcase();
+    $owner = salonOwnerOf($salon);
+    Queue::fake();
+    Mail::fake();
+
+    $service = $salon->services()->whereHas('stylists')->firstOrFail();
+    $stylist = $service->stylists()->firstOrFail();
+    $before = $salon->bookings()->count();
+
+    // Find a genuinely open slot through the wizard's own engine.
+    $component = Livewire::actingAs($owner)
+        ->test('pages::salon.bookings.create', ['salon' => $salon])
+        ->set('clientMode', 'new')
+        ->set('newName', 'Demo Try-It Guest')
+        ->set('items.0.service_id', (string) $service->id)
+        ->set('items.0.stylist_id', (string) $stylist->id);
+
+    $slot = null;
+    foreach (range(1, 14) as $ahead) {
+        $component->set('date', now($salon->timezone)->addDays($ahead)->format('Y-m-d'));
+        $slots = $component->instance()->slotsForLine(0);
+        if ($slots !== []) {
+            $slot = $slots[0];
+
+            break;
+        }
+    }
+    expect($slot)->not->toBeNull('no open slot found in 14 days of the showcase calendar');
+
+    $component->call('pickTime', 0, $slot)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    // The booking landed on the showcase — visible on the calendar — and
+    // nothing left the building.
+    expect($salon->bookings()->count())->toBe($before + 1);
+    Queue::assertNothingPushed();
+    Mail::assertNothingOutgoing();
+
+    $this->get('http://demo.'.config('app.domain').'/appointments/all')
+        ->assertOk()
+        ->assertSee('Demo Try-It Guest');
+});
+
+it('resets the showcase to its seeded baseline, idempotently, touching no real salon', function () {
+    $salon = demoShowcase();
+    $owner = salonOwnerOf($salon);
+    $real = Salon::factory()->create();
+    $realBookings = $real->bookings()->count();
+
+    // A visitor-created booking pollutes the shared showcase…
+    $service = $salon->services()->whereHas('stylists')->firstOrFail();
+    $stylist = $service->stylists()->firstOrFail();
+    app(CreateBooking::class)->handle($owner, $salon, [
+        'client' => ['name' => 'Visitor Leftover'],
+        'items' => [['service_id' => $service->id, 'stylist_id' => $stylist->id]],
+        'start' => now($salon->timezone)->addDays(40)->next(CarbonInterface::MONDAY)->setTime(11, 0)->format('Y-m-d H:i'),
+        'is_walkin' => false,
+        'notes' => null,
+    ]);
+
+    // …and the nightly reset restores the baseline: fresh showcase, no
+    // leftover, real salons untouched. Running it twice is a no-op shape.
+    $this->artisan('demo:reset-showcase')->assertExitCode(0);
+    $this->artisan('demo:reset-showcase')->assertExitCode(0);
+
+    $fresh = DemoMode::showcaseSalon();
+    expect($fresh)->not->toBeNull();
+    expect($fresh->id)->not->toBe($salon->id);
+    expect($fresh->bookings()->count())->toBeGreaterThan(30);
+    expect(Client::withoutGlobalScopes()->where('salon_id', $fresh->id)->where('name', 'Visitor Leftover')->exists())->toBeFalse();
+    expect($real->fresh())->not->toBeNull();
+    expect($real->bookings()->count())->toBe($realBookings);
 });
 
 it('keeps mutations working for real tenants', function () {
