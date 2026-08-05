@@ -16,6 +16,7 @@ use App\Support\TemporaryPassword;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Invite/create a staff member for a salon. Enforces the anti-escalation rule
@@ -63,13 +64,21 @@ class InviteStaff
 
         // Overwriting an existing membership needs authority over its CURRENT
         // role too — the invite form can't demote an owner/manager the actor
-        // may not manage.
+        // may not manage. And it can NEVER demote the owner (an owner-email
+        // invite would be a silent ownership strip): that runs through the
+        // SetSalonOwner transfer flow only.
         $existing = User::withTrashed()->where('email', $data['email'])->first();
         if ($existing !== null && ! $existing->trashed()) {
             $current = $salon->memberships()->where('user_id', $existing->id)->first();
 
-            if ($current !== null && ! $this->roles->canAssign($actor, $salon, $current->salon_role)) {
+            if ($current !== null && ! $this->roles->canManage($actor, $salon, $current->salon_role)) {
                 throw new AuthorizationException('You may not manage that staff member.');
+            }
+
+            if ($current?->salon_role === SalonRole::Owner) {
+                throw ValidationException::withMessages([
+                    'email' => __('This salon needs an owner — transfer ownership first.'),
+                ]);
             }
         }
 

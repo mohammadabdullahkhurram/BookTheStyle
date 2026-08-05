@@ -14,9 +14,12 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Edit a staff member's salon role / staff type. The actor must have authority
- * over BOTH the membership's current role and the new role (so a salon_admin
- * can neither touch a salon_owner nor promote anyone to salon_owner). The
- * membership must belong to the resolved salon (anti-IDOR).
+ * over the membership's current role (canManage) AND be allowed to grant the
+ * new role (canAssign) — so a salon_admin can neither touch a salon_owner nor
+ * promote anyone to salon_owner, while a privileged agency operator may edit
+ * the owner but still cannot strip the salon's last owner without the
+ * SetSalonOwner transfer flow. The membership must belong to the resolved
+ * salon (anti-IDOR).
  */
 class UpdateStaffMembership
 {
@@ -31,7 +34,7 @@ class UpdateStaffMembership
 
         $newRole = SalonRole::from($data['salon_role']);
 
-        if (! $this->roles->canAssign($actor, $salon, $membership->salon_role)
+        if (! $this->roles->canManage($actor, $salon, $membership->salon_role)
             || ! $this->roles->canAssign($actor, $salon, $newRole)) {
             throw new AuthorizationException('You may not manage that staff member.');
         }

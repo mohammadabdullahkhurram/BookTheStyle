@@ -5,6 +5,7 @@ use App\Actions\AgencyUsers\DeleteAgencyUser;
 use App\Actions\Staff\DeleteStaffUser;
 use App\Actions\Staff\InviteStaff;
 use App\Enums\AgencyRole;
+use App\Enums\SalonRole;
 use App\Models\Agency;
 use App\Models\BookingItem;
 use App\Models\Salon;
@@ -15,6 +16,7 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\ValidationException;
 
 /*
 | User deletion respects the role matrix (SPEC §2) server-side, is soft
@@ -62,17 +64,31 @@ it('lets a salon admin delete staff but never the owner', function () {
     expect($owner->fresh()->trashed())->toBeFalse();
 });
 
-it('refuses the owner as a deletion target for everyone, agency operators included', function () {
+it('refuses deleting the sole owner even for agency operators — until ownership is transferred', function () {
     $salon = Salon::factory()->create();
     $owner = salonOwnerOf($salon);
+    $manager = salonAdminOf($salon);
     $agencyOwner = User::factory()->create([
         'agency_id' => $salon->agency_id,
         'agency_role' => AgencyRole::Owner,
     ]);
 
+    // An agency operator HAS authority over the owner now, but the salon may
+    // never be left ownerless: deleting the sole owner is refused outright.
     $ownerMembership = $salon->memberships()->where('user_id', $owner->id)->firstOrFail();
     expect(fn () => deleteStaff($agencyOwner, $salon, $ownerMembership))
-        ->toThrow(AuthorizationException::class);
+        ->toThrow(ValidationException::class);
+    expect($owner->fresh()->trashed())->toBeFalse();
+
+    // After a transfer the ex-owner is an ordinary member and deletable.
+    app(\App\Actions\Salons\SetSalonOwner::class)->handle($agencyOwner, $salon, [
+        'membership_id' => $manager->membershipFor($salon)->id,
+    ]);
+    expect(deleteStaff($agencyOwner, $salon, $ownerMembership->fresh()))->toBeTrue();
+    expect($owner->fresh()->trashed())->toBeTrue();
+
+    // The invariant held throughout: exactly one active owner remains.
+    expect($salon->memberships()->where('salon_role', SalonRole::Owner->value)->where('active', true)->count())->toBe(1);
 });
 
 it('gives staff no deletion rights at all', function () {

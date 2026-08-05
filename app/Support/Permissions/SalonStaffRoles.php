@@ -14,14 +14,18 @@ use Illuminate\Validation\ValidationException;
  * inviting or editing users — the anti-privilege-escalation rules.
  *
  * OWNER IS NEVER GRANTED THROUGH USER MANAGEMENT. A salon's owner is
- * provisioned at salon creation (from the contact person) and is protected:
- * because canAssign() is also checked against a TARGET's current role, no
- * actor can edit, demote, deactivate or reset the owner — the owner manages
- * their own account through account settings. The single exception keeps
- * provisioning/transfer possible: ownership is assigned from the AGENCY
- * console (SetSalonOwner, agency owner only) or auto-provisioned at salon
- * creation — never through user management, so Owner is never assignable
- * here for anyone.
+ * provisioned at salon creation (from the contact person); ownership is
+ * assigned via SetSalonOwner (privileged agency roles) or auto-provisioned
+ * at salon creation — never through invites/edits, so Owner is never
+ * assignable here for anyone.
+ *
+ * TARGET authority is the separate manageable()/canManage() axis: for salon
+ * roles it equals what they may grant, so no salon member can edit, demote,
+ * deactivate or reset the owner — the owner manages their own account
+ * through account settings. Privileged AGENCY operators (owner/admin of
+ * this salon's agency) additionally hold authority OVER the owner as a
+ * target; stripping the owner role itself still runs through the
+ * SetSalonOwner transfer flow, which keeps the salon owned.
  *
  * Everyone with management rights grants Manager and Stylist:
  * - Agency owner/admin (this salon's agency) → Manager, Stylist.
@@ -55,6 +59,31 @@ class SalonStaffRoles
     public function canAssign(User $actor, Salon $salon, SalonRole $role): bool
     {
         return in_array($role, $this->assignable($actor, $salon), true);
+    }
+
+    /**
+     * The roles an actor holds authority OVER as edit/deactivate/delete/reset
+     * targets. Equals assignable() for everyone except privileged agency
+     * operators of this salon's agency, whose reach extends to the Owner.
+     * Owner stays out of assignable(): granting ownership remains exclusive
+     * to the SetSalonOwner transfer flow.
+     *
+     * @return list<SalonRole>
+     */
+    public function manageable(User $actor, Salon $salon): array
+    {
+        $roles = $this->assignable($actor, $salon);
+
+        if ($actor->isAgencyOperator() && $actor->operatesSalon($salon)) {
+            $roles[] = SalonRole::Owner;
+        }
+
+        return $roles;
+    }
+
+    public function canManage(User $actor, Salon $salon, SalonRole $role): bool
+    {
+        return in_array($role, $this->manageable($actor, $salon), true);
     }
 
     /**

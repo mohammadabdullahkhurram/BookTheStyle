@@ -25,7 +25,7 @@ class SetMembershipActive
             throw new AuthorizationException('That staff member is not in this salon.');
         }
 
-        if (! $this->roles->canAssign($actor, $salon, $membership->salon_role)) {
+        if (! $this->roles->canManage($actor, $salon, $membership->salon_role)) {
             throw new AuthorizationException('You may not manage that staff member.');
         }
 

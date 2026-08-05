@@ -2,12 +2,14 @@
 
 namespace App\Actions\Staff;
 
+use App\Enums\SalonRole;
 use App\Models\Salon;
 use App\Models\SalonMembership;
 use App\Models\User;
 use App\Support\Permissions\SalonStaffRoles;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Delete a staff member from a salon. Tenant-safe by construction: the salon
@@ -17,9 +19,11 @@ use Illuminate\Support\Facades\DB;
  * one keeps logging in to the other.
  *
  * Authorization mirrors every other staff action: the actor must have
- * authority over the target's CURRENT role (SalonStaffRoles::canAssign), so
- * the salon owner is undeletable here by anyone — owner accounts leave only
- * via self-deletion. Self-deletion from the staff screen is refused too; it
+ * authority over the target's CURRENT role (SalonStaffRoles::canManage), so
+ * the salon owner is undeletable by salon members; a privileged agency
+ * operator may delete the owner, but never the salon's LAST active owner —
+ * ownership must be transferred first (SetSalonOwner), so a salon is never
+ * left ownerless. Self-deletion from the staff screen is refused too; it
  * lives in account settings under its own rule (User::canDeleteOwnAccount).
  *
  * Booking history survives: bookings/status events keep their user id, and
@@ -43,8 +47,15 @@ class DeleteStaffUser
             throw new AuthorizationException('You cannot delete yourself from the staff screen. Account deletion lives in your account settings.');
         }
 
-        if (! $this->roles->canAssign($actor, $salon, $membership->salon_role)) {
+        if (! $this->roles->canManage($actor, $salon, $membership->salon_role)) {
             throw new AuthorizationException('You may not manage that staff member.');
+        }
+
+        if ($membership->salon_role === SalonRole::Owner
+            && $this->isLastActiveOwner($salon, $membership)) {
+            throw ValidationException::withMessages([
+                'owner' => __('This salon needs an owner — transfer ownership first.'),
+            ]);
         }
 
         $user = $membership->user;
@@ -61,5 +72,14 @@ class DeleteStaffUser
 
             return $accountRemovable;
         });
+    }
+
+    private function isLastActiveOwner(Salon $salon, SalonMembership $membership): bool
+    {
+        return $salon->memberships()
+            ->where('salon_role', SalonRole::Owner->value)
+            ->where('active', true)
+            ->whereKeyNot($membership->id)
+            ->doesntExist();
     }
 }
