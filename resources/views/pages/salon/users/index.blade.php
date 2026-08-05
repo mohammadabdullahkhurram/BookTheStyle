@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Salons\SetSalonOwner;
 use App\Actions\Staff\DeleteStaffUser;
 use App\Actions\Staff\InviteStaff;
 use App\Actions\Staff\ResetStaffPassword;
@@ -34,6 +35,7 @@ new #[Title('Users')] class extends Component {
     public string $editArrangement = 'employee';
     public string $editBio = '';
     public bool $showEdit = false;
+    public bool $editingOwner = false;
 
     public ?string $temporaryPassword = null;
     public ?string $tempForName = null;
@@ -83,7 +85,7 @@ new #[Title('Users')] class extends Component {
      */
     public function canManageMembership(SalonMembership $membership): bool
     {
-        return (new SalonStaffRoles)->canAssign(Auth::user(), $this->salon, $membership->salon_role);
+        return (new SalonStaffRoles)->canManage(Auth::user(), $this->salon, $membership->salon_role);
     }
 
     /** Open the add-user modal with a clean slate. */
@@ -140,9 +142,10 @@ new #[Title('Users')] class extends Component {
     public function startEdit(int $membershipId): void
     {
         $membership = $this->membership($membershipId);
-        abort_unless((new SalonStaffRoles)->canAssign(Auth::user(), $this->salon, $membership->salon_role), 403);
+        abort_unless((new SalonStaffRoles)->canManage(Auth::user(), $this->salon, $membership->salon_role), 403);
 
         $this->editingId = $membership->id;
+        $this->editingOwner = $membership->salon_role === SalonRole::Owner;
         $this->editRole = $membership->salon_role->value;
         $this->editArrangement = $membership->arrangement->value;
         $this->editBio = (string) StylistProfile::query()
@@ -159,12 +162,30 @@ new #[Title('Users')] class extends Component {
         }
 
         $membership = $this->membership((int) $this->editingId);
+        $isOwner = $membership->salon_role === SalonRole::Owner;
 
         $this->validate([
-            'editRole' => ['required', Rule::in($this->roleValues())],
+            'editRole' => ['required', Rule::in([...$this->roleValues(), ...($isOwner ? [SalonRole::Owner->value] : [])])],
             'editArrangement' => ['required', Rule::in(array_column(\App\Enums\StylistArrangement::cases(), 'value'))],
             'editBio' => ['nullable', 'string', 'max:2000'],
         ]);
+
+        if ($isOwner) {
+            // The only membership edit an owner row offers is a role change,
+            // and stripping the owner role is an ownership TRANSFER: the
+            // salon must end with an owner, so a replacement is designated
+            // in the same flow before anything happens.
+            if ($this->editRole === SalonRole::Owner->value) {
+                $this->showEdit = false;
+                $this->editingId = null;
+
+                return;
+            }
+
+            $this->startOwnerTransfer($membership->id, 'demote', $this->editRole);
+
+            return;
+        }
 
         $action->handle(Auth::user(), $this->salon, $membership, [
             'salon_role' => $this->editRole,
@@ -224,10 +245,12 @@ new #[Title('Users')] class extends Component {
     }
 
     // ------------------------------------------------------------------
-    // Owner details (SPEC §2 refinement): AGENCY owner/admin may edit the
-    // salon owner's name/email/phone — they operate the platform and created
-    // the salon. Salon managers/stylists never can; the owner edits
-    // themselves through account settings.
+    // Member details (SPEC §2 refinement): AGENCY owner/admin may edit ANY
+    // member's name/email/phone across their own agency's salons — owner
+    // included; they operate the platform and created the salon. Salon
+    // managers/stylists never can; people edit themselves through account
+    // settings. (Method/property names keep the original owner-* spelling
+    // from when this surface was owner-only.)
     // ------------------------------------------------------------------
 
     public bool $showOwnerEdit = false;
@@ -236,17 +259,16 @@ new #[Title('Users')] class extends Component {
     public string $ownerEmail = '';
     public string $ownerPhone = '';
 
-    public function canEditOwnerDetails(SalonMembership $membership): bool
+    public function canEditMemberDetails(): bool
     {
-        return $membership->salon_role === SalonRole::Owner
-            && Auth::user()->isAgencyOperator()
+        return Auth::user()->isAgencyOperator()
             && Auth::user()->agency_id === $this->salon->agency_id;
     }
 
     public function startOwnerEdit(int $membershipId): void
     {
         $membership = $this->membership($membershipId);
-        abort_unless($this->canEditOwnerDetails($membership), 403);
+        abort_unless($this->canEditMemberDetails(), 403);
 
         $this->ownerEditId = $membership->id;
         $this->ownerName = $membership->user->name;
@@ -263,7 +285,7 @@ new #[Title('Users')] class extends Component {
         }
 
         $membership = $this->membership((int) $this->ownerEditId);
-        abort_unless($this->canEditOwnerDetails($membership), 403);
+        abort_unless($this->canEditMemberDetails(), 403);
 
         $validated = $this->validate([
             'ownerName' => ['required', 'string', 'max:255'],
@@ -325,6 +347,99 @@ new #[Title('Users')] class extends Component {
         Flux::toast(variant: 'success', text: $membership->staff_type === StaffType::Stylist
             ? __('You now appear as a bookable stylist.')
             : __('You no longer take bookings.'));
+    }
+
+    // ------------------------------------------------------------------
+    // Owner-transfer safeguard: any action that would strip the salon's
+    // owner (demote / deactivate / delete) is blocked until a replacement
+    // is designated IN THE SAME FLOW — promote an existing member, or the
+    // acting agency operator takes ownership themselves (an explicit,
+    // confirmed choice). SetSalonOwner enforces the invariant server-side;
+    // this modal is the UI at the point of removal. Agency operators only:
+    // salon roles never reach it because they hold no authority over the
+    // owner in the first place.
+    // ------------------------------------------------------------------
+
+    public bool $showTransfer = false;
+    public ?int $transferMembershipId = null;
+    public string $transferAction = '';
+    public string $transferChoice = '';
+    public string $transferDemoteRole = '';
+
+    public function startOwnerTransfer(int $membershipId, string $action, ?string $demoteRole = null): void
+    {
+        $membership = $this->membership($membershipId);
+
+        abort_unless(in_array($action, ['demote', 'deactivate', 'delete'], true), 404);
+        abort_unless($membership->salon_role === SalonRole::Owner, 404);
+        abort_unless((new SalonStaffRoles)->canManage(Auth::user(), $this->salon, SalonRole::Owner), 403);
+
+        $this->transferMembershipId = $membership->id;
+        $this->transferAction = $action;
+        $this->transferDemoteRole = $demoteRole ?? '';
+        $this->transferChoice = '';
+        $this->resetErrorBag('transferChoice');
+        $this->showEdit = false;
+        $this->showTransfer = true;
+    }
+
+    /** Active members who could take over — the outgoing owner excluded, the
+     *  acting operator too (they get the explicit "Make me the owner" option). */
+    #[Computed]
+    public function transferCandidates()
+    {
+        return $this->salon->memberships()
+            ->where('active', true)
+            ->where('salon_role', '!=', SalonRole::Owner->value)
+            ->where('user_id', '!=', Auth::id())
+            ->with('user:id,name,email')
+            ->get();
+    }
+
+    public function confirmTransfer(SetSalonOwner $transfer, UpdateStaffMembership $update, SetMembershipActive $setActive, DeleteStaffUser $delete): void
+    {
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Ownership changes are disabled in the demo.'))) {
+            return;
+        }
+
+        $membership = $this->membership((int) $this->transferMembershipId);
+        abort_unless($membership->salon_role === SalonRole::Owner, 404);
+
+        $allowed = $this->transferCandidates->pluck('id')->map(fn ($id) => (string) $id)->push('me')->all();
+        $this->validate(
+            ['transferChoice' => ['required', Rule::in($allowed)]],
+            ['transferChoice.required' => __('Choose the new owner first.'), 'transferChoice.in' => __('Choose the new owner first.')],
+        );
+
+        if ($this->transferChoice === 'me' && $membership->user_id === Auth::id()) {
+            $this->addError('transferChoice', __('Choose another member — you are the owner being replaced.'));
+
+            return;
+        }
+
+        $this->transferChoice === 'me'
+            ? $transfer->handle(Auth::user(), $this->salon, ['make_actor_owner' => true])
+            : $transfer->handle(Auth::user(), $this->salon, ['membership_id' => (int) $this->transferChoice]);
+
+        // The transfer demoted the outgoing owner (stylist if bookable,
+        // manager otherwise); now finish what the actor started.
+        $membership->refresh();
+
+        if ($this->transferAction === 'deactivate') {
+            $setActive->handle(Auth::user(), $this->salon, $membership, false);
+        } elseif ($this->transferAction === 'delete') {
+            $delete->handle(Auth::user(), $this->salon, $membership);
+        } elseif ($this->transferDemoteRole !== '' && $membership->salon_role->value !== $this->transferDemoteRole) {
+            $update->handle(Auth::user(), $this->salon, $membership, ['salon_role' => $this->transferDemoteRole]);
+        }
+
+        $this->showTransfer = false;
+        $this->showEdit = false;
+        $this->editingId = null;
+        $this->reset(['transferMembershipId', 'transferAction', 'transferChoice', 'transferDemoteRole']);
+        unset($this->memberships, $this->transferCandidates);
+
+        Flux::toast(variant: 'success', text: __('Ownership transferred.'));
     }
 
     /**
@@ -394,7 +509,7 @@ new #[Title('Users')] class extends Component {
                             </td>
                             <td class="px-6 py-4">
                                 <div class="flex items-center justify-end gap-3">
-                                    @include('pages.salon.users.partials.row-actions', ['m' => $m, 'canManage' => $this->canManageMembership($m), 'canEditOwner' => $this->canEditOwnerDetails($m)])
+                                    @include('pages.salon.users.partials.row-actions', ['m' => $m, 'canManage' => $this->canManageMembership($m), 'canEditDetails' => $this->canEditMemberDetails()])
                                 </div>
                             </td>
                         </tr>
@@ -422,7 +537,7 @@ new #[Title('Users')] class extends Component {
                             <div class="truncate text-[12.5px] text-faint">{{ $m->user->email }}</div>
                         </div>
                         <div class="flex shrink-0 items-center gap-3">
-                            @include('pages.salon.users.partials.row-actions', ['m' => $m, 'canManage' => $this->canManageMembership($m), 'canEditOwner' => $this->canEditOwnerDetails($m)])
+                            @include('pages.salon.users.partials.row-actions', ['m' => $m, 'canManage' => $this->canManageMembership($m), 'canEditDetails' => $this->canEditMemberDetails()])
                         </div>
                     </div>
                     <div class="flex flex-wrap items-center gap-2 ps-11 text-[13px] text-secondary">
@@ -477,7 +592,11 @@ new #[Title('Users')] class extends Component {
 
     <x-ui.modal wire:model="showEdit" class="max-w-md" :heading="__('Edit user')">
         <form wire:submit="saveEdit" class="flex flex-col gap-5" novalidate>
-            <flux:select wire:model.live="editRole" :label="__('Role')">
+            <flux:select wire:model.live="editRole" :label="__('Role')"
+                :description="$editingOwner ? __('Choosing another role transfers ownership — you will pick the new owner first.') : null">
+                @if ($editingOwner)
+                    <flux:select.option value="{{ \App\Enums\SalonRole::Owner->value }}">{{ __('Owner (current)') }}</flux:select.option>
+                @endif
                 @foreach ($this->assignableRoles as $r)
                     <flux:select.option value="{{ $r->value }}">{{ $r->label() }}</flux:select.option>
                 @endforeach
@@ -506,6 +625,27 @@ new #[Title('Users')] class extends Component {
             <div class="flex justify-end gap-3">
                 <x-ui.button type="button" variant="secondary" wire:click="$set('showOwnerEdit', false)">{{ __('Cancel') }}</x-ui.button>
                 <x-ui.button type="submit">{{ __('Save') }}</x-ui.button>
+            </div>
+        </form>
+    </x-ui.modal>
+
+    {{-- Owner-transfer safeguard: the salon must end with an owner, so the
+         stripping action (demote / deactivate / delete) waits behind this
+         choice. "Make me the owner" is the acting agency operator's explicit
+         take-over — never a silent side effect. --}}
+    <x-ui.modal wire:model="showTransfer" class="max-w-md" :heading="__('This salon needs an owner — choose one')">
+        <form wire:submit="confirmTransfer" class="flex flex-col gap-5" novalidate>
+            <p class="text-[13.5px] leading-relaxed text-secondary">{{ __('A salon can never be left without an owner. Pick who takes over; then this change goes through.') }}</p>
+            <flux:select wire:model="transferChoice" :label="__('New owner')">
+                <flux:select.option value="">{{ __('Choose the new owner') }}</flux:select.option>
+                <flux:select.option value="me">{{ __('Make me the owner') }}</flux:select.option>
+                @foreach ($this->transferCandidates as $candidate)
+                    <flux:select.option value="{{ $candidate->id }}">{{ $candidate->user->name }} · {{ $candidate->salon_role->label() }}</flux:select.option>
+                @endforeach
+            </flux:select>
+            <div class="flex justify-end gap-3">
+                <x-ui.button type="button" variant="secondary" wire:click="$set('showTransfer', false)">{{ __('Cancel') }}</x-ui.button>
+                <x-ui.button type="submit" loading="confirmTransfer">{{ __('Transfer ownership') }}</x-ui.button>
             </div>
         </form>
     </x-ui.modal>

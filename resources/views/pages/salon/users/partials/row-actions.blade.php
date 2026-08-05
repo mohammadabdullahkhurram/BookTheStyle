@@ -4,6 +4,13 @@
     compete with it (Delete styled danger, behind the themed confirm). Rows
     the viewer lacks authority over show NO affordance — the server 403s
     regardless. The owner's own row carries only their bookability switch.
+
+    Owner rows (reachable only by agency owner/admin — canManage never grants
+    salon roles authority over the owner) route Deactivate and Delete through
+    the ownership-transfer modal instead of the plain confirm: the salon must
+    end with an owner. Agency operators also get "Edit details" (name/email/
+    phone) on every row.
+
     Component-tag attributes stay single-line + single-quoted (Blade tag
     compiler rules — see CLAUDE.md).
 --}}
@@ -14,23 +21,31 @@
             <flux:icon.ellipsis-horizontal variant="micro" />
         </button>
         <flux:menu>
-            <flux:menu.item icon="key" x-on:click="$store.confirm.ask({ title: {{ Js::from(__('Reset password')) }}, message: {{ Js::from(__('Reset this password? The current one stops working immediately and a new temporary password is shown once.')) }}, confirmLabel: {{ Js::from(__('Reset')) }}, danger: false }, () => $wire.resetPassword({{ $m->id }}))">{{ __('Reset password') }}</flux:menu.item>
-            @if ($m->active)
-                <flux:menu.item icon="pause-circle" x-on:click="$store.confirm.ask({ title: {{ Js::from(__('Deactivate member')) }}, message: {{ Js::from(__('Deactivate this member? They lose access to this salon; their bookings and history are kept.')) }}, confirmLabel: {{ Js::from(__('Deactivate')) }}, danger: true }, () => $wire.toggleActive({{ $m->id }}))">{{ __('Deactivate') }}</flux:menu.item>
-            @else
-                <flux:menu.item icon="play-circle" wire:click="toggleActive({{ $m->id }})">{{ __('Reactivate') }}</flux:menu.item>
+            @if ($canEditDetails ?? false)
+                <flux:menu.item icon="identification" wire:click="startOwnerEdit({{ $m->id }})">{{ __('Edit details') }}</flux:menu.item>
             @endif
-            @if ($m->user_id !== Auth::id())
-                <flux:menu.separator />
-                <flux:menu.item icon="trash" variant="danger" x-on:click="$store.confirm.ask({ title: {{ Js::from(__('Delete member')) }}, message: {{ Js::from(__('Removed from this salon permanently — and their account is deleted if this is their only access. Past bookings and history are kept under their name. Prefer Deactivate if they might return.')) }}, confirmLabel: {{ Js::from(__('Delete')) }}, danger: true }, () => $wire.deleteMember({{ $m->id }}))">{{ __('Delete') }}</flux:menu.item>
+            <flux:menu.item icon="key" x-on:click="$store.confirm.ask({ title: {{ Js::from(__('Reset password')) }}, message: {{ Js::from(__('Reset this password? The current one stops working immediately and a new temporary password is shown once.')) }}, confirmLabel: {{ Js::from(__('Reset')) }}, danger: false }, () => $wire.resetPassword({{ $m->id }}))">{{ __('Reset password') }}</flux:menu.item>
+            @if ($m->salon_role === \App\Enums\SalonRole::Owner)
+                {{-- Stripping the owner requires a replacement: the transfer
+                     modal IS the confirmation step. --}}
+                <flux:menu.item icon="pause-circle" wire:click="startOwnerTransfer({{ $m->id }}, 'deactivate')">{{ __('Deactivate') }}</flux:menu.item>
+                @if ($m->user_id !== Auth::id())
+                    <flux:menu.separator />
+                    <flux:menu.item icon="trash" variant="danger" wire:click="startOwnerTransfer({{ $m->id }}, 'delete')">{{ __('Delete') }}</flux:menu.item>
+                @endif
+            @else
+                @if ($m->active)
+                    <flux:menu.item icon="pause-circle" x-on:click="$store.confirm.ask({ title: {{ Js::from(__('Deactivate member')) }}, message: {{ Js::from(__('Deactivate this member? They lose access to this salon; their bookings and history are kept.')) }}, confirmLabel: {{ Js::from(__('Deactivate')) }}, danger: true }, () => $wire.toggleActive({{ $m->id }}))">{{ __('Deactivate') }}</flux:menu.item>
+                @else
+                    <flux:menu.item icon="play-circle" wire:click="toggleActive({{ $m->id }})">{{ __('Reactivate') }}</flux:menu.item>
+                @endif
+                @if ($m->user_id !== Auth::id())
+                    <flux:menu.separator />
+                    <flux:menu.item icon="trash" variant="danger" x-on:click="$store.confirm.ask({ title: {{ Js::from(__('Delete member')) }}, message: {{ Js::from(__('Removed from this salon permanently — and their account is deleted if this is their only access. Past bookings and history are kept under their name. Prefer Deactivate if they might return.')) }}, confirmLabel: {{ Js::from(__('Delete')) }}, danger: true }, () => $wire.deleteMember({{ $m->id }}))">{{ __('Delete') }}</flux:menu.item>
+                @endif
             @endif
         </flux:menu>
     </flux:dropdown>
-@elseif ($canEditOwner ?? false)
-    {{-- Agency owner/admin: may edit the salon owner's DETAILS (name/email/
-         phone) — never demote, deactivate, or delete them here. Ownership
-         transfer lives in the agency console (SetSalonOwner). --}}
-    <button type="button" wire:click="startOwnerEdit({{ $m->id }})" class="text-[13px] font-semibold text-accent transition hover:text-accent-hover">{{ __('Edit details') }}</button>
 @elseif ($m->user_id === Auth::id() && $m->salon_role === \App\Enums\SalonRole::Owner)
     {{-- The owner-who-cuts-hair switch: only the owner, on their own row. --}}
     <button type="button" wire:click="toggleOwnerBookable({{ $m->id }})" class="text-[13px] font-medium text-secondary transition hover:text-ink">{{ $m->staff_type === \App\Enums\StaffType::Stylist ? __('Stop taking bookings') : __('Take bookings') }}</button>
