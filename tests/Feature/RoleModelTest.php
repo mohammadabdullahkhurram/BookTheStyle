@@ -16,6 +16,7 @@ use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 
 /*
@@ -149,21 +150,29 @@ it('links an EXISTING account — including the agency owner\'s own — as salon
         && $mail->temporaryPassword === null);
 });
 
-it('shields the salon owner from every staff-management action — admins AND agency operators', function () {
+it('shields the salon owner from salon admins entirely — and from ownerless-stripping by agency operators', function () {
     [$agency, $agencyOwner] = roleAgency();
     $salon = Salon::factory()->for($agency)->create();
     $ownerMembership = salonOwnerOf($salon)->membershipFor($salon);
     $salonAdmin = salonAdminOf($salon);
 
-    foreach ([$salonAdmin, $agencyOwner] as $actor) {
-        expect(fn () => app(UpdateStaffMembership::class)->handle($actor, $salon, $ownerMembership, [
-            'salon_role' => 'salon_manager',
-        ]))->toThrow(AuthorizationException::class);
-        expect(fn () => app(SetMembershipActive::class)->handle($actor, $salon, $ownerMembership, false))
-            ->toThrow(AuthorizationException::class);
-        expect(fn () => app(ResetStaffPassword::class)->handle($actor, $salon, $ownerMembership))
-            ->toThrow(AuthorizationException::class);
+    // Salon admins hold NO authority over the owner, on any action.
+    foreach ([UpdateStaffMembership::class, SetMembershipActive::class, ResetStaffPassword::class] as $i => $action) {
+        expect(fn () => match ($i) {
+            0 => app(UpdateStaffMembership::class)->handle($salonAdmin, $salon, $ownerMembership, ['salon_role' => 'salon_manager']),
+            1 => app(SetMembershipActive::class)->handle($salonAdmin, $salon, $ownerMembership, false),
+            2 => app(ResetStaffPassword::class)->handle($salonAdmin, $salon, $ownerMembership),
+        })->toThrow(AuthorizationException::class);
     }
+
+    // The agency owner HAS authority over the owner — but stripping the sole
+    // owner without a replacement is refused as invalid, not executed
+    // (the transfer flow designates the successor; see OwnerTransferTest).
+    expect(fn () => app(UpdateStaffMembership::class)->handle($agencyOwner, $salon, $ownerMembership, [
+        'salon_role' => 'salon_manager',
+    ]))->toThrow(ValidationException::class);
+    expect(fn () => app(SetMembershipActive::class)->handle($agencyOwner, $salon, $ownerMembership, false))
+        ->toThrow(ValidationException::class);
 
     expect($ownerMembership->fresh()->salon_role)->toBe(SalonRole::Owner);
     expect($ownerMembership->fresh()->active)->toBeTrue();
