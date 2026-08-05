@@ -59,7 +59,7 @@ new #[Title('Users')] class extends Component {
     public function memberships()
     {
         return $this->salon->memberships()
-            ->with('user:id,name,email')
+            ->with('user:id,name,email,phone')
             ->orderByRaw("CASE salon_role WHEN 'salon_owner' THEN 0 WHEN 'salon_manager' THEN 1 ELSE 2 END")
             ->get();
     }

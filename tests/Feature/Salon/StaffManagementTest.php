@@ -117,3 +117,22 @@ it('adds an existing user to a salon without issuing new credentials', function 
     expect($existing->fresh()->must_change_password)->toBeFalse();
     expect($existing->membershipFor($salon))->not->toBeNull();
 });
+
+it('shows a stored phone in the Users list — not the em-dash fallback', function () {
+    Mail::fake();
+    $salon = Salon::factory()->create();
+    $owner = salonOwnerOf($salon);
+
+    // Same write path as the add-user form: InviteStaff persists users.phone.
+    app(InviteStaff::class)->handle($owner, $salon, [
+        'name' => 'Phoned Stylist',
+        'email' => 'phoned@example.com',
+        'phone' => '(555) 010-4242',
+        'salon_role' => 'stylist',
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('salon.users', $salon))
+        ->assertOk()
+        ->assertSee('(555) 010-4242');
+});
