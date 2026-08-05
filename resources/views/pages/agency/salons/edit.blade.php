@@ -7,7 +7,6 @@ use App\Actions\Salons\SetSalonOwner;
 use App\Actions\Salons\TestGhlConnection;
 use App\Actions\Salons\UpdateGhlConnection;
 use App\Actions\Salons\UpdateSalon;
-use App\Enums\AgencyRole;
 use App\Enums\SalonRole;
 use App\Models\Salon;
 use App\Rules\SalonSlug;
@@ -366,7 +365,7 @@ new #[Title('Edit salon')] class extends Component {
     public function canAssignOwner(): bool
     {
         return auth()->user()->agency_id === $this->salon->agency_id
-            && auth()->user()->agency_role === AgencyRole::Owner;
+            && auth()->user()->isAgencyOperator();
     }
 
     #[Computed]
@@ -630,7 +629,7 @@ new #[Title('Edit salon')] class extends Component {
                                     </div>
                                 </div>
                             @else
-                                <p class="text-[13px] text-faint">{{ __('Only the agency owner can assign or transfer salon ownership.') }}</p>
+                                <p class="text-[13px] text-faint">{{ __('Only the agency owner or an agency admin can assign or transfer salon ownership.') }}</p>
                             @endif
                         </x-ui.card>
                     </section>

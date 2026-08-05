@@ -166,7 +166,7 @@ it('re-assigning the incumbent owner is a no-op that keeps their bookability', f
 // Who may assign
 // ---------------------------------------------------------------------------
 
-it('refuses everyone but the agency owner: salon manager, agency admin, cross-agency', function () {
+it('refuses salon roles and cross-agency operators; agency owner AND admin may assign', function () {
     [$agency] = ownershipAgency();
     $salon = Salon::factory()->for($agency)->create();
     salonOwnerOf($salon);
@@ -175,19 +175,27 @@ it('refuses everyone but the agency owner: salon manager, agency admin, cross-ag
     )->firstOrFail();
 
     $manager = salonAdminOf($salon);
-    $agencyAdmin = User::factory()->create(['agency_id' => $agency->id, 'agency_role' => AgencyRole::Admin]);
     [, $foreignAgencyOwner] = ownershipAgency();
 
-    foreach ([$manager, $agencyAdmin, $foreignAgencyOwner] as $actor) {
+    foreach ([$manager, $foreignAgencyOwner] as $actor) {
         expect(fn () => app(SetSalonOwner::class)->handle($actor, $salon, [
             'membership_id' => $stylistMembership->id,
         ]))->toThrow(AuthorizationException::class);
     }
 
     expect(activeOwners($salon))->toBe(1);
+
+    // An agency ADMIN of this agency transfers successfully.
+    $agencyAdmin = User::factory()->create(['agency_id' => $agency->id, 'agency_role' => AgencyRole::Admin]);
+    app(SetSalonOwner::class)->handle($agencyAdmin, $salon, [
+        'membership_id' => $stylistMembership->id,
+    ]);
+
+    expect($stylistMembership->fresh()->salon_role)->toBe(SalonRole::Owner);
+    expect(activeOwners($salon))->toBe(1);
 });
 
-it('exposes the ownership controls only to the agency owner, and 403s others', function () {
+it('exposes the ownership controls to agency owner and admin alike', function () {
     [$agency, $agencyOwner] = ownershipAgency();
     $salon = Salon::factory()->for($agency)->create();
     $stylistMembership = $salon->memberships()->where('user_id', stylistOf($salon)->id)->firstOrFail();
@@ -204,11 +212,15 @@ it('exposes the ownership controls only to the agency owner, and 403s others', f
 
     expect(activeOwners($salon->fresh()))->toBe(1);
 
-    // Agency admin: sees the page, not the controls; the action 403s.
+    // Agency admin: same controls, and a transfer works through the screen.
+    $manager = salonAdminOf($salon);
     Livewire::actingAs($agencyAdmin)
         ->test('pages::agency.salons.edit', ['salon' => $salon])
-        ->assertSee(__('Only the agency owner can assign or transfer salon ownership.'))
-        ->set('promoteMembershipId', (string) $stylistMembership->id)
+        ->assertSee(__('Ownership'))
+        ->set('promoteMembershipId', (string) $manager->membershipFor($salon)->id)
         ->call('promoteToOwner')
-        ->assertForbidden();
+        ->assertHasNoErrors();
+
+    expect($manager->membershipFor($salon)->fresh()->salon_role)->toBe(SalonRole::Owner);
+    expect(activeOwners($salon->fresh()))->toBe(1);
 });
