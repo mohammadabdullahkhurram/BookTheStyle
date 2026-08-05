@@ -203,6 +203,24 @@ class User extends Authenticatable implements PasskeyUser
     }
 
     /**
+     * Whether this account extends beyond the given agency: a salon
+     * membership (active or not) under some OTHER agency's salon, or an
+     * agency-console role in a different agency. Such an account is not the
+     * given agency's to re-identify — its login email belongs to the person,
+     * and only they may change it (via their own account settings).
+     */
+    public function sharedOutsideAgency(int $agencyId): bool
+    {
+        if ($this->agency_id !== null && $this->agency_id !== $agencyId) {
+            return true;
+        }
+
+        return $this->salonMemberships()
+            ->whereHas('salon', fn ($q) => $q->where('agency_id', '!=', $agencyId))
+            ->exists();
+    }
+
+    /**
      * The user's active membership for a salon, or null if none.
      */
     public function membershipFor(int|Salon $salon): ?SalonMembership

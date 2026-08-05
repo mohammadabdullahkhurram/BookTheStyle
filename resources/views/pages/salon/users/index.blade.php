@@ -5,6 +5,7 @@ use App\Actions\Staff\DeleteStaffUser;
 use App\Actions\Staff\InviteStaff;
 use App\Actions\Staff\ResetStaffPassword;
 use App\Actions\Staff\SetMembershipActive;
+use App\Actions\Staff\UpdateMemberDetails;
 use App\Actions\Staff\UpdateStaffMembership;
 use App\Actions\Stylists\UpdateStylistProfile;
 use App\Enums\SalonRole;
@@ -258,6 +259,11 @@ new #[Title('Users')] class extends Component {
     public string $ownerName = '';
     public string $ownerEmail = '';
     public string $ownerPhone = '';
+    /** The target account also exists under another agency (memberships or
+     *  console role elsewhere): name/phone edits apply account-wide, and the
+     *  login email is locked to the account holder (UpdateMemberDetails
+     *  enforces the block server-side — this flag only drives the notice). */
+    public bool $ownerEditShared = false;
 
     public function canEditMemberDetails(): bool
     {
@@ -274,11 +280,12 @@ new #[Title('Users')] class extends Component {
         $this->ownerName = $membership->user->name;
         $this->ownerEmail = $membership->user->email;
         $this->ownerPhone = (string) $membership->user->phone;
+        $this->ownerEditShared = $membership->user->sharedOutsideAgency($this->salon->agency_id);
         $this->resetErrorBag();
         $this->showOwnerEdit = true;
     }
 
-    public function saveOwnerDetails(): void
+    public function saveOwnerDetails(UpdateMemberDetails $action): void
     {
         if (\App\Support\DemoMode::blocksWrite($this->salon, __('Managing staff is disabled in the demo.'))) {
             return;
@@ -293,17 +300,27 @@ new #[Title('Users')] class extends Component {
             'ownerPhone' => ['nullable', 'string', 'max:32'],
         ]);
 
-        $membership->user->forceFill([
-            'name' => $validated['ownerName'],
-            'email' => $validated['ownerEmail'],
-            'phone' => $validated['ownerPhone'] ?: null,
-        ])->save();
+        try {
+            $action->handle(Auth::user(), $this->salon, $membership, [
+                'name' => $validated['ownerName'],
+                'email' => $validated['ownerEmail'],
+                'phone' => $validated['ownerPhone'] ?: null,
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // The action speaks in account-field names; this form's inputs
+            // are owner-prefixed. Re-key so errors land under the field.
+            throw \Illuminate\Validation\ValidationException::withMessages(
+                collect($e->errors())->mapWithKeys(fn ($messages, $key) => [
+                    'owner'.ucfirst($key) => $messages,
+                ])->all(),
+            );
+        }
 
         $this->showOwnerEdit = false;
         $this->ownerEditId = null;
         unset($this->memberships);
 
-        Flux::toast(variant: 'success', text: __('Owner details updated.'));
+        Flux::toast(variant: 'success', text: __('Member details updated.'));
     }
 
     /**
@@ -617,10 +634,18 @@ new #[Title('Users')] class extends Component {
         </form>
     </x-ui.modal>
 
-    <x-ui.modal wire:model="showOwnerEdit" class="max-w-md" :heading="__('Edit owner details')">
+    <x-ui.modal wire:model="showOwnerEdit" class="max-w-md" :heading="__('Edit member details')">
         <form wire:submit="saveOwnerDetails" class="flex flex-col gap-5" novalidate>
+            @if ($ownerEditShared)
+                {{-- Shared-account notice: informational for name/phone; the
+                     EMAIL block itself is enforced server-side in
+                     UpdateMemberDetails, never here. --}}
+                <div class="rounded-[10px] border border-divider bg-muted/40 px-3.5 py-2.5 text-[13px] leading-relaxed text-secondary">
+                    {{ __('This person also works at a salon under another agency; changes to their name and phone apply to their account everywhere. Their login email can only be changed by the account holder.') }}
+                </div>
+            @endif
             <flux:input wire:model="ownerName" :label="__('Name')" required />
-            <flux:input wire:model="ownerEmail" type="email" :label="__('Email')" required />
+            <flux:input wire:model="ownerEmail" type="email" :label="__('Email')" required :disabled="$ownerEditShared" />
             <flux:input wire:model="ownerPhone" type="tel" :label="__('Phone')" />
             <div class="flex justify-end gap-3">
                 <x-ui.button type="button" variant="secondary" wire:click="$set('showOwnerEdit', false)">{{ __('Cancel') }}</x-ui.button>
