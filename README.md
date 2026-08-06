@@ -13,6 +13,7 @@ Multi-tenant booking platform for hair/beauty salons, operated by one **agency**
 | [`docs/BACKUPS.md`](docs/BACKUPS.md) | Production backup/restore + git restore points |
 | [`docs/STATUS-and-ROADMAP.md`](docs/STATUS-and-ROADMAP.md) | Honest state of play: shipped / outstanding / deferred |
 | [`docs/UI-UX-AUDIT.md`](docs/UI-UX-AUDIT.md) | Launch-readiness UI/UX audit (2026-07-11 snapshot) |
+| [`docs/refactor-plan.md`](docs/refactor-plan.md) | Tiered reorganization plan (structural work staged for later — needs staging) |
 | [`DESIGN-TOKENS.md`](DESIGN-TOKENS.md) | The design system contract (exact tokens, build to it) |
 | [`CLAUDE.md`](CLAUDE.md) | Working agreement for AI-assisted changes |
 
