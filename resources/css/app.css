@@ -712,4 +712,123 @@ select:focus[data-flux-control] {
         font-weight: 600;
         color: var(--color-secondary);
     }
+
+    /* ------------------------------------------------------------------
+       Rendered documentation (the agency Documentation tab): typography
+       for markdown output — Fraunces headings, Hanken body, quiet code
+       blocks and tables that match the app's tables.
+       ------------------------------------------------------------------ */
+    .bts-doc {
+        font-size: 14.5px;
+        line-height: 1.7;
+        color: var(--color-body);
+    }
+
+    .bts-doc h1,
+    .bts-doc h2,
+    .bts-doc h3,
+    .bts-doc h4 {
+        font-family: var(--font-display);
+        font-weight: 600;
+        letter-spacing: -0.005em;
+        color: var(--color-ink);
+        scroll-margin-top: 5rem;
+    }
+
+    .bts-doc h1 { font-size: 26px; margin-bottom: 0.75rem; }
+    .bts-doc h2 { font-size: 20px; margin-top: 2rem; margin-bottom: 0.5rem; }
+    .bts-doc h3 { font-size: 17px; margin-top: 1.5rem; margin-bottom: 0.4rem; }
+    .bts-doc h4 { font-size: 15px; margin-top: 1.25rem; margin-bottom: 0.3rem; }
+
+    .bts-doc p { margin-bottom: 0.9rem; }
+
+    .bts-doc a { color: var(--color-accent); font-weight: 500; }
+    .bts-doc a:hover { color: var(--color-accent-hover); }
+
+    /* Heading permalinks: quiet until the heading is hovered. */
+    .bts-doc .heading-permalink {
+        margin-left: 0.4rem;
+        font-family: var(--font-sans);
+        font-size: 0.8em;
+        color: var(--color-faint);
+        opacity: 0;
+        text-decoration: none;
+        transition: opacity 120ms ease;
+    }
+
+    .bts-doc h1:hover .heading-permalink,
+    .bts-doc h2:hover .heading-permalink,
+    .bts-doc h3:hover .heading-permalink,
+    .bts-doc h4:hover .heading-permalink { opacity: 1; }
+
+    .bts-doc ul,
+    .bts-doc ol { margin: 0 0 0.9rem 1.4rem; }
+    .bts-doc ul { list-style: disc; }
+    .bts-doc ol { list-style: decimal; }
+    .bts-doc li { margin-bottom: 0.25rem; }
+    .bts-doc li > ul,
+    .bts-doc li > ol { margin-bottom: 0.25rem; }
+
+    .bts-doc code {
+        font-size: 13px;
+        padding: 0.1rem 0.35rem;
+        border-radius: 6px;
+        background-color: var(--color-muted);
+        color: var(--color-ink);
+    }
+
+    .bts-doc pre {
+        margin: 0 0 1rem;
+        padding: 0.9rem 1.1rem;
+        border-radius: 10px;
+        border: 1px solid var(--color-divider);
+        background-color: var(--color-muted);
+        overflow-x: auto;
+    }
+
+    .bts-doc pre code {
+        padding: 0;
+        background: none;
+        line-height: 1.6;
+    }
+
+    .bts-doc table {
+        width: 100%;
+        margin: 0 0 1.1rem;
+        font-size: 13.5px;
+        border-collapse: collapse;
+    }
+
+    .bts-doc th {
+        text-align: left;
+        font-weight: 600;
+        color: var(--color-secondary);
+        border-bottom: 1px solid var(--color-divider);
+        padding: 0.5rem 0.75rem 0.5rem 0;
+    }
+
+    .bts-doc td {
+        border-bottom: 1px solid var(--color-row);
+        padding: 0.5rem 0.75rem 0.5rem 0;
+        vertical-align: top;
+    }
+
+    .bts-doc img {
+        max-width: 100%;
+        border-radius: 10px;
+        border: 1px solid var(--color-divider);
+        margin: 0.25rem 0 1rem;
+    }
+
+    .bts-doc blockquote {
+        margin: 0 0 1rem;
+        padding: 0.5rem 1rem;
+        border-left: 3px solid var(--color-accent);
+        color: var(--color-secondary);
+    }
+
+    .bts-doc hr {
+        margin: 1.5rem 0;
+        border-color: var(--color-divider);
+    }
 }

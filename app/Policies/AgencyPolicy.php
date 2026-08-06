@@ -35,4 +35,15 @@ class AgencyPolicy
     {
         return $this->operatesAgency($user, $agency);
     }
+
+    /**
+     * Internal documentation: EVERY agency role reads it — owners, admins,
+     * and delegated agency_users alike (SOPs are for the whole agency team).
+     * Salon-only members and guests never; same-agency check as everything
+     * else here.
+     */
+    public function viewDocs(User $user, Agency $agency): bool
+    {
+        return $user->agency_id === $agency->id && $user->agency_role !== null;
+    }
 }

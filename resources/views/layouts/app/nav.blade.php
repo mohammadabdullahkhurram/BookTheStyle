@@ -119,6 +119,12 @@
                 <flux:icon.users variant="micro" class="shrink-0" />
                 <span x-show="!collapsed" x-cloak>{{ __('Users') }}</span>
             </a>
+            <a href="{{ route('agency.docs') }}" wire:navigate @click="mobileNav = false"
+               aria-label="{{ __('Documentation') }}" :title="collapsed ? '{{ __('Documentation') }}' : null"
+               class="bts-nav-item {{ request()->routeIs('agency.docs') ? 'bts-nav-item-active' : '' }}">
+                <flux:icon.book-open variant="micro" class="shrink-0" />
+                <span x-show="!collapsed" x-cloak>{{ __('Documentation') }}</span>
+            </a>
         @else
             {{-- Salon staff on the central host: their salons to open. --}}
             <a href="{{ route('dashboard') }}" wire:navigate @click="mobileNav = false"
@@ -127,6 +133,15 @@
                 <flux:icon.scissors variant="micro" class="shrink-0" />
                 <span x-show="!collapsed" x-cloak>{{ __('Salons') }}</span>
             </a>
+            @if ($user?->agency_role !== null)
+                {{-- Delegated agency_users read the internal docs too. --}}
+                <a href="{{ route('agency.docs') }}" wire:navigate @click="mobileNav = false"
+                   aria-label="{{ __('Documentation') }}" :title="collapsed ? '{{ __('Documentation') }}' : null"
+                   class="bts-nav-item {{ request()->routeIs('agency.docs') ? 'bts-nav-item-active' : '' }}">
+                    <flux:icon.book-open variant="micro" class="shrink-0" />
+                    <span x-show="!collapsed" x-cloak>{{ __('Documentation') }}</span>
+                </a>
+            @endif
         @endif
     @endif
 </nav>

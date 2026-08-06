@@ -81,6 +81,9 @@ Route::domain($app)->middleware(['auth'])->group(function () {
         Route::livewire('users', 'pages::agency.users.index')->name('users.index');
         Route::livewire('users/create', 'pages::agency.users.create')->name('users.create');
         Route::livewire('users/{user}/edit', 'pages::agency.users.edit')->name('users.edit');
+        // Internal documentation — readable by EVERY agency role (the page
+        // authorises viewDocs; salon-only users and guests are refused).
+        Route::livewire('docs/{doc?}', 'pages::agency.docs')->name('docs');
     });
 });
 
