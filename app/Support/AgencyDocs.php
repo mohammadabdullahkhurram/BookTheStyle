@@ -2,142 +2,113 @@
 
 namespace App\Support;
 
-use Illuminate\Support\Collection;
-use Illuminate\Support\Str;
-use League\CommonMark\Environment\Environment;
-use League\CommonMark\Extension\CommonMark\CommonMarkCoreExtension;
-use League\CommonMark\Extension\GithubFlavoredMarkdownExtension;
-use League\CommonMark\Extension\HeadingPermalink\HeadingPermalinkExtension;
-use League\CommonMark\MarkdownConverter;
-
 /**
- * Internal documentation for agency users: technical docs and SOPs authored
- * as markdown FILES in resources/docs (versioned with the repo — adding a
- * doc is committing a file; an in-app editor is a future phase). Each file
- * carries a small front-matter block:
- *
- *   ---
- *   title: Salon onboarding + GHL & Voice AI setup
- *   category: SOPs
- *   order: 1
- *   ---
- *
- * The slug is the filename (kebab-case, no extension). Rendering uses
- * league/commonmark — already in the stack via laravel/framework, so no new
- * dependency — with GFM (tables, task lists, autolinks), anchored heading
- * permalinks, RAW HTML STRIPPED and unsafe links refused: docs are internal
- * but treated as untrusted markup anyway. Images live in public/docs-assets
- * and are referenced from docs as /docs-assets/<file>.
+ * Internal documentation for agency users — NATIVE Blade pages, not
+ * markdown. Each doc is a Blade view under resources/views/docs built from
+ * the x-docs.* component kit (sections, steps, callouts, screenshot slots,
+ * fill-ins, inline-SVG diagrams). This class is the registry: slugs, titles,
+ * the TWO top-level groups (SOPs vs Technical), and each doc's section list
+ * for the on-page navigation. Adding a doc = adding a Blade view + one
+ * entry here. Access stays AgencyPolicy::viewDocs (every agency role).
  */
 class AgencyDocs
 {
+    /** @var array<string, array{label: string, description: string}> */
+    public const GROUPS = [
+        'sops' => [
+            'label' => 'SOPs',
+            'description' => 'Step-by-step runbooks for the team — no technical background needed.',
+        ],
+        'technical' => [
+            'label' => 'Technical',
+            'description' => 'Integration internals and API contracts for the technical team.',
+        ],
+    ];
+
+    /** @var array<string, array{title: string, group: string, summary: string, view: string, sections: list<array{id: string, title: string}>}> */
+    private const DOCS = [
+        'salon-setup-sop' => [
+            'title' => 'How to set up a new salon — step by step',
+            'group' => 'sops',
+            'summary' => 'The full walkthrough: BookTheStyle, the GHL sub-account, connecting the two, and the go-live checklist.',
+            'view' => 'docs.salon-setup-sop',
+            'sections' => [
+                ['id' => 'before-you-start', 'title' => 'Before you start'],
+                ['id' => 'part-a-bookthestyle', 'title' => 'Part A — BookTheStyle'],
+                ['id' => 'part-b-ghl', 'title' => 'Part B — GHL'],
+                ['id' => 'part-c-connect', 'title' => 'Part C — Connect the two'],
+                ['id' => 'checklist', 'title' => 'Go-live checklist'],
+                ['id' => 'help', 'title' => 'Who to ask'],
+            ],
+        ],
+        'technical-integration-reference' => [
+            'title' => 'BookTheStyle × GoHighLevel — technical integration reference',
+            'group' => 'technical',
+            'summary' => 'Endpoints, the Custom Action contract, the token scheme, and the other integration surfaces — verified from the codebase.',
+            'view' => 'docs.technical-integration-reference',
+            'sections' => [
+                ['id' => 'overview', 'title' => 'System overview'],
+                ['id' => 'integration-model', 'title' => 'Integration model'],
+                ['id' => 'booking-sequence', 'title' => 'Booking sequence'],
+                ['id' => 'endpoints', 'title' => 'Booking endpoints'],
+                ['id' => 'auth', 'title' => 'Auth / tokens'],
+                ['id' => 'contract', 'title' => 'Request/response contract'],
+                ['id' => 'other-surfaces', 'title' => 'Other surfaces'],
+                ['id' => 'ghl-side', 'title' => 'GHL side'],
+                ['id' => 'provisioning', 'title' => 'Provisioning checklist'],
+                ['id' => 'security', 'title' => 'Security'],
+                ['id' => 'ops', 'title' => 'Deploy & ops'],
+                ['id' => 'troubleshooting', 'title' => 'Troubleshooting'],
+            ],
+        ],
+    ];
+
     /**
-     * The doc index: slug, title, category, order — sorted for the sidebar
-     * (category, then explicit order, then title).
+     * The sidebar: both groups (in declared order) with their docs.
      *
-     * @return Collection<int, array{slug: string, title: string, category: string, order: int}>
+     * @return list<array{key: string, label: string, description: string, docs: list<array{slug: string, title: string, summary: string}>}>
      */
-    public function all(): Collection
+    public function groups(): array
     {
-        $files = glob($this->basePath().'/*.md') ?: [];
+        $out = [];
 
-        return collect($files)
-            ->map(function (string $path): array {
-                [$meta] = $this->parse((string) file_get_contents($path));
-                $slug = basename($path, '.md');
+        foreach (self::GROUPS as $key => $meta) {
+            $docs = [];
+            foreach (self::DOCS as $slug => $doc) {
+                if ($doc['group'] === $key) {
+                    $docs[] = ['slug' => $slug, 'title' => $doc['title'], 'summary' => $doc['summary']];
+                }
+            }
+            $out[] = ['key' => $key, 'label' => $meta['label'], 'description' => $meta['description'], 'docs' => $docs];
+        }
 
-                return [
-                    'slug' => $slug,
-                    'title' => $meta['title'] ?? Str::headline($slug),
-                    'category' => $meta['category'] ?? 'General',
-                    'order' => (int) ($meta['order'] ?? 999),
-                ];
-            })
-            ->sortBy([['category', 'asc'], ['order', 'asc'], ['title', 'asc']])
-            ->values();
+        return $out;
     }
 
     /**
-     * A single doc by slug, rendered to safe HTML — or null when it does not
-     * exist. Slugs are whitelisted to kebab-case, so no path can traverse.
-     *
-     * @return array{slug: string, title: string, category: string, html: string}|null
+     * @return array{slug: string, title: string, group: string, groupLabel: string, summary: string, view: string, sections: list<array{id: string, title: string}>}|null
      */
     public function find(string $slug): ?array
     {
-        if (! preg_match('/^[a-z0-9][a-z0-9-]*$/', $slug)) {
+        $doc = self::DOCS[$slug] ?? null;
+
+        if ($doc === null) {
             return null;
         }
-
-        $path = $this->basePath().'/'.$slug.'.md';
-
-        if (! is_file($path)) {
-            return null;
-        }
-
-        [$meta, $body] = $this->parse((string) file_get_contents($path));
 
         return [
             'slug' => $slug,
-            'title' => $meta['title'] ?? Str::headline($slug),
-            'category' => $meta['category'] ?? 'General',
-            'html' => $this->render($body),
+            'title' => $doc['title'],
+            'group' => $doc['group'],
+            'groupLabel' => self::GROUPS[$doc['group']]['label'],
+            'summary' => $doc['summary'],
+            'view' => $doc['view'],
+            'sections' => $doc['sections'],
         ];
     }
 
-    private function basePath(): string
+    public function firstSlug(): ?string
     {
-        return resource_path('docs');
-    }
-
-    /**
-     * Split the optional front-matter block from the body. Deliberately a
-     * tiny `key: value` parser — no YAML dependency for three fields.
-     *
-     * @return array{0: array<string, string>, 1: string}
-     */
-    private function parse(string $raw): array
-    {
-        if (! str_starts_with($raw, "---\n")) {
-            return [[], $raw];
-        }
-
-        $end = strpos($raw, "\n---", 4);
-
-        if ($end === false) {
-            return [[], $raw];
-        }
-
-        $meta = [];
-        foreach (explode("\n", substr($raw, 4, $end - 4)) as $line) {
-            if (str_contains($line, ':')) {
-                [$key, $value] = explode(':', $line, 2);
-                $meta[trim($key)] = trim($value);
-            }
-        }
-
-        return [$meta, ltrim(substr($raw, $end + 4), "-\n")];
-    }
-
-    private function render(string $markdown): string
-    {
-        $environment = new Environment([
-            'html_input' => 'strip',
-            'allow_unsafe_links' => false,
-            'max_nesting_level' => 50,
-            'heading_permalink' => [
-                'symbol' => '#',
-                'insert' => 'after',
-                'aria_hidden' => true,
-                'id_prefix' => '',
-                'fragment_prefix' => '',
-            ],
-        ]);
-
-        $environment->addExtension(new CommonMarkCoreExtension);
-        $environment->addExtension(new GithubFlavoredMarkdownExtension);
-        $environment->addExtension(new HeadingPermalinkExtension);
-
-        return (new MarkdownConverter($environment))->convert($markdown)->getContent();
+        return array_key_first(self::DOCS);
     }
 }

@@ -832,20 +832,31 @@ select:focus[data-flux-control] {
         border-color: var(--color-divider);
     }
 
-    /* Rendered Mermaid diagrams (swapped in for ```mermaid code fences). */
-    .bts-doc-diagram {
-        margin: 0.25rem 0 1.25rem;
-        padding: 1rem;
-        border: 1px solid var(--color-divider);
-        border-radius: 10px;
-        background-color: white;
-        overflow-x: auto;
+    /* Native doc sections: breathing room between anchored sections. */
+    .bts-doc-section {
+        margin-bottom: 2.25rem;
     }
 
-    .bts-doc-diagram svg {
-        display: block;
-        margin: 0 auto;
-        max-width: 100%;
-        height: auto;
+    /* Go-live checklist: square markers, no bullets. */
+    .bts-doc ul.bts-doc-checklist {
+        margin-left: 0;
+        list-style: none;
+    }
+
+    .bts-doc ul.bts-doc-checklist li {
+        position: relative;
+        padding-left: 1.7rem;
+        margin-bottom: 0.4rem;
+    }
+
+    .bts-doc ul.bts-doc-checklist li::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0.28em;
+        width: 0.85em;
+        height: 0.85em;
+        border: 1.5px solid var(--color-faint);
+        border-radius: 4px;
     }
 }
