@@ -202,7 +202,12 @@ new #[Title('Users')] class extends Component {
                 return;
             }
 
-            $this->startOwnerTransfer($membership->id, 'demote', $this->editRole);
+            $this->startOwnerTransfer(
+                $membership->id,
+                'demote',
+                $this->editRole,
+                demoteBookable: $this->editRole === SalonRole::Manager->value && $this->editTakesBookings,
+            );
 
             return;
         }
@@ -414,11 +419,15 @@ new #[Title('Users')] class extends Component {
     public string $transferAction = '';
     public string $transferChoice = '';
     public string $transferDemoteRole = '';
+    /** When demoting the owner TO MANAGER, the edit modal's takes-bookings
+     *  checkbox is authoritative for the demoted ex-owner too — its value is
+     *  captured here and applied after the transfer completes. */
+    public bool $transferDemoteBookable = false;
     public string $newOwnerName = '';
     public string $newOwnerEmail = '';
     public string $newOwnerPhone = '';
 
-    public function startOwnerTransfer(int $membershipId, string $action, ?string $demoteRole = null): void
+    public function startOwnerTransfer(int $membershipId, string $action, ?string $demoteRole = null, bool $demoteBookable = false): void
     {
         $membership = $this->membership($membershipId);
 
@@ -429,6 +438,7 @@ new #[Title('Users')] class extends Component {
         $this->transferMembershipId = $membership->id;
         $this->transferAction = $action;
         $this->transferDemoteRole = $demoteRole ?? '';
+        $this->transferDemoteBookable = $demoteBookable;
         $this->reset(['transferChoice', 'newOwnerName', 'newOwnerEmail', 'newOwnerPhone']);
         $this->resetErrorBag();
         $this->showEdit = false;
@@ -486,14 +496,27 @@ new #[Title('Users')] class extends Component {
             $setActive->handle(Auth::user(), $this->salon, $membership, false);
         } elseif ($this->transferAction === 'delete') {
             $delete->handle(Auth::user(), $this->salon, $membership);
-        } elseif ($this->transferDemoteRole !== '' && $membership->salon_role->value !== $this->transferDemoteRole) {
-            $update->handle(Auth::user(), $this->salon, $membership, ['salon_role' => $this->transferDemoteRole]);
+        } elseif ($this->transferDemoteRole !== '') {
+            // For a demote TO MANAGER the edit modal's takes-bookings box is
+            // authoritative over the ex-owner's bookability; other demote
+            // roles keep the transfer's own demotion result untouched.
+            $toManager = $this->transferDemoteRole === SalonRole::Manager->value;
+            $wantsType = $toManager && $this->transferDemoteBookable ? StaffType::Stylist : null;
+
+            if ($membership->salon_role->value !== $this->transferDemoteRole
+                || ($toManager && $membership->staff_type !== $wantsType)) {
+                $data = ['salon_role' => $this->transferDemoteRole];
+                if ($toManager) {
+                    $data['staff_type'] = $wantsType?->value;
+                }
+                $update->handle(Auth::user(), $this->salon, $membership, $data);
+            }
         }
 
         $this->showTransfer = false;
         $this->showEdit = false;
         $this->editingId = null;
-        $this->reset(['transferMembershipId', 'transferAction', 'transferChoice', 'transferDemoteRole', 'newOwnerName', 'newOwnerEmail', 'newOwnerPhone']);
+        $this->reset(['transferMembershipId', 'transferAction', 'transferChoice', 'transferDemoteRole', 'transferDemoteBookable', 'newOwnerName', 'newOwnerEmail', 'newOwnerPhone']);
         unset($this->memberships);
 
         Flux::toast(variant: 'success', text: __('Ownership transferred.'));

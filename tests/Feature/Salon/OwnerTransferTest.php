@@ -374,3 +374,80 @@ it('keeps the demo Users page view-only: no member edits, no ownership transfer'
 
     expect($stylistMembership->fresh()->staff_type)->toBe(StaffType::Stylist);
 });
+
+// ---------------------------------------------------------------------------
+// Demote to Manager: the takes-bookings checkbox is authoritative
+// ---------------------------------------------------------------------------
+
+it('honours the takes-bookings box when demoting the owner to manager — both directions', function () {
+    $operatorFor = fn (Salon $salon) => User::factory()->create([
+        'agency_id' => $salon->agency_id, 'agency_role' => AgencyRole::Admin,
+    ]);
+
+    // A BOOKABLE owner demoted with the box UNTICKED ends non-bookable.
+    $salonA = Salon::factory()->create();
+    $ownerA = salonOwnerOf($salonA);
+    $membershipA = $ownerA->membershipFor($salonA);
+    $membershipA->update(['staff_type' => StaffType::Stylist]);
+
+    Livewire::actingAs($operatorFor($salonA))
+        ->test('pages::salon.users.index', ['salon' => $salonA])
+        ->call('startEdit', $membershipA->id)
+        ->assertSet('editTakesBookings', true) // reflects their current state
+        ->set('editRole', 'salon_manager')
+        ->set('editTakesBookings', false)
+        ->call('saveEdit')
+        ->assertSet('showTransfer', true)
+        ->set('transferChoice', 'me')
+        ->call('confirmTransfer')
+        ->assertHasNoErrors();
+
+    $freshA = $membershipA->fresh();
+    expect($freshA->salon_role)->toBe(SalonRole::Manager);
+    expect($freshA->staff_type)->toBeNull(); // the box decided, not stickiness
+    expect(transferOwnerCount($salonA))->toBe(1);
+
+    // A NON-bookable owner demoted with the box TICKED ends bookable.
+    $salonB = Salon::factory()->create();
+    $ownerB = salonOwnerOf($salonB);
+    $membershipB = $ownerB->membershipFor($salonB);
+
+    Livewire::actingAs($operatorFor($salonB))
+        ->test('pages::salon.users.index', ['salon' => $salonB])
+        ->call('startEdit', $membershipB->id)
+        ->assertSet('editTakesBookings', false)
+        ->set('editRole', 'salon_manager')
+        ->set('editTakesBookings', true)
+        ->call('saveEdit')
+        ->assertSet('showTransfer', true)
+        ->set('transferChoice', 'me')
+        ->call('confirmTransfer')
+        ->assertHasNoErrors();
+
+    $freshB = $membershipB->fresh();
+    expect($freshB->salon_role)->toBe(SalonRole::Manager);
+    expect($freshB->staff_type)->toBe(StaffType::Stylist);
+    expect(transferOwnerCount($salonB))->toBe(1);
+});
+
+it('keeps demote-to-stylist transfer behaviour untouched by the checkbox', function () {
+    $salon = Salon::factory()->create();
+    $owner = salonOwnerOf($salon);
+    $membership = $owner->membershipFor($salon);
+    $operator = User::factory()->create(['agency_id' => $salon->agency_id, 'agency_role' => AgencyRole::Owner]);
+
+    Livewire::actingAs($operator)
+        ->test('pages::salon.users.index', ['salon' => $salon])
+        ->call('startEdit', $membership->id)
+        ->set('editRole', 'stylist')
+        ->call('saveEdit')
+        ->assertSet('showTransfer', true)
+        ->set('transferChoice', 'me')
+        ->call('confirmTransfer')
+        ->assertHasNoErrors();
+
+    $fresh = $membership->fresh();
+    expect($fresh->salon_role)->toBe(SalonRole::Stylist);
+    expect($fresh->staff_type)->toBe(StaffType::Stylist); // stylists inherently bookable
+    expect(transferOwnerCount($salon))->toBe(1);
+});
