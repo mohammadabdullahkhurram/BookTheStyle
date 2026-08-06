@@ -39,6 +39,12 @@ new #[Title('Users')] class extends Component {
     public string $editRole = 'stylist';
     public string $editArrangement = 'employee';
     public string $editBio = '';
+    /** Takes-bookings in the edit modal — the same staff_type flag the
+     *  self-row switch and the Add modal write. Shown when the selected
+     *  role is Manager; initialised from the member's CURRENT bookable
+     *  state, so a stylist switched to Manager defaults to staying
+     *  bookable and can be unticked in the same save. */
+    public bool $editTakesBookings = false;
     public bool $showEdit = false;
     public bool $editingOwner = false;
 
@@ -159,6 +165,7 @@ new #[Title('Users')] class extends Component {
         $this->editingId = $membership->id;
         $this->editingOwner = $membership->salon_role === SalonRole::Owner;
         $this->editRole = $membership->salon_role->value;
+        $this->editTakesBookings = $membership->staff_type === StaffType::Stylist;
         $this->editArrangement = $membership->arrangement->value;
         $this->editBio = (string) StylistProfile::query()
             ->where('salon_id', $this->salon->id)
@@ -180,6 +187,7 @@ new #[Title('Users')] class extends Component {
             'editRole' => ['required', Rule::in([...$this->roleValues(), ...($isOwner ? [SalonRole::Owner->value] : [])])],
             'editArrangement' => ['required', Rule::in(array_column(\App\Enums\StylistArrangement::cases(), 'value'))],
             'editBio' => ['nullable', 'string', 'max:2000'],
+            'editTakesBookings' => ['boolean'],
         ]);
 
         if ($isOwner) {
@@ -199,10 +207,20 @@ new #[Title('Users')] class extends Component {
             return;
         }
 
-        $action->handle(Auth::user(), $this->salon, $membership, [
+        $data = [
             'salon_role' => $this->editRole,
             'arrangement' => $this->editArrangement,
-        ]);
+        ];
+
+        // For the Manager role the checkbox is authoritative — the same
+        // staff_type flag the self-row switch writes (explicit null clears
+        // it). Other roles keep their own semantics: stylists inherently
+        // bookable, so the key stays absent.
+        if ($this->editRole === SalonRole::Manager->value) {
+            $data['staff_type'] = $this->editTakesBookings ? StaffType::Stylist->value : null;
+        }
+
+        $action->handle(Auth::user(), $this->salon, $membership, $data);
 
         // Bio lives on StylistProfile per (user, salon); only stylists carry one.
         if ($this->editRole === SalonRole::Stylist->value) {
@@ -655,6 +673,14 @@ new #[Title('Users')] class extends Component {
                     <flux:select.option value="{{ $r->value }}">{{ $r->label() }}</flux:select.option>
                 @endforeach
             </flux:select>
+            @if ($editRole === 'salon_manager')
+                {{-- The takes-bookings flag, editable in place — reflects the
+                     member's current bookable state (a stylist switched to
+                     Manager defaults to staying bookable). Same staff_type
+                     mechanism as the self-row switch and the Add modal. --}}
+                <flux:checkbox wire:model="editTakesBookings" :label="__('Takes bookings')"
+                    :description="__('Give this manager a schedule and calendar column — bookable like a stylist, with full manager permissions.')" />
+            @endif
             @if ($this->arrangementSelectable && $editRole === 'stylist')
                 <flux:select wire:model="editArrangement" :label="__('Arrangement')">
                     <flux:select.option value="employee">{{ __('Employee') }}</flux:select.option>

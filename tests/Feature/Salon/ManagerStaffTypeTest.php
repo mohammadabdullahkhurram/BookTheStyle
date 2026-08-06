@@ -6,7 +6,9 @@ use App\Actions\Staff\InviteStaff;
 use App\Actions\Staff\UpdateStaffMembership;
 use App\Enums\BookedByType;
 use App\Enums\SalonRole;
+use App\Enums\SalonType;
 use App\Enums\StaffType;
+use App\Enums\StylistArrangement;
 use App\Models\Salon;
 use App\Models\Service;
 use App\Models\User;
@@ -386,4 +388,114 @@ it('creates a non-bookable manager when the box stays unchecked — and stylists
     $stylist = User::where('email', 'sky@example.com')->firstOrFail()->membershipFor($salon);
     expect($stylist->salon_role)->toBe(SalonRole::Stylist);
     expect($stylist->staff_type)->toBe(StaffType::Stylist);
+});
+
+// ---------------------------------------------------------------------------
+// Takes bookings in the Edit modal + on role changes into Manager
+// ---------------------------------------------------------------------------
+
+it('shows the takes-bookings box in the Edit modal for a manager — toggling persists both ways', function () {
+    $salon = Salon::factory()->create();
+    $owner = salonOwnerOf($salon);
+    $membership = managerOf($salon)->membershipFor($salon);
+
+    // Renders for the manager, reflecting their current (non-bookable) state.
+    Livewire::actingAs($owner)
+        ->test('pages::salon.users.index', ['salon' => $salon])
+        ->call('startEdit', $membership->id)
+        ->assertSet('editTakesBookings', false)
+        ->assertSee(__('Takes bookings'))
+        ->set('editTakesBookings', true)
+        ->call('saveEdit')
+        ->assertHasNoErrors();
+    expect($membership->fresh()->staff_type)->toBe(StaffType::Stylist);
+
+    // Re-opening reflects the bookable state; unticking clears it.
+    Livewire::actingAs($owner)
+        ->test('pages::salon.users.index', ['salon' => $salon])
+        ->call('startEdit', $membership->id)
+        ->assertSet('editTakesBookings', true)
+        ->set('editTakesBookings', false)
+        ->call('saveEdit')
+        ->assertHasNoErrors();
+    $fresh = $membership->fresh();
+    expect($fresh->staff_type)->toBeNull();
+    expect($fresh->salon_role)->toBe(SalonRole::Manager);
+});
+
+it('surfaces a hittable box on stylist → manager, defaulting to their prior bookable state', function () {
+    $salon = Salon::factory()->create();
+    $owner = salonOwnerOf($salon);
+
+    // Keeping the box on: the promoted stylist stays bookable.
+    $keeps = stylistOf($salon)->membershipFor($salon);
+    Livewire::actingAs($owner)
+        ->test('pages::salon.users.index', ['salon' => $salon])
+        ->call('startEdit', $keeps->id)
+        ->assertSet('editTakesBookings', true) // stylists are bookable, so the default is ON
+        ->set('editRole', 'salon_manager')
+        ->assertSee(__('Takes bookings'))
+        ->call('saveEdit')
+        ->assertHasNoErrors();
+    $fresh = $keeps->fresh();
+    expect($fresh->salon_role)->toBe(SalonRole::Manager);
+    expect($fresh->staff_type)->toBe(StaffType::Stylist);
+
+    // Unticking it in the same save: promoted, but off the calendar.
+    $drops = stylistOf($salon)->membershipFor($salon);
+    Livewire::actingAs($owner)
+        ->test('pages::salon.users.index', ['salon' => $salon])
+        ->call('startEdit', $drops->id)
+        ->set('editRole', 'salon_manager')
+        ->set('editTakesBookings', false)
+        ->call('saveEdit')
+        ->assertHasNoErrors();
+    $fresh = $drops->fresh();
+    expect($fresh->salon_role)->toBe(SalonRole::Manager);
+    expect($fresh->staff_type)->toBeNull();
+});
+
+it('sets a bookable manager up identically to an owner-as-stylist in every salon type', function () {
+    foreach (SalonType::cases() as $type) {
+        $salon = Salon::factory()->create(['salon_type' => $type]);
+        $owner = salonOwnerOf($salon);
+        $ownerMembership = $owner->membershipFor($salon);
+        $managerMembership = managerOf($salon)->membershipFor($salon);
+        $stylist = stylistOf($salon);
+
+        // The owner reference: their self-row switch makes them bookable.
+        Livewire::actingAs($owner)
+            ->test('pages::salon.users.index', ['salon' => $salon])
+            ->call('toggleOwnerBookable', $ownerMembership->id)
+            ->assertHasNoErrors();
+
+        // The manager, through the Edit modal.
+        Livewire::actingAs($owner)
+            ->test('pages::salon.users.index', ['salon' => $salon])
+            ->call('startEdit', $managerMembership->id)
+            ->set('editTakesBookings', true)
+            ->call('saveEdit')
+            ->assertHasNoErrors();
+
+        $ownerFresh = $ownerMembership->fresh();
+        $managerFresh = $managerMembership->fresh();
+
+        // Same flag, same arrangement semantics as the owner in this salon
+        // type: employee-style shared calendar; booth-rental scoping stays
+        // a Stylist-role concept (boothRenterMembershipFor excludes both).
+        expect($managerFresh->staff_type)->toBe(StaffType::Stylist);
+        expect($managerFresh->arrangement)->toBe($ownerFresh->arrangement);
+        expect($managerFresh->arrangement)->toBe(StylistArrangement::Employee);
+        expect($managerFresh->user->boothRenterMembershipFor($salon))->toBeNull();
+        expect($owner->boothRenterMembershipFor($salon))->toBeNull();
+
+        // Both join the bookable roster and are service-assignable, exactly
+        // like a regular stylist in this salon type.
+        expect($salon->stylistUsers()->pluck('users.id')->all())
+            ->toEqualCanonicalizing([$owner->id, $managerFresh->user_id, $stylist->id]);
+        $service = Service::factory()->for($salon)->create();
+        app(SyncServiceStylists::class)->handle($salon, $service, [$managerFresh->user_id, $owner->id, $stylist->id]);
+        expect($service->stylists()->pluck('users.id')->all())
+            ->toEqualCanonicalizing([$managerFresh->user_id, $owner->id, $stylist->id]);
+    }
 });
