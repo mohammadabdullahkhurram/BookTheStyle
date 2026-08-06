@@ -108,3 +108,67 @@ it('404s unknown and traversal-shaped doc slugs', function () {
     expect((new AgencyDocs)->find('../../config/app'))->toBeNull();
     expect((new AgencyDocs)->find('..'))->toBeNull();
 });
+
+it('lists and renders the SOP and technical reference docs — agency-only as ever', function () {
+    $agencyUser = docsAgencyUser(AgencyRole::User);
+
+    // Both docs sit in the index, under their groups.
+    $this->actingAs($agencyUser)
+        ->get(route('agency.docs'))
+        ->assertOk()
+        ->assertSee('How to set up a new salon — step by step')
+        ->assertSee('BookTheStyle × GoHighLevel — technical integration reference')
+        ->assertSee('Technical')
+        ->assertSee('SOPs');
+
+    // Each renders.
+    $this->actingAs($agencyUser)
+        ->get(route('agency.docs', ['doc' => 'salon-setup-sop']))
+        ->assertOk()
+        ->assertSee('Before you start — gather these first');
+
+    // And the boundary holds for the new docs too.
+    $salon = Salon::factory()->create();
+    $this->actingAs(salonOwnerOf($salon))
+        ->get(route('agency.docs', ['doc' => 'technical-integration-reference']))
+        ->assertForbidden();
+    $this->get('http://demo.'.config('app.domain').'/agency/docs/technical-integration-reference')
+        ->assertNotFound();
+});
+
+it('ships the technical doc with BTS-side values filled and GHL-side slots left open', function () {
+    $response = $this->actingAs(docsAgencyUser(AgencyRole::Owner))
+        ->get(route('agency.docs', ['doc' => 'technical-integration-reference']))
+        ->assertOk();
+
+    // BookTheStyle-side facts, verified from the codebase — no longer {{ }}.
+    $response->assertSee('POST', false)
+        ->assertSee('/api/v1/booking/availability')
+        ->assertSee('/api/v1/booking/create')
+        ->assertSee('api.booking.availability')
+        ->assertSee('btsk_')
+        ->assertSee('Authorization: Bearer')
+        ->assertSee('Voice-AI Booking API');
+
+    // GHL-side blanks stay as slots — they live in GHL, not this repo.
+    $response->assertSee('{{ snapshot name }}')
+        ->assertSee('[📸 capture each from the in-app integration settings so the payloads are exact]');
+
+    // No BTS-side endpoint/auth placeholder survived.
+    $response->assertDontSee('{{ METHOD + PATH }}')
+        ->assertDontSee('{{ token / header scheme');
+});
+
+it('renders mermaid fences as diagram hooks, not raw text', function () {
+    $response = $this->actingAs(docsAgencyUser(AgencyRole::Owner))
+        ->get(route('agency.docs', ['doc' => 'technical-integration-reference']))
+        ->assertOk();
+
+    // The fence becomes a language-tagged code block — the exact hook the
+    // client-side renderer swaps for the drawn SVG (two diagrams in this doc).
+    $response->assertSee('<code class="language-mermaid">', false)
+        ->assertSee('sequenceDiagram')
+        ->assertSee('flowchart LR');
+
+    expect(substr_count($response->getContent(), 'language-mermaid'))->toBe(2);
+});
