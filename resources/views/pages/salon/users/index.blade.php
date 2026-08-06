@@ -369,12 +369,14 @@ new #[Title('Users')] class extends Component {
     // ------------------------------------------------------------------
     // Owner-transfer safeguard: any action that would strip the salon's
     // owner (demote / deactivate / delete) is blocked until a replacement
-    // is designated IN THE SAME FLOW — promote an existing member, or the
-    // acting agency operator takes ownership themselves (an explicit,
-    // confirmed choice). SetSalonOwner enforces the invariant server-side;
-    // this modal is the UI at the point of removal. Agency operators only:
-    // salon roles never reach it because they hold no authority over the
-    // owner in the first place.
+    // is designated IN THE SAME FLOW. Two explicit paths: ADD A NEW OWNER
+    // (the standard add-user provisioning — same fields, same engine, same
+    // invite mails; an existing account for that email is linked instead,
+    // exactly like any invite) or MAKE ME THE OWNER (the acting operator's
+    // take-over — no mail, you don't invite yourself). SetSalonOwner
+    // enforces the one-active-owner invariant server-side; this modal is
+    // the UI at the point of removal. Agency operators only: salon roles
+    // never reach it because they hold no authority over the owner.
     // ------------------------------------------------------------------
 
     public bool $showTransfer = false;
@@ -382,6 +384,9 @@ new #[Title('Users')] class extends Component {
     public string $transferAction = '';
     public string $transferChoice = '';
     public string $transferDemoteRole = '';
+    public string $newOwnerName = '';
+    public string $newOwnerEmail = '';
+    public string $newOwnerPhone = '';
 
     public function startOwnerTransfer(int $membershipId, string $action, ?string $demoteRole = null): void
     {
@@ -394,23 +399,10 @@ new #[Title('Users')] class extends Component {
         $this->transferMembershipId = $membership->id;
         $this->transferAction = $action;
         $this->transferDemoteRole = $demoteRole ?? '';
-        $this->transferChoice = '';
-        $this->resetErrorBag('transferChoice');
+        $this->reset(['transferChoice', 'newOwnerName', 'newOwnerEmail', 'newOwnerPhone']);
+        $this->resetErrorBag();
         $this->showEdit = false;
         $this->showTransfer = true;
-    }
-
-    /** Active members who could take over — the outgoing owner excluded, the
-     *  acting operator too (they get the explicit "Make me the owner" option). */
-    #[Computed]
-    public function transferCandidates()
-    {
-        return $this->salon->memberships()
-            ->where('active', true)
-            ->where('salon_role', '!=', SalonRole::Owner->value)
-            ->where('user_id', '!=', Auth::id())
-            ->with('user:id,name,email')
-            ->get();
     }
 
     public function confirmTransfer(SetSalonOwner $transfer, UpdateStaffMembership $update, SetMembershipActive $setActive, DeleteStaffUser $delete): void
@@ -422,21 +414,39 @@ new #[Title('Users')] class extends Component {
         $membership = $this->membership((int) $this->transferMembershipId);
         abort_unless($membership->salon_role === SalonRole::Owner, 404);
 
-        $allowed = $this->transferCandidates->pluck('id')->map(fn ($id) => (string) $id)->push('me')->all();
         $this->validate(
-            ['transferChoice' => ['required', Rule::in($allowed)]],
-            ['transferChoice.required' => __('Choose the new owner first.'), 'transferChoice.in' => __('Choose the new owner first.')],
+            ['transferChoice' => ['required', Rule::in(['new', 'me'])]],
+            ['transferChoice.required' => __('Choose who takes over first.'), 'transferChoice.in' => __('Choose who takes over first.')],
         );
 
         if ($this->transferChoice === 'me' && $membership->user_id === Auth::id()) {
-            $this->addError('transferChoice', __('Choose another member — you are the owner being replaced.'));
+            $this->addError('transferChoice', __('You are the owner being replaced — add a new owner instead.'));
 
             return;
         }
 
-        $this->transferChoice === 'me'
-            ? $transfer->handle(Auth::user(), $this->salon, ['make_actor_owner' => true])
-            : $transfer->handle(Auth::user(), $this->salon, ['membership_id' => (int) $this->transferChoice]);
+        if ($this->transferChoice === 'new') {
+            // The add-user field set and rules, verbatim (invite()).
+            $this->validate([
+                'newOwnerName' => ['required', 'string', 'max:255'],
+                'newOwnerEmail' => ['required', 'string', 'email', 'max:255'],
+                'newOwnerPhone' => ['nullable', 'string', 'max:32'],
+            ]);
+
+            if (strcasecmp($this->newOwnerEmail, (string) $membership->user?->email) === 0) {
+                $this->addError('newOwnerEmail', __('That is the owner being replaced — name a different person.'));
+
+                return;
+            }
+
+            $result = $transfer->handle(Auth::user(), $this->salon, [
+                'name' => $this->newOwnerName,
+                'email' => $this->newOwnerEmail,
+                'phone' => $this->newOwnerPhone ?: null,
+            ]);
+        } else {
+            $result = $transfer->handle(Auth::user(), $this->salon, ['make_actor_owner' => true]);
+        }
 
         // The transfer demoted the outgoing owner (stylist if bookable,
         // manager otherwise); now finish what the actor started.
@@ -453,10 +463,18 @@ new #[Title('Users')] class extends Component {
         $this->showTransfer = false;
         $this->showEdit = false;
         $this->editingId = null;
-        $this->reset(['transferMembershipId', 'transferAction', 'transferChoice', 'transferDemoteRole']);
-        unset($this->memberships, $this->transferCandidates);
+        $this->reset(['transferMembershipId', 'transferAction', 'transferChoice', 'transferDemoteRole', 'newOwnerName', 'newOwnerEmail', 'newOwnerPhone']);
+        unset($this->memberships);
 
         Flux::toast(variant: 'success', text: __('Ownership transferred.'));
+
+        // A freshly provisioned owner gets their temporary password shown
+        // once — the same panel every add-user flow uses.
+        if ($result->temporaryPassword !== null) {
+            $this->temporaryPassword = $result->temporaryPassword;
+            $this->tempForName = $result->user->name;
+            $this->showTempPassword = true;
+        }
     }
 
     /**
@@ -656,18 +674,27 @@ new #[Title('Users')] class extends Component {
 
     {{-- Owner-transfer safeguard: the salon must end with an owner, so the
          stripping action (demote / deactivate / delete) waits behind this
-         choice. "Make me the owner" is the acting agency operator's explicit
-         take-over — never a silent side effect. --}}
+         choice. Two explicit paths: provision a brand-new owner (the
+         standard add-user form + invite mails) or the acting agency
+         operator's take-over — never a silent side effect. --}}
     <x-ui.modal wire:model="showTransfer" class="max-w-md" :heading="__('This salon needs an owner — choose one')">
         <form wire:submit="confirmTransfer" class="flex flex-col gap-5" novalidate>
             <p class="text-[13.5px] leading-relaxed text-secondary">{{ __('A salon can never be left without an owner. Pick who takes over; then this change goes through.') }}</p>
-            <flux:select wire:model="transferChoice" :label="__('New owner')">
-                <flux:select.option value="">{{ __('Choose the new owner') }}</flux:select.option>
-                <flux:select.option value="me">{{ __('Make me the owner') }}</flux:select.option>
-                @foreach ($this->transferCandidates as $candidate)
-                    <flux:select.option value="{{ $candidate->id }}">{{ $candidate->user->name }} · {{ $candidate->salon_role->label() }}</flux:select.option>
-                @endforeach
-            </flux:select>
+            <flux:radio.group wire:model.live="transferChoice" variant="segmented">
+                <flux:radio value="new" label="{{ __('Add a new owner') }}" />
+                <flux:radio value="me" label="{{ __('Make me the owner') }}" />
+            </flux:radio.group>
+            @if ($transferChoice === 'new')
+                {{-- The add-user field set: a new account is provisioned with
+                     the normal invite/welcome mails and a one-time temporary
+                     password; an existing account for this email is linked
+                     as owner instead, exactly like any invite. --}}
+                <flux:input wire:model="newOwnerName" :label="__('Name')" required autofocus />
+                <flux:input wire:model="newOwnerEmail" type="email" :label="__('Email')" required />
+                <flux:input wire:model="newOwnerPhone" type="tel" :label="__('Phone')" autocomplete="tel" />
+            @elseif ($transferChoice === 'me')
+                <p class="text-[13.5px] leading-relaxed text-secondary">{{ __('You become this salon\'s owner: your account gets (or keeps) a membership here, promoted to Owner. No invite is sent.') }}</p>
+            @endif
             <div class="flex justify-end gap-3">
                 <x-ui.button type="button" variant="secondary" wire:click="$set('showTransfer', false)">{{ __('Cancel') }}</x-ui.button>
                 <x-ui.button type="submit" loading="confirmTransfer">{{ __('Transfer ownership') }}</x-ui.button>

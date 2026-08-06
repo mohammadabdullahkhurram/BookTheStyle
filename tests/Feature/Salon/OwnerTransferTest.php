@@ -8,6 +8,8 @@ use App\Actions\Staff\UpdateStaffMembership;
 use App\Enums\AgencyRole;
 use App\Enums\SalonRole;
 use App\Enums\StaffType;
+use App\Mail\AccountCreatedMail;
+use App\Mail\StaffInviteMail;
 use App\Models\Agency;
 use App\Models\Salon;
 use App\Models\User;
@@ -189,10 +191,39 @@ it('blocks demoting, deactivating, and deleting the sole owner without a designa
     expect(transferOwnerCount($salon))->toBe(1);
 });
 
-it('demotes the owner through the transfer modal by promoting an existing member', function () {
+it('offers exactly two transfer paths — add a new owner or take over — never a member dropdown', function () {
     $salon = Salon::factory()->create();
     $owner = salonOwnerOf($salon);
     $manager = frontDeskOf($salon);
+    $operator = User::factory()->create(['agency_id' => $salon->agency_id, 'agency_role' => AgencyRole::Admin]);
+    $ownerMembership = $owner->membershipFor($salon);
+
+    $component = Livewire::actingAs($operator)
+        ->test('pages::salon.users.index', ['salon' => $salon])
+        ->call('startOwnerTransfer', $ownerMembership->id, 'demote')
+        ->assertSet('showTransfer', true)
+        ->assertSee(__('This salon needs an owner — choose one'))
+        ->assertSee(__('Add a new owner'))
+        ->assertSee(__('Make me the owner'));
+
+    // A missing choice keeps everything blocked…
+    $component->call('confirmTransfer')->assertHasErrors(['transferChoice']);
+
+    // …and the old dropdown contract is gone: a membership id is not a
+    // valid choice, so promote-existing cannot be forged through the modal.
+    $component->set('transferChoice', (string) $manager->membershipFor($salon)->id)
+        ->call('confirmTransfer')
+        ->assertHasErrors(['transferChoice']);
+
+    expect($ownerMembership->fresh()->salon_role)->toBe(SalonRole::Owner);
+    expect($manager->membershipFor($salon)->fresh()->salon_role)->toBe(SalonRole::Manager);
+    expect(transferOwnerCount($salon))->toBe(1);
+});
+
+it('demotes the owner by provisioning a NEW owner inline — the standard add-user flow, mails included', function () {
+    Mail::fake();
+    $salon = Salon::factory()->create();
+    $owner = salonOwnerOf($salon);
     $operator = User::factory()->create(['agency_id' => $salon->agency_id, 'agency_role' => AgencyRole::Admin]);
     $ownerMembership = $owner->membershipFor($salon);
 
@@ -204,31 +235,44 @@ it('demotes the owner through the transfer modal by promoting an existing member
         ->assertSet('editingOwner', true)
         ->set('editRole', 'stylist')
         ->call('saveEdit')
-        ->assertSet('showTransfer', true)
-        ->assertSee(__('This salon needs an owner — choose one'))
-        ->assertSee(__('Make me the owner'));
+        ->assertSet('showTransfer', true);
     expect($ownerMembership->fresh()->salon_role)->toBe(SalonRole::Owner);
 
-    // A missing choice keeps everything blocked.
-    $component->call('confirmTransfer')->assertHasErrors(['transferChoice']);
-    expect($ownerMembership->fresh()->salon_role)->toBe(SalonRole::Owner);
-
-    // Designating the manager completes transfer + demotion in one flow.
-    $component->set('transferChoice', (string) $manager->membershipFor($salon)->id)
+    // Naming the outgoing owner as their own replacement is refused.
+    $component->set('transferChoice', 'new')
+        ->set('newOwnerName', 'Self Again')
+        ->set('newOwnerEmail', $owner->email)
         ->call('confirmTransfer')
-        ->assertHasNoErrors();
+        ->assertHasErrors(['newOwnerEmail']);
 
-    expect($manager->membershipFor($salon)->fresh()->salon_role)->toBe(SalonRole::Owner);
+    // A real new person: account provisioned as Owner, transfer completes.
+    $component->set('newOwnerName', 'Nadia New-Owner')
+        ->set('newOwnerEmail', 'nadia@example.com')
+        ->set('newOwnerPhone', '(555) 010-7777')
+        ->call('confirmTransfer')
+        ->assertHasNoErrors()
+        ->assertSet('showTempPassword', true); // one-time temp password panel
+
+    $newOwner = User::where('email', 'nadia@example.com')->firstOrFail();
+    expect($newOwner->membershipFor($salon)->salon_role)->toBe(SalonRole::Owner);
+    expect($newOwner->must_change_password)->toBeTrue();
+
+    // The normal add-user mails, exactly like any invite.
+    Mail::assertQueued(AccountCreatedMail::class, fn ($mail) => $mail->hasTo('nadia@example.com'));
+    Mail::assertQueued(StaffInviteMail::class, fn ($mail) => $mail->hasTo('nadia@example.com')
+        && $mail->temporaryPassword !== null);
+
+    // The outgoing owner got the demote role chosen in the edit modal.
     $exOwner = $ownerMembership->fresh();
-    expect($exOwner->salon_role)->toBe(SalonRole::Stylist); // the chosen demote role
+    expect($exOwner->salon_role)->toBe(SalonRole::Stylist);
     expect($exOwner->staff_type)->toBe(StaffType::Stylist);
     expect(transferOwnerCount($salon))->toBe(1);
 });
 
 it('deletes the owner through the transfer modal — the salon keeps an owner throughout', function () {
+    Mail::fake();
     $salon = Salon::factory()->create();
     $owner = salonOwnerOf($salon);
-    $manager = frontDeskOf($salon);
     $operator = User::factory()->create(['agency_id' => $salon->agency_id, 'agency_role' => AgencyRole::Owner]);
     $ownerMembership = $owner->membershipFor($salon);
 
@@ -236,11 +280,14 @@ it('deletes the owner through the transfer modal — the salon keeps an owner th
         ->test('pages::salon.users.index', ['salon' => $salon])
         ->call('startOwnerTransfer', $ownerMembership->id, 'delete')
         ->assertSet('showTransfer', true)
-        ->set('transferChoice', (string) $manager->membershipFor($salon)->id)
+        ->set('transferChoice', 'new')
+        ->set('newOwnerName', 'Successor Sam')
+        ->set('newOwnerEmail', 'sam@example.com')
         ->call('confirmTransfer')
         ->assertHasNoErrors();
 
-    expect($manager->membershipFor($salon)->fresh()->salon_role)->toBe(SalonRole::Owner);
+    $newOwner = User::where('email', 'sam@example.com')->firstOrFail();
+    expect($newOwner->membershipFor($salon)->salon_role)->toBe(SalonRole::Owner);
     expect($salon->memberships()->where('user_id', $owner->id)->exists())->toBeFalse();
     expect($owner->fresh()->trashed())->toBeTrue(); // only access → account removed
     expect(transferOwnerCount($salon))->toBe(1);
