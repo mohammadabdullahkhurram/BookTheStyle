@@ -39,12 +39,18 @@ class UpdateStaffMembership
             throw new AuthorizationException('You may not manage that staff member.');
         }
 
-        // staff_type is the bookability flag and follows the role (stylists
-        // bookable, managers not); explicit values are reserved for the
-        // owner-who-cuts-hair path. Enforced so the pairing never drifts.
-        $staffType = ! empty($data['staff_type'])
-            ? StaffType::from($data['staff_type'])
-            : $this->roles->impliedType($newRole);
+        // staff_type is the bookability flag. When the key is ABSENT it is
+        // STICKY: a member who takes bookings keeps their schedule and
+        // calendar column across role changes (every role permits the flag —
+        // stylists inherently, owners/managers optionally). An explicit
+        // value sets it; an explicit null clears it back to the role's
+        // implied default (stylists bookable, others not).
+        $staffType = match (true) {
+            ! empty($data['staff_type']) => StaffType::from($data['staff_type']),
+            array_key_exists('staff_type', $data) => $this->roles->impliedType($newRole),
+            $membership->staff_type === StaffType::Stylist => StaffType::Stylist,
+            default => $this->roles->impliedType($newRole),
+        };
 
         $this->roles->assertRoleMatchesType($newRole, $staffType);
 

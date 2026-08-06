@@ -324,9 +324,10 @@ new #[Title('Users')] class extends Component {
     }
 
     /**
-     * The owner-who-cuts-hair switch: ONLY the owner, on their OWN row, may
-     * flip whether they take bookings (staff_type stylist ⇄ null). Nobody
-     * else can touch the owner (canAssign refuses Owner as a target).
+     * The takes-bookings switch: an OWNER or MANAGER, on their OWN row only,
+     * may flip whether they take bookings (staff_type stylist ⇄ null) —
+     * the owner-who-cuts-hair capability, extended to managers. Stylists
+     * are inherently bookable and have no switch.
      */
     public function toggleOwnerBookable(int $membershipId): void
     {
@@ -338,7 +339,7 @@ new #[Title('Users')] class extends Component {
 
         abort_unless(
             $membership->user_id === Auth::id()
-                && $membership->salon_role === SalonRole::Owner,
+                && $membership->salon_role->isManager(),
             403,
         );
 
@@ -530,7 +531,7 @@ new #[Title('Users')] class extends Component {
                                     @if ($m->salon_role === \App\Enums\SalonRole::Stylist && $m->arrangement === \App\Enums\StylistArrangement::BoothRental)
                                         <span class="bts-pill" style="background-color:#E3EDF6;color:#356088;">{{ __('Booth renter') }}</span>
                                     @endif
-                                    @if ($m->salon_role === \App\Enums\SalonRole::Owner && $m->staff_type === \App\Enums\StaffType::Stylist)
+                                    @if ($m->salon_role->isManager() && $m->staff_type === \App\Enums\StaffType::Stylist)
                                         <span class="bts-pill" style="background-color:var(--accent-tint);color:var(--accent-ink);">{{ __('Takes bookings') }}</span>
                                     @endif
                                 </div>
@@ -577,7 +578,7 @@ new #[Title('Users')] class extends Component {
                     </div>
                     <div class="flex flex-wrap items-center gap-2 ps-11 text-[13px] text-secondary">
                         <span>{{ $m->salon_role->label() }}</span>
-                        @if ($m->salon_role === \App\Enums\SalonRole::Owner && $m->staff_type === \App\Enums\StaffType::Stylist)
+                        @if ($m->salon_role->isManager() && $m->staff_type === \App\Enums\StaffType::Stylist)
                             <span class="bts-pill" style="background-color:var(--accent-tint);color:var(--accent-ink);">{{ __('Takes bookings') }}</span>
                         @endif
                         @unless ($m->active)

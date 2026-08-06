@@ -96,24 +96,19 @@ class SalonStaffRoles
 
     /**
      * staff_type is the bookability flag and must agree with the role:
-     * a Stylist is always bookable (type 'stylist'); a Manager never is
-     * (type NULL). Owner is exempt — an owner may also be a working stylist
-     * (the owner-who-cuts-hair case). Enforced server-side on every invite
-     * and edit so the pairing can never drift.
+     * a Stylist is ALWAYS bookable (type 'stylist'); Owner and Manager are
+     * OPTIONALLY bookable — the takes-bookings capability (the owner-who-
+     * cuts-hair case, extended to managers) — so either NULL or 'stylist'
+     * is valid for them. Enforced server-side on every invite and edit so
+     * the one hard pairing can never drift.
      *
      * @throws ValidationException
      */
     public function assertRoleMatchesType(SalonRole $role, ?StaffType $type): void
     {
-        if ($role === SalonRole::Owner) {
-            return;
-        }
-
-        $valid = ($role === SalonRole::Stylist) === ($type === StaffType::Stylist);
-
-        if (! $valid) {
+        if ($role === SalonRole::Stylist && $type !== StaffType::Stylist) {
             throw ValidationException::withMessages([
-                'salon_role' => __('That role does not match: stylists are bookable; managers are not.'),
+                'salon_role' => __('That role does not match: stylists are always bookable.'),
             ]);
         }
     }

@@ -13,7 +13,6 @@ use App\Models\SalonMembership;
 use App\Models\User;
 use App\Support\Permissions\SalonStaffRoles;
 use Illuminate\Auth\Access\AuthorizationException;
-use Illuminate\Validation\ValidationException;
 
 // salonOwnerOf / salonAdminOf / stylistOf / frontDeskOf live in tests/Pest.php.
 
@@ -94,22 +93,27 @@ it('forbids a salon admin from overwriting an existing owner via the invite form
     expect($owner->fresh()->membershipFor($salon)->salon_role)->toBe(SalonRole::Owner);
 });
 
-it('lets a salon admin promote staff to admin — with the matching staff type', function () {
+it('lets a salon admin promote staff to admin — bookability is sticky across the change', function () {
     $salon = Salon::factory()->create();
     $admin = salonAdminOf($salon);
     $membership = stylistOf($salon)->membershipFor($salon);
 
-    // Full manager surface: promoting stylist→manager is allowed, but the
-    // bookability flag must follow the role (a manager is never bookable).
-    expect(fn () => app(UpdateStaffMembership::class)->handle($admin, $salon, $membership, [
-        'salon_role' => 'salon_manager', 'staff_type' => 'stylist',
-    ]))->toThrow(ValidationException::class);
-
+    // Promoting stylist→manager keeps their bookable flag (takes-bookings):
+    // their calendar column and schedule survive the promotion.
     app(UpdateStaffMembership::class)->handle($admin, $salon, $membership, [
         'salon_role' => 'salon_manager',
     ]);
 
-    expect($membership->fresh()->salon_role)->toBe(SalonRole::Manager);
+    $fresh = $membership->fresh();
+    expect($fresh->salon_role)->toBe(SalonRole::Manager);
+    expect($fresh->staff_type)->toBe(StaffType::Stylist);
+
+    // An explicit opt-out at promotion time works too.
+    $second = stylistOf($salon)->membershipFor($salon);
+    app(UpdateStaffMembership::class)->handle($admin, $salon, $second, [
+        'salon_role' => 'salon_manager', 'staff_type' => null,
+    ]);
+    expect($second->fresh()->staff_type)->toBeNull();
 });
 
 // --- Rule 3: add/remove a STYLIST / front desk --------------------------------

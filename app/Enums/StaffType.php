@@ -8,8 +8,8 @@ namespace App\Enums;
  * NULL means no operational function. Since the owner/manager/stylist role
  * rework this is the ONLY case — the former manager/front_desk labels died
  * with the roles they described — but it stays a separate column precisely
- * so an OWNER can also be bookable (the owner-who-cuts-hair case) without
- * the role having to express it.
+ * so an OWNER or MANAGER can also be bookable (the takes-bookings
+ * capability) without the role having to express it.
  */
 enum StaffType: string
 {

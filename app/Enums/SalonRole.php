@@ -10,9 +10,9 @@ namespace App\Enums;
  * own-scope: Today, calendar, own appointments, own availability).
  *
  * Bookability is the ORTHOGONAL staff_type flag ('stylist' or NULL), not the
- * role: a Stylist always has it, and an OWNER may also carry it — the
- * owner-who-cuts-hair case (common in small salons) — without giving up the
- * owner role. Managers are never bookable.
+ * role: a Stylist always has it, and an OWNER or MANAGER may also carry it —
+ * the takes-bookings capability (the owner-who-cuts-hair case, common in
+ * small salons, extended to managers) — without giving up their role.
  */
 enum SalonRole: string
 {

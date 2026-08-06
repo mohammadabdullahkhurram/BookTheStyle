@@ -3,6 +3,7 @@
 use App\Actions\Availability\SaveWeeklyHours;
 use App\Actions\Services\SyncServiceStylists;
 use App\Actions\Staff\InviteStaff;
+use App\Actions\Staff\UpdateStaffMembership;
 use App\Enums\BookedByType;
 use App\Enums\SalonRole;
 use App\Enums\StaffType;
@@ -11,6 +12,7 @@ use App\Models\Service;
 use App\Models\User;
 use App\Services\Calendar\CalendarData;
 use App\Support\Permissions\AvailabilityAccess;
+use App\Support\Permissions\SalonStaffRoles;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
@@ -18,8 +20,10 @@ use Livewire\Livewire;
 
 /*
 | The Manager ROLE under the owner/manager/stylist taxonomy (SPEC §2):
-| managers run the salon and are never bookable — staff_type (the
-| bookability flag) stays NULL for them, enforced server-side.
+| managers run the salon and are non-bookable BY DEFAULT — staff_type (the
+| bookability flag) is NULL unless they opt into takes-bookings, the same
+| capability owners carry. A non-bookable manager stays off every stylist
+| surface; a bookable one gains them while keeping manager authority.
 */
 
 // ---------------------------------------------------------------------------
@@ -46,14 +50,33 @@ it('creates a manager through the Users screen — never bookable', function () 
     expect($membership->staff_type)->toBeNull();
 });
 
-it('rejects the impossible pairing: a bookable manager', function () {
+it('accepts a bookable manager — takes-bookings is a valid pairing now', function () {
+    Mail::fake();
     $salon = Salon::factory()->create();
     $owner = salonOwnerOf($salon);
 
-    expect(fn () => app(InviteStaff::class)->handle($owner, $salon, [
-        'name' => 'Mismatched', 'email' => 'mismatch@example.com',
+    $result = app(InviteStaff::class)->handle($owner, $salon, [
+        'name' => 'Booking Manager', 'email' => 'booking-manager@example.com',
         'salon_role' => 'salon_manager', 'staff_type' => 'stylist',
-    ]))->toThrow(ValidationException::class);
+    ]);
+
+    $membership = $result->user->membershipFor($salon);
+    expect($membership->salon_role)->toBe(SalonRole::Manager);
+    expect($membership->staff_type)->toBe(StaffType::Stylist);
+});
+
+it('still rejects the one impossible pairing: a stylist without the bookable flag', function () {
+    $roles = new SalonStaffRoles;
+
+    expect(fn () => $roles->assertRoleMatchesType(SalonRole::Stylist, null))
+        ->toThrow(ValidationException::class);
+
+    // Owner and manager accept both: takes-bookings is optional for them.
+    foreach ([SalonRole::Owner, SalonRole::Manager] as $role) {
+        $roles->assertRoleMatchesType($role, null);
+        $roles->assertRoleMatchesType($role, StaffType::Stylist);
+    }
+    expect(true)->toBeTrue(); // no throw above
 });
 
 it('rejects an unknown staff type outright — the enum has one case', function () {
@@ -66,7 +89,7 @@ it('rejects an unknown staff type outright — the enum has one case', function 
     ]))->toThrow(ValueError::class);
 });
 
-it('keeps the bookability flag consistent: owners none by default, stylists always, managers never', function () {
+it('keeps the bookability flag consistent: owners and managers none by default, stylists always', function () {
     $salon = Salon::factory()->create();
     $owner = salonOwnerOf($salon);
     $stylist = stylistOf($salon);
@@ -82,7 +105,7 @@ it('keeps the bookability flag consistent: owners none by default, stylists alwa
 // Excluded from every stylist-only surface (the type stays functional)
 // ---------------------------------------------------------------------------
 
-it('excludes a manager from the stylist roster and per-stylist calendar columns', function () {
+it('excludes a NON-BOOKABLE manager from the stylist roster and per-stylist calendar columns', function () {
     $salon = Salon::factory()->create();
     $stylist = stylistOf($salon);
     $manager = managerOf($salon);
@@ -107,13 +130,13 @@ it('ignores a forged manager id in service stylist assignment', function () {
     expect($service->stylists()->pluck('users.id')->all())->toBe([$stylist->id]);
 });
 
-it('never gives a manager stylist availability — they are not bookable', function () {
+it('never gives a NON-BOOKABLE manager stylist availability', function () {
     $salon = Salon::factory()->create();
     $owner = salonOwnerOf($salon);
     $manager = managerOf($salon);
     $week = [1 => [['start_minute' => 9 * 60, 'end_minute' => 17 * 60]]];
 
-    // Even an owner cannot give a manager stylist availability (not a stylist).
+    // Without takes-bookings, a manager has no stylist surface to schedule.
     expect(fn () => app(SaveWeeklyHours::class)->handle($owner, $salon, $manager->id, $week))
         ->toThrow(ValidationException::class);
     expect(fn () => app(SaveWeeklyHours::class)->handle($manager, $salon, $manager->id, $week))
@@ -170,4 +193,119 @@ it('confines a manager to their own salon', function () {
     $this->actingAs($manager);
     $this->get(route('salon.users', $salonA))->assertOk();
     $this->get(route('salon.users', $salonB))->assertForbidden();
+});
+
+// ---------------------------------------------------------------------------
+// Takes bookings — the owner capability, extended to managers
+// ---------------------------------------------------------------------------
+
+it('lets a manager opt into taking bookings from their own row — flag persists, badge renders, authority kept', function () {
+    $salon = Salon::factory()->create();
+    salonOwnerOf($salon);
+    $manager = managerOf($salon);
+    $membership = $manager->membershipFor($salon);
+
+    Livewire::actingAs($manager)
+        ->test('pages::salon.users.index', ['salon' => $salon])
+        ->assertSee(__('Take bookings'))
+        ->call('toggleOwnerBookable', $membership->id)
+        ->assertHasNoErrors();
+
+    expect($membership->fresh()->staff_type)->toBe(StaffType::Stylist);
+
+    // The badge shows for a bookable manager, and manager authority is kept.
+    Livewire::actingAs($manager)
+        ->test('pages::salon.users.index', ['salon' => $salon])
+        ->assertSee(__('Takes bookings'))
+        ->assertSee(__('Stop taking bookings'));
+    expect($manager->can('manage', $salon))->toBeTrue();
+    expect($manager->can('manageBookings', $salon))->toBeTrue();
+
+    // And back out again.
+    Livewire::actingAs($manager)
+        ->test('pages::salon.users.index', ['salon' => $salon])
+        ->call('toggleOwnerBookable', $membership->id)
+        ->assertHasNoErrors();
+    expect($membership->fresh()->staff_type)->toBeNull();
+});
+
+it('keeps the switch self-only: nobody flips a manager, stylists have no switch', function () {
+    $salon = Salon::factory()->create();
+    $owner = salonOwnerOf($salon);
+    $manager = managerOf($salon);
+    $managerMembership = $manager->membershipFor($salon);
+    $stylistMembership = stylistOf($salon)->membershipFor($salon);
+
+    // Even the owner cannot flip the manager's bookability.
+    Livewire::actingAs($owner)
+        ->test('pages::salon.users.index', ['salon' => $salon])
+        ->call('toggleOwnerBookable', $managerMembership->id)
+        ->assertForbidden();
+    expect($managerMembership->fresh()->staff_type)->toBeNull();
+
+    // A stylist is inherently bookable and has no switch — they cannot even
+    // reach the Users screen (scope-down at mount).
+    $this->actingAs($stylistMembership->user)
+        ->get(route('salon.users', $salon))
+        ->assertForbidden();
+});
+
+it('gives a bookable manager the full stylist surfaces: roster, calendar column, services, availability', function () {
+    $salon = Salon::factory()->create();
+    $owner = salonOwnerOf($salon);
+    $stylist = stylistOf($salon);
+    $manager = managerOf($salon);
+    $manager->membershipFor($salon)->update(['staff_type' => StaffType::Stylist]);
+
+    // Roster + per-stylist calendar columns.
+    expect($salon->stylistUsers()->pluck('users.id')->all())
+        ->toEqualCanonicalizing([$stylist->id, $manager->id]);
+    $grid = app(CalendarData::class)->day($salon, CarbonImmutable::now($salon->timezone), null);
+    expect(array_column($grid['columns'], 'stylistId'))->toContain($manager->id);
+
+    // Service assignment now accepts them.
+    $service = Service::factory()->for($salon)->create();
+    app(SyncServiceStylists::class)->handle($salon, $service, [$stylist->id, $manager->id]);
+    expect($service->stylists()->pluck('users.id')->all())
+        ->toEqualCanonicalizing([$stylist->id, $manager->id]);
+
+    // A schedule can be saved — by themselves and by the owner.
+    $week = [1 => [['start_minute' => 9 * 60, 'end_minute' => 17 * 60]]];
+    app(SaveWeeklyHours::class)->handle($manager, $salon, $manager->id, $week);
+    app(SaveWeeklyHours::class)->handle($owner, $salon, $manager->id, $week);
+    expect(true)->toBeTrue(); // no throw above
+});
+
+it('keeps bookability sticky on role edits and clears it on explicit opt-out', function () {
+    $salon = Salon::factory()->create();
+    $owner = salonOwnerOf($salon);
+    $manager = managerOf($salon);
+    $membership = $manager->membershipFor($salon);
+    $membership->update(['staff_type' => StaffType::Stylist]);
+
+    // A role-untouched edit (arrangement only) keeps the flag.
+    app(UpdateStaffMembership::class)->handle($owner, $salon, $membership, [
+        'salon_role' => 'salon_manager',
+    ]);
+    expect($membership->fresh()->staff_type)->toBe(StaffType::Stylist);
+
+    // Explicit null clears it back to the manager default.
+    app(UpdateStaffMembership::class)->handle($owner, $salon, $membership, [
+        'salon_role' => 'salon_manager', 'staff_type' => null,
+    ]);
+    expect($membership->fresh()->staff_type)->toBeNull();
+});
+
+it('renders the demo showcase manager read-only: the switch is a blocked no-op there', function () {
+    $salon = demoShowcase();
+    $managerMembership = $salon->memberships()
+        ->where('salon_role', SalonRole::Manager->value)
+        ->firstOrFail();
+
+    Livewire::actingAs($managerMembership->user)
+        ->test('pages::salon.users.index', ['salon' => $salon])
+        ->call('toggleOwnerBookable', $managerMembership->id)
+        ->assertHasNoErrors(); // blocked no-op, not an error
+
+    expect($managerMembership->fresh()->staff_type)->toBeNull();
 });

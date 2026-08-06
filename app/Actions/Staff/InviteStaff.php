@@ -50,8 +50,9 @@ class InviteStaff
             throw new AuthorizationException('You may not grant that role.');
         }
 
-        // staff_type is the bookability flag and follows the role (stylists
-        // bookable, managers not). Enforced so the pairing never drifts.
+        // staff_type is the bookability flag; by default it follows the role
+        // (stylists bookable, others not), while an explicit 'stylist' also
+        // makes an owner or manager bookable (the takes-bookings capability).
         $staffType = ! empty($data['staff_type'])
             ? StaffType::from($data['staff_type'])
             : $this->roles->impliedType($role);

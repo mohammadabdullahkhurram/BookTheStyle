@@ -24,6 +24,12 @@
             @if ($canEditDetails ?? false)
                 <flux:menu.item icon="identification" wire:click="startOwnerEdit({{ $m->id }})">{{ __('Edit details') }}</flux:menu.item>
             @endif
+            @if ($m->user_id === Auth::id() && $m->salon_role === \App\Enums\SalonRole::Manager)
+                {{-- The takes-bookings switch, manager edition: self-row only,
+                     same as the owner's (their row shows it standalone below
+                     because they hold no manage authority over Owner rows). --}}
+                <flux:menu.item icon="calendar" wire:click="toggleOwnerBookable({{ $m->id }})">{{ $m->staff_type === \App\Enums\StaffType::Stylist ? __('Stop taking bookings') : __('Take bookings') }}</flux:menu.item>
+            @endif
             <flux:menu.item icon="key" x-on:click="$store.confirm.ask({ title: {{ Js::from(__('Reset password')) }}, message: {{ Js::from(__('Reset this password? The current one stops working immediately and a new temporary password is shown once.')) }}, confirmLabel: {{ Js::from(__('Reset')) }}, danger: false }, () => $wire.resetPassword({{ $m->id }}))">{{ __('Reset password') }}</flux:menu.item>
             @if ($m->salon_role === \App\Enums\SalonRole::Owner)
                 {{-- Stripping the owner requires a replacement: the transfer
@@ -47,7 +53,8 @@
         </flux:menu>
     </flux:dropdown>
 @elseif ($m->user_id === Auth::id() && $m->salon_role === \App\Enums\SalonRole::Owner)
-    {{-- The owner-who-cuts-hair switch: only the owner, on their own row. --}}
+    {{-- The takes-bookings switch: only the owner, on their own row (a
+         manager's own row carries it in the overflow menu above instead). --}}
     <button type="button" wire:click="toggleOwnerBookable({{ $m->id }})" class="text-[13px] font-medium text-secondary transition hover:text-ink">{{ $m->staff_type === \App\Enums\StaffType::Stylist ? __('Stop taking bookings') : __('Take bookings') }}</button>
 @else
     <span class="text-[13px] text-faint" aria-hidden="true">{{ __('—') }}</span>
