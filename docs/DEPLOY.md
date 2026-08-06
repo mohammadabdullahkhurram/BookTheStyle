@@ -79,15 +79,56 @@ Assets are built **locally** and committed (the server has no Node):
 # locally
 npm run build && git add public/build && git commit -m "build" && git push
 
-# on the server
+# on the server — the FULL sequence, every time, in this order
 cd ~/bookthestyle
 php artisan down
 git pull
 composer install --no-dev --optimize-autoloader
-php artisan migrate --force
+php artisan config:clear && php artisan route:clear && php artisan view:clear
 php artisan config:cache && php artisan route:cache && php artisan view:cache
+# opcache reset — MANDATORY, see the next section
+php artisan migrate --force
 php artisan up
 ```
+
+**Never trim this sequence.** Both recent production outages were deploy-step
+omissions: a skipped `route:cache` has taken the site down, and a skipped
+opcache reset leaves the web process executing STALE compiled PHP no matter
+what was pulled or cached. Clear-then-cache (not cache alone) so nothing
+half-stale survives the rebuild.
+
+## Opcache reset — mandatory every deploy
+
+PHP-FPM keeps compiled PHP in opcache; on this hosting a `git pull` does
+**not** reliably invalidate it, and the three artisan cache commands don't
+touch it either. The symptom is always the same: "I deployed but nothing
+changed" — or worse, new views calling old classes. Reset it EVERY deploy,
+one of:
+
+```sh
+# Option A — one-off reset file, curled once over the app host, then deleted
+echo '<?php opcache_reset(); echo "opcache reset\n";' > ~/bookthestyle/public/opcache-reset-once.php
+curl -s https://app.bookthestyle.com/opcache-reset-once.php
+rm ~/bookthestyle/public/opcache-reset-once.php   # NEVER leave this in place
+```
+
+Option B — restart PHP from hPanel (Websites → dashboard → PHP configuration
+→ restart / change-and-revert a setting), which recycles FPM and empties
+opcache with it.
+
+## Migration rules (hard-won, non-negotiable)
+
+- **Additive only.** `php artisan migrate --force` is the ONLY schema command
+  run in production. Never the destructive fresh / refresh / wipe variants —
+  production refuses them outright (`DB::prohibitDestructiveCommands()`),
+  and they must not appear in scripts or docs either (this guide is
+  test-pinned to never spell them out).
+- **MySQL-safe.** SQLite (local/CI tests) silently ignores what MySQL
+  rejects: never `->after()` a column created later in the sequence, and
+  keep data changes additive/backfill-safe. CI's `mysql-migrations` job +
+  `MigrationOrderTest` guard this class — but write them right to begin with.
+- **No runtime subdomain minting** (see the hostname section above): a
+  deploy never creates hostnames; a human does, in hPanel, first.
 
 ## Rollback
 
@@ -96,7 +137,9 @@ cd ~/bookthestyle
 php artisan down
 git reset --hard <last-good-sha>     # assets included — they're committed
 composer install --no-dev --optimize-autoloader
+php artisan config:clear && php artisan route:clear && php artisan view:clear
 php artisan config:cache && php artisan route:cache && php artisan view:cache
+# opcache reset — same as a forward deploy (section above)
 php artisan up
 # migrations are additive/reversible; only if a bad one must come out:
 # php artisan migrate:rollback --step=1 --force
@@ -143,13 +186,14 @@ terminates public TLS itself.
 
 | Symptom | Likely cause → fix |
 |---|---|
-| Config/route changes not taking effect | Caches are stale — `php artisan config:cache && php artisan route:cache && php artisan view:cache` after every pull |
+| "I deployed but nothing changed" / new views hitting old code | **Opcache is stale** — reset it (section above); the artisan cache commands alone never clear it |
+| Config/route changes not taking effect | Caches are stale — run the full clear-then-cache sequence after every pull, then reset opcache |
 | GHL syncs / emails not happening | The cron isn't running — check hPanel → Cron Jobs; `php artisan schedule:run` by hand and watch output; inspect `jobs` / `failed_jobs` tables |
 | Styles/JS look stale after deploy | Assets are committed — the LOCAL build step was skipped before push (`npm run build` locally → commit `public/build` → push → pull) |
 | `Unknown column` on `migrate --force` | A migration references a column not yet in history — CI's `mysql-migrations` job + `MigrationOrderTest` catch this class; fix the migration, never reorder ones already run |
 | Every visitor rate-limited / none are | Proxy trust broken — verify Cloudflare proxying is on and `CF-Connecting-IP` reaches the origin; see `TrustCloudflareClientIp` |
 | Voice AI / webhook suddenly failing with challenge pages | A Cloudflare WAF/bot rule stopped skipping the machine paths (list above) |
 | `http://` URLs appearing anywhere | `APP_ENV` isn't `production` or `APP_URL` isn't https in the server `.env` |
-| Errors after a rollback | `composer install --no-dev` + the three cache commands must re-run after `git reset` |
+| Errors after a rollback | `composer install --no-dev` + the full clear/cache sequence + an opcache reset must re-run after `git reset` |
 
 Logs: `storage/logs/` on the server (`LOG_CHANNEL=daily` recommended so they rotate).
