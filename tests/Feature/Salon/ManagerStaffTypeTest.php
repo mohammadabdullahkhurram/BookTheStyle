@@ -4,6 +4,7 @@ use App\Actions\Availability\SaveWeeklyHours;
 use App\Actions\Services\SyncServiceStylists;
 use App\Actions\Staff\InviteStaff;
 use App\Actions\Staff\UpdateStaffMembership;
+use App\Enums\AgencyRole;
 use App\Enums\BookedByType;
 use App\Enums\SalonRole;
 use App\Enums\SalonType;
@@ -498,4 +499,112 @@ it('sets a bookable manager up identically to an owner-as-stylist in every salon
         expect($service->stylists()->pluck('users.id')->all())
             ->toEqualCanonicalizing([$managerFresh->user_id, $owner->id, $stylist->id]);
     }
+});
+
+// ---------------------------------------------------------------------------
+// Takes bookings in the "Edit member details" modal (Name/Email/Phone)
+// ---------------------------------------------------------------------------
+
+it('carries the takes-bookings box in the details modal for a manager — persisting with the save', function () {
+    $salon = Salon::factory()->create();
+    salonOwnerOf($salon);
+    $membership = managerOf($salon)->membershipFor($salon);
+    $operator = User::factory()->create(['agency_id' => $salon->agency_id, 'agency_role' => AgencyRole::Admin]);
+
+    // Renders in THIS modal, reflecting the current (non-bookable) state;
+    // toggling + a phone edit persist together through the one Save.
+    Livewire::actingAs($operator)
+        ->test('pages::salon.users.index', ['salon' => $salon])
+        ->call('startOwnerEdit', $membership->id)
+        ->assertSet('ownerEditIsManager', true)
+        ->assertSet('ownerEditTakesBookings', false)
+        ->assertSee(__('Takes bookings'))
+        ->set('ownerPhone', '(555) 010-6161')
+        ->set('ownerEditTakesBookings', true)
+        ->call('saveOwnerDetails')
+        ->assertHasNoErrors();
+
+    $fresh = $membership->fresh();
+    expect($fresh->staff_type)->toBe(StaffType::Stylist);
+    expect($fresh->salon_role)->toBe(SalonRole::Manager);
+    expect($fresh->user->phone)->toBe('(555) 010-6161');
+
+    // Re-opening reflects the bookable state; unticking clears it.
+    Livewire::actingAs($operator)
+        ->test('pages::salon.users.index', ['salon' => $salon])
+        ->call('startOwnerEdit', $membership->id)
+        ->assertSet('ownerEditTakesBookings', true)
+        ->set('ownerEditTakesBookings', false)
+        ->call('saveOwnerDetails')
+        ->assertHasNoErrors();
+    expect($membership->fresh()->staff_type)->toBeNull();
+});
+
+it('keeps the shared-account email guard intact alongside the details-modal checkbox', function () {
+    $salon = Salon::factory()->create();
+    salonOwnerOf($salon);
+    $foreignSalon = Salon::factory()->create();
+    $manager = managerOf($salon);
+    stylistOf($foreignSalon, $manager); // shared across agencies
+    $membership = $manager->membershipFor($salon);
+    $originalEmail = $manager->email;
+    $operator = User::factory()->create(['agency_id' => $salon->agency_id, 'agency_role' => AgencyRole::Owner]);
+
+    // Email change on the shared account: still blocked server-side, and
+    // the bookability toggle does NOT slip through on the failed save.
+    Livewire::actingAs($operator)
+        ->test('pages::salon.users.index', ['salon' => $salon])
+        ->call('startOwnerEdit', $membership->id)
+        ->set('ownerEmail', 'repointed@example.com')
+        ->set('ownerEditTakesBookings', true)
+        ->call('saveOwnerDetails')
+        ->assertHasErrors(['ownerEmail']);
+    $fresh = $membership->fresh();
+    expect($fresh->user->email)->toBe($originalEmail);
+    expect($fresh->staff_type)->toBeNull();
+
+    // Unchanged email: phone + checkbox both persist.
+    Livewire::actingAs($operator)
+        ->test('pages::salon.users.index', ['salon' => $salon])
+        ->call('startOwnerEdit', $membership->id)
+        ->set('ownerPhone', '(555) 010-7272')
+        ->set('ownerEditTakesBookings', true)
+        ->call('saveOwnerDetails')
+        ->assertHasNoErrors();
+    $fresh = $membership->fresh();
+    expect($fresh->staff_type)->toBe(StaffType::Stylist);
+    expect($fresh->user->phone)->toBe('(555) 010-7272');
+});
+
+it('shows no details-modal checkbox for stylists or owners — their behaviour is untouched', function () {
+    $salon = Salon::factory()->create();
+    $owner = salonOwnerOf($salon);
+    $stylistMembership = stylistOf($salon)->membershipFor($salon);
+    $ownerMembership = $owner->membershipFor($salon);
+    $operator = User::factory()->create(['agency_id' => $salon->agency_id, 'agency_role' => AgencyRole::Admin]);
+
+    // Stylist: inherently bookable, no box in the details modal.
+    Livewire::actingAs($operator)
+        ->test('pages::salon.users.index', ['salon' => $salon])
+        ->call('startOwnerEdit', $stylistMembership->id)
+        ->assertSet('ownerEditIsManager', false)
+        ->assertDontSee(__('Takes bookings'))
+        ->set('ownerName', 'Renamed Stylist')
+        ->call('saveOwnerDetails')
+        ->assertHasNoErrors();
+    expect($stylistMembership->fresh()->staff_type)->toBe(StaffType::Stylist); // untouched
+
+    // Owner: no box either — their bookability stays on the self-row
+    // switch and the agency console; a details save never touches it.
+    Livewire::actingAs($operator)
+        ->test('pages::salon.users.index', ['salon' => $salon])
+        ->call('startOwnerEdit', $ownerMembership->id)
+        ->assertSet('ownerEditIsManager', false)
+        ->assertDontSee(__('Takes bookings'))
+        ->set('ownerEditTakesBookings', true) // forged: must be ignored
+        ->call('saveOwnerDetails')
+        ->assertHasNoErrors();
+    $fresh = $ownerMembership->fresh();
+    expect($fresh->salon_role)->toBe(SalonRole::Owner);
+    expect($fresh->staff_type)->toBeNull();
 });

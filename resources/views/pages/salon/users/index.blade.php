@@ -310,6 +310,14 @@ new #[Title('Users')] class extends Component {
     public string $ownerName = '';
     public string $ownerEmail = '';
     public string $ownerPhone = '';
+    /** Takes-bookings in the DETAILS modal, for MANAGER members only — this
+     *  modal has no role selector, so it keys off the member's existing
+     *  role. Same staff_type flag as every other surface; persisted through
+     *  UpdateStaffMembership alongside the details save. Owners keep their
+     *  own controls (self-row switch + agency console); stylists are
+     *  inherently bookable and show no box. */
+    public bool $ownerEditIsManager = false;
+    public bool $ownerEditTakesBookings = false;
     /** The target account also exists under another agency (memberships or
      *  console role elsewhere): name/phone edits apply account-wide, and the
      *  login email is locked to the account holder (UpdateMemberDetails
@@ -332,11 +340,13 @@ new #[Title('Users')] class extends Component {
         $this->ownerEmail = $membership->user->email;
         $this->ownerPhone = (string) $membership->user->phone;
         $this->ownerEditShared = $membership->user->sharedOutsideAgency($this->salon->agency_id);
+        $this->ownerEditIsManager = $membership->salon_role === SalonRole::Manager;
+        $this->ownerEditTakesBookings = $membership->staff_type === StaffType::Stylist;
         $this->resetErrorBag();
         $this->showOwnerEdit = true;
     }
 
-    public function saveOwnerDetails(UpdateMemberDetails $action): void
+    public function saveOwnerDetails(UpdateMemberDetails $action, UpdateStaffMembership $membershipAction): void
     {
         if (\App\Support\DemoMode::blocksWrite($this->salon, __('Managing staff is disabled in the demo.'))) {
             return;
@@ -349,6 +359,7 @@ new #[Title('Users')] class extends Component {
             'ownerName' => ['required', 'string', 'max:255'],
             'ownerEmail' => ['required', 'string', 'email', 'max:255', \Illuminate\Validation\Rule::unique('users', 'email')->ignore($membership->user_id)->withoutTrashed()],
             'ownerPhone' => ['nullable', 'string', 'max:32'],
+            'ownerEditTakesBookings' => ['boolean'],
         ]);
 
         try {
@@ -365,6 +376,24 @@ new #[Title('Users')] class extends Component {
                     'owner'.ucfirst($key) => $messages,
                 ])->all(),
             );
+        }
+
+        // MANAGER members: the details modal also carries the takes-bookings
+        // box (this modal has no role selector, so it keys off the member's
+        // existing role). Applied through the same UpdateStaffMembership
+        // mechanism as every other surface — only when it actually changed.
+        $wantsType = $this->ownerEditTakesBookings ? StaffType::Stylist : null;
+        if ($membership->salon_role === SalonRole::Manager && $membership->staff_type !== $wantsType) {
+            try {
+                $membershipAction->handle(Auth::user(), $this->salon, $membership, [
+                    'salon_role' => SalonRole::Manager->value,
+                    'staff_type' => $wantsType?->value,
+                ]);
+            } catch (\Illuminate\Validation\ValidationException $e) {
+                throw \Illuminate\Validation\ValidationException::withMessages(
+                    ['ownerEditTakesBookings' => collect($e->errors())->flatten()->all()],
+                );
+            }
         }
 
         $this->showOwnerEdit = false;
@@ -766,6 +795,14 @@ new #[Title('Users')] class extends Component {
             <flux:input wire:model="ownerName" :label="__('Name')" required />
             <flux:input wire:model="ownerEmail" type="email" :label="__('Email')" required :disabled="$ownerEditShared" />
             <flux:input wire:model="ownerPhone" type="tel" :label="__('Phone')" />
+            @if ($ownerEditIsManager)
+                {{-- Managers only: the same staff_type flag as the Edit-user
+                     modal and the self-row switch, editable where members
+                     are actually edited. Owners keep their own controls;
+                     stylists are inherently bookable. --}}
+                <flux:checkbox wire:model="ownerEditTakesBookings" :label="__('Takes bookings')"
+                    :description="__('Bookable like a stylist — a schedule and calendar column, with full manager permissions.')" />
+            @endif
             <div class="flex justify-end gap-3">
                 <x-ui.button type="button" variant="secondary" wire:click="$set('showOwnerEdit', false)">{{ __('Cancel') }}</x-ui.button>
                 <x-ui.button type="submit">{{ __('Save') }}</x-ui.button>
