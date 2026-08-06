@@ -225,7 +225,24 @@ new #[Title('Users')] class extends Component {
             $data['staff_type'] = $this->editTakesBookings ? StaffType::Stylist->value : null;
         }
 
-        $action->handle(Auth::user(), $this->salon, $membership, $data);
+        try {
+            $action->handle(Auth::user(), $this->salon, $membership, $data);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // Server-side rejections must be VISIBLE. The action speaks in
+            // domain keys (salon_role, staff_type, …) no modal field is
+            // bound to — unmapped, the modal would sit there as a silent
+            // no-op (the live "manager won't save" failure mode). Re-key
+            // onto the form's own fields so the message always renders.
+            throw \Illuminate\Validation\ValidationException::withMessages(
+                collect($e->errors())->mapWithKeys(fn ($messages, $key) => [
+                    match ($key) {
+                        'staff_type' => 'editTakesBookings',
+                        'arrangement' => 'editArrangement',
+                        default => 'editRole',
+                    } => $messages,
+                ])->all(),
+            );
+        }
 
         // Bio lives on StylistProfile per (user, salon); only stylists carry one.
         if ($this->editRole === SalonRole::Stylist->value) {
@@ -478,39 +495,55 @@ new #[Title('Users')] class extends Component {
 
                 return;
             }
-
-            $result = $transfer->handle(Auth::user(), $this->salon, [
-                'name' => $this->newOwnerName,
-                'email' => $this->newOwnerEmail,
-                'phone' => $this->newOwnerPhone ?: null,
-            ]);
-        } else {
-            $result = $transfer->handle(Auth::user(), $this->salon, ['make_actor_owner' => true]);
         }
 
-        // The transfer demoted the outgoing owner (stylist if bookable,
-        // manager otherwise); now finish what the actor started.
-        $membership->refresh();
+        try {
+            $result = $this->transferChoice === 'new'
+                ? $transfer->handle(Auth::user(), $this->salon, [
+                    'name' => $this->newOwnerName,
+                    'email' => $this->newOwnerEmail,
+                    'phone' => $this->newOwnerPhone ?: null,
+                ])
+                : $transfer->handle(Auth::user(), $this->salon, ['make_actor_owner' => true]);
 
-        if ($this->transferAction === 'deactivate') {
-            $setActive->handle(Auth::user(), $this->salon, $membership, false);
-        } elseif ($this->transferAction === 'delete') {
-            $delete->handle(Auth::user(), $this->salon, $membership);
-        } elseif ($this->transferDemoteRole !== '') {
-            // For a demote TO MANAGER the edit modal's takes-bookings box is
-            // authoritative over the ex-owner's bookability; other demote
-            // roles keep the transfer's own demotion result untouched.
-            $toManager = $this->transferDemoteRole === SalonRole::Manager->value;
-            $wantsType = $toManager && $this->transferDemoteBookable ? StaffType::Stylist : null;
+            // The transfer demoted the outgoing owner (stylist if bookable,
+            // manager otherwise); now finish what the actor started.
+            $membership->refresh();
 
-            if ($membership->salon_role->value !== $this->transferDemoteRole
-                || ($toManager && $membership->staff_type !== $wantsType)) {
-                $data = ['salon_role' => $this->transferDemoteRole];
-                if ($toManager) {
-                    $data['staff_type'] = $wantsType?->value;
+            if ($this->transferAction === 'deactivate') {
+                $setActive->handle(Auth::user(), $this->salon, $membership, false);
+            } elseif ($this->transferAction === 'delete') {
+                $delete->handle(Auth::user(), $this->salon, $membership);
+            } elseif ($this->transferDemoteRole !== '') {
+                // For a demote TO MANAGER the edit modal's takes-bookings box
+                // is authoritative over the ex-owner's bookability; other
+                // demote roles keep the transfer's own result untouched.
+                $toManager = $this->transferDemoteRole === SalonRole::Manager->value;
+                $wantsType = $toManager && $this->transferDemoteBookable ? StaffType::Stylist : null;
+
+                if ($membership->salon_role->value !== $this->transferDemoteRole
+                    || ($toManager && $membership->staff_type !== $wantsType)) {
+                    $data = ['salon_role' => $this->transferDemoteRole];
+                    if ($toManager) {
+                        $data['staff_type'] = $wantsType?->value;
+                    }
+                    $update->handle(Auth::user(), $this->salon, $membership, $data);
                 }
-                $update->handle(Auth::user(), $this->salon, $membership, $data);
             }
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // Same visibility rule as saveEdit: SetSalonOwner and the
+            // completion actions speak in domain keys (owner, salon_role,
+            // name/email/phone) — re-key so nothing fails silently.
+            throw \Illuminate\Validation\ValidationException::withMessages(
+                collect($e->errors())->mapWithKeys(fn ($messages, $key) => [
+                    match ($key) {
+                        'name' => 'newOwnerName',
+                        'email' => 'newOwnerEmail',
+                        'phone' => 'newOwnerPhone',
+                        default => 'transferChoice',
+                    } => $messages,
+                ])->all(),
+            );
         }
 
         $this->showTransfer = false;
