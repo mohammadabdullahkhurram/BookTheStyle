@@ -31,11 +31,15 @@ it('seeds a complete demo salon: staff, services, availability, clients, booking
     expect($salon->timezone)->toBe('America/Los_Angeles');
     expect($salon->onboarded_at)->not->toBeNull();
 
-    // Staff: owner + front desk + 4 stylists, all with known passwords.
+    // Staff: owner + front desk + 4 stylists + Renee, the manager who also
+    // takes bookings (so the roster counts 5 bookable members).
     $owner = User::query()->where('email', 'owner@demo.test')->firstOrFail();
     expect($owner->membershipFor($salon)?->salon_role->value)->toBe('salon_owner');
-    expect($salon->stylistUsers()->count())->toBe(4);
+    expect($salon->stylistUsers()->count())->toBe(5);
     expect(User::query()->where('email', 'frontdesk@demo.test')->exists())->toBeTrue();
+    $renee = User::query()->where('email', 'renee@demo.test')->firstOrFail();
+    expect($renee->membershipFor($salon)?->salon_role->value)->toBe('salon_manager');
+    expect($renee->membershipFor($salon)?->staff_type?->value)->toBe('stylist');
 
     // Services with prices and per-stylist duration overrides.
     expect($salon->services()->count())->toBe(5);

@@ -66,9 +66,9 @@ class DemoSalonBuilder
      */
     public function populate(Salon $salon): array
     {
-        [$owner, $frontDesk, $stylists] = $this->staff($salon);
+        [$owner, $frontDesk, $bookableManager, $stylists] = $this->staff($salon);
         $services = $this->services($salon, $stylists);
-        $this->availability($salon, $stylists);
+        $this->availability($salon, $stylists, $bookableManager);
         $clients = $this->clients($salon, $stylists);
         $bookings = $this->bookings($salon, $owner, $stylists, $services, $clients);
         $this->alignPreferredStylists($salon);
@@ -90,7 +90,7 @@ class DemoSalonBuilder
     }
 
     /**
-     * @return array{0: User, 1: User, 2: list<User>}
+     * @return array{0: User, 1: User, 2: User, 3: list<User>}
      */
     private function staff(Salon $salon): array
     {
@@ -115,6 +115,19 @@ class DemoSalonBuilder
             ['salon_role' => SalonRole::Manager, 'staff_type' => null],
         );
 
+        // A manager who ALSO takes bookings — the takes-bookings capability
+        // on display: manager role, bookable staff_type, her own schedule
+        // (a shorter book than the stylists', manager-style).
+        $bookableManager = $make($this->email('renee'), 'Renee Duval');
+        SalonMembership::firstOrCreate(
+            ['salon_id' => $salon->id, 'user_id' => $bookableManager->id],
+            ['salon_role' => SalonRole::Manager, 'staff_type' => StaffType::Stylist],
+        );
+        StylistProfile::firstOrCreate(
+            ['salon_id' => $salon->id, 'user_id' => $bookableManager->id],
+            ['bio' => 'Salon manager who still keeps a small book of loyal clients.'],
+        );
+
         $stylists = [];
         $bios = [
             [$this->email('maya'), 'Maya Marchetti', 'Precision cuts and lived-in colour. Ten years behind the chair.'],
@@ -135,7 +148,7 @@ class DemoSalonBuilder
             $stylists[] = $stylist;
         }
 
-        return [$owner, $frontDesk, $stylists];
+        return [$owner, $frontDesk, $bookableManager, $stylists];
     }
 
     /**
@@ -188,7 +201,7 @@ class DemoSalonBuilder
      *
      * @param  list<User>  $stylists
      */
-    private function availability(Salon $salon, array $stylists): void
+    private function availability(Salon $salon, array $stylists, User $bookableManager): void
     {
         [$maya, $sofia, $jonah, $elise] = $stylists;
 
@@ -201,6 +214,8 @@ class DemoSalonBuilder
             [$jonah, [2, 3, 4, 5, 6], 9 * 60, 16 * 60, false],
             // Elise: Mon–Thu 11–7.
             [$elise, [0, 1, 2, 3], 11 * 60, 19 * 60, false],
+            // Renee (the bookable manager): a short book — Mon/Tue/Thu/Fri 9–3.
+            [$bookableManager, [0, 1, 3, 4], 9 * 60, 15 * 60, false],
         ];
 
         foreach ($weeks as [$stylist, $days, $start, $end, $lunch]) {

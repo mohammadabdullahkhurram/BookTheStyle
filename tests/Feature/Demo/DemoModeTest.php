@@ -6,7 +6,10 @@ use App\Actions\Salons\UpdateGhlConnection;
 use App\Actions\Staff\InviteStaff;
 use App\Enums\AgencyRole;
 use App\Enums\BookingStatus;
+use App\Enums\SalonRole;
+use App\Enums\StaffType;
 use App\Models\Agency;
+use App\Models\Availability;
 use App\Models\Booking;
 use App\Models\Client;
 use App\Models\Salon;
@@ -379,4 +382,42 @@ it('hard-deletes legacy demo data through DeleteDemoSalon but refuses real salon
     $real = Salon::factory()->create();
 
     expect(fn () => app(DeleteDemoSalon::class)->handle($real))->toThrow(RuntimeException::class);
+});
+
+it('seeds a bookable manager in the showcase — takes-bookings on display, surviving the nightly reset', function () {
+    $salon = demoShowcase();
+
+    $bookable = $salon->memberships()
+        ->where('salon_role', SalonRole::Manager->value)
+        ->where('staff_type', StaffType::Stylist->value)
+        ->first();
+
+    expect($bookable)->not->toBeNull();
+    expect($salon->stylistUsers()->pluck('users.id')->all())->toContain($bookable->user_id);
+    expect(Availability::query()
+        ->where('salon_id', $salon->id)
+        ->where('user_id', $bookable->user_id)
+        ->exists())->toBeTrue(); // she has a schedule, like the stylists
+
+    // Fern at the front desk stays a plain (non-bookable) manager.
+    expect($salon->memberships()
+        ->where('salon_role', SalonRole::Manager->value)
+        ->whereNull('staff_type')
+        ->exists())->toBeTrue();
+
+    // Idempotent: re-seeding adds nothing.
+    demoShowcase();
+    expect($salon->memberships()
+        ->where('salon_role', SalonRole::Manager->value)
+        ->where('staff_type', StaffType::Stylist->value)
+        ->count())->toBe(1);
+
+    // The nightly reset (hard-delete + reseed) carries her too.
+    $this->artisan('demo:reset-showcase')->assertExitCode(0);
+    $fresh = DemoMode::showcaseSalon();
+    expect($fresh->id)->not->toBe($salon->id); // genuinely rebuilt
+    expect($fresh->memberships()
+        ->where('salon_role', SalonRole::Manager->value)
+        ->where('staff_type', StaffType::Stylist->value)
+        ->count())->toBe(1);
 });
