@@ -309,3 +309,81 @@ it('renders the demo showcase manager read-only: the switch is a blocked no-op t
 
     expect($managerMembership->fresh()->staff_type)->toBeNull();
 });
+
+// ---------------------------------------------------------------------------
+// Takes bookings at invite time (the Add user modal)
+// ---------------------------------------------------------------------------
+
+it('shows the takes-bookings box only for the manager role — reactively', function () {
+    $salon = Salon::factory()->create();
+    $owner = salonOwnerOf($salon); // non-bookable: no badge to collide with
+
+    $component = Livewire::actingAs($owner)
+        ->test('pages::salon.users.index', ['salon' => $salon])
+        ->call('startAdd');
+
+    // Default role is stylist: inherently bookable, no box.
+    $component->assertSet('role', 'stylist')->assertDontSee(__('Takes bookings'));
+
+    // Switching to manager reveals it; switching back hides it again.
+    $component->set('role', 'salon_manager')->assertSee(__('Takes bookings'));
+    $component->set('role', 'stylist')->assertDontSee(__('Takes bookings'));
+});
+
+it('creates a bookable manager straight from the Add user modal', function () {
+    Mail::fake();
+    $salon = Salon::factory()->create();
+    $owner = salonOwnerOf($salon);
+
+    Livewire::actingAs($owner)
+        ->test('pages::salon.users.index', ['salon' => $salon])
+        ->call('startAdd')
+        ->set('name', 'Bookable Blake')
+        ->set('email', 'blake@example.com')
+        ->set('role', 'salon_manager')
+        ->set('takesBookings', true)
+        ->call('invite')
+        ->assertHasNoErrors();
+
+    $membership = User::where('email', 'blake@example.com')->firstOrFail()->membershipFor($salon);
+    expect($membership->salon_role)->toBe(SalonRole::Manager);
+    expect($membership->staff_type)->toBe(StaffType::Stylist); // the same flag the edit switch writes
+
+    // They land on the bookable roster immediately.
+    expect($salon->stylistUsers()->pluck('users.id')->all())->toContain($membership->user_id);
+});
+
+it('creates a non-bookable manager when the box stays unchecked — and stylists stay inherent', function () {
+    Mail::fake();
+    $salon = Salon::factory()->create();
+    $owner = salonOwnerOf($salon);
+
+    Livewire::actingAs($owner)
+        ->test('pages::salon.users.index', ['salon' => $salon])
+        ->call('startAdd')
+        ->set('name', 'Deskbound Drew')
+        ->set('email', 'drew@example.com')
+        ->set('role', 'salon_manager')
+        ->call('invite')
+        ->assertHasNoErrors();
+
+    expect(User::where('email', 'drew@example.com')->firstOrFail()
+        ->membershipFor($salon)->staff_type)->toBeNull();
+
+    // A stylist invite is untouched by the box — inherently bookable, even
+    // if the toggle was flipped while manager was selected and role changed.
+    Livewire::actingAs($owner)
+        ->test('pages::salon.users.index', ['salon' => $salon])
+        ->call('startAdd')
+        ->set('name', 'Standard Sky')
+        ->set('email', 'sky@example.com')
+        ->set('role', 'salon_manager')
+        ->set('takesBookings', true)
+        ->set('role', 'stylist')
+        ->call('invite')
+        ->assertHasNoErrors();
+
+    $stylist = User::where('email', 'sky@example.com')->firstOrFail()->membershipFor($salon);
+    expect($stylist->salon_role)->toBe(SalonRole::Stylist);
+    expect($stylist->staff_type)->toBe(StaffType::Stylist);
+});

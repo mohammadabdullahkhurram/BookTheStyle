@@ -29,6 +29,10 @@ new #[Title('Users')] class extends Component {
     public string $phone = '';
     public string $role = 'stylist';
     public string $arrangement = 'employee';
+    /** Takes-bookings at invite time — meaningful for the optionally-bookable
+     *  roles (manager here; owners are never invited). Stylists are
+     *  inherently bookable, so the box never shows for them. */
+    public bool $takesBookings = false;
     public bool $showAdd = false;
 
     public ?int $editingId = null;
@@ -94,7 +98,7 @@ new #[Title('Users')] class extends Component {
     {
         $this->authorize('manageStaff', $this->salon);
 
-        $this->reset(['name', 'email', 'phone', 'arrangement']);
+        $this->reset(['name', 'email', 'phone', 'arrangement', 'takesBookings']);
         $this->role = 'stylist';
         $this->resetErrorBag();
         $this->showAdd = true;
@@ -114,6 +118,7 @@ new #[Title('Users')] class extends Component {
             'phone' => ['nullable', 'string', 'max:32'],
             'role' => ['required', Rule::in($this->roleValues())],
             'arrangement' => ['required', Rule::in(array_column(\App\Enums\StylistArrangement::cases(), 'value'))],
+            'takesBookings' => ['boolean'],
         ]);
 
         $result = $action->handle(Auth::user(), $this->salon, [
@@ -121,11 +126,17 @@ new #[Title('Users')] class extends Component {
             'email' => $validated['email'],
             'phone' => $validated['phone'] ?? null,
             'salon_role' => $validated['role'],
+            // Same bookability field the edit-flow toggle writes: an explicit
+            // 'stylist' marks an optionally-bookable role bookable at invite;
+            // otherwise the role's default applies (stylists inherently).
+            'staff_type' => $validated['role'] === SalonRole::Manager->value && $this->takesBookings
+                ? \App\Enums\StaffType::Stylist->value
+                : null,
             'arrangement' => $validated['arrangement'],
         ]);
 
         unset($this->memberships);
-        $this->reset(['name', 'email', 'phone', 'role', 'arrangement']);
+        $this->reset(['name', 'email', 'phone', 'role', 'arrangement', 'takesBookings']);
         $this->role = 'stylist';
         $this->showAdd = false;
 
@@ -607,11 +618,18 @@ new #[Title('Users')] class extends Component {
             <flux:input wire:model="email" type="email" :label="__('Email')" required />
             <flux:input wire:model="phone" type="tel" :label="__('Phone')" autocomplete="tel" />
             <flux:select wire:model.live="role" :label="__('Role')"
-                :description="__('Stylists are bookable and see only their own schedule; managers run the salon.')">
+                :description="__('Stylists always take bookings and see only their own schedule; managers run the salon and can optionally take bookings too.')">
                 @foreach ($this->assignableRoles as $r)
                     <flux:select.option value="{{ $r->value }}">{{ $r->label() }}</flux:select.option>
                 @endforeach
             </flux:select>
+            @if ($role === 'salon_manager')
+                {{-- Bookability at invite time — the same staff_type flag the
+                     edit-flow switch writes. Stylists never see this box:
+                     they are inherently bookable. --}}
+                <flux:checkbox wire:model="takesBookings" :label="__('Takes bookings')"
+                    :description="__('Give this manager a schedule and calendar column — bookable like a stylist, with full manager permissions.')" />
+            @endif
             @if ($this->arrangementSelectable && $role === 'stylist')
                 <flux:select wire:model="arrangement" :label="__('Arrangement')"
                     :description="__('Employees see the shared calendar; booth renters run their own book, clients, and revenue.')">
