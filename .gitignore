@@ -45,3 +45,6 @@ out/
 *.mov
 
 .DS_Store
+
+# Python bytecode caches (skill scripts etc.)
+__pycache__/
