@@ -136,7 +136,9 @@ it('renders the list twice — desktop table and mobile stacked cards — and re
 
     // Both presentations exist (Clients-directory responsive pattern)…
     expect($html)->toContain('md:hidden');
-    expect(substr_count($html, $owner->name))->toBeGreaterThanOrEqual(2);
+    // Count the ESCAPED name — a faker name with an apostrophe (O'Brien)
+    // renders as &#039; and a raw-string count finds nothing (flaked in CI).
+    expect(substr_count($html, e($owner->name)))->toBeGreaterThanOrEqual(2);
 
     // …and the page is list-first: the add form lives in a modal.
     expect($html)->toContain(__('Add user'));
