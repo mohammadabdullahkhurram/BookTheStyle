@@ -103,17 +103,31 @@ new #[Title('Health check')] class extends Component {
 
         {{-- ── Run area ─────────────────────────────────────────────── --}}
         <x-ui.card padding="p-0" class="overflow-hidden">
-            <div class="flex flex-col gap-2 p-6">
+            <div class="flex flex-col gap-2.5 p-6">
                 <h2 class="bts-card-title">{{ __('How this works') }}</h2>
-                <p class="text-[13.5px] leading-relaxed text-secondary">{{ __('Running the check creates three temporary records for this salon — “Bluejaypro Stylist”, “Bluejaypro Hair Cut”, and “Bluejaypro Test Client” — books one real test appointment through the same engine the Voice AI uses, and validates everything else read-only: integrations, notifications, the scheduler and queue, salon readiness, and the system itself. The test records are invisible to clients and are deleted when you finish — or automatically after 24 hours.') }}</p>
+                <p class="text-[13.5px] leading-relaxed text-secondary">{{ __('Running the check takes a few seconds. It:') }}</p>
+                <ul class="ms-5 flex list-disc flex-col gap-1 text-[13.5px] leading-relaxed text-secondary">
+                    <li>{{ __('creates three temporary test records — “Bluejaypro Stylist”, “Bluejaypro Hair Cut”, and “Bluejaypro Test Client” — invisible to clients, deleted when you finish (or automatically after 24 hours)') }}</li>
+                    <li>{{ __('books one real test appointment through the same engine the Voice AI uses') }}</li>
+                    <li>{{ __('checks the booking API — endpoint, token, availability — plus the webhook and the public widget') }}</li>
+                    <li>{{ __('checks email settings and the client confirmation/reminder pathway') }}</li>
+                    <li>{{ __('checks the scheduler (cron) and the queue are actually running') }}</li>
+                    <li>{{ __('checks the salon is ready for real bookings — services, bookable staff, hours, branding') }}</li>
+                    <li>{{ __('checks the system itself — database, migrations, storage, caches, URLs') }}</li>
+                </ul>
                 <p class="text-[13.5px] leading-relaxed text-secondary">{{ __('BookTheStyle can only test its own side automatically. The GHL side — the Voice AI’s Custom Actions — fires from inside GHL, so it is verified by the round-trip at the bottom: you run the generated test calls in GHL, and this page confirms when they arrive.') }}</p>
             </div>
             <form wire:submit="run" class="flex flex-col gap-3 border-t border-divider bg-muted/40 p-6 sm:flex-row sm:items-end sm:justify-between" novalidate>
-                <div class="flex w-full flex-col gap-3 sm:flex-row sm:items-end">
-                    <div class="w-full sm:max-w-xs">
-                        <flux:input wire:model="password" type="password" :label="__('Confirm your password to run')" autocomplete="current-password" required />
+                {{-- Label above; input + button share ONE row so they always
+                     align, whatever the label or error text does. --}}
+                <div class="w-full sm:max-w-lg">
+                    <label for="health-password" class="bts-field-label mb-1.5 block">{{ __('Confirm your password to run') }}</label>
+                    <div class="flex items-start gap-3">
+                        <div class="min-w-0 flex-1">
+                            <flux:input id="health-password" wire:model="password" type="password" autocomplete="current-password" required :aria-label="__('Confirm your password to run')" />
+                        </div>
+                        <x-ui.button type="submit" loading="run" class="shrink-0 whitespace-nowrap">{{ __('Run health check') }}</x-ui.button>
                     </div>
-                    <x-ui.button type="submit" loading="run" class="shrink-0 whitespace-nowrap">{{ __('Run health check') }}</x-ui.button>
                 </div>
                 <div class="shrink-0 text-[12.5px] text-faint sm:pb-2.5">
                     <span wire:loading.remove wire:target="run">
