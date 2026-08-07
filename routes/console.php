@@ -1,5 +1,6 @@
 <?php
 
+use App\Services\Health\Heartbeat;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -18,6 +19,13 @@ Artisan::command('inspire', function () {
 // failures before failed_jobs. Net effect: jobs run within ~1 minute of
 // dispatch — that delay on GHL syncs is expected and acceptable. Locally
 // `composer dev` runs queue:listen instead, so jobs process live.
+// Health-check heartbeat: proves the cron itself is alive. The scheduler
+// stamps this cache every tick; the SchedulerHeartbeat check reads it —
+// the direct guard against the past cron-silently-dead failure.
+Schedule::call(fn () => Heartbeat::beat(Heartbeat::SCHEDULER))
+    ->name('health-heartbeat')
+    ->everyMinute();
+
 Schedule::command('queue:work --stop-when-empty --max-time=55 --tries=3')
     ->everyMinute()
     ->withoutOverlapping();
@@ -28,7 +36,8 @@ Schedule::command('queue:work --stop-when-empty --max-time=55 --tries=3')
 // `php artisan schedule:work` or run bookings:close-elapsed directly.
 Schedule::command('bookings:close-elapsed')
     ->everyFiveMinutes()
-    ->withoutOverlapping();
+    ->withoutOverlapping()
+    ->onSuccess(fn () => Heartbeat::beat(Heartbeat::taskKey('bookings:close-elapsed')));
 
 // Safety net for missed webhooks: hourly, pull each connected salon's GHL
 // appointments (±7 days) and repair any drift — apply missed changes, import
@@ -37,7 +46,8 @@ Schedule::command('bookings:close-elapsed')
 // `php artisan ghl:reconcile` any time for an on-demand pass.
 Schedule::command('ghl:reconcile')
     ->hourly()
-    ->withoutOverlapping();
+    ->withoutOverlapping()
+    ->onSuccess(fn () => Heartbeat::beat(Heartbeat::taskKey('ghl:reconcile')));
 
 // Retention pruning (shared hosting: unbounded rows eat the inode/disk
 // budget). webhook_events prunes via the model's Prunable contract — 30
@@ -51,14 +61,16 @@ Schedule::command('demo:sweep')->hourly()->withoutOverlapping();
 
 // Abandoned "Check connections" test records (stylist/service/client)
 // are torn down after 24h so no live salon keeps a phantom test stylist.
-Schedule::command('diagnostics:sweep-test-records')->hourly()->withoutOverlapping();
+Schedule::command('diagnostics:sweep-test-records')->hourly()->withoutOverlapping()
+    ->onSuccess(fn () => Heartbeat::beat(Heartbeat::taskKey('diagnostics:sweep-test-records')));
 
 // The demo showcase resets nightly: visitor-created bookings (the demo's
 // one try-it exemption) are cleared and the seeded calendar re-anchors to
 // "now", so every day's demo looks current and tidy. Same single cron line.
 Schedule::command('demo:reset-showcase')
     ->dailyAt('03:30')
-    ->withoutOverlapping();
+    ->withoutOverlapping()
+    ->onSuccess(fn () => Heartbeat::beat(Heartbeat::taskKey('demo:reset-showcase')));
 
 Schedule::command('model:prune')
     ->dailyAt('03:10')
