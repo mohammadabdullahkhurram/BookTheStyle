@@ -115,6 +115,7 @@ class Salon extends Model
             'integration_checks' => 'array',
             'onboarding' => 'array',
             'onboarded_at' => 'immutable_datetime',
+            'test_records_expire_at' => 'immutable_datetime',
             'allow_walkins' => 'boolean',
             'allow_same_day' => 'boolean',
             'max_advance_days' => 'integer',

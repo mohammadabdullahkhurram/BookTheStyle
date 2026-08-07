@@ -14,6 +14,7 @@ use App\Models\Service;
 use App\Models\User;
 use App\Services\BookingApi\ApiError;
 use App\Services\BookingApi\VoiceBookingApi;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -45,7 +46,13 @@ class ConnectionDiagnostics
 
     public const CLIENT_NAME = 'Bluejaypro Test Client';
 
-    /** Abandoned test records older than this are swept. */
+    /** Health-check-created/refreshed records expire this soon after a run. */
+    public const TTL_RUN_MINUTES = 60;
+
+    /** Salon-setup records get a longer window before the sweep takes them. */
+    public const TTL_SETUP_HOURS = 48;
+
+    /** Legacy fallback: is_test records with NO expiry are swept after this. */
     public const SWEEP_AFTER_HOURS = 24;
 
     public function __construct(private VoiceBookingApi $api) {}
@@ -71,8 +78,14 @@ class ConnectionDiagnostics
      *
      * @return array{stylist: User, service: Service, client: Client}
      */
-    public function ensureTestRecords(Salon $salon): array
+    public function ensureTestRecords(Salon $salon, ?CarbonInterface $expiresAt = null): array
     {
+        // The hard-TTL clock: every create/refresh stamps the salon's
+        // expiry — the sweep enforces it no matter what else happens.
+        $salon->forceFill([
+            'test_records_expire_at' => $expiresAt ?? now()->addMinutes(self::TTL_RUN_MINUTES),
+        ])->save();
+
         return DB::transaction(function () use ($salon): array {
             $stylist = User::withTrashed()->firstOrCreate(
                 ['email' => 'diagnostics+'.$salon->id.'@bluejaypro.invalid'],
@@ -118,6 +131,13 @@ class ConnectionDiagnostics
 
             return ['stylist' => $stylist, 'service' => $service, 'client' => $client];
         });
+    }
+
+    /** Whether this salon currently holds any disposable test records. */
+    public function hasTestRecords(Salon $salon): bool
+    {
+        return Service::withoutGlobalScopes()->where('salon_id', $salon->id)->where('is_test', true)->exists()
+            || $salon->memberships()->whereHas('user', fn ($q) => $q->where('is_test', true))->exists();
     }
 
     /**
@@ -183,6 +203,7 @@ class ConnectionDiagnostics
             Service::withoutGlobalScopes()->where('salon_id', $salon->id)->where('is_test', true)->get()->each->delete();
             $client?->delete();
 
+            $salon->forceFill(['test_records_expire_at' => null])->save();
             Cache::forget(self::lastCallKey($salon));
         });
     }
