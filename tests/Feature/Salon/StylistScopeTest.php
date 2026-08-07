@@ -30,6 +30,7 @@ function stylistRouteMatrix(): array
         'salon.settings' => false,
         'salon.widgets' => false,
         'salon.onboarding' => false,      // setup wizard
+        'salon.check-connections' => false, // agency-operator diagnostics
     ];
 }
 

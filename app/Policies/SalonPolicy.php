@@ -165,6 +165,17 @@ class SalonPolicy
     }
 
     /**
+     * The "Check connections" diagnostics: AGENCY owner/admin ONLY — they
+     * pass via before(); every salon role (owner included), delegated
+     * agency_users, and guests are refused here. The page additionally
+     * refuses demo salons outright.
+     */
+    public function runDiagnostics(User $user, Salon $salon): bool
+    {
+        return false;
+    }
+
+    /**
      * Delete the salon. Salon ADMINS never can; the salon's own owner can;
      * and — deliberately, via `before()` — agency owners/admins retain the
      * override (the agency must stay able to remove salons from its own

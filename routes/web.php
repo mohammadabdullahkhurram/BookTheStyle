@@ -208,6 +208,9 @@ Route::domain('{salon}.'.$central)->middleware([AuthenticateUnlessDemo::class, '
     Route::livewire('availability', 'pages::salon.availability.index')->name('salon.availability');
     Route::livewire('reports', 'pages::salon.reports')->name('salon.reports');
     Route::livewire('settings', 'pages::salon.settings')->name('salon.settings');
+    // "Check connections" diagnostics — agency admin/owner ONLY (the page
+    // authorises runDiagnostics; salon roles and the demo are refused).
+    Route::livewire('settings/check-connections', 'pages::salon.check-connections')->name('salon.check-connections');
     Route::livewire('widgets', 'pages::salon.widgets')->name('salon.widgets');
     Route::livewire('account', 'pages::salon.account')->name('salon.account');
     Route::livewire('setup', 'pages::salon.onboarding')->name('salon.onboarding');

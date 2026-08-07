@@ -1,0 +1,238 @@
+<?php
+
+use App\Enums\AgencyRole;
+use App\Models\Booking;
+use App\Models\Client;
+use App\Models\Salon;
+use App\Models\Service;
+use App\Models\User;
+use App\Services\Diagnostics\ConnectionDiagnostics;
+use App\Services\Reporting\SalonReport;
+use App\Support\BookingApiToken;
+use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Http;
+use Livewire\Livewire;
+
+/*
+| "Check connections": agency-operator-only diagnostics with disposable,
+| LEAK-PROOF test records. The BTS side is tested automatically; the GHL
+| side is verified by a manual round-trip — and the page says so honestly.
+*/
+
+function diagnosticsOperator(Salon $salon): User
+{
+    return User::factory()->create([
+        'agency_id' => $salon->agency_id,
+        'agency_role' => AgencyRole::Admin,
+    ]);
+}
+
+/** An already-built salon: real staff, a real service, real hours. */
+function builtSalon(): Salon
+{
+    $salon = bookingSalon();
+    $stylist = stylistWithHours($salon, (int) CarbonImmutable::now($salon->timezone)->addDay()->format('N') - 1, 9 * 60, 17 * 60);
+    serviceFor($salon, $stylist, 60);
+
+    return $salon;
+}
+
+function fakeOutboundChecks(): void
+{
+    Http::fake([
+        route('api.booking.availability') => Http::response(['success' => false, 'error' => 'unauthenticated'], 401),
+        '*' => Http::response(['ok' => true], 200),
+    ]);
+}
+
+it('opens for agency owner and admin only — every salon role, delegated users, guests, and demo are refused', function () {
+    $salon = builtSalon();
+
+    foreach ([AgencyRole::Owner, AgencyRole::Admin] as $role) {
+        $operator = User::factory()->create(['agency_id' => $salon->agency_id, 'agency_role' => $role]);
+        $this->actingAs($operator)->get(route('salon.check-connections', $salon))
+            ->assertOk()
+            ->assertSee(__('Check connections'));
+    }
+
+    // Salon roles — the salon's own OWNER included — are refused.
+    foreach ([salonOwnerOf($salon), salonAdminOf($salon), stylistOf($salon)] as $actor) {
+        $this->actingAs($actor)->get(route('salon.check-connections', $salon))->assertForbidden();
+    }
+
+    // A delegated agency_user is not an operator.
+    $delegated = User::factory()->create(['agency_id' => $salon->agency_id, 'agency_role' => AgencyRole::User]);
+    $delegated->assignedSalons()->attach($salon->id);
+    $this->actingAs($delegated)->get(route('salon.check-connections', $salon))->assertForbidden();
+
+    // Demo salons are unreachable even for their own agency operator: the
+    // demo slug never resolves as a tenant host (ResolveSalon refuses), and
+    // mount 404s is_demo as belt-and-suspenders besides.
+    $demo = demoShowcase();
+    $demoOperator = User::factory()->create(['agency_id' => $demo->agency_id, 'agency_role' => AgencyRole::Owner]);
+    $status = $this->actingAs($demoOperator)->get(route('salon.check-connections', $demo))->getStatusCode();
+    expect(in_array($status, [403, 404], true))->toBeTrue();
+});
+
+it('requires the operator\'s own password before running — wrong password creates nothing', function () {
+    $salon = builtSalon();
+    $operator = diagnosticsOperator($salon);
+
+    Livewire::actingAs($operator)
+        ->test('pages::salon.check-connections', ['salon' => $salon])
+        ->set('password', 'not-my-password')
+        ->call('run')
+        ->assertHasErrors(['password']);
+
+    expect(User::where('is_test', true)->exists())->toBeFalse();
+    expect(Service::withoutGlobalScopes()->where('is_test', true)->exists())->toBeFalse();
+});
+
+it('runs on an already-built salon: creates the three test records, books a real test appointment, reports in plain language', function () {
+    fakeOutboundChecks();
+    $salon = builtSalon();
+    BookingApiToken::generate($salon);
+    $operator = diagnosticsOperator($salon);
+
+    $component = Livewire::actingAs($operator)
+        ->test('pages::salon.check-connections', ['salon' => $salon])
+        ->set('password', 'password')
+        ->call('run')
+        ->assertHasNoErrors();
+
+    // The three disposable records, all flagged.
+    $stylist = User::where('is_test', true)->where('name', ConnectionDiagnostics::STYLIST_NAME)->firstOrFail();
+    $service = Service::withoutGlobalScopes()->where('salon_id', $salon->id)->where('is_test', true)->firstOrFail();
+    $client = Client::withoutGlobalScopes()->where('salon_id', $salon->id)->where('is_test', true)->firstOrFail();
+    expect($service->name)->toBe(ConnectionDiagnostics::SERVICE_NAME);
+    expect($client->name)->toBe(ConnectionDiagnostics::CLIENT_NAME);
+    expect($stylist->membershipFor($salon)->staff_type?->value)->toBe('stylist');
+
+    // A REAL booking exists on the test stylist for the test client.
+    expect(Booking::withoutGlobalScopes()->where('salon_id', $salon->id)->where('client_id', $client->id)->exists())->toBeTrue();
+
+    // The report: every check line present, ✓ with human wording.
+    $component->assertSee(__('BookTheStyle side — tested automatically'))
+        ->assertSee(__('Booking API token'))
+        ->assertSee(__('Booking endpoint'))
+        ->assertSee(__('Availability'))
+        ->assertSee(__('Test booking'))
+        ->assertSee(__('Inbound webhook secret'))
+        ->assertSee(__('Booking widget'))
+        ->assertSee(__('the booking engine works end to end'), false)
+        // The honest split — GHL is round-trip, never claimed auto-tested.
+        ->assertSee(__('GHL side — verified by round-trip'))
+        ->assertSee(__('BookTheStyle cannot fire GHL\'s Custom Actions itself'))
+        ->assertSee(ConnectionDiagnostics::SERVICE_NAME)
+        ->assertSee(__('No call received since this check started.'));
+
+    // Running again is idempotent — still exactly one of each record.
+    $component->set('password', 'password')->call('run')->assertHasNoErrors();
+    expect(Service::withoutGlobalScopes()->where('salon_id', $salon->id)->where('is_test', true)->count())->toBe(1);
+    expect(User::where('is_test', true)->where('email', 'like', 'diagnostics+%')->count())->toBe(1);
+});
+
+it('keeps test records leak-proof: widget, booking flow, client directory, and reports never show them', function () {
+    fakeOutboundChecks();
+    $salon = builtSalon();
+    $operator = diagnosticsOperator($salon);
+    $owner = salonOwnerOf($salon);
+
+    $before = app(SalonReport::class)->build(
+        $salon,
+        CarbonImmutable::now($salon->timezone)->startOfMonth(),
+        CarbonImmutable::now($salon->timezone)->endOfMonth(),
+    );
+
+    Livewire::actingAs($operator)
+        ->test('pages::salon.check-connections', ['salon' => $salon])
+        ->set('password', 'password')
+        ->call('run')
+        ->assertHasNoErrors();
+
+    $service = Service::withoutGlobalScopes()->where('salon_id', $salon->id)->where('is_test', true)->firstOrFail();
+
+    // Public widget: the catalogue never lists the test service or stylist…
+    $this->getJson(route('salon.widget.services', ['salon' => $salon->slug]))
+        ->assertOk()
+        ->assertDontSee(ConnectionDiagnostics::SERVICE_NAME)
+        ->assertDontSee(ConnectionDiagnostics::STYLIST_NAME);
+
+    // …and a GUESSED test-service id behaves as nonexistent — a real client
+    // cannot see or book the test stylist, full stop.
+    $this->getJson(route('salon.widget.availability', ['salon' => $salon->slug]).'?service='.$service->id.'&date='.CarbonImmutable::now($salon->timezone)->addDay()->format('Y-m-d'))
+        ->assertStatus(422)
+        ->assertJsonPath('error', 'unknown_service');
+
+    // The in-app booking flow offers neither the test service nor the client.
+    $this->actingAs($owner)->get(route('salon.bookings.create', $salon))
+        ->assertOk()
+        ->assertDontSee(ConnectionDiagnostics::SERVICE_NAME);
+
+    // The client directory (list + summary) skips the test client.
+    $this->actingAs($owner)->get(route('salon.clients', $salon))
+        ->assertOk()
+        ->assertDontSee(ConnectionDiagnostics::CLIENT_NAME);
+
+    // Reports: the test booking changed NOTHING.
+    $after = app(SalonReport::class)->build(
+        $salon,
+        CarbonImmutable::now($salon->timezone)->startOfMonth(),
+        CarbonImmutable::now($salon->timezone)->endOfMonth(),
+    );
+    expect($after['totals'] ?? $after)->toEqual($before['totals'] ?? $before);
+});
+
+it('greens the round-trip indicator when a genuinely authenticated API call arrives', function () {
+    fakeOutboundChecks();
+    $salon = builtSalon();
+    $token = BookingApiToken::generate($salon);
+    $operator = diagnosticsOperator($salon);
+
+    $component = Livewire::actingAs($operator)
+        ->test('pages::salon.check-connections', ['salon' => $salon])
+        ->set('password', 'password')
+        ->call('run')
+        ->assertSee(__('No call received since this check started.'));
+
+    // GHL's side of the round-trip: a real authenticated call to the API.
+    $this->postJson(route('api.booking.availability'), ['service' => ConnectionDiagnostics::SERVICE_NAME], [
+        'Authorization' => 'Bearer '.$token,
+    ])->assertOk();
+
+    $component->call('$refresh')
+        ->assertSee(__('the wiring works'), false)
+        ->assertDontSee(__('No call received since this check started.'));
+});
+
+it('tears everything down on Finish — records and their appointments — and the sweep catches abandoned runs', function () {
+    fakeOutboundChecks();
+    $salon = builtSalon();
+    $operator = diagnosticsOperator($salon);
+
+    $component = Livewire::actingAs($operator)
+        ->test('pages::salon.check-connections', ['salon' => $salon])
+        ->set('password', 'password')
+        ->call('run')
+        ->assertHasNoErrors();
+
+    expect(Service::withoutGlobalScopes()->where('salon_id', $salon->id)->where('is_test', true)->exists())->toBeTrue();
+
+    $component->call('finish')->assertHasNoErrors();
+
+    expect(Service::withoutGlobalScopes()->where('salon_id', $salon->id)->where('is_test', true)->exists())->toBeFalse();
+    expect(Client::withoutGlobalScopes()->where('salon_id', $salon->id)->where('is_test', true)->exists())->toBeFalse();
+    expect(User::withTrashed()->where('is_test', true)->exists())->toBeFalse();
+    expect(Booking::withoutGlobalScopes()->where('salon_id', $salon->id)->count())->toBe(0);
+
+    // The sweep: abandoned records (older than the window) are removed;
+    // fresh ones are left alone.
+    app(ConnectionDiagnostics::class)->ensureTestRecords($salon);
+    $this->artisan('diagnostics:sweep-test-records')->assertExitCode(0);
+    expect(User::where('is_test', true)->exists())->toBeTrue(); // fresh — kept
+
+    User::where('is_test', true)->update(['created_at' => now()->subHours(ConnectionDiagnostics::SWEEP_AFTER_HOURS + 1)]);
+    $this->artisan('diagnostics:sweep-test-records')->assertExitCode(0);
+    expect(User::withTrashed()->where('is_test', true)->exists())->toBeFalse();
+    expect(Service::withoutGlobalScopes()->where('is_test', true)->exists())->toBeFalse();
+});
