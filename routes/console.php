@@ -67,6 +67,14 @@ Schedule::command('diagnostics:sweep-test-records')->hourly()->withoutOverlappin
 // The demo showcase resets nightly: visitor-created bookings (the demo's
 // one try-it exemption) are cleared and the seeded calendar re-anchors to
 // "now", so every day's demo looks current and tidy. Same single cron line.
+// Automatic health monitor: the READ-ONLY checks against every live salon,
+// hourly — history recorded, green→red regressions emailed to agency
+// admins. Never creates test records, never books, never emails clients.
+Schedule::command('health:monitor')
+    ->hourly()
+    ->withoutOverlapping()
+    ->onSuccess(fn () => Heartbeat::beat(Heartbeat::taskKey('health:monitor')));
+
 Schedule::command('demo:reset-showcase')
     ->dailyAt('03:30')
     ->withoutOverlapping()

@@ -19,6 +19,7 @@ class ScheduledTasksFresh implements HealthCheck
     private const TASKS = [
         'bookings:close-elapsed' => ['label' => 'No-show / completion automation', 'minutes' => 15],
         'ghl:reconcile' => ['label' => 'GHL drift repair', 'minutes' => 180],
+        'health:monitor' => ['label' => 'Automatic health monitor', 'minutes' => 180],
         'diagnostics:sweep-test-records' => ['label' => 'Test-record sweep', 'minutes' => 180],
         'demo:reset-showcase' => ['label' => 'Demo nightly reset', 'minutes' => 3 * 24 * 60],
     ];
