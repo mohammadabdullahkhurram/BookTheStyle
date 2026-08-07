@@ -50,45 +50,78 @@ it('bounces unauthenticated guests to login', function () {
     $this->get(route('agency.docs'))->assertRedirect(route('login'));
 });
 
-it('renders the SOP as a native page: sections, steps, callouts, screenshot slots, on-page nav', function () {
+it('renders the SOP at industry depth: purpose, prerequisites, decision points, verification, troubleshooting, escalation, checklists', function () {
     $response = $this->actingAs(docsAgencyUser(AgencyRole::User))
         ->get(route('agency.docs', ['doc' => 'salon-setup-sop']))
         ->assertOk();
 
-    // Anchored sections + the on-page navigation chips.
-    $response->assertSee('id="part-a-bookthestyle"', false)
-        ->assertSee('id="checklist"', false)
-        ->assertSee(__('On this page'))
+    // The full section structure, anchored, with the on-page nav.
+    foreach (['purpose', 'before-you-start', 'part-a-bookthestyle', 'part-b-ghl', 'part-c-connect', 'verification', 'troubleshooting', 'escalation', 'checklist'] as $id) {
+        $response->assertSee('id="'.$id.'"', false);
+    }
+    $response->assertSee(__('On this page'))
+        ->assertSee(__('Purpose & scope'))
+        ->assertSee(__('Final verification — the full pass'))
+        ->assertSee(__('Troubleshooting — if you see X, do Y'))
+        ->assertSee(__('Escalation — who to ask'))
         ->assertSee(__('Go-live checklist'));
 
-    // Native components: numbered steps, a warning callout, screenshot slots.
-    $response->assertSee(__('Choose the salon type'))
+    // Steps carry expected results and decision points; kit components render.
+    $response->assertSee(__('How you know it worked:'))
+        ->assertSee(__('Choose the salon type — a decision point'))
         ->assertSee(__('Important'))
         ->assertSee(__('Screenshot to add'))
         ->assertSee('Takes bookings');
+
+    // Chair Rental is the terminology — the old term is gone.
+    $response->assertSee('Chair Rental')
+        ->assertDontSee('Booth');
 
     // GHL-instance specifics render as visible fill-in slots.
     $response->assertSee(__('Loopflo snapshot name'));
 });
 
-it('renders the technical reference with real BTS specifics and diagrams as inline SVG', function () {
+it('renders the technical reference at industry depth: endpoint/parameter/error tables, token lifecycle, webhook, runbook, glossary', function () {
     $response = $this->actingAs(docsAgencyUser(AgencyRole::Owner))
         ->get(route('agency.docs', ['doc' => 'technical-integration-reference']))
         ->assertOk();
 
-    // Real BookTheStyle-side values, verified from the codebase.
+    // The full section structure, anchored.
+    foreach (['about', 'prerequisites', 'architecture', 'booking-sequence', 'endpoints', 'auth', 'resilience', 'webhook', 'ghl-side', 'runbook', 'troubleshooting', 'glossary', 'sync'] as $id) {
+        $response->assertSee('id="'.$id.'"', false);
+    }
+
+    // Per-endpoint reference: paths, route names, request examples, and the
+    // error table with real codes — all verified from the codebase.
     $response->assertSee('/api/v1/booking/availability')
         ->assertSee('/api/v1/booking/create')
         ->assertSee('api.booking.availability')
-        ->assertSee('btsk_', false)
-        ->assertSee('Authorization: Bearer')
-        ->assertSee('Voice-AI Booking API')
+        ->assertSee(__('Example request:'))
+        ->assertSee(__('Status codes &amp; error responses'), false)
         ->assertSee('slot_unavailable')
-        ->assertSee('X-Webhook-Secret');
+        ->assertSee('unknown_service')
+        ->assertSee('ambiguous_stylist')
+        ->assertSee('invalid_request');
 
-    // GHL-instance specifics stay visible fill-ins.
+    // Token lifecycle + resilience + webhook specifics.
+    $response->assertSee('btsk_', false)
+        ->assertSee('Authorization: Bearer')
+        ->assertSee(__('Rotation / revocation'))
+        ->assertSee(__('Idempotent create'))
+        ->assertSee('60')
+        ->assertSee('X-Webhook-Secret')
+        ->assertSee('webhooks.ghl');
+
+    // Runbook with expected outcomes, glossary, and the sync note.
+    $response->assertSee(__('Expected:'))
+        ->assertSee(__('Glossary'))
+        ->assertSee('Chair Rental')
+        ->assertSee(__('Keeping this page in sync with the code'));
+
+    // GHL-instance specifics stay visible fill-ins; no old terminology.
     $response->assertSee(__('snapshot name'))
-        ->assertSee(__('persona'));
+        ->assertSee(__('persona'))
+        ->assertDontSee('Booth');
 
     // Diagrams are drawn inline — real SVG, no markdown/mermaid residue.
     expect(substr_count($response->getContent(), '<svg'))->toBeGreaterThanOrEqual(2);
