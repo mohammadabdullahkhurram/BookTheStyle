@@ -2,6 +2,7 @@
 
 use App\Models\Salon;
 use App\Services\Diagnostics\ConnectionDiagnostics;
+use App\Services\Health\HealthCheckRegistry;
 use Flux\Flux;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
@@ -9,24 +10,29 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 /*
- * "Check connections" — one-click validation of the whole GHL × BTS setup
- * for THIS salon, agency owner/admin ONLY (SalonPolicy::runDiagnostics via
- * before(); salon roles, delegated agency_users, guests all refused; demo
- * salons 404 outright). A sudo-style password confirmation gates the run.
+ * "Health check" — the full setup + operational validation for THIS salon,
+ * agency owner/admin ONLY (SalonPolicy::runDiagnostics via before(); salon
+ * roles, delegated agency_users, guests all refused; demo salons 404). A
+ * sudo-style password confirmation gates the run.
  *
- * THE HONEST SPLIT, stated on the page too: the checks below exercise the
- * BookTheStyle side automatically (real engine, real endpoints, a real
- * disposable booking). BTS cannot fire a GHL Custom Action itself — the GHL
- * wiring is verified by the manual round-trip: paste the generated payloads
- * into GHL, run them, and the indicator greens when the call arrives.
+ * The checks come from the extensible HealthCheckRegistry (one small class
+ * per check, grouped by category) — read-only except the ONE sanctioned
+ * mutation: the test booking on the disposable is_test records.
+ *
+ * THE HONEST SPLIT, stated on the page too: BTS tests its own side
+ * automatically; it cannot fire a GHL Custom Action itself, so the Voice AI
+ * wiring is verified by the manual round-trip below.
  */
-new #[Title('Check connections')] class extends Component {
+new #[Title('Health check')] class extends Component {
     public Salon $salon;
 
     public string $password = '';
 
-    /** @var list<array{key: string, label: string, passed: bool, message: string}> */
-    public array $report = [];
+    /** @var list<array{key: string, label: string, checks: list<array{key: string, label: string, status: string, message: string, fix: string|null}>}> */
+    public array $categories = [];
+
+    /** @var array{pass: int, warn: int, fail: int}|null */
+    public ?array $summary = null;
 
     public ?string $ranAt = null;
 
@@ -41,7 +47,7 @@ new #[Title('Check connections')] class extends Component {
         $this->salon = $salon;
     }
 
-    public function run(ConnectionDiagnostics $diagnostics): void
+    public function run(HealthCheckRegistry $registry, ConnectionDiagnostics $diagnostics): void
     {
         $this->authorize('runDiagnostics', $this->salon);
         abort_if($this->salon->is_demo, 404);
@@ -53,7 +59,9 @@ new #[Title('Check connections')] class extends Component {
             ['password.current_password' => __('That is not your password — re-enter your own login password to run the check.')],
         );
 
-        $this->report = $diagnostics->run($this->salon);
+        $report = $registry->run($this->salon);
+        $this->categories = $report['categories'];
+        $this->summary = $report['summary'];
         $this->payloads = $diagnostics->roundTripPayloads($this->salon);
         $this->ranAt = now()->toIso8601String();
         $this->reset('password');
@@ -65,7 +73,7 @@ new #[Title('Check connections')] class extends Component {
         abort_if($this->salon->is_demo, 404);
 
         $diagnostics->teardown($this->salon);
-        $this->reset(['report', 'ranAt', 'payloads']);
+        $this->reset(['categories', 'summary', 'ranAt', 'payloads']);
 
         Flux::toast(variant: 'success', text: __('Test records and test appointments removed.'));
     }
@@ -89,47 +97,66 @@ new #[Title('Check connections')] class extends Component {
 
 <div>
     <div class="mx-auto flex w-full max-w-4xl flex-col gap-7 px-4 py-6 sm:px-6 lg:px-8 lg:py-7">
-        <x-ui.page-header :overline="__('Integrations')" :title="__('Check connections')">
-            <x-slot:subtitle>{{ __('Validate this salon\'s whole booking setup with disposable test records — nothing a client can ever see.') }}</x-slot:subtitle>
+        <x-ui.page-header :overline="__('Integrations')" :title="__('Health check')">
+            <x-slot:subtitle>{{ __('Validate this salon\'s whole setup and the site\'s operational health — with disposable test records nothing a client can ever see.') }}</x-slot:subtitle>
         </x-ui.page-header>
 
         <x-ui.card class="flex flex-col gap-4">
             <div>
                 <h2 class="bts-card-title">{{ __('How this works') }}</h2>
-                <p class="mt-1 text-[13.5px] leading-relaxed text-secondary">{{ __('Running the check creates three temporary records for this salon — “Bluejaypro Stylist”, “Bluejaypro Hair Cut”, and “Bluejaypro Test Client” — books a real test appointment through the same engine the Voice AI uses, and verifies every BookTheStyle-side piece. They are invisible to clients (widget, booking, reports) and are deleted when you finish — or automatically after 24 hours.') }}</p>
-                <p class="mt-2 text-[13.5px] leading-relaxed text-secondary">{{ __('BookTheStyle can only test its own side automatically. The GHL side — the Voice AI’s Custom Actions — fires from inside GHL, so it is verified by the round-trip below: you run the generated test calls in GHL, and this page confirms when they arrive.') }}</p>
+                <p class="mt-1 text-[13.5px] leading-relaxed text-secondary">{{ __('Running the check creates three temporary records for this salon — “Bluejaypro Stylist”, “Bluejaypro Hair Cut”, and “Bluejaypro Test Client” — books one real test appointment through the same engine the Voice AI uses, and validates everything else read-only: integrations, notifications, the scheduler and queue, salon readiness, and the system itself. The test records are invisible to clients and are deleted when you finish — or automatically after 24 hours.') }}</p>
+                <p class="mt-2 text-[13.5px] leading-relaxed text-secondary">{{ __('BookTheStyle can only test its own side automatically. The GHL side — the Voice AI’s Custom Actions — fires from inside GHL, so it is verified by the round-trip at the bottom: you run the generated test calls in GHL, and this page confirms when they arrive.') }}</p>
             </div>
             <form wire:submit="run" class="flex flex-col gap-3 sm:flex-row sm:items-end" novalidate>
                 <div class="w-full sm:max-w-xs">
                     <flux:input wire:model="password" type="password" :label="__('Confirm your password to run')" autocomplete="current-password" required />
                 </div>
-                <x-ui.button type="submit" loading="run">{{ __('Test') }}</x-ui.button>
+                <x-ui.button type="submit" loading="run">{{ __('Run health check') }}</x-ui.button>
             </form>
         </x-ui.card>
 
-        @if ($report !== [])
-            <x-ui.card class="flex flex-col gap-4">
-                <div>
-                    <h2 class="bts-card-title">{{ __('BookTheStyle side — tested automatically') }}</h2>
-                    <p class="mt-1 text-[13px] text-faint">{{ __('Ran :when.', ['when' => \Illuminate\Support\Carbon::parse($ranAt)->setTimezone($salon->timezone)->format('M j, Y g:i A')]) }}</p>
-                </div>
-                <ul class="flex flex-col divide-y divide-row">
-                    @foreach ($report as $line)
-                        <li class="flex gap-3 py-3" wire:key="check-{{ $line['key'] }}">
-                            @if ($line['passed'])
-                                <flux:icon.check-circle variant="mini" class="mt-0.5 shrink-0" style="color:#3E5C3A;" />
-                            @else
-                                <flux:icon.x-circle variant="mini" class="mt-0.5 shrink-0" style="color:#8A4B2D;" />
-                            @endif
-                            <div class="min-w-0">
-                                <p class="text-[14px] font-semibold text-ink">{{ $line['label'] }}</p>
-                                <p class="text-[13.5px] leading-relaxed text-secondary">{{ $line['message'] }}</p>
-                            </div>
-                        </li>
-                    @endforeach
-                </ul>
+        @if ($summary !== null)
+            {{-- Top-line summary. --}}
+            <x-ui.card class="flex flex-wrap items-center gap-x-6 gap-y-2">
+                <p class="text-[15px] font-semibold text-ink">
+                    {{ trans_choice(':count check passed|:count checks passed', $summary['pass'], ['count' => $summary['pass']]) }}<!--
+                -->@if ($summary['warn'] > 0), {{ trans_choice(':count warning|:count warnings', $summary['warn'], ['count' => $summary['warn']]) }}@endif<!--
+                -->@if ($summary['fail'] > 0), {{ trans_choice(':count failed|:count failed', $summary['fail'], ['count' => $summary['fail']]) }}@endif
+                </p>
+                <p class="text-[13px] text-faint">{{ __('Ran :when.', ['when' => \Illuminate\Support\Carbon::parse($ranAt)->setTimezone($salon->timezone)->format('M j, Y g:i A')]) }}</p>
+                @if ($summary['fail'] === 0 && $summary['warn'] === 0)
+                    <span class="bts-pill" style="background-color:#E7EFE4;color:#3E5C3A;">{{ __('All clear') }}</span>
+                @endif
             </x-ui.card>
 
+            {{-- Categorized report. --}}
+            @foreach ($categories as $category)
+                <x-ui.card class="flex flex-col gap-3" wire:key="category-{{ $category['key'] }}">
+                    <h2 class="bts-card-title">{{ $category['label'] }}</h2>
+                    <ul class="flex flex-col divide-y divide-row">
+                        @foreach ($category['checks'] as $line)
+                            <li class="flex gap-3 py-3" wire:key="check-{{ $line['key'] }}">
+                                @if ($line['status'] === 'pass')
+                                    <flux:icon.check-circle variant="mini" class="mt-0.5 shrink-0" style="color:#3E5C3A;" />
+                                @elseif ($line['status'] === 'warn')
+                                    <flux:icon.exclamation-triangle variant="mini" class="mt-0.5 shrink-0" style="color:#8A6D1F;" />
+                                @else
+                                    <flux:icon.x-circle variant="mini" class="mt-0.5 shrink-0" style="color:#8A4B2D;" />
+                                @endif
+                                <div class="min-w-0">
+                                    <p class="text-[14px] font-semibold text-ink">{{ $line['label'] }}</p>
+                                    <p class="text-[13.5px] leading-relaxed text-secondary">{{ $line['message'] }}</p>
+                                    @if ($line['fix'] !== null)
+                                        <p class="mt-0.5 text-[13px] leading-relaxed" style="color:#8A6D1F;">{{ __('Fix:') }} {{ $line['fix'] }}</p>
+                                    @endif
+                                </div>
+                            </li>
+                        @endforeach
+                    </ul>
+                </x-ui.card>
+            @endforeach
+
+            {{-- The honest GHL round-trip. --}}
             <x-ui.card class="flex flex-col gap-4" wire:poll.5s="$refresh">
                 <div>
                     <h2 class="bts-card-title">{{ __('GHL side — verified by round-trip') }}</h2>

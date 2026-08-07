@@ -7,9 +7,13 @@ use App\Models\Salon;
 use App\Models\Service;
 use App\Models\User;
 use App\Services\Diagnostics\ConnectionDiagnostics;
+use App\Services\Health\HealthCheckRegistry;
+use App\Services\Health\Heartbeat;
 use App\Services\Reporting\SalonReport;
 use App\Support\BookingApiToken;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 
@@ -52,7 +56,7 @@ it('opens for agency owner and admin only — every salon role, delegated users,
         $operator = User::factory()->create(['agency_id' => $salon->agency_id, 'agency_role' => $role]);
         $this->actingAs($operator)->get(route('salon.check-connections', $salon))
             ->assertOk()
-            ->assertSee(__('Check connections'));
+            ->assertSee(__('Health check'));
     }
 
     // Salon roles — the salon's own OWNER included — are refused.
@@ -111,15 +115,28 @@ it('runs on an already-built salon: creates the three test records, books a real
     // A REAL booking exists on the test stylist for the test client.
     expect(Booking::withoutGlobalScopes()->where('salon_id', $salon->id)->where('client_id', $client->id)->exists())->toBeTrue();
 
-    // The report: every check line present, ✓ with human wording.
-    $component->assertSee(__('BookTheStyle side — tested automatically'))
+    // The categorized report: all five categories, ✓/⚠/✗ lines with human
+    // wording and fix hints, plus the top-line summary.
+    $component->assertSeeInOrder([
+        __('Integrations & Voice AI booking'),
+        __('Notifications'),
+        __('Scheduled jobs & queue'),
+        __('Salon readiness'),
+        __('System'),
+    ])
         ->assertSee(__('Booking API token'))
         ->assertSee(__('Booking endpoint'))
         ->assertSee(__('Availability'))
         ->assertSee(__('Test booking'))
         ->assertSee(__('Inbound webhook secret'))
         ->assertSee(__('Booking widget'))
+        ->assertSee(__('Email sending'))
+        ->assertSee(__('Scheduler (cron)'))
+        ->assertSee(__('Queue'))
+        ->assertSee(__('Bookable staff'))
+        ->assertSee(__('Database'))
         ->assertSee(__('the booking engine works end to end'), false)
+        ->assertSee(__('checks passed'), false)
         // The honest split — GHL is round-trip, never claimed auto-tested.
         ->assertSee(__('GHL side — verified by round-trip'))
         ->assertSee(__('BookTheStyle cannot fire GHL\'s Custom Actions itself'))
@@ -235,4 +252,103 @@ it('tears everything down on Finish — records and their appointments — and t
     $this->artisan('diagnostics:sweep-test-records')->assertExitCode(0);
     expect(User::withTrashed()->where('is_test', true)->exists())->toBeFalse();
     expect(Service::withoutGlobalScopes()->where('is_test', true)->exists())->toBeFalse();
+});
+
+it('exposes an extensible registry: every category has checks and the summary adds up', function () {
+    fakeOutboundChecks();
+    $salon = builtSalon();
+
+    $report = app(HealthCheckRegistry::class)->run($salon);
+
+    expect(array_column($report['categories'], 'key'))
+        ->toBe(array_keys(HealthCheckRegistry::CATEGORIES));
+
+    $lines = 0;
+    foreach ($report['categories'] as $category) {
+        expect(count($category['checks']))->toBeGreaterThanOrEqual(1);
+        foreach ($category['checks'] as $line) {
+            expect(in_array($line['status'], ['pass', 'warn', 'fail'], true))->toBeTrue();
+            expect($line['message'])->not->toBe('');
+            $lines++;
+        }
+    }
+
+    expect($report['summary']['pass'] + $report['summary']['warn'] + $report['summary']['fail'])->toBe($lines);
+
+    app(ConnectionDiagnostics::class)->teardown($salon);
+});
+
+it('surfaces deliberately broken conditions as plain-language failures', function () {
+    fakeOutboundChecks();
+
+    // A bare salon (owner only, no services/staff/hours) → readiness fails.
+    $bare = Salon::factory()->create();
+    salonOwnerOf($bare);
+    $report = app(HealthCheckRegistry::class)->run($bare);
+    $readiness = collect($report['categories'])->firstWhere('key', 'readiness')['checks'];
+
+    $services = collect($readiness)->firstWhere('key', 'services');
+    expect($services['status'])->toBe('fail');
+    expect($services['message'])->toContain('no real services');
+    expect($services['fix'])->toContain('SOP');
+
+    $staff = collect($readiness)->firstWhere('key', 'bookable-staff');
+    expect($staff['status'])->toBe('fail');
+    expect($staff['message'])->toContain('Nobody real takes bookings');
+
+    // A stale scheduler heartbeat → schedule fail with the cron hint.
+    Heartbeat::beat(Heartbeat::SCHEDULER);
+    Cache::put(Heartbeat::SCHEDULER, now()->subHour()->toIso8601String(), now()->addDay());
+    $report = app(HealthCheckRegistry::class)->run($bare);
+    $scheduler = collect(collect($report['categories'])->firstWhere('key', 'schedule')['checks'])->firstWhere('key', 'scheduler');
+    expect($scheduler['status'])->toBe('fail');
+    expect($scheduler['message'])->toContain('should tick every minute');
+    expect($scheduler['fix'])->toContain('Cron Jobs');
+
+    // A fresh heartbeat → pass.
+    Heartbeat::beat(Heartbeat::SCHEDULER);
+    $report = app(HealthCheckRegistry::class)->run($bare);
+    $scheduler = collect(collect($report['categories'])->firstWhere('key', 'schedule')['checks'])->firstWhere('key', 'scheduler');
+    expect($scheduler['status'])->toBe('pass');
+
+    // A stuck queue (an old pending job) → queue fail in plain words.
+    DB::table('jobs')->insert([
+        'queue' => 'default', 'payload' => '{}', 'attempts' => 0,
+        'reserved_at' => null, 'available_at' => now()->subMinutes(30)->timestamp, 'created_at' => now()->subMinutes(30)->timestamp,
+    ]);
+    $report = app(HealthCheckRegistry::class)->run($bare);
+    $queue = collect(collect($report['categories'])->firstWhere('key', 'schedule')['checks'])->firstWhere('key', 'queue');
+    expect($queue['status'])->toBe('fail');
+    expect($queue['message'])->toContain('stuck');
+
+    DB::table('jobs')->delete();
+    app(ConnectionDiagnostics::class)->teardown($bare);
+});
+
+it('mutates nothing real: the only write is the test booking on test records', function () {
+    fakeOutboundChecks();
+    $salon = builtSalon();
+    $operator = diagnosticsOperator($salon);
+
+    $realServices = Service::withoutGlobalScopes()->where('is_test', false)->count();
+    $realClients = Client::withoutGlobalScopes()->where('is_test', false)->count();
+    $realUsers = User::where('is_test', false)->count();
+    $realBookings = Booking::withoutGlobalScopes()
+        ->whereDoesntHave('items.stylist', fn ($q) => $q->where('is_test', true))
+        ->count();
+
+    Livewire::actingAs($operator)
+        ->test('pages::salon.check-connections', ['salon' => $salon])
+        ->set('password', 'password')
+        ->call('run')
+        ->assertHasNoErrors();
+
+    // Real rows: byte-for-byte the same counts. The only new rows are the
+    // flagged test records and the one test booking on the test stylist.
+    expect(Service::withoutGlobalScopes()->where('is_test', false)->count())->toBe($realServices);
+    expect(Client::withoutGlobalScopes()->where('is_test', false)->count())->toBe($realClients);
+    expect(User::where('is_test', false)->count())->toBe($realUsers);
+    expect(Booking::withoutGlobalScopes()
+        ->whereDoesntHave('items.stylist', fn ($q) => $q->where('is_test', true))
+        ->count())->toBe($realBookings);
 });
