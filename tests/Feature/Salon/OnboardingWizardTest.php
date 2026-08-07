@@ -7,6 +7,7 @@ use App\Models\Service;
 use App\Models\StylistProfile;
 use App\Models\User;
 use App\Models\WebhookEvent;
+use App\Services\Diagnostics\ConnectionDiagnostics;
 use App\Services\Onboarding\SalonOnboarding;
 use App\Support\BookingApiToken;
 use Livewire\Livewire;
@@ -338,10 +339,14 @@ it('refuses to mark a salon live while steps are incomplete', function () {
     expect($salon->refresh()->onboarded_at)->toBeNull();
 });
 
-it('marks the salon live when every step is done', function () {
+it('marks the salon live when every step is done — and go-live deletes the test records', function () {
     $salon = completedSalon();
     app(SalonOnboarding::class)->attest($salon, 'voice_actions');
     $this->actingAs(wizardOwner($salon));
+
+    // Setup-era test records exist right up to go-live…
+    app(ConnectionDiagnostics::class)->ensureTestRecords($salon);
+    expect(app(ConnectionDiagnostics::class)->hasTestRecords($salon))->toBeTrue();
 
     expect(app(SalonOnboarding::class)->allDone($salon->refresh()))->toBeTrue();
 
@@ -349,6 +354,10 @@ it('marks the salon live when every step is done', function () {
         ->call('markLive');
 
     expect($salon->refresh()->onboarded_at)->not->toBeNull();
+
+    // …and leave with the training wheels at that exact moment.
+    expect(app(ConnectionDiagnostics::class)->hasTestRecords($salon))->toBeFalse();
+    expect($salon->refresh()->test_records_expire_at)->toBeNull();
 });
 
 it('lists what is still incomplete for the go-live summary', function () {

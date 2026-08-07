@@ -10,6 +10,7 @@ use App\Mail\SalonAddedMail;
 use App\Models\Agency;
 use App\Models\Salon;
 use App\Models\User;
+use App\Services\Diagnostics\ConnectionDiagnostics;
 use App\Support\SalonProfile;
 use Illuminate\Support\Facades\Mail;
 
@@ -71,6 +72,19 @@ class CreateSalon
         $this->provisionOwner($actor, $salon, $data);
 
         $this->notifyAgencyManagers($agency, $salon);
+
+        // Fresh salons start with the disposable test set (Bluejaypro
+        // Stylist / Hair Cut / Test Client, all is_test) so the operator can
+        // test the client booking flow during setup. Hard-TTL'd: gone at
+        // go-live (SalonOnboarding::markLive), via Remove test data, or by
+        // the sweep after the setup window — whichever comes first. Never
+        // for demo salons.
+        if (! $salon->is_demo) {
+            app(ConnectionDiagnostics::class)->ensureTestRecords(
+                $salon,
+                expiresAt: now()->addHours(ConnectionDiagnostics::TTL_SETUP_HOURS),
+            );
+        }
 
         return $salon;
     }

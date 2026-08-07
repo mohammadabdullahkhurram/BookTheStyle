@@ -7,6 +7,7 @@ use App\Models\Availability;
 use App\Models\Salon;
 use App\Models\StylistProfile;
 use App\Models\WebhookEvent;
+use App\Services\Diagnostics\ConnectionDiagnostics;
 use App\Services\Ghl\GhlAvailabilityPusher;
 
 /**
@@ -108,6 +109,10 @@ class SalonOnboarding
 
         $salon->forceFill(['onboarded_at' => now()])->save();
 
+        // GO-LIVE cleanup: the setup test records (test stylist/service/
+        // client and their appointments) leave with the training wheels.
+        app(ConnectionDiagnostics::class)->teardown($salon);
+
         return true;
     }
 
@@ -177,18 +182,23 @@ class SalonOnboarding
 
     private function staffStatus(Salon $salon): string
     {
-        if ($salon->stylistUsers()->exists()) {
+        // Disposable is_test records (the setup/health-check set) are
+        // invisible to onboarding: they must neither complete a step early
+        // nor hold one back (an unmapped test stylist would otherwise block
+        // go-live forever).
+        if ($salon->stylistUsers()->where('users.is_test', false)->exists()) {
             return self::STATUS_DONE;
         }
 
-        return $salon->memberships()->where('active', true)->exists()
+        return $salon->memberships()->where('active', true)
+            ->whereHas('user', fn ($q) => $q->where('is_test', false))->exists()
             ? self::STATUS_IN_PROGRESS
             : self::STATUS_NOT_STARTED;
     }
 
     private function servicesStatus(Salon $salon): string
     {
-        $active = $salon->services()->where('active', true);
+        $active = $salon->services()->where('active', true)->where('is_test', false);
 
         if ((clone $active)->whereHas('stylists')->exists()) {
             return self::STATUS_DONE;
@@ -200,7 +210,7 @@ class SalonOnboarding
     /** Done when EVERY booking stylist has at least one weekly work window. */
     private function availabilityStatus(Salon $salon): string
     {
-        $stylistIds = $salon->stylistUsers()->pluck('users.id');
+        $stylistIds = $salon->stylistUsers()->where('users.is_test', false)->pluck('users.id');
 
         if ($stylistIds->isEmpty()) {
             return self::STATUS_NOT_STARTED;
@@ -246,7 +256,7 @@ class SalonOnboarding
         $unmapped = $this->unmappedStylists($salon);
         $anyMapped = StylistProfile::forSalon($salon)->whereNotNull('ghl_user_id')->exists();
 
-        if ($hasCalendar && $unmapped === [] && $salon->stylistUsers()->exists()) {
+        if ($hasCalendar && $unmapped === [] && $salon->stylistUsers()->where('users.is_test', false)->exists()) {
             return self::STATUS_DONE;
         }
 
@@ -267,6 +277,7 @@ class SalonOnboarding
             ->all();
 
         return array_values($salon->stylistUsers()
+            ->where('users.is_test', false)
             ->whereNotIn('users.id', $mapped)
             ->orderBy('name')
             ->pluck('users.name')

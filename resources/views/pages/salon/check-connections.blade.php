@@ -74,8 +74,16 @@ new #[Title('Health check')] class extends Component {
 
         $diagnostics->teardown($this->salon);
         $this->reset(['categories', 'summary', 'ranAt', 'payloads']);
+        unset($this->hasTestRecords);
 
         Flux::toast(variant: 'success', text: __('Test records and test appointments removed.'));
+    }
+
+    /** Whether disposable test records currently exist for this salon. */
+    #[Computed]
+    public function hasTestRecords(): bool
+    {
+        return app(ConnectionDiagnostics::class)->hasTestRecords($this->salon);
     }
 
     /** @return array{at: string, path: string}|null */
@@ -142,6 +150,18 @@ new #[Title('Health check')] class extends Component {
                 </div>
             </form>
         </x-ui.card>
+
+        @if ($summary === null && $this->hasTestRecords)
+            {{-- Test records exist (from setup or an earlier run) without a
+                 report on screen — offer the manual cleanup directly. --}}
+            <div class="flex flex-col gap-3 rounded-[14px] border px-5 py-4 sm:flex-row sm:items-center sm:justify-between" style="background-color:#F6EFE2;border-color:#E2CFA4;">
+                <div>
+                    <p class="text-[14px] font-semibold" style="color:#7A5B1F;">{{ __('This salon currently has test data') }}</p>
+                    <p class="text-[13px]" style="color:#7A5B1F;">{{ __('Bluejaypro Stylist, Bluejaypro Hair Cut, and Bluejaypro Test Client are set up (badged TEST, invisible to clients). They disappear at go-live, when removed here, or automatically when their timer runs out.') }}</p>
+                </div>
+                <x-ui.button variant="secondary" wire:click="finish" loading="finish" class="shrink-0 whitespace-nowrap">{{ __('Remove test data') }}</x-ui.button>
+            </div>
+        @endif
 
         @if ($summary !== null)
             @php

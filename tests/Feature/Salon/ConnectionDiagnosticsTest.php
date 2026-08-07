@@ -1,6 +1,8 @@
 <?php
 
+use App\Actions\Salons\CreateSalon;
 use App\Enums\AgencyRole;
+use App\Models\Agency;
 use App\Models\Booking;
 use App\Models\Client;
 use App\Models\Salon;
@@ -181,15 +183,25 @@ it('keeps test records leak-proof: widget, booking flow, client directory, and r
         ->assertStatus(422)
         ->assertJsonPath('error', 'unknown_service');
 
-    // The in-app booking flow offers neither the test service nor the client.
+    // STAFF surfaces show the records, badged TEST — the operator can see
+    // and use them; only the public side is blind.
     $this->actingAs($owner)->get(route('salon.bookings.create', $salon))
         ->assertOk()
-        ->assertDontSee(ConnectionDiagnostics::SERVICE_NAME);
-
-    // The client directory (list + summary) skips the test client.
+        ->assertSee(ConnectionDiagnostics::SERVICE_NAME);
     $this->actingAs($owner)->get(route('salon.clients', $salon))
         ->assertOk()
-        ->assertDontSee(ConnectionDiagnostics::CLIENT_NAME);
+        ->assertSee(ConnectionDiagnostics::CLIENT_NAME)
+        ->assertSee(__('TEST'));
+    $this->actingAs($owner)->get(route('salon.users', $salon))
+        ->assertOk()
+        ->assertSee(ConnectionDiagnostics::STYLIST_NAME)
+        ->assertSee(__('TEST'));
+
+    // The AUTHENTICATED widget preview includes the test service — that is
+    // how the operator walks the client booking flow safely.
+    $this->actingAs($owner)
+        ->getJson(route('salon.widget.preview.availability', ['salon' => $salon->slug]).'?service='.$service->id.'&date='.CarbonImmutable::now($salon->timezone)->addDay()->format('Y-m-d'))
+        ->assertOk();
 
     // Reports: the test booking changed NOTHING.
     $after = app(SalonReport::class)->build(
@@ -242,16 +254,24 @@ it('tears everything down on Finish — records and their appointments — and t
     expect(User::withTrashed()->where('is_test', true)->exists())->toBeFalse();
     expect(Booking::withoutGlobalScopes()->where('salon_id', $salon->id)->count())->toBe(0);
 
-    // The sweep: abandoned records (older than the window) are removed;
-    // fresh ones are left alone.
+    // The sweep, expiry-first: an unexpired clock keeps the records…
     app(ConnectionDiagnostics::class)->ensureTestRecords($salon);
     $this->artisan('diagnostics:sweep-test-records')->assertExitCode(0);
-    expect(User::where('is_test', true)->exists())->toBeTrue(); // fresh — kept
+    expect(User::where('is_test', true)->exists())->toBeTrue(); // clock in the future — kept
 
-    User::where('is_test', true)->update(['created_at' => now()->subHours(ConnectionDiagnostics::SWEEP_AFTER_HOURS + 1)]);
+    // …an elapsed clock removes them, appointments included.
+    $salon->forceFill(['test_records_expire_at' => now()->subMinute()])->save();
     $this->artisan('diagnostics:sweep-test-records')->assertExitCode(0);
     expect(User::withTrashed()->where('is_test', true)->exists())->toBeFalse();
     expect(Service::withoutGlobalScopes()->where('is_test', true)->exists())->toBeFalse();
+    expect($salon->refresh()->test_records_expire_at)->toBeNull();
+
+    // Legacy fallback: records with NO clock at all are swept once old.
+    app(ConnectionDiagnostics::class)->ensureTestRecords($salon);
+    $salon->forceFill(['test_records_expire_at' => null])->save();
+    User::where('is_test', true)->update(['created_at' => now()->subHours(ConnectionDiagnostics::SWEEP_AFTER_HOURS + 1)]);
+    $this->artisan('diagnostics:sweep-test-records')->assertExitCode(0);
+    expect(User::withTrashed()->where('is_test', true)->exists())->toBeFalse();
 });
 
 it('exposes an extensible registry: every category has checks and the summary adds up', function () {
@@ -351,4 +371,68 @@ it('mutates nothing real: the only write is the test booking on test records', f
     expect(Booking::withoutGlobalScopes()
         ->whereDoesntHave('items.stylist', fn ($q) => $q->where('is_test', true))
         ->count())->toBe($realBookings);
+});
+
+it('auto-creates the test set when a salon is created — 48-hour setup clock; the demo showcase has none', function () {
+    $agency = Agency::factory()->create();
+    $actor = User::factory()->create(['agency_id' => $agency->id, 'agency_role' => AgencyRole::Owner]);
+
+    $salon = app(CreateSalon::class)->handle($actor, $agency, salonProfileInput([
+        'name' => 'Fresh Cuts', 'slug' => 'fresh-cuts', 'timezone' => 'America/New_York',
+        'owner_name' => 'Fresh Owner', 'owner_email' => 'fresh-owner@example.test',
+    ]));
+
+    // The operator can walk the client flow from minute one.
+    expect(app(ConnectionDiagnostics::class)->hasTestRecords($salon))->toBeTrue();
+    expect(Service::withoutGlobalScopes()->where('salon_id', $salon->id)->where('is_test', true)->exists())->toBeTrue();
+
+    // Setup records get the LONG clock (~48h), not the 60-minute run clock.
+    $expiry = $salon->refresh()->test_records_expire_at;
+    expect($expiry)->not->toBeNull();
+    expect($expiry->diffInMinutes(now()->addHours(ConnectionDiagnostics::TTL_SETUP_HOURS), absolute: true))->toBeLessThan(5);
+
+    // The demo showcase never carries test records.
+    expect(app(ConnectionDiagnostics::class)->hasTestRecords(demoShowcase()))->toBeFalse();
+});
+
+it('resets the TTL clock to the short run window every time the health check runs', function () {
+    fakeOutboundChecks();
+    $salon = builtSalon();
+    $operator = diagnosticsOperator($salon);
+
+    // Pretend the setup clock is nearly out…
+    app(ConnectionDiagnostics::class)->ensureTestRecords($salon, expiresAt: now()->addMinutes(2));
+
+    Livewire::actingAs($operator)
+        ->test('pages::salon.check-connections', ['salon' => $salon])
+        ->set('password', 'password')
+        ->call('run')
+        ->assertHasNoErrors();
+
+    // …the run pushed it back out to ~60 minutes.
+    $expiry = $salon->refresh()->test_records_expire_at;
+    expect($expiry->diffInMinutes(now()->addMinutes(ConnectionDiagnostics::TTL_RUN_MINUTES), absolute: true))->toBeLessThan(5);
+});
+
+it('offers Remove test data to the operator whenever test records linger — and the button removes them', function () {
+    $salon = builtSalon();
+    $operator = diagnosticsOperator($salon);
+
+    // No records → no strip.
+    Livewire::actingAs($operator)
+        ->test('pages::salon.check-connections', ['salon' => $salon])
+        ->assertDontSee(__('Remove test data'));
+
+    app(ConnectionDiagnostics::class)->ensureTestRecords($salon);
+
+    $component = Livewire::actingAs($operator)
+        ->test('pages::salon.check-connections', ['salon' => $salon])
+        ->assertSee(__('This salon currently has test data'))
+        ->assertSee(__('Remove test data'));
+
+    $component->call('finish')->assertHasNoErrors();
+
+    expect(app(ConnectionDiagnostics::class)->hasTestRecords($salon->refresh()))->toBeFalse();
+    expect($salon->test_records_expire_at)->toBeNull();
+    expect(User::withTrashed()->where('is_test', true)->exists())->toBeFalse();
 });
