@@ -69,6 +69,7 @@ class User extends Authenticatable implements PasskeyUser
             'password' => 'hashed',
             'agency_role' => AgencyRole::class,
             'must_change_password' => 'boolean',
+            'is_test' => 'boolean',
         ];
     }
 

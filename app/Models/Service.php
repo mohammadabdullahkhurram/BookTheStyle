@@ -33,6 +33,7 @@ class Service extends Model
         'salon_id',
         'name',
         'duration_min',
+        'is_test',
         'price_cents',
         'color_key',
         'active',
@@ -45,6 +46,7 @@ class Service extends Model
             'duration_min' => 'integer',
             'price_cents' => 'integer',
             'active' => 'boolean',
+            'is_test' => 'boolean',
             'sort_order' => 'integer',
         ];
     }

@@ -141,6 +141,11 @@ class SalonReport
     {
         return DB::table('bookings')
             ->where('bookings.salon_id', $salon->id)
+            // Connection-check test bookings never count in any metric.
+            ->whereNotExists(fn ($q) => $q->selectRaw('1')
+                ->from('clients')
+                ->whereColumn('clients.id', 'bookings.client_id')
+                ->where('clients.is_test', true))
             ->whereExists(fn ($q) => $q->selectRaw('1')
                 ->from('booking_items')
                 ->whereColumn('booking_items.booking_id', 'bookings.id')
@@ -159,6 +164,11 @@ class SalonReport
         return DB::table('booking_items')
             ->join('bookings', 'bookings.id', '=', 'booking_items.booking_id')
             ->where('booking_items.salon_id', $salon->id)
+            // Connection-check test bookings never count in any metric.
+            ->whereNotExists(fn ($q) => $q->selectRaw('1')
+                ->from('users')
+                ->whereColumn('users.id', 'booking_items.stylist_id')
+                ->where('users.is_test', true))
             ->where('booking_items.starts_at', '>=', $start)
             ->where('booking_items.starts_at', '<', $end)
             ->when($this->onlyStylistId !== null, fn ($q) => $q->where('booking_items.stylist_id', $this->onlyStylistId));

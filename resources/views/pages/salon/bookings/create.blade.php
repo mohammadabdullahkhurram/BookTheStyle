@@ -89,7 +89,8 @@ new #[Title('New booking')] class extends Component {
     #[Computed]
     public function services()
     {
-        return $this->salon->services()->where('active', true)->displayOrder()->get();
+        // Connection-check test records never surface in the real flow.
+        return $this->salon->services()->where('active', true)->where('is_test', false)->displayOrder()->get();
     }
 
     #[Computed]
@@ -98,6 +99,7 @@ new #[Title('New booking')] class extends Component {
         $term = trim($this->clientSearch);
 
         return $this->salon->clients()
+            ->where('is_test', false)
             ->when($term !== '', fn ($q) => $q->where(fn ($w) => $w
                 ->where('name', 'like', "%{$term}%")
                 ->orWhere('phone', 'like', "%{$term}%")

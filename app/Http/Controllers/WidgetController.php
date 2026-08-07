@@ -125,10 +125,13 @@ class WidgetController extends Controller
      */
     private function catalogue(Salon $salon): array
     {
-        $stylistIds = $salon->stylistUsers()->pluck('users.id')->map(fn ($id) => (int) $id)->all();
+        // Connection-check test records never surface publicly: the test
+        // service and the test stylist are invisible to widget visitors.
+        $stylistIds = $salon->stylistUsers()->where('users.is_test', false)->pluck('users.id')->map(fn ($id) => (int) $id)->all();
 
         return array_values($salon->services()
             ->where('active', true)
+            ->where('is_test', false)
             ->displayOrder()
             ->with('stylists:id,name')
             ->get()
@@ -188,6 +191,7 @@ class WidgetController extends Controller
                 'date' => ['required', 'string', 'max:40'],
             ]);
 
+            $this->assertNoTestServices($salon, $input);
             [$serviceIds, $assigned] = $this->visitSelection($input);
 
             return response()->json($this->api->visitAvailability($salon, [
@@ -245,6 +249,7 @@ class WidgetController extends Controller
                 return response()->json(['success' => true, 'month' => $input['month'], 'dates' => [], 'timezone' => $salon->timezone]);
             }
 
+            $this->assertNoTestServices($salon, $input);
             [$serviceIds, $assigned] = $this->visitSelection($input);
 
             $result = $this->api->visitAvailableDates($salon, [
@@ -357,6 +362,7 @@ class WidgetController extends Controller
                 return response()->json($result, $result['success'] ? 201 : 409);
             }
 
+            $this->assertNoTestServices($salon, $input);
             [$serviceIds, $assigned] = $this->visitSelection($input);
 
             $result = $this->api->createVisit(
@@ -386,6 +392,29 @@ class WidgetController extends Controller
      * (manual mode) kept ALIGNED through de-duplication — dropping a repeated
      * service drops its stylist entry too, so the arrays never desync.
      *
+     * Connection-check test services behave as NONEXISTENT on the public
+     * widget: unlisted by the catalogue, and any guessed id is refused with
+     * the same unknown-service answer a real missing id gets (no leak).
+     *
+     * @param  array<string, mixed>  $input
+     */
+    private function assertNoTestServices(Salon $salon, array $input): void
+    {
+        $items = is_array($input['items'] ?? null) ? $input['items'] : [];
+
+        $ids = collect([$input['service'] ?? null])
+            ->merge(is_array($input['services'] ?? null) ? $input['services'] : [])
+            ->merge(collect($items)->pluck('service'))
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique();
+
+        if ($ids->isNotEmpty() && $salon->services()->whereKey($ids->all())->where('is_test', true)->exists()) {
+            throw ApiError::validation(__('That service is not offered.'), 'unknown_service');
+        }
+    }
+
+    /**
      * @param  array<string, mixed>  $input
      * @return array{0: list<int>, 1: list<int|string|null>|null}
      */

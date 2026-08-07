@@ -41,7 +41,7 @@ class SyncBookingToGhl implements ShouldQueue
     public static function queueFor(Booking $booking): void
     {
         // Demo salons are inert: nothing ever reaches GHL.
-        if ($booking->salon->is_demo) {
+        if ($booking->salon->is_demo || $booking->client?->is_test || $booking->items()->whereHas('stylist', fn ($q) => $q->where('is_test', true))->exists()) {
             return;
         }
 

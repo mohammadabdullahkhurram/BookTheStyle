@@ -26,7 +26,7 @@ class SyncClientToGhl implements ShouldQueue
     public static function queueFor(Client $client): void
     {
         // Demo salons are inert: nothing ever reaches GHL.
-        if ($client->salon->is_demo) {
+        if ($client->salon->is_demo || $client->is_test) {
             return;
         }
 

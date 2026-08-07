@@ -46,6 +46,7 @@ class Client extends Model
         'name',
         'phone',
         'email',
+        'is_test',
         'allergies',
         'formula_notes',
         'preferred_stylist_id',
@@ -58,6 +59,7 @@ class Client extends Model
     {
         return [
             'birthday' => 'immutable_date',
+            'is_test' => 'boolean',
         ];
     }
 
