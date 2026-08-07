@@ -3,6 +3,7 @@
 use App\Models\Salon;
 use App\Services\Diagnostics\ConnectionDiagnostics;
 use App\Services\Health\HealthCheckRegistry;
+use App\Services\Health\HealthMonitor;
 use Flux\Flux;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
@@ -65,6 +66,11 @@ new #[Title('Health check')] class extends Component {
         $this->payloads = $diagnostics->roundTripPayloads($this->salon);
         $this->ranAt = now()->toIso8601String();
         $this->reset('password');
+
+        // History + green→red alerting: every run is recorded and compared
+        // to the previous one (manual or scheduled alike).
+        app(HealthMonitor::class)->record($this->salon, $report, HealthMonitor::SOURCE_MANUAL);
+        unset($this->history);
     }
 
     public function finish(ConnectionDiagnostics $diagnostics): void
@@ -77,6 +83,17 @@ new #[Title('Health check')] class extends Component {
         unset($this->hasTestRecords);
 
         Flux::toast(variant: 'success', text: __('Test records and test appointments removed.'));
+    }
+
+    /**
+     * Recent recorded runs (manual + scheduled monitor), newest first.
+     *
+     * @return \Illuminate\Database\Eloquent\Collection<int, \App\Models\HealthCheckRun>
+     */
+    #[Computed]
+    public function history(): \Illuminate\Database\Eloquent\Collection
+    {
+        return app(HealthMonitor::class)->history($this->salon);
     }
 
     /** Whether disposable test records currently exist for this salon. */
@@ -115,14 +132,18 @@ new #[Title('Health check')] class extends Component {
                 <h2 class="bts-card-title">{{ __('How this works') }}</h2>
                 <p class="text-[13.5px] leading-relaxed text-secondary">{{ __('Running the check takes a few seconds. It:') }}</p>
                 <ul class="ms-5 flex list-disc flex-col gap-1 text-[13.5px] leading-relaxed text-secondary">
-                    <li>{{ __('creates three temporary test records — “Bluejaypro Stylist”, “Bluejaypro Hair Cut”, and “Bluejaypro Test Client” — invisible to clients, deleted when you finish (or automatically after 24 hours)') }}</li>
+                    <li>{{ __('creates three temporary test records — “Bluejaypro Stylist”, “Bluejaypro Hair Cut”, and “Bluejaypro Test Client” — invisible to clients, deleted when you finish, at go-live, or automatically when their timer runs out') }}</li>
                     <li>{{ __('books one real test appointment through the same engine the Voice AI uses') }}</li>
                     <li>{{ __('checks the booking API — endpoint, token, availability — plus the webhook and the public widget') }}</li>
                     <li>{{ __('checks email settings and the client confirmation/reminder pathway') }}</li>
                     <li>{{ __('checks the scheduler (cron) and the queue are actually running') }}</li>
                     <li>{{ __('checks the salon is ready for real bookings — services, bookable staff, hours, branding') }}</li>
+                    <li>{{ __('checks the GHL link is actually alive — a real API call with the salon\'s stored token, catching revoked or rotated tokens') }}</li>
+                    <li>{{ __('spot-checks the data for booking traps — appointments whose stylist is gone, services nobody can perform or with no price, stylists with no working hours') }}</li>
+                    <li>{{ __('checks the salon\'s own web address resolves and its HTTPS certificate is valid') }}</li>
                     <li>{{ __('checks the system itself — database, migrations, storage, caches, URLs') }}</li>
                 </ul>
+                <p class="text-[13.5px] leading-relaxed text-secondary">{{ __('Once the salon is live, the read-only checks also run automatically every hour in the background (never booking, never creating test records). Every run is recorded below — and if a check that was passing starts failing, the agency\'s owners and admins get an email straight away.') }}</p>
                 <p class="text-[13.5px] leading-relaxed text-secondary">{{ __('BookTheStyle can only test its own side automatically. The GHL side — the Voice AI’s Custom Actions — fires from inside GHL, so it is verified by the round-trip at the bottom: you run the generated test calls in GHL, and this page confirms when they arrive.') }}</p>
             </div>
             <form wire:submit="run" class="flex flex-col gap-3 border-t border-divider bg-muted/40 p-6 sm:flex-row sm:items-end sm:justify-between" novalidate>
@@ -161,6 +182,49 @@ new #[Title('Health check')] class extends Component {
                 </div>
                 <x-ui.button variant="secondary" wire:click="finish" loading="finish" class="shrink-0 whitespace-nowrap">{{ __('Remove test data') }}</x-ui.button>
             </div>
+        @endif
+
+        @if ($this->history->isNotEmpty())
+            {{-- ── Last checked / history ───────────────────────────── --}}
+            @php
+                $latest = $this->history->first();
+            @endphp
+            <x-ui.card padding="p-0" class="overflow-hidden">
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-divider px-6 py-4">
+                    <h2 class="bts-card-title">{{ __('Last checked & history') }}</h2>
+                    <p class="text-[12.5px] text-faint">{{ __('Live salons are also checked automatically every hour.') }}</p>
+                </div>
+
+                @if ($latest->regressions !== null)
+                    <div class="mx-3 mt-3 flex items-start gap-3 rounded-[10px] border px-4 py-3" style="background-color:#F6E8E1;border-color:#E4C4B3;">
+                        <flux:icon.x-circle variant="mini" class="mt-0.5 shrink-0" style="color:#8A4B2D;" />
+                        <div>
+                            <p class="text-[14px] font-semibold" style="color:#8A4B2D;">{{ __('Newly failing since the previous check') }}</p>
+                            <p class="text-[13.5px] leading-relaxed" style="color:#8A4B2D;">{{ collect($latest->regressions)->pluck('label')->implode(', ') }} — {{ __('the agency\'s owners and admins were emailed.') }}</p>
+                        </div>
+                    </div>
+                @endif
+
+                <ul class="flex flex-col gap-1.5 p-3">
+                    @foreach ($this->history as $run)
+                        <li wire:key="run-{{ $run->id }}" class="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-[10px] px-3 py-2">
+                            @if ($run->fail_count > 0)
+                                <flux:icon.x-circle variant="mini" class="shrink-0" style="color:#8A4B2D;" />
+                            @elseif ($run->warn_count > 0)
+                                <flux:icon.exclamation-triangle variant="mini" class="shrink-0" style="color:#8A6D1F;" />
+                            @else
+                                <flux:icon.check-circle variant="mini" class="shrink-0" style="color:#7FA379;" />
+                            @endif
+                            <span class="text-[13.5px] font-semibold text-body">{{ $run->created_at->timezone($salon->timezone)->format('M j, g:i A') }}</span>
+                            <span class="bts-pill" style="background-color:#F0EEEA;color:#6B6862;">{{ $run->source === 'scheduled' ? __('Auto monitor') : __('Manual run') }}</span>
+                            <span class="text-[13px] text-secondary">{{ __(':pass passed · :warn warnings · :fail failed', ['pass' => $run->pass_count, 'warn' => $run->warn_count, 'fail' => $run->fail_count]) }}</span>
+                            @if ($run->regressions !== null)
+                                <span class="bts-pill" style="background-color:#F6E8E1;color:#8A4B2D;">{{ __('newly failing: :checks', ['checks' => collect($run->regressions)->pluck('label')->implode(', ')]) }}</span>
+                            @endif
+                        </li>
+                    @endforeach
+                </ul>
+            </x-ui.card>
         @endif
 
         @if ($summary !== null)
