@@ -2,9 +2,11 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\Diagnostics\ConnectionDiagnostics;
 use App\Support\BookingApiToken;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -28,6 +30,15 @@ class AuthenticateBookingApi
         }
 
         $request->attributes->set('bookingApiSalon', $salon);
+
+        // The "Check connections" round-trip indicator: remember the last
+        // AUTHENTICATED call per salon (never the token, never the payload
+        // PII) so the diagnostics page can confirm GHL genuinely reached us.
+        Cache::put(
+            ConnectionDiagnostics::lastCallKey($salon),
+            ['at' => now()->toIso8601String(), 'path' => '/'.ltrim($request->path(), '/')],
+            now()->addHours(2),
+        );
 
         return $next($request);
     }

@@ -49,6 +49,10 @@ Schedule::command('ghl:reconcile')
 // Expired public-demo salons are hard-deleted hourly (blast-radius control).
 Schedule::command('demo:sweep')->hourly()->withoutOverlapping();
 
+// Abandoned "Check connections" test records (stylist/service/client)
+// are torn down after 24h so no live salon keeps a phantom test stylist.
+Schedule::command('diagnostics:sweep-test-records')->hourly()->withoutOverlapping();
+
 // The demo showcase resets nightly: visitor-created bookings (the demo's
 // one try-it exemption) are cleared and the seeded calendar re-anchors to
 // "now", so every day's demo looks current and tidy. Same single cron line.
