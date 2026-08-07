@@ -39,7 +39,7 @@ new #[Title('Calendar')] class extends Component {
 
         // Managers: the master board, with click-to-book. EMPLOYEE stylists:
         // the shared salon board too (they work the same floor), read-only.
-        // BOOTH RENTERS: their own column ONLY — separate businesses must
+        // CHAIR RENTERS: their own column ONLY — separate businesses must
         // not see each other's books (SPEC §2) — with click-to-book on it.
         $manages = Auth::user()->can('manageBookings', $salon);
         $boothRenter = Auth::user()->boothRenterMembershipFor($salon) !== null;
@@ -125,7 +125,7 @@ new #[Title('Calendar')] class extends Component {
      */
     public function selectSlot(string $start, ?int $stylistId = null): void
     {
-        // Managers book anyone; a booth renter books ONLY themselves
+        // Managers book anyone; a chair renter books ONLY themselves
         // (employee stylists fail the ability outright).
         $this->authorize('createBookings', $this->salon);
 
@@ -185,7 +185,7 @@ new #[Title('Calendar')] class extends Component {
         $booking = $this->salon->bookings()->whereKey($id)->firstOrFail();
 
         // Master viewers (managers + employee stylists on the shared board)
-        // may open any booking; a booth renter only their own.
+        // may open any booking; a chair renter only their own.
         abort_unless(
             $this->isMaster || $booking->items()->where('stylist_id', Auth::id())->exists(),
             403,

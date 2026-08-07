@@ -643,7 +643,7 @@ new #[Title('Users')] class extends Component {
                                 <div class="flex items-center gap-2 text-[14px] text-secondary">
                                     <span>{{ $m->salon_role->label() }}</span>
                                     @if ($m->salon_role === \App\Enums\SalonRole::Stylist && $m->arrangement === \App\Enums\StylistArrangement::BoothRental)
-                                        <span class="bts-pill" style="background-color:#E3EDF6;color:#356088;">{{ __('Booth renter') }}</span>
+                                        <span class="bts-pill" style="background-color:#E3EDF6;color:#356088;">{{ $m->arrangement->label() }}</span>
                                     @endif
                                     @if ($m->salon_role->isManager() && $m->staff_type === \App\Enums\StaffType::Stylist)
                                         <span class="bts-pill" style="background-color:var(--accent-tint);color:var(--accent-ink);">{{ __('Takes bookings') }}</span>
@@ -735,9 +735,9 @@ new #[Title('Users')] class extends Component {
             @endif
             @if ($this->arrangementSelectable && $role === 'stylist')
                 <flux:select wire:model="arrangement" :label="__('Arrangement')"
-                    :description="__('Employees see the shared calendar; booth renters run their own book, clients, and revenue.')">
+                    :description="__('Employees see the shared calendar; chair renters run their own book, clients, and revenue.')">
                     <flux:select.option value="employee">{{ __('Employee') }}</flux:select.option>
-                    <flux:select.option value="booth_rental">{{ __('Booth renter') }}</flux:select.option>
+                    <flux:select.option value="booth_rental">{{ \App\Enums\StylistArrangement::BoothRental->label() }}</flux:select.option>
                 </flux:select>
             @endif
             <div class="flex justify-end gap-3">
@@ -769,7 +769,7 @@ new #[Title('Users')] class extends Component {
             @if ($this->arrangementSelectable && $editRole === 'stylist')
                 <flux:select wire:model="editArrangement" :label="__('Arrangement')">
                     <flux:select.option value="employee">{{ __('Employee') }}</flux:select.option>
-                    <flux:select.option value="booth_rental">{{ __('Booth renter') }}</flux:select.option>
+                    <flux:select.option value="booth_rental">{{ \App\Enums\StylistArrangement::BoothRental->label() }}</flux:select.option>
                 </flux:select>
             @endif
             @if ($editRole === 'stylist')

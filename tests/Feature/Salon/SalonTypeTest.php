@@ -18,6 +18,7 @@ use App\Services\Reporting\SalonReport;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Mail;
 use Livewire\Livewire;
 
@@ -293,4 +294,55 @@ it('gives owners and managers the full surface in every salon type', function ()
             }
         }
     }
+});
+
+// ---------------------------------------------------------------------------
+// Chair Rental naming — a display-label rename; stored values untouched
+// ---------------------------------------------------------------------------
+
+it('labels the type Chair Rental and the arrangement Chair renter — stored values stay booth_rental', function () {
+    // The central sources: both enums' label(); serialized values unchanged.
+    expect(SalonType::BoothRental->label())->toBe('Chair Rental');
+    expect(SalonType::BoothRental->value)->toBe('booth_rental');
+    expect(StylistArrangement::BoothRental->label())->toBe('Chair renter');
+    expect(StylistArrangement::BoothRental->value)->toBe('booth_rental');
+
+    // A salon stored under the old value loads and renders the new label.
+    $salon = Salon::factory()->create(['salon_type' => 'booth_rental']);
+    $owner = salonOwnerOf($salon);
+    $renter = stylistOf($salon);
+    $renter->membershipFor($salon)->update(['arrangement' => 'booth_rental']);
+
+    $this->actingAs($owner)->get(route('salon.users', $salon))
+        ->assertOk()
+        ->assertSee('Chair renter')
+        ->assertDontSee('Booth renter');
+
+    // Behaviour identical: the renter still books only themselves.
+    expect($renter->boothRenterMembershipFor($salon))->not->toBeNull();
+
+    // The agency console's type choice derives from the same label.
+    $operator = User::factory()->create(['agency_id' => $salon->agency_id, 'agency_role' => AgencyRole::Owner]);
+    $this->actingAs($operator)->get(route('agency.salons.create'))
+        ->assertOk()
+        ->assertSee('Chair Rental')
+        ->assertDontSee('Booth rental');
+});
+
+it('leaves no user-facing Booth text in any view', function () {
+    $offenders = collect(File::allFiles(resource_path('views')))
+        ->filter(fn ($file) => str_ends_with($file->getFilename(), '.blade.php'))
+        ->flatMap(function ($file) {
+            preg_match_all('/^.*booth.*$/im', (string) file_get_contents($file->getPathname()), $matches);
+
+            return collect($matches[0])
+                // Stored values and code identifiers are allowed; words are not.
+                ->filter(fn ($line) => ! preg_match('/booth_rental|BoothRental|boothRenter|cog-6-tooth/', $line)
+                    || preg_match('/booth[ -]rent|booth renter|Booth/i', preg_replace('/booth_rental|BoothRental|boothRenter|cog-6-tooth/', '', $line)))
+                ->map(fn ($line) => $file->getRelativePathname().': '.trim($line));
+        })
+        ->values()
+        ->all();
+
+    expect($offenders)->toBe([]);
 });

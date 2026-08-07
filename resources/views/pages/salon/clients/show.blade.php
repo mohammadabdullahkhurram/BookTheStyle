@@ -42,7 +42,7 @@ new #[Title('Client')] class extends Component {
 
     public function mount(Salon $salon, int $clientId): void
     {
-        // Managers open any client; a BOOTH-RENTING stylist only clients THEY
+        // Managers open any client; a CHAIR-RENTING stylist only clients THEY
         // have served — including the notes on them. A shared client (served
         // by two renters) is correctly visible to both; safety notes
         // (allergies) must not be hidden from someone serving the client.

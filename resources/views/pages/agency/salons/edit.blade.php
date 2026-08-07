@@ -315,7 +315,7 @@ new #[Title('Edit salon')] class extends Component {
                 ':count stylist becomes an employee — they lose self-booking, their client list, and their revenue view (no data is deleted), and gain the shared calendar.|:count stylists become employees — they lose self-booking, their client lists, and their revenue views (no data is deleted), and gain the shared calendar.',
                 $affected, ['count' => $affected]),
             \App\Enums\SalonType::BoothRental => trans_choice(
-                ':count stylist becomes a booth renter — they gain their own bookings, clients, and revenue, and stop seeing the shared calendar.|:count stylists become booth renters — they gain their own bookings, clients, and revenue, and stop seeing the shared calendar.',
+                ':count stylist becomes a chair renter — they gain their own bookings, clients, and revenue, and stop seeing the shared calendar.|:count stylists become chair renters — they gain their own bookings, clients, and revenue, and stop seeing the shared calendar.',
                 $affected, ['count' => $affected]),
             \App\Enums\SalonType::Mix => __('No stylist changes — everyone keeps their current arrangement; you choose per stylist from now on.'),
         };

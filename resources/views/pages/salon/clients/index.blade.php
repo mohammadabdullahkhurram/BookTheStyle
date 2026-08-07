@@ -51,7 +51,7 @@ new #[Title('Clients')] class extends Component {
     public function mount(Salon $salon): void
     {
         // Same rule as the client profile: any booking-area staff may look.
-        // Managers see every client; a BOOTH-RENTING stylist sees only the
+        // Managers see every client; a CHAIR-RENTING stylist sees only the
         // clients THEY have served (forced below — the client belongs to the
         // stylist, not the salon). Employee stylists have no client surface.
         $this->authorize('accessClients', $salon);
@@ -68,7 +68,7 @@ new #[Title('Clients')] class extends Component {
     #[Computed]
     public function clients()
     {
-        // Booth renters are pinned to clients they have served — the existing
+        // Chair renters are pinned to clients they have served — the existing
         // served-by filter, forced regardless of what the UI sends.
         $forcedStylist = Auth::user()->can('manageBookings', $this->salon) ? null : Auth::id();
 

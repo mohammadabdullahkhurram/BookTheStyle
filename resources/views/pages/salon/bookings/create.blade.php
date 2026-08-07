@@ -42,7 +42,7 @@ new #[Title('New booking')] class extends Component {
 
     public function mount(Salon $salon): void
     {
-        // Managers book anyone; a BOOTH-RENTING stylist books their own
+        // Managers book anyone; a CHAIR-RENTING stylist books their own
         // clients (CreateBooking pins every item to them). Employee stylists
         // never book — the desk does.
         $this->authorize('createBookings', $salon);
@@ -131,7 +131,7 @@ new #[Title('New booking')] class extends Component {
         $resolver = app(DurationResolver::class);
         $activeIds = $this->salon->stylistUsers()->pluck('users.id')->map(fn ($id) => (int) $id)->all();
 
-        // A booth renter books only their own column; managers book anyone.
+        // A chair renter books only their own column; managers book anyone.
         if (! Auth::user()->can('manageBookings', $this->salon)) {
             $activeIds = array_values(array_intersect($activeIds, [Auth::id()]));
         }

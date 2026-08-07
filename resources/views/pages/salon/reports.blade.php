@@ -27,7 +27,7 @@ new #[Title('Reports')] class extends Component {
 
     public function mount(Salon $salon): void
     {
-        // Managers see the salon; a BOOTH-RENTING stylist sees only their
+        // Managers see the salon; a CHAIR-RENTING stylist sees only their
         // own business (scope forced below). Employee stylists have none.
         $this->authorize('viewReports', $salon);
         $this->salon = $salon;
