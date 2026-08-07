@@ -19,8 +19,10 @@ final class HealthContext
 
     public function __construct(
         public readonly Salon $salon,
-        public readonly User $testStylist,
-        public readonly Service $testService,
-        public readonly Client $testClient,
+        // Null in the scheduled monitor's read-only pass — the checks that
+        // need these are skipped there (NeedsTestRecords).
+        public readonly ?User $testStylist = null,
+        public readonly ?Service $testService = null,
+        public readonly ?Client $testClient = null,
     ) {}
 }

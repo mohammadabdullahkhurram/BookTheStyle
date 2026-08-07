@@ -8,8 +8,9 @@ use App\Services\Diagnostics\ConnectionDiagnostics;
 use App\Services\Health\CheckResult;
 use App\Services\Health\HealthCheck;
 use App\Services\Health\HealthContext;
+use App\Services\Health\NeedsTestRecords;
 
-class AvailabilityFindsSlots implements HealthCheck
+class AvailabilityFindsSlots implements HealthCheck, NeedsTestRecords
 {
     public function __construct(private VoiceBookingApi $api) {}
 

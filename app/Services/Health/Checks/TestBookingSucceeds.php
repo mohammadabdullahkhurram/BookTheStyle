@@ -8,13 +8,14 @@ use App\Services\Diagnostics\ConnectionDiagnostics;
 use App\Services\Health\CheckResult;
 use App\Services\Health\HealthCheck;
 use App\Services\Health\HealthContext;
+use App\Services\Health\NeedsTestRecords;
 
 /**
  * THE one sanctioned mutation in the health check: a real booking through
  * the same engine path the Voice AI uses — on the disposable is_test
  * records only, removed at clean-up, invisible to clients throughout.
  */
-class TestBookingSucceeds implements HealthCheck
+class TestBookingSucceeds implements HealthCheck, NeedsTestRecords
 {
     public function __construct(private VoiceBookingApi $api) {}
 
@@ -30,6 +31,10 @@ class TestBookingSucceeds implements HealthCheck
 
     public function run(HealthContext $context): CheckResult
     {
+        if ($context->testClient === null) {
+            return CheckResult::warn(__('Skipped — no test records in this run (the scheduled monitor never books).'));
+        }
+
         if ($context->slot === null) {
             return CheckResult::fail(
                 __('Skipped — no open time was available to book.'),

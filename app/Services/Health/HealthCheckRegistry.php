@@ -22,6 +22,7 @@ class HealthCheckRegistry
         'notifications' => 'Notifications',
         'schedule' => 'Scheduled jobs & queue',
         'readiness' => 'Salon readiness',
+        'integrity' => 'Data integrity',
         'system' => 'System',
     ];
 
@@ -34,6 +35,7 @@ class HealthCheckRegistry
             Checks\TestBookingSucceeds::class,
             Checks\WebhookSecretConfigured::class,
             Checks\GhlConnectionConfigured::class,
+            Checks\GhlConnectionLive::class,
             Checks\WidgetReachable::class,
         ],
         'notifications' => [
@@ -51,7 +53,14 @@ class HealthCheckRegistry
             Checks\SalonHasHours::class,
             Checks\SalonBrandingSet::class,
         ],
+        'integrity' => [
+            Checks\BookingsWithoutStylist::class,
+            Checks\ServicesWithoutStylists::class,
+            Checks\ServicesWithoutPrice::class,
+            Checks\StylistsWithoutHours::class,
+        ],
         'system' => [
+            Checks\SubdomainSsl::class,
             Checks\DatabaseConnectivity::class,
             Checks\MigrationsUpToDate::class,
             Checks\StorageWritable::class,
@@ -68,10 +77,17 @@ class HealthCheckRegistry
      *     summary: array{pass: int, warn: int, fail: int}
      * }
      */
-    public function run(Salon $salon): array
+    public function run(Salon $salon, bool $forMonitor = false): array
     {
-        $records = $this->diagnostics->ensureTestRecords($salon);
-        $context = new HealthContext($salon, $records['stylist'], $records['service'], $records['client']);
+        // Monitor mode is the scheduled, strictly read-only pass: no test
+        // records are created and every check needing them is skipped — the
+        // monitor must never book on anyone or mutate anything.
+        if ($forMonitor) {
+            $context = new HealthContext($salon);
+        } else {
+            $records = $this->diagnostics->ensureTestRecords($salon);
+            $context = new HealthContext($salon, $records['stylist'], $records['service'], $records['client']);
+        }
 
         $categories = [];
         $summary = ['pass' => 0, 'warn' => 0, 'fail' => 0];
@@ -82,6 +98,10 @@ class HealthCheckRegistry
             foreach (self::CHECKS[$key] as $class) {
                 /** @var HealthCheck $check */
                 $check = app($class);
+
+                if ($forMonitor && $check instanceof NeedsTestRecords) {
+                    continue;
+                }
 
                 try {
                     $result = $check->run($context);
