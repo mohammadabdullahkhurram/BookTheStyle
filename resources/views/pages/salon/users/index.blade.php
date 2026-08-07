@@ -72,7 +72,7 @@ new #[Title('Users')] class extends Component {
     public function memberships()
     {
         return $this->salon->memberships()
-            ->with('user:id,name,email,phone')
+            ->with('user:id,name,email,phone,is_test')
             ->orderByRaw("CASE salon_role WHEN 'salon_owner' THEN 0 WHEN 'salon_manager' THEN 1 ELSE 2 END")
             ->get();
     }
@@ -642,6 +642,9 @@ new #[Title('Users')] class extends Component {
                             <td class="px-6 py-4">
                                 <div class="flex items-center gap-2 text-[14px] text-secondary">
                                     <span>{{ $m->salon_role->label() }}</span>
+                                    @if ($m->user->is_test)
+                                        <span class="bts-pill" style="background-color:#F6EFE2;color:#7A5B1F;">{{ __('TEST') }}</span>
+                                    @endif
                                     @if ($m->salon_role === \App\Enums\SalonRole::Stylist && $m->arrangement === \App\Enums\StylistArrangement::BoothRental)
                                         <span class="bts-pill" style="background-color:#E3EDF6;color:#356088;">{{ $m->arrangement->label() }}</span>
                                     @endif
@@ -692,6 +695,9 @@ new #[Title('Users')] class extends Component {
                     </div>
                     <div class="flex flex-wrap items-center gap-2 ps-11 text-[13px] text-secondary">
                         <span>{{ $m->salon_role->label() }}</span>
+                                    @if ($m->user->is_test)
+                                        <span class="bts-pill" style="background-color:#F6EFE2;color:#7A5B1F;">{{ __('TEST') }}</span>
+                                    @endif
                         @if ($m->salon_role->isManager() && $m->staff_type === \App\Enums\StaffType::Stylist)
                             <span class="bts-pill" style="background-color:var(--accent-tint);color:var(--accent-ink);">{{ __('Takes bookings') }}</span>
                         @endif

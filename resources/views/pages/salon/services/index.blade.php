@@ -300,6 +300,9 @@ new #[Title('Services')] class extends Component {
                                 <div class="flex items-center gap-2.5">
                                     <span class="size-3 rounded-full" style="background-color: {{ $service->palette()['dot'] }}"></span>
                                     <span class="text-[15px] font-medium text-ink">{{ $service->name }}</span>
+                                    @if ($service->is_test)
+                                        <span class="bts-pill" style="background-color:#F6EFE2;color:#7A5B1F;">{{ __('TEST') }}</span>
+                                    @endif
                                 </div>
                             </td>
                             <td class="px-6 py-4 text-[15px] text-secondary">{{ $service->duration_min }} {{ __('min') }}</td>

@@ -78,7 +78,7 @@ class WidgetController extends Controller
             // logo) — the WIDGET's own values over the salon defaults, with
             // the validated ?accent= override still honoured.
             'branding' => WidgetBranding::for($salon, $this->accentOverride($request), $widgetModel),
-            'catalogue' => $this->catalogue($salon),
+            'catalogue' => $this->catalogue($salon, includeTest: $preview),
             'currency' => $salon->currency,
             'preselectService' => ctype_digit((string) $request->query('service')) ? (int) $request->query('service') : null,
             'widgetToken' => $this->issueToken($salon),
@@ -123,15 +123,18 @@ class WidgetController extends Controller
      *
      * @return list<array{id: int, name: string, duration_minutes: int, price: string|null, price_cents: int|null, stylists: non-empty-array<int, array{id: int, name: string}>}>
      */
-    private function catalogue(Salon $salon): array
+    private function catalogue(Salon $salon, bool $includeTest = false): array
     {
-        // Connection-check test records never surface publicly: the test
-        // service and the test stylist are invisible to widget visitors.
-        $stylistIds = $salon->stylistUsers()->where('users.is_test', false)->pluck('users.id')->map(fn ($id) => (int) $id)->all();
+        // Health-check test records never surface PUBLICLY — but the
+        // authenticated in-app PREVIEW includes them, so the operator can
+        // walk the client booking flow against the test stylist.
+        $stylistIds = $salon->stylistUsers()
+            ->when(! $includeTest, fn ($q) => $q->where('users.is_test', false))
+            ->pluck('users.id')->map(fn ($id) => (int) $id)->all();
 
         return array_values($salon->services()
             ->where('active', true)
-            ->where('is_test', false)
+            ->when(! $includeTest, fn ($q) => $q->where('is_test', false))
             ->displayOrder()
             ->with('stylists:id,name')
             ->get()
@@ -175,10 +178,10 @@ class WidgetController extends Controller
     /** Preview twin — the salon comes from the resolved tenant context. */
     public function previewAvailability(Request $request, Salon $salon): JsonResponse
     {
-        return $this->availabilityFor($request, $salon);
+        return $this->availabilityFor($request, $salon, allowTest: true);
     }
 
-    private function availabilityFor(Request $request, Salon $salon): JsonResponse
+    private function availabilityFor(Request $request, Salon $salon, bool $allowTest = false): JsonResponse
     {
         try {
             $input = $request->validate([
@@ -191,7 +194,9 @@ class WidgetController extends Controller
                 'date' => ['required', 'string', 'max:40'],
             ]);
 
-            $this->assertNoTestServices($salon, $input);
+            if (! $allowTest) {
+                $this->assertNoTestServices($salon, $input);
+            }
             [$serviceIds, $assigned] = $this->visitSelection($input);
 
             return response()->json($this->api->visitAvailability($salon, [
@@ -222,10 +227,10 @@ class WidgetController extends Controller
     /** Preview twin — the salon comes from the resolved tenant context. */
     public function previewMonth(Request $request, Salon $salon): JsonResponse
     {
-        return $this->monthFor($request, $salon);
+        return $this->monthFor($request, $salon, allowTest: true);
     }
 
-    private function monthFor(Request $request, Salon $salon): JsonResponse
+    private function monthFor(Request $request, Salon $salon, bool $allowTest = false): JsonResponse
     {
         try {
             $input = $request->validate([
@@ -249,7 +254,9 @@ class WidgetController extends Controller
                 return response()->json(['success' => true, 'month' => $input['month'], 'dates' => [], 'timezone' => $salon->timezone]);
             }
 
-            $this->assertNoTestServices($salon, $input);
+            if (! $allowTest) {
+                $this->assertNoTestServices($salon, $input);
+            }
             [$serviceIds, $assigned] = $this->visitSelection($input);
 
             $result = $this->api->visitAvailableDates($salon, [
@@ -281,10 +288,10 @@ class WidgetController extends Controller
      */
     public function previewBook(Request $request, Salon $salon): JsonResponse
     {
-        return $this->bookFor($request, $salon, commit: $salon->is_demo);
+        return $this->bookFor($request, $salon, commit: $salon->is_demo, allowTest: true);
     }
 
-    private function bookFor(Request $request, Salon $salon, bool $commit): JsonResponse
+    private function bookFor(Request $request, Salon $salon, bool $commit, bool $allowTest = false): JsonResponse
     {
         try {
             $input = $request->validate([
@@ -362,7 +369,9 @@ class WidgetController extends Controller
                 return response()->json($result, $result['success'] ? 201 : 409);
             }
 
-            $this->assertNoTestServices($salon, $input);
+            if (! $allowTest) {
+                $this->assertNoTestServices($salon, $input);
+            }
             [$serviceIds, $assigned] = $this->visitSelection($input);
 
             $result = $this->api->createVisit(

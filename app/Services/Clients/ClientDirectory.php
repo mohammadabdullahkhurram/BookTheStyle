@@ -40,7 +40,6 @@ class ClientDirectory
         $term = trim($filters['search'] ?? '');
 
         $query = $salon->clients()
-            ->where('is_test', false)
             ->select('clients.*')
             ->addSelect([
                 'total_visits' => $this->completedBookings()
@@ -116,8 +115,8 @@ class ClientDirectory
     public function summary(Salon $salon): array
     {
         return [
-            'total' => $salon->clients()->where('is_test', false)->count(),
-            'new_this_month' => $salon->clients()->where('is_test', false)
+            'total' => $salon->clients()->count(),
+            'new_this_month' => $salon->clients()
                 ->where('created_at', '>=', CarbonImmutable::now('UTC')->subDays(self::NEW_CLIENT_DAYS))
                 ->count(),
         ];

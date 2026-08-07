@@ -316,6 +316,9 @@ new #[Title('Clients')] class extends Component {
                                         <x-ui.avatar :name="$client->name" :seed="$client->id" size="sm" />
                                         <span class="flex items-center gap-2">
                                             <span class="text-[15px] font-medium text-ink transition hover:text-accent">{{ $client->name }}</span>
+                                            @if ($client->is_test)
+                                                <span class="bts-pill" style="background-color:#F6EFE2;color:#7A5B1F;">{{ __('TEST') }}</span>
+                                            @endif
                                             @if ($client->allergies)
                                                 <span class="bts-pill" style="background-color:#F8E3E3;color:#A23A3A;" title="{{ __('Has allergies / sensitivities') }}">{{ __('Allergy') }}</span>
                                             @endif
