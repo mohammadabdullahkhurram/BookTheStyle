@@ -804,6 +804,36 @@ new #[Title('Salon settings')] class extends Component {
 
 
     /**
+     * Per-step status for the guided Integrations flow. Purely derived —
+     * 'done' / 'attention' (started or broken, look at it) / 'todo'.
+     *
+     * @return array<string, string>
+     */
+    #[Computed]
+    public function integrationStepStatuses(): array
+    {
+        $checks = (array) $this->salon->integration_checks;
+        $passed = fn (string $key): bool => ($checks[$key]['state'] ?? null) === \App\Services\Ghl\IntegrationCheckResult::PASSED;
+
+        $credentialsIn = $this->tokenIsSet && $this->ghlLocationId !== '';
+        $mapDone = $this->ghlCalendarId !== '' && $this->ghlStylistMap !== [] && ! in_array('', $this->ghlStylistMap, true);
+        $mapStarted = $this->ghlCalendarId !== '' || array_filter($this->ghlStylistMap) !== [];
+
+        $states = $this->ghlAvailabilityStates;
+        $syncDone = $states->isNotEmpty() && $states->every(fn (StylistProfile $s): bool => $s->ghl_availability_status === 'synced');
+        $syncBroken = $states->contains(fn (StylistProfile $s): bool => $s->ghl_availability_status === 'failed')
+            || $this->ghlSyncIssues->isNotEmpty();
+
+        return [
+            'connect' => $credentialsIn ? 'done' : ($this->ghlStatus === 'incomplete' ? 'attention' : 'todo'),
+            'mapping' => $mapDone ? 'done' : ($mapStarted ? 'attention' : 'todo'),
+            'token' => $this->salon->api_token_generated_at !== null ? 'done' : 'todo',
+            'webhook' => filled($this->ghlWebhookSecret) ? 'done' : 'todo',
+            'test' => $syncBroken ? 'attention' : ($syncDone && $passed(\App\Services\Ghl\IntegrationChecks::BOOKING) ? 'done' : 'todo'),
+        ];
+    }
+
+    /**
      * Store the salon's GoHighLevel connection. Gated tighter than the rest of
      * settings: salon owner/admin (+ agency owner/admin), never salon staff or
      * agency users — they cannot touch the credentials.
