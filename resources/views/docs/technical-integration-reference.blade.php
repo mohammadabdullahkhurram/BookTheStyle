@@ -46,7 +46,7 @@
 </x-docs.section>
 
 <x-docs.section id="endpoints" :title="__('Endpoint reference')">
-    <p>{{ __('Two endpoints, both on the central app host, both POST, both authenticated by the per-salon bearer token — the salon is resolved from the token, never from the URL or body (nothing tamperable). Verified from routes/web.php and VoiceBookingController. There are no other booking-API endpoints today: cancel and reschedule happen in-app, not over the API.') }}</p>
+    <p>{{ __('Four endpoints, all on the central app host, all POST, all authenticated by the per-salon bearer token — the salon is resolved from the token, never from the URL or body (nothing tamperable). Verified from routes/web.php and VoiceBookingController: availability, create, cancel, and reschedule. The Voice AI can therefore book, cancel, and move appointments end to end.') }}</p>
 
     <h3 id="endpoint-availability">{{ __('Check availability') }}</h3>
     <div class="overflow-x-auto">
@@ -140,6 +140,84 @@ Content-Type: application/json
   "message": "Booked — Friday, August 14 at 10:00 AM with Maya."
 }</code></pre>
 
+    <h3 id="endpoint-cancel">{{ __('Cancel appointment') }}</h3>
+    <div class="overflow-x-auto">
+        <table>
+            <tbody>
+                <tr><th>{{ __('Method + path') }}</th><td><code>POST https://app.bookthestyle.com/api/v1/booking/cancel</code></td></tr>
+                <tr><th>{{ __('Route name') }}</th><td><code>api.booking.cancel</code></td></tr>
+                <tr><th>{{ __('Auth header') }}</th><td><code>Authorization: Bearer btsk_…</code></td></tr>
+            </tbody>
+        </table>
+    </div>
+    <p>{{ __('Identify the caller\'s appointment: client phone / email / ghl_contact_id (at least one), optionally narrowed by the stated current date(/time), or a booking_id reference. Exactly one clear match cancels through the same path the app uses — the status event is written and the GHL mirror fires, so reminders stop. Several matches come back as a 409 with the list so the AI can ask which; an already-cancelled appointment answers 200 with already_cancelled: true (idempotent).') }}</p>
+    <div class="overflow-x-auto">
+        <table>
+            <thead><tr><th>{{ __('Field') }}</th><th>{{ __('Required') }}</th><th>{{ __('Meaning') }}</th></tr></thead>
+            <tbody>
+                <tr><td><code>client.phone</code> / <code>client.email</code> / <code>ghl_contact_id</code></td><td>{{ __('one of') }}</td><td>{{ __('Finds the client (never creates one). Nested or flattened, like create.') }}</td></tr>
+                <tr><td><code>date</code> (+ <code>time</code>) {{ __('or') }} <code>datetime</code></td><td>{{ __('no') }}</td><td>{{ __('The CURRENT appointment\'s stated day/instant, to narrow when the client has several.') }}</td></tr>
+                <tr><td><code>booking_id</code></td><td>{{ __('no') }}</td><td>{{ __('Direct reference (e.g. from a previous response) — wins over client matching.') }}</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <p>{{ __('Example success response (200):') }}</p>
+    <pre><code>{
+  "success": true,
+  "already_cancelled": false,
+  "booking_id": 4821,
+  "cancelled": {
+    "salon": "Glamour Studio", "service": "Haircut",
+    "stylist": "Maya Marchetti",
+    "starts_at": "2026-08-14T10:00:00-07:00",
+    "spoken_time": "Friday, August 14 at 10:00 AM"
+  },
+  "message": "Cancelled — your Haircut with Maya on Friday, August 14 at 10:00 AM …"
+}</code></pre>
+
+    <h3 id="endpoint-reschedule">{{ __('Reschedule appointment') }}</h3>
+    <div class="overflow-x-auto">
+        <table>
+            <tbody>
+                <tr><th>{{ __('Method + path') }}</th><td><code>POST https://app.bookthestyle.com/api/v1/booking/reschedule</code></td></tr>
+                <tr><th>{{ __('Route name') }}</th><td><code>api.booking.reschedule</code></td></tr>
+                <tr><th>{{ __('Auth header') }}</th><td><code>Authorization: Bearer btsk_…</code></td></tr>
+            </tbody>
+        </table>
+    </div>
+    <p>{{ __('Identify the current appointment exactly like cancel, plus the NEW slot (normally from a preceding availability call). The move runs through the same reschedule path the app uses: stylists are locked, the shifted times are re-validated against the live engine (no double-booking), the booking policy applies, and the GHL appointment is UPDATED in place, so reminders follow the new time.') }}</p>
+    <div class="overflow-x-auto">
+        <table>
+            <thead><tr><th>{{ __('Field') }}</th><th>{{ __('Required') }}</th><th>{{ __('Meaning') }}</th></tr></thead>
+            <tbody>
+                <tr><td><code>client.phone</code> / <code>client.email</code> / <code>ghl_contact_id</code> / <code>booking_id</code></td><td>{{ __('one of') }}</td><td>{{ __('Identifies the CURRENT appointment, exactly as in cancel.') }}</td></tr>
+                <tr><td><code>date</code> (+ <code>time</code>) {{ __('or') }} <code>datetime</code></td><td>{{ __('no') }}</td><td>{{ __('The current appointment\'s stated day/instant, to narrow.') }}</td></tr>
+                <tr><td><code>new_date</code> + <code>new_time</code></td><td>{{ __('one form') }}</td><td>{{ __('The new slot as a GHL-friendly pair — the primary shape.') }}</td></tr>
+                <tr><td><code>new_datetime</code></td><td>{{ __('one form') }}</td><td>{{ __('Alternative: a single ISO datetime for the new slot.') }}</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <p>{{ __('Example request:') }}</p>
+    <pre><code>POST /api/v1/booking/reschedule
+Authorization: Bearer btsk_12_4f0c…
+Content-Type: application/json
+
+{ "client": { "phone": "+1 415 555 0122" },
+  "date": "2026-08-14", "time": "10:00 AM",
+  "new_date": "2026-08-15", "new_time": "1:00 PM" }</code></pre>
+    <p>{{ __('Example success response (200):') }}</p>
+    <pre><code>{
+  "success": true,
+  "booking_id": 4821,
+  "confirmation": {
+    "salon": "Glamour Studio", "service": "Haircut",
+    "stylist": "Maya Marchetti",
+    "starts_at": "2026-08-15T13:00:00-07:00",
+    "spoken_time": "Saturday, August 15 at 1:00 PM"
+  },
+  "message": "Done — your Haircut with Maya is moved from … to Saturday, August 15 at 1:00 PM."
+}</code></pre>
+
     <h3 id="endpoint-errors">{{ __('Status codes & error responses') }}</h3>
     <p>{{ __('Errors are clean JSON — never a stack trace — and always carry the speakable message. Verified from VoiceBookingController and VoiceBookingApi:') }}</p>
     <div class="overflow-x-auto">
@@ -147,11 +225,15 @@ Content-Type: application/json
             <thead><tr><th>{{ __('Status') }}</th><th><code>error</code></th><th>{{ __('Meaning → resolution') }}</th></tr></thead>
             <tbody>
                 <tr><td><code>401</code></td><td><code>unauthenticated</code></td><td>{{ __('Missing/invalid/rotated token, or an inactive salon. Re-paste the salon\'s current token from Settings → Integrations.') }}</td></tr>
-                <tr><td><code>409</code></td><td><code>slot_unavailable</code></td><td>{{ __('The requested time was taken (race) — the response includes alternatives[] (create) with nearby open slots to offer. Pick one and re-create.') }}</td></tr>
+                <tr><td><code>409</code></td><td><code>slot_unavailable</code></td><td>{{ __('The requested time was taken (race) or refused by policy — on create the response includes alternatives[] with nearby open slots; on reschedule pick another slot from availability and retry.') }}</td></tr>
                 <tr><td><code>422</code></td><td><code>invalid_request</code></td><td>{{ __('Request-shape validation failed; fields[] names the offending inputs. Fix the Custom Action\'s field mapping.') }}</td></tr>
                 <tr><td><code>422</code></td><td><code>unknown_service</code> / <code>unknown_stylist</code></td><td>{{ __('The name didn\'t match anything in this salon; the message lists what exists. Check spelling or use ids.') }}</td></tr>
                 <tr><td><code>422</code></td><td><code>ambiguous_stylist</code></td><td>{{ __('The name matched more than one stylist; the message lists the options — send a fuller name or the id.') }}</td></tr>
                 <tr><td><code>422</code></td><td><code>no_services</code> / <code>no_stylists</code></td><td>{{ __('The request named no bookable service, or nobody qualified offers it — fix the salon\'s services/qualifications in-app.') }}</td></tr>
+                <tr><td><code>404</code></td><td><code>client_not_found</code> / <code>appointment_not_found</code></td><td>{{ __('Cancel/reschedule: no client with those details, or no upcoming appointment matching what was stated. Confirm the phone/email and the day with the caller.') }}</td></tr>
+                <tr><td><code>409</code></td><td><code>multiple_appointments</code></td><td>{{ __('Cancel/reschedule: the client has several upcoming appointments — appointments[] lists them (id, service, stylist, spoken_time). Ask which and resend with booking_id or date+time.') }}</td></tr>
+                <tr><td><code>409</code></td><td><code>cannot_cancel</code></td><td>{{ __('The appointment\'s status no longer allows a phone cancellation (e.g. already completed) — the message says so; the salon handles it directly.') }}</td></tr>
+                <tr><td><code>422</code></td><td><code>missing_identifier</code></td><td>{{ __('Cancel/reschedule sent no phone, email, ghl_contact_id, or booking_id — map at least one in the Custom Action.') }}</td></tr>
                 <tr><td><code>422</code></td><td><code>invalid_date</code></td><td>{{ __('The date could not be parsed — use e.g. 2026-07-25.') }}</td></tr>
                 <tr><td><code>429</code></td><td>—</td><td>{{ __('Rate limit exceeded (see limits below). Back off and retry after a minute.') }}</td></tr>
             </tbody>
@@ -208,7 +290,7 @@ Content-Type: application/json
         <li>{{ __('Sub-account / location: one per salon, provisioned from the Loopflo snapshot') }} <x-docs.fill-in>{{ __('snapshot name') }}</x-docs.fill-in></li>
         <li>{{ __('Contacts + tags: the tag-gating scheme is') }} <x-docs.fill-in>{{ __('tag names — e.g. bts-synced, booked') }}</x-docs.fill-in>{{ __('; only tagged contacts sync.') }}</li>
         <li>{{ __('Workflows:') }} <x-docs.fill-in>{{ __('list — confirmation, reminders (24h/2h), no-show follow-up, …') }}</x-docs.fill-in> {{ __('with triggers') }} <x-docs.fill-in>{{ __('triggers') }}</x-docs.fill-in></li>
-        <li>{{ __('Voice AI agent: persona/prompt') }} <x-docs.fill-in>{{ __('persona') }}</x-docs.fill-in>{{ __(', allowed Custom Actions: availability + book.') }}</li>
+        <li>{{ __('Voice AI agent: persona/prompt') }} <x-docs.fill-in>{{ __('persona') }}</x-docs.fill-in>{{ __(', allowed Custom Actions: availability + book + cancel + reschedule.') }}</li>
         <li>{{ __('Contact-sync direction/trigger and dedupe rules:') }} <x-docs.fill-in>{{ __('when tagged → sync; match on email/phone …') }}</x-docs.fill-in></li>
     </ul>
 </x-docs.section>
@@ -227,7 +309,7 @@ Content-Type: application/json
         <p>{{ __('From') }} <x-docs.fill-in>{{ __('snapshot name') }}</x-docs.fill-in>{{ __('; confirm the tag scheme and workflows arrived (GHL-side section above).') }}</p>
         <p><strong>{{ __('Expected:') }}</strong> {{ __('the sub-account exists with the standard workflows listed, toggled off or on per the template.') }}</p>
     </x-docs.step>
-    <x-docs.step n="4" :title="__('Generate the booking token; wire both Custom Actions')">
+    <x-docs.step n="4" :title="__('Generate the booking token; wire the Custom Actions')">
         <p>{{ __('Settings → Integrations → Voice-AI Booking API → generate (shown once). In GHL, paste into BOTH Custom Actions: the availability URL and the create URL from the endpoint reference, same bearer token on each.') }}</p>
         <p><strong>{{ __('Expected:') }}</strong> {{ __('a manual test call of the availability action from GHL returns 200 with slots (or a no-openings message), not 401.') }}</p>
     </x-docs.step>

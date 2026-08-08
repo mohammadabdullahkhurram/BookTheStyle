@@ -32,7 +32,7 @@
     </div>
 
     <p class="text-[12.5px] text-faint">
-        POST {{ route('api.booking.availability') }} · POST {{ route('api.booking.create') }} — Authorization: Bearer &lt;token&gt;
+        POST {{ route('api.booking.availability') }} · POST {{ route('api.booking.create') }} · POST {{ route('api.booking.cancel') }} · POST {{ route('api.booking.reschedule') }} — Authorization: Bearer &lt;token&gt;
     </p>
 
     {{-- End-to-end test: call this salon's own availability endpoint
