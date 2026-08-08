@@ -6,6 +6,7 @@ use App\Enums\SalonRole;
 use App\Jobs\SyncBookingToGhl;
 use App\Models\Agency;
 use App\Models\Booking;
+use App\Models\Client;
 use App\Models\Salon;
 use App\Models\User;
 use App\Support\BookingApiToken;
@@ -213,4 +214,90 @@ it('documents both endpoints in the technical reference', function () {
         ->assertSee('api.booking.cancel')
         ->assertSee('api.booking.reschedule')
         ->assertSee('multiple_appointments');
+});
+
+// ---------------------------------------------------------------------------
+// Phone-format regression: cancel/reschedule must find what create wrote
+// ---------------------------------------------------------------------------
+
+it('cancels an appointment booked via the API using the same phone in ANY format (the exact-match 404 regression)', function () {
+    ['salon' => $salon, 'token' => $token, 'booking' => $booking, 'at' => $at] = crSalon('+1 916 555 0100');
+
+    // Every human/GHL formatting of the SAME number finds the appointment.
+    foreach (['(916) 555-0100', '916-555-0100', '+19165550100', '1 916 555 0100'] as $format) {
+        crPost('api.booking.cancel', [
+            'client' => ['phone' => $format],
+            'date' => $at->format('Y-m-d'),
+        ], $token)
+            ->assertOk()
+            ->assertJsonPath('booking_id', $booking->id);
+    }
+
+    // (First call cancelled; the rest answered idempotently — same slot.)
+    expect($booking->refresh()->status)->toBe(BookingStatus::Cancelled);
+}); // Failed with 404 client_not_found before the shared digit-matching lookup.
+
+it('books end to end via the API then cancels with a reformatted phone + the same date', function () {
+    $salon = bookingSalon();
+    $at = CarbonImmutable::now($salon->timezone)->addDays(2)->setTime(10, 0);
+    $stylist = stylistWithHours($salon, (int) $at->format('N') - 1, 9 * 60, 17 * 60);
+    serviceFor($salon, $stylist, 60)->forceFill(['name' => 'Signature Cut'])->save();
+    $token = BookingApiToken::generate($salon);
+
+    $created = crPost('api.booking.create', [
+        'service' => 'Signature Cut', 'date' => $at->format('Y-m-d'), 'time' => '10:00 AM',
+        'client' => ['name' => 'Casey Caller', 'phone' => '+1 916 555 0100'],
+    ], $token)->assertStatus(201)->json('booking_id');
+
+    crPost('api.booking.cancel', [
+        'client' => ['phone' => '(916) 555-0100'], 'date' => $at->format('Y-m-d'),
+    ], $token)
+        ->assertOk()
+        ->assertJsonPath('booking_id', $created);
+
+    expect(Booking::withoutGlobalScopes()->whereKey($created)->sole()->status)->toBe(BookingStatus::Cancelled);
+});
+
+it('reschedules through the same format-blind lookup', function () {
+    ['salon' => $salon, 'token' => $token, 'booking' => $booking, 'at' => $at] = crSalon('+1 916 555 0100');
+
+    crPost('api.booking.reschedule', [
+        'client' => ['phone' => '916.555.0100'],
+        'new_date' => $at->format('Y-m-d'), 'new_time' => '1:00 PM',
+    ], $token)
+        ->assertOk()
+        ->assertJsonPath('booking_id', $booking->id);
+
+    expect($booking->refresh()->items()->first()->starts_at->setTimezone($salon->timezone)->format('g:i A'))->toBe('1:00 PM');
+});
+
+it('books without duplicating the client when the caller returns in a different format', function () {
+    ['salon' => $salon, 'token' => $token, 'booking' => $booking, 'at' => $at] = crSalon('+1 916 555 0100');
+
+    crPost('api.booking.create', [
+        'service' => $booking->items()->first()->service->name,
+        'date' => $at->format('Y-m-d'), 'time' => '3:00 PM',
+        'client' => ['name' => 'Casey Caller', 'phone' => '(916) 555-0100'],
+    ], $token)->assertStatus(201);
+
+    // Same client row, two bookings — no format-duplicate client.
+    expect(Client::withoutGlobalScopes()->where('salon_id', $salon->id)->count())->toBe(1);
+});
+
+it('still 404s a genuinely wrong phone or date, and never matches across salons on digits', function () {
+    $a = crSalon('+1 916 555 0100');
+    $b = crSalon('+1 916 555 0100'); // same number, other salon
+
+    // Wrong number (one digit off) and wrong date stay honest 404s.
+    crPost('api.booking.cancel', ['client' => ['phone' => '(916) 555-0101']], $a['token'])
+        ->assertStatus(404)->assertJsonPath('error', 'client_not_found');
+    crPost('api.booking.cancel', [
+        'client' => ['phone' => '(916) 555-0100'], 'date' => $a['at']->addDays(5)->format('Y-m-d'),
+    ], $a['token'])->assertStatus(404)->assertJsonPath('error', 'appointment_not_found');
+
+    // Digit matching never leaks across tenants: cancelling via A's token
+    // touches A's booking, B's stays booked.
+    crPost('api.booking.cancel', ['client' => ['phone' => '9165550100']], $a['token'])->assertOk();
+    expect($a['booking']->refresh()->status)->toBe(BookingStatus::Cancelled);
+    expect($b['booking']->refresh()->status)->toBe(BookingStatus::Booked);
 });
