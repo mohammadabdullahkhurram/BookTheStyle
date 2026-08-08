@@ -17,6 +17,7 @@ use App\Models\User;
 use App\Services\Booking\DurationResolver;
 use App\Services\Booking\ResolvedDuration;
 use App\Services\Booking\SlotEngine;
+use App\Support\PhoneNumber;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
@@ -1287,9 +1288,40 @@ class VoiceBookingApi
     // -- Clients --------------------------------------------------------------
 
     /**
-     * Upsert the caller: by GHL contact id first, then exact phone, then
-     * email (case-insensitive), else create — and backfill a missing
-     * ghl_contact_id link when GHL supplied one.
+     * THE one phone→client lookup for the whole Booking API — used by the
+     * create path (so a returning caller in a new format is matched, not
+     * duplicated) and by cancel/reschedule (so they find what create
+     * wrote). Exact string first (fast path), then a format-blind digit
+     * comparison (App\Support\PhoneNumber): "+1 916 555 0100",
+     * "(916) 555-0100" and "+19165550100" are all the same caller.
+     * Salon-scoped by the relation; is_test clients are findable — the
+     * operator tests the API against the Bluejaypro records.
+     */
+    private function findClientByPhone(Salon $salon, string $phone): ?Client
+    {
+        $exact = $salon->clients()->where('phone', $phone)->first();
+
+        if ($exact !== null) {
+            return $exact;
+        }
+
+        if (PhoneNumber::significant($phone) === '') {
+            return null;
+        }
+
+        foreach ($salon->clients()->whereNotNull('phone')->get(['id', 'phone']) as $candidate) {
+            if (PhoneNumber::matches((string) $candidate->phone, $phone)) {
+                return $salon->clients()->whereKey($candidate->id)->first();
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Upsert the caller: by GHL contact id first, then phone (format-blind,
+     * via the shared lookup), then email (case-insensitive), else create —
+     * and backfill a missing ghl_contact_id link when GHL supplied one.
      *
      * @param  array{name: string, phone?: string|null, email?: string|null}  $data
      */
@@ -1304,7 +1336,7 @@ class VoiceBookingApi
             $client = $salon->clients()->where('ghl_contact_id', $ghlContactId)->first();
         }
 
-        $client ??= $phone !== null ? $salon->clients()->where('phone', $phone)->first() : null;
+        $client ??= $phone !== null ? $this->findClientByPhone($salon, $phone) : null;
         $client ??= $email !== null ? $salon->clients()->whereRaw('lower(email) = ?', [$email])->first() : null;
 
         if ($client === null) {
@@ -1522,7 +1554,7 @@ class VoiceBookingApi
 
         $match = null;
         $match = $ghlContactId !== '' ? $salon->clients()->where('ghl_contact_id', $ghlContactId)->first() : null;
-        $match ??= $phone !== '' ? $salon->clients()->where('phone', $phone)->first() : null;
+        $match ??= $phone !== '' ? $this->findClientByPhone($salon, $phone) : null;
         $match ??= $email !== '' ? $salon->clients()->whereRaw('lower(email) = ?', [$email])->first() : null;
 
         if ($match === null) {
@@ -1555,12 +1587,17 @@ class VoiceBookingApi
         if ($candidates->isEmpty()) {
             // Idempotent cancel: the stated appointment exists but is
             // ALREADY cancelled — a clean "nothing to do", not a 404.
-            if ($intent === 'cancel' && $when !== null) {
+            // Covers both an exact stated instant and a stated day.
+            if ($intent === 'cancel' && ($when !== null || $dateOnly !== null)) {
                 $cancelled = $salon->bookings()
                     ->where('client_id', $match->id)
                     ->where('status', BookingStatus::Cancelled->value)
-                    ->whereHas('items', fn ($q) => $q->where('starts_at', $when->utc()))
+                    ->when($when !== null, fn ($q) => $q->whereHas('items', fn ($i) => $i->where('starts_at', $when->utc())))
                     ->with(['items.service', 'items.stylist', 'client'])
+                    ->get()
+                    ->filter(fn (Booking $b): bool => $when !== null
+                        || $b->items->min('starts_at')->setTimezone($tz)->isSameDay($dateOnly))
+                    ->sortByDesc('id')
                     ->first();
 
                 if ($cancelled !== null) {
