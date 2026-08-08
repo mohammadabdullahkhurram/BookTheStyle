@@ -216,9 +216,9 @@ new #[Title('Clients')] class extends Component {
     }
 
     // ------------------------------------------------------------------
-    // PERMANENT delete — the client AND every appointment they ever had
-    // (blast radius shown first). Owner + agency owner/admin only
-    // (SalonPolicy::hardDelete); managers keep edit but cannot delete.
+    // SOLO delete — the client alone; their appointments ARE KEPT (the
+    // confirm modal says so with the count). Owner + agency owner/admin
+    // only (SalonPolicy::hardDelete); managers keep edit but cannot delete.
 
     public bool $showDelete = false;
 
@@ -270,7 +270,7 @@ new #[Title('Clients')] class extends Component {
         $this->reset(['showDelete', 'deleteClientId', 'editingId']);
         unset($this->clients, $this->deleteBlast);
 
-        Flux::toast(variant: 'success', text: __('Client permanently deleted, appointments included.'));
+        Flux::toast(variant: 'success', text: __('Client deleted. Their appointments are kept.'));
     }
 
     /**
@@ -480,11 +480,11 @@ new #[Title('Clients')] class extends Component {
     <x-ui.modal wire:model="showDelete" class="max-w-md" :heading="__('Delete permanently')">
         @if ($this->deleteBlast !== null)
             <div class="flex flex-col gap-4">
-                <p class="text-[13.5px] leading-relaxed text-secondary">{{ __(':name will be permanently deleted — profile, notes, and every appointment they ever had here. This cannot be undone.', ['name' => $this->deleteBlast['name']]) }}</p>
-                <div class="rounded-[10px] border px-4 py-3" style="background-color:#F6E8E1;border-color:#E4C4B3;">
-                    <p class="text-[13.5px] font-semibold" style="color:#8A4B2D;">{{ trans_choice('Also deleted: :count appointment.|Also deleted: :count appointments.', $this->deleteBlast['total'], ['count' => $this->deleteBlast['total']]) }}</p>
+                <p class="text-[13.5px] leading-relaxed text-secondary">{{ __(':name will be deleted from the client directory — profile, contact details, and notes. This cannot be undone.', ['name' => $this->deleteBlast['name']]) }}</p>
+                <div class="rounded-[10px] border px-4 py-3" style="background-color:#F0EEEA;border-color:#DAD5CD;">
+                    <p class="text-[13.5px] font-semibold text-body">{{ trans_choice('Their :count appointment is KEPT — nothing on the calendar is deleted.|Their :count appointments are KEPT — nothing on the calendar is deleted.', $this->deleteBlast['total'], ['count' => $this->deleteBlast['total']]) }}</p>
                     @if ($this->deleteBlast['upcoming'] > 0)
-                        <p class="mt-1 text-[13px]" style="color:#8A4B2D;">{{ trans_choice(':count of them is UPCOMING — the client will NOT be notified by BookTheStyle.|:count of them are UPCOMING — the client will NOT be notified by BookTheStyle.', $this->deleteBlast['upcoming'], ['count' => $this->deleteBlast['upcoming']]) }}</p>
+                        <p class="mt-1 text-[13px] text-secondary">{{ trans_choice(':count upcoming appointment stays booked, showing their name marked (removed).|:count upcoming appointments stay booked, showing their name marked (removed).', $this->deleteBlast['upcoming'], ['count' => $this->deleteBlast['upcoming']]) }}</p>
                     @endif
                 </div>
                 <div class="flex justify-end gap-3">

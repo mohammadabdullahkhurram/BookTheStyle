@@ -275,7 +275,11 @@ new #[Title('Appointments')] class extends Component {
                             <x-ui.avatar :name="$booking->client->name" :seed="$seed" size="sm" class="mt-0.5" />
                             <div class="flex flex-col gap-1.5">
                                 <div class="flex flex-wrap items-center gap-2">
-                                    <a href="{{ route('salon.client', ['salon' => $salon, 'clientId' => $booking->client_id]) }}" wire:navigate class="text-[15px] font-semibold text-ink transition hover:text-accent">{{ $booking->client->name }}</a>
+                                    @if ($booking->client->trashed())
+                                        <span class="text-[15px] font-semibold text-ink">{{ $booking->client->name }} <span class="font-normal text-faint">{{ __('(removed)') }}</span></span>
+                                    @else
+                                        <a href="{{ route('salon.client', ['salon' => $salon, 'clientId' => $booking->client_id]) }}" wire:navigate class="text-[15px] font-semibold text-ink transition hover:text-accent">{{ $booking->client->name }}</a>
+                                    @endif
                                     <x-ui.status-pill :status="$booking->status" />
                                     @if ($booking->is_walkin)<span class="bts-pill" style="background-color:#F0EEEA;color:#6B6862;">{{ __('Walk-in') }}</span>@endif
                                     @can('manage', $salon)
@@ -288,7 +292,7 @@ new #[Title('Appointments')] class extends Component {
                                     @foreach ($booking->items as $item)
                                         <span class="inline-flex items-center gap-1.5">
                                             <span class="size-2 rounded-full" style="background-color: {{ $item->service->palette()['dot'] }}"></span>
-                                            {{ $item->service->name }} · {{ $item->stylist->name }}@if (! $loop->last), @endif
+                                            {{ $item->service->name }}@if ($item->service->trashed()) {{ __('(removed)') }}@endif · {{ $item->stylist->name }}@if ($item->stylist->trashed()) {{ __('(removed)') }}@endif@if (! $loop->last), @endif
                                         </span>
                                     @endforeach
                                 </div>

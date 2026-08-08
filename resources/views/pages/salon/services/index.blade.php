@@ -220,15 +220,13 @@ new #[Title('Services')] class extends Component {
     }
 
     // ------------------------------------------------------------------
-    // PERMANENT delete — the service, its stylist assignments, and every
-    // appointment that used it. Owner + agency owner/admin only
-    // (SalonPolicy::hardDelete); Deactivate stays the archive path.
+    // SOLO delete — the service alone; every appointment that used it IS
+    // KEPT. Owner + agency owner/admin only (SalonPolicy::hardDelete);
+    // Deactivate stays the archive path.
 
     public bool $showDelete = false;
 
     public ?int $deleteServiceId = null;
-
-    public bool $deleteAcknowledge = false;
 
     #[Computed]
     public function canHardDelete(): bool
@@ -265,7 +263,6 @@ new #[Title('Services')] class extends Component {
         abort_unless($this->canHardDelete, 403);
 
         $this->deleteServiceId = $this->service($serviceId)->id;
-        $this->deleteAcknowledge = false;
         $this->resetErrorBag();
         unset($this->deleteBlast);
         $this->showDelete = true;
@@ -280,18 +277,12 @@ new #[Title('Services')] class extends Component {
         $this->resetErrorBag();
         $service = $this->service((int) $this->deleteServiceId);
 
-        try {
-            $action->handle(Auth::user(), $this->salon, $service, $this->deleteAcknowledge);
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'deleteAcknowledge' => collect($e->errors())->flatten()->all(),
-            ]);
-        }
+        $action->handle(Auth::user(), $this->salon, $service);
 
-        $this->reset(['showDelete', 'deleteServiceId', 'deleteAcknowledge']);
+        $this->reset(['showDelete', 'deleteServiceId']);
         unset($this->services, $this->deleteBlast);
 
-        Flux::toast(variant: 'success', text: __('Service permanently deleted, its appointments included.'));
+        Flux::toast(variant: 'success', text: __('Service deleted. Its appointments are kept.'));
     }
 
     /**
@@ -458,28 +449,13 @@ new #[Title('Services')] class extends Component {
     <x-ui.modal wire:model="showDelete" class="max-w-md" :heading="__('Delete permanently')">
         @if ($this->deleteBlast !== null)
             <div class="flex flex-col gap-4">
-                <p class="text-[13.5px] leading-relaxed text-secondary">{{ __(':name will be permanently deleted, along with every appointment that used it and its stylist assignments (:stylists). A multi-service visit is removed whole. This cannot be undone — prefer Deactivate to stop offering it but keep the history.', ['name' => $this->deleteBlast['name'], 'stylists' => $this->deleteBlast['stylists']]) }}</p>
-                <div class="rounded-[10px] border px-4 py-3" style="background-color:#F6E8E1;border-color:#E4C4B3;">
-                    <p class="text-[13.5px] font-semibold" style="color:#8A4B2D;">{{ trans_choice('Also deleted: :count appointment.|Also deleted: :count appointments.', $this->deleteBlast['total'], ['count' => $this->deleteBlast['total']]) }}</p>
+                <p class="text-[13.5px] leading-relaxed text-secondary">{{ __(':name will be deleted from the menu, along with its stylist assignments (:stylists) — those are just links to the service. This cannot be undone — prefer Deactivate to stop offering it.', ['name' => $this->deleteBlast['name'], 'stylists' => $this->deleteBlast['stylists']]) }}</p>
+                <div class="rounded-[10px] border px-4 py-3" style="background-color:#F0EEEA;border-color:#DAD5CD;">
+                    <p class="text-[13.5px] font-semibold text-body">{{ trans_choice('The :count appointment that used it is KEPT — nothing on the calendar is deleted.|All :count appointments that used it are KEPT — nothing on the calendar is deleted.', $this->deleteBlast['total'], ['count' => $this->deleteBlast['total']]) }}</p>
                     @if ($this->deleteBlast['upcomingTotal'] > 0)
-                        <p class="mt-1 text-[13px]" style="color:#8A4B2D;">{{ trans_choice(':count of them is UPCOMING:|:count of them are UPCOMING:', $this->deleteBlast['upcomingTotal'], ['count' => $this->deleteBlast['upcomingTotal']]) }}</p>
-                        <ul class="ms-4 mt-1 list-disc text-[13px]" style="color:#8A4B2D;">
-                            @foreach ($this->deleteBlast['upcoming'] as $b)
-                                <li>{{ $b['when'] }} — {{ $b['client'] }}</li>
-                            @endforeach
-                            @if ($this->deleteBlast['upcomingTotal'] > count($this->deleteBlast['upcoming']))
-                                <li>{{ __('…and :count more', ['count' => $this->deleteBlast['upcomingTotal'] - count($this->deleteBlast['upcoming'])]) }}</li>
-                            @endif
-                        </ul>
+                        <p class="mt-1 text-[13px] text-secondary">{{ trans_choice(':count upcoming appointment stays booked, showing the service name marked (removed).|:count upcoming appointments stay booked, showing the service name marked (removed).', $this->deleteBlast['upcomingTotal'], ['count' => $this->deleteBlast['upcomingTotal']]) }}</p>
                     @endif
                 </div>
-                @if ($this->deleteBlast['upcomingTotal'] > 0)
-                    <label class="flex items-start gap-2.5 text-[13.5px] leading-relaxed text-body">
-                        <input type="checkbox" wire:model="deleteAcknowledge" class="mt-0.5">
-                        <span>{{ __('I understand these upcoming appointments will be permanently deleted and the clients will NOT be notified by BookTheStyle.') }}</span>
-                    </label>
-                @endif
-                @error('deleteAcknowledge')<p class="text-[13px] font-medium text-danger">{{ $message }}</p>@enderror
                 <div class="flex justify-end gap-3">
                     <x-ui.button type="button" variant="secondary" wire:click="$set('showDelete', false)">{{ __('Cancel') }}</x-ui.button>
                     <x-ui.button variant="danger" wire:click="confirmDelete" loading="confirmDelete">{{ __('Delete permanently') }}</x-ui.button>

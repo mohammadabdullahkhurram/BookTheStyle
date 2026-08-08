@@ -388,7 +388,7 @@ new #[Title('Calendar')] class extends Component {
 
     {{-- Booking detail panel --}}
     <x-ui.modal wire:model="showDetail" class="max-w-lg"
-        :heading="$this->detail?->client->name"
+        :heading="$this->detail?->client->name.($this->detail?->client->trashed() ? ' '.__('(removed)') : '')"
         :subheading="$this->detail?->items->min('starts_at')?->setTimezone($salon->timezone)->format('l, M j · g:i A')">
         @if ($this->detail)
             @php($booking = $this->detail)
@@ -411,8 +411,8 @@ new #[Title('Calendar')] class extends Component {
                         <div class="flex items-center justify-between py-2.5 text-[14px]">
                             <div class="flex items-center gap-2">
                                 <span class="size-2.5 rounded-full" style="background-color: {{ $item->service->palette()['dot'] }}"></span>
-                                <span class="font-medium text-ink">{{ $item->service->name }}</span>
-                                <span class="text-secondary">· {{ $item->stylist->name }}</span>
+                                <span class="font-medium text-ink">{{ $item->service->name }}@if ($item->service->trashed()) <span class="font-normal text-faint">{{ __('(removed)') }}</span>@endif</span>
+                                <span class="text-secondary">· {{ $item->stylist->name }}@if ($item->stylist->trashed()) {{ __('(removed)') }}@endif</span>
                                 @if ($item->service->price_cents !== null)
                                     <span class="text-faint">· {{ $item->service->priceLabel($salon->currency) }}</span>
                                 @endif
