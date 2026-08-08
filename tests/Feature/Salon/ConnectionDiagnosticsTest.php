@@ -137,7 +137,7 @@ it('runs on an already-built salon: creates the three test records, books a real
         ->assertSee(__('Queue'))
         ->assertSee(__('Bookable staff'))
         ->assertSee(__('Database'))
-        ->assertSee(__('validated by the live availability engine'), false)
+        ->assertSee(__('the booking engine works end to end'), false)
         ->assertSee(__('checks passed'), false)
         // The honest split — GHL is round-trip, never claimed auto-tested.
         ->assertSee(__('GHL side — verified by round-trip'))
@@ -500,4 +500,25 @@ it('stores and renders the year-3004 appointment cleanly on the staff surfaces',
     $this->actingAs($owner)->get(route('salon.calendar', $salon))->assertOk();
     $this->actingAs($owner)->get(route('salon.appointments', $salon))->assertOk();
     $this->actingAs($owner)->get(route('salon.reports', $salon))->assertOk();
+});
+
+it('provisions BOTH designated test clients — badged for staff, torn down together', function () {
+    $salon = builtSalon();
+    $owner = salonOwnerOf($salon);
+
+    app(ConnectionDiagnostics::class)->ensureTestRecords($salon);
+
+    $names = Client::withoutGlobalScopes()->where('salon_id', $salon->id)->where('is_test', true)->pluck('name');
+    expect($names)->toContain(ConnectionDiagnostics::CLIENT_NAME)
+        ->toContain(ConnectionDiagnostics::VOICE_CLIENT_NAME);
+
+    // Staff-visible, badged TEST — like every designated test record.
+    $this->actingAs($owner)->get(route('salon.clients', $salon))
+        ->assertOk()
+        ->assertSee(ConnectionDiagnostics::VOICE_CLIENT_NAME)
+        ->assertSee(__('TEST'));
+
+    // Teardown removes both, and any appointments either of them took.
+    app(ConnectionDiagnostics::class)->teardown($salon);
+    expect(Client::withoutGlobalScopes()->withTrashed()->where('salon_id', $salon->id)->where('is_test', true)->exists())->toBeFalse();
 });

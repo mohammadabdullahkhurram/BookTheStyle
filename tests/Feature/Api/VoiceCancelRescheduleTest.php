@@ -9,6 +9,7 @@ use App\Models\Booking;
 use App\Models\Client;
 use App\Models\Salon;
 use App\Models\User;
+use App\Services\Diagnostics\ConnectionDiagnostics;
 use App\Support\BookingApiToken;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Queue;
@@ -300,4 +301,62 @@ it('still 404s a genuinely wrong phone or date, and never matches across salons 
     crPost('api.booking.cancel', ['client' => ['phone' => '9165550100']], $a['token'])->assertOk();
     expect($a['booking']->refresh()->status)->toBe(BookingStatus::Cancelled);
     expect($b['booking']->refresh()->status)->toBe(BookingStatus::Booked);
+});
+
+// ---------------------------------------------------------------------------
+// The is_test window exemption: the designated test lane
+// ---------------------------------------------------------------------------
+
+it('lets the designated Voice AI test client book, reschedule, and cancel at a far-future date — while a real client is window-refused', function () {
+    $salon = bookingSalon(); // max_advance_days 90
+    $at = CarbonImmutable::now($salon->timezone)->addDays(2);
+    stylistWithHours($salon, (int) $at->format('N') - 1, 9 * 60, 17 * 60);
+    $token = BookingApiToken::generate($salon);
+
+    // The designated test records (both clients, full-availability stylist).
+    app(ConnectionDiagnostics::class)->ensureTestRecords($salon);
+    $far = '3004-06-27'; // far past the window; clear of the health check's pinned slot
+
+    // TEST client: book far-future through the real endpoint → accepted.
+    $created = crPost('api.booking.create', [
+        'service' => ConnectionDiagnostics::SERVICE_NAME,
+        'date' => $far, 'time' => '10:00 AM',
+        'client' => ['name' => ConnectionDiagnostics::VOICE_CLIENT_NAME, 'phone' => ConnectionDiagnostics::VOICE_CLIENT_PHONE],
+    ], $token)->assertStatus(201)->json('booking_id');
+
+    // …reschedule it (still far-future) — the exemption covers reschedule…
+    crPost('api.booking.reschedule', [
+        'client' => ['phone' => '555 010 0001'], // format-blind lookup too
+        'new_date' => $far, 'new_time' => '1:00 PM',
+    ], $token)->assertOk()->assertJsonPath('booking_id', $created);
+
+    // …and cancel it by phone + date. The full cycle works.
+    crPost('api.booking.cancel', [
+        'client' => ['phone' => ConnectionDiagnostics::VOICE_CLIENT_PHONE],
+        'date' => $far,
+    ], $token)->assertOk()->assertJsonPath('booking_id', $created);
+    expect(Booking::withoutGlobalScopes()->whereKey($created)->sole()->status)->toBe(BookingStatus::Cancelled);
+
+    // REAL client at the same far date: the window stays fully enforced.
+    $refused = crPost('api.booking.create', [
+        'service' => ConnectionDiagnostics::SERVICE_NAME,
+        'date' => $far, 'time' => '10:00 AM',
+        'client' => ['name' => 'Real Rachel', 'phone' => '+1 916 555 0199'],
+    ], $token);
+    expect($refused->getStatusCode())->toBeGreaterThanOrEqual(400);
+    expect(Booking::withoutGlobalScopes()->whereHas('client', fn ($q) => $q->where('name', 'Real Rachel'))->exists())->toBeFalse();
+});
+
+it('keeps the window enforced when a REAL client reschedules toward a far-future date', function () {
+    ['salon' => $salon, 'token' => $token, 'booking' => $booking] = crSalon('+1 916 555 0100');
+
+    crPost('api.booking.reschedule', [
+        'client' => ['phone' => '+1 916 555 0100'],
+        'new_date' => '3004-06-27', 'new_time' => '1:00 PM',
+    ], $token)
+        ->assertStatus(409)
+        ->assertJsonPath('error', 'slot_unavailable');
+
+    // Untouched — still the original near-term slot.
+    expect($booking->refresh()->items()->first()->starts_at->setTimezone($salon->timezone)->format('g:i A'))->toBe('10:00 AM');
 });
