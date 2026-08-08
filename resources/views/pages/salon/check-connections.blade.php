@@ -146,22 +146,33 @@ new #[Title('Health check')] class extends Component {
                 <p class="text-[13.5px] leading-relaxed text-secondary">{{ __('Once the salon is live, the read-only checks also run automatically every hour in the background (never booking, never creating test records). Every run is recorded below — and if a check that was passing starts failing, the agency\'s owners and admins get an email straight away.') }}</p>
                 <p class="text-[13.5px] leading-relaxed text-secondary">{{ __('BookTheStyle can only test its own side automatically. The GHL side — the Voice AI’s Custom Actions — fires from inside GHL, so it is verified by the round-trip at the bottom: you run the generated test calls in GHL, and this page confirms when they arrive.') }}</p>
             </div>
-            <form wire:submit="run" class="flex flex-col gap-3 border-t border-divider bg-muted/40 p-6 sm:flex-row sm:items-end sm:justify-between" novalidate>
-                {{-- Label above; input + button share ONE row so they always
-                     align, whatever the label or error text does. --}}
+            {{-- Run strip (presentation only): labelled password input with a
+                 lock cue + helper line, one aligned row with the primary run
+                 button, whose label swaps while the run is in flight. --}}
+            <form wire:submit="run" class="flex flex-col gap-3 border-t border-divider bg-muted/40 p-6 sm:flex-row sm:items-start sm:justify-between" novalidate>
                 <div class="w-full sm:max-w-lg">
-                    <label for="health-password" class="bts-field-label mb-1.5 block">{{ __('Confirm your password to run') }}</label>
-                    <div class="flex items-start gap-3">
+                    <label for="health-password" class="bts-field-label mb-1.5 flex items-center gap-1.5">
+                        <flux:icon.lock-closed variant="micro" class="shrink-0 text-faint" />
+                        <span>{{ __('Confirm your password to run') }}</span>
+                    </label>
+                    <div class="flex items-start gap-2.5">
                         <div class="min-w-0 flex-1">
-                            <flux:input id="health-password" wire:model="password" type="password" autocomplete="current-password" required :aria-label="__('Confirm your password to run')" />
+                            <flux:input id="health-password" wire:model="password" type="password" autocomplete="current-password" required :placeholder="__('Your login password')" :aria-label="__('Confirm your password to run')" />
                         </div>
-                        <x-ui.button type="submit" loading="run" class="shrink-0 whitespace-nowrap">{{ __('Run health check') }}</x-ui.button>
+                        <x-ui.button type="submit" loading="run" class="shrink-0 whitespace-nowrap">
+                            <span wire:loading.remove wire:target="run">{{ __('Run health check') }}</span>
+                            <span wire:loading wire:target="run">{{ __('Running…') }}</span>
+                        </x-ui.button>
                     </div>
+                    <p class="mt-1.5 text-[12.5px] leading-relaxed text-faint">{{ __('Your own login password — it authorises creating the disposable test records on a live salon.') }}</p>
                 </div>
-                <div class="shrink-0 text-[12.5px] text-faint sm:pb-2.5">
+                <div class="shrink-0 text-[12.5px] text-faint sm:pt-7">
                     <span wire:loading.remove wire:target="run">
                         @if ($ranAt !== null)
-                            {{ __('Last run :when', ['when' => \Illuminate\Support\Carbon::parse($ranAt)->setTimezone($salon->timezone)->format('M j, g:i A')]) }}
+                            <span class="inline-flex items-center gap-1.5 rounded-full border border-divider bg-card px-2.5 py-1">
+                                <flux:icon.check-circle variant="micro" style="color:#7FA379;" />
+                                {{ __('Last run :when', ['when' => \Illuminate\Support\Carbon::parse($ranAt)->setTimezone($salon->timezone)->format('M j, g:i A')]) }}
+                            </span>
                         @endif
                     </span>
                     <span wire:loading wire:target="run" class="inline-flex items-center gap-1.5">
