@@ -126,6 +126,8 @@ Route::domain($app)
     ->group(function () {
         Route::post('availability', [VoiceBookingController::class, 'availability'])->name('api.booking.availability');
         Route::post('create', [VoiceBookingController::class, 'create'])->name('api.booking.create');
+        Route::post('cancel', [VoiceBookingController::class, 'cancel'])->name('api.booking.cancel');
+        Route::post('reschedule', [VoiceBookingController::class, 'reschedule'])->name('api.booking.reschedule');
     });
 
 /*

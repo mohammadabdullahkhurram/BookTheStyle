@@ -13,7 +13,8 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 /**
- * The two Voice-AI Booking API endpoints (Stage 2, Architecture 4): GHL
+ * The Voice-AI Booking API endpoints (availability, create, cancel,
+ * reschedule): GHL
  * Voice AI Custom Actions call these; the app's own engine answers. Thin
  * controller — request-shape validation here, everything real in
  * VoiceBookingApi. Every response is JSON with a speakable `message`;
@@ -99,6 +100,80 @@ class VoiceBookingController extends Controller
             return $this->apiError($salon, 'create', $e);
         } catch (ValidationException $e) {
             return $this->invalidRequest($salon, 'create', $e);
+        }
+    }
+
+    public function cancel(Request $request, VoiceBookingApi $api): JsonResponse
+    {
+        $salon = $this->salon($request);
+
+        try {
+            $request->merge([
+                'datetime' => VoiceInput::datetime($request->input('datetime')),
+                'date' => VoiceInput::decode($request->input('date')),
+                'time' => VoiceInput::decode($request->input('time')),
+                'client' => VoiceInput::client($request),
+                'ghl_contact_id' => VoiceInput::decode($request->input('ghl_contact_id')),
+                'booking_id' => VoiceInput::decode($request->input('booking_id')),
+            ]);
+
+            $input = $request->validate([
+                'datetime' => ['nullable', 'string', 'max:40'],
+                'date' => ['nullable', 'string', 'max:40'],
+                'time' => ['nullable', 'string', 'max:20'],
+                'client' => ['nullable', 'array'],
+                'client.name' => ['nullable', 'string', 'max:255'],
+                'client.phone' => ['nullable', 'string', 'max:50'],
+                'client.email' => ['nullable', 'email', 'max:255'],
+                'ghl_contact_id' => ['nullable', 'string', 'max:64'],
+                'booking_id' => ['nullable'],
+            ]);
+
+            return response()->json($api->cancel($salon, $input));
+        } catch (ApiError $e) {
+            return $this->apiError($salon, 'cancel', $e);
+        } catch (ValidationException $e) {
+            return $this->invalidRequest($salon, 'cancel', $e);
+        }
+    }
+
+    public function reschedule(Request $request, VoiceBookingApi $api): JsonResponse
+    {
+        $salon = $this->salon($request);
+
+        try {
+            $request->merge([
+                'datetime' => VoiceInput::datetime($request->input('datetime')),
+                'date' => VoiceInput::decode($request->input('date')),
+                'time' => VoiceInput::decode($request->input('time')),
+                'new_datetime' => VoiceInput::datetime($request->input('new_datetime')),
+                'new_date' => VoiceInput::decode($request->input('new_date')),
+                'new_time' => VoiceInput::decode($request->input('new_time')),
+                'client' => VoiceInput::client($request),
+                'ghl_contact_id' => VoiceInput::decode($request->input('ghl_contact_id')),
+                'booking_id' => VoiceInput::decode($request->input('booking_id')),
+            ]);
+
+            $input = $request->validate([
+                'datetime' => ['nullable', 'string', 'max:40'],
+                'date' => ['nullable', 'string', 'max:40'],
+                'time' => ['nullable', 'string', 'max:20'],
+                'new_datetime' => ['nullable', 'string', 'max:40'],
+                'new_date' => ['nullable', 'string', 'max:40'],
+                'new_time' => ['nullable', 'string', 'max:20'],
+                'client' => ['nullable', 'array'],
+                'client.name' => ['nullable', 'string', 'max:255'],
+                'client.phone' => ['nullable', 'string', 'max:50'],
+                'client.email' => ['nullable', 'email', 'max:255'],
+                'ghl_contact_id' => ['nullable', 'string', 'max:64'],
+                'booking_id' => ['nullable'],
+            ]);
+
+            return response()->json($api->reschedule($salon, $input));
+        } catch (ApiError $e) {
+            return $this->apiError($salon, 'reschedule', $e);
+        } catch (ValidationException $e) {
+            return $this->invalidRequest($salon, 'reschedule', $e);
         }
     }
 

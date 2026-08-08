@@ -3,6 +3,8 @@
 namespace App\Services\BookingApi;
 
 use App\Actions\Bookings\CreateBooking;
+use App\Actions\Bookings\RescheduleBooking;
+use App\Actions\Bookings\TransitionBookingStatus;
 use App\Actions\Clients\CreateClient;
 use App\Enums\BookedByType;
 use App\Enums\BookingSource;
@@ -39,6 +41,8 @@ class VoiceBookingApi
         private DurationResolver $resolver,
         private CreateBooking $createBooking,
         private CreateClient $createClient,
+        private TransitionBookingStatus $transition,
+        private RescheduleBooking $rescheduler,
     ) {}
 
     /**
@@ -1378,6 +1382,280 @@ class VoiceBookingApi
                     'service' => $service->name,
                     'options' => collect($alternatives)->map(fn (array $s): string => "{$s['spoken']} with {$s['stylist']}")->join('; '),
                 ]),
+        ];
+    }
+
+    // -- Cancel & reschedule (Voice AI Custom Actions) -------------------------
+
+    /**
+     * Cancel the caller's upcoming appointment — found by phone/email/GHL
+     * contact (plus an optional stated date/time to narrow), or by a
+     * booking_id reference. Exactly one clear match cancels through the
+     * SAME transition path the app uses (status event + GHL mirror);
+     * several matches come back for the AI to disambiguate; an appointment
+     * already cancelled answers idempotently. There is no separate
+     * cancellation-window policy in the product — cancellable = still
+     * upcoming and still open (booked/confirmed); anything else gets a
+     * clear speakable refusal.
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function cancel(Salon $salon, array $input): array
+    {
+        $booking = $this->resolveExistingBooking($salon, $input, 'cancel');
+
+        if ($booking->status === BookingStatus::Cancelled) {
+            return $this->cancelledResponse($salon, $booking, alreadyCancelled: true);
+        }
+
+        if (! $booking->status->canTransitionTo(BookingStatus::Cancelled)) {
+            throw new ApiError(
+                __('That appointment is marked :status and can no longer be cancelled by phone — the salon can help directly.', ['status' => $booking->status->label()]),
+                'cannot_cancel',
+                [],
+                409,
+            );
+        }
+
+        $this->transition->handle(null, $salon, $booking, BookingStatus::Cancelled);
+
+        return $this->cancelledResponse($salon, $booking->refresh());
+    }
+
+    /**
+     * Move the caller's upcoming appointment to a new slot. The current
+     * appointment is identified exactly like cancel(); the new slot comes
+     * as new_date + new_time (or new_datetime) — normally from a preceding
+     * availability call. The move runs through the SAME reschedule action
+     * the app uses: stylists locked, every shifted item re-validated
+     * against the live engine (no double-booking), policy enforced, status
+     * event written, GHL mirror queued. A taken slot answers 409.
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function reschedule(Salon $salon, array $input): array
+    {
+        $booking = $this->resolveExistingBooking($salon, $input, 'reschedule');
+
+        $newStart = $this->resolveStart($salon, [
+            'datetime' => $input['new_datetime'] ?? null,
+            'date' => $input['new_date'] ?? null,
+            'time' => $input['new_time'] ?? null,
+        ]);
+
+        $oldSpoken = $booking->items->min('starts_at')->setTimezone($salon->timezone)->format('l, F j \a\t g:i A');
+
+        try {
+            $booking = $this->rescheduler->handle(null, $salon, $booking, $newStart->format('Y-m-d H:i'));
+        } catch (ValidationException $e) {
+            // The engine or booking policy refused the new slot — taken, or
+            // outside the salon's booking window. Speakable, retryable.
+            throw new ApiError(
+                (string) (collect($e->errors())->flatten()->first() ?? __('That time is not available.')),
+                'slot_unavailable',
+                [],
+                409,
+            );
+        }
+
+        $booking->load(['items.service', 'items.stylist', 'client']);
+        $item = $booking->items->sortBy('starts_at')->first();
+        $spoken = $item->starts_at->setTimezone($salon->timezone)->format('l, F j \a\t g:i A');
+
+        return [
+            'success' => true,
+            'booking_id' => $booking->id,
+            'confirmation' => [
+                'salon' => $salon->name,
+                'service' => $item->service->name,
+                'stylist' => $item->stylist->name,
+                'starts_at' => $item->starts_at->setTimezone($salon->timezone)->toIso8601String(),
+                'spoken_time' => $spoken,
+            ],
+            'message' => __('Done — your :service with :stylist is moved from :old to :new.', [
+                'service' => $item->service->name,
+                'stylist' => $item->stylist->name,
+                'old' => $oldSpoken,
+                'new' => $spoken,
+            ]),
+        ];
+    }
+
+    /**
+     * Find the ONE existing appointment the caller means. Reference wins
+     * (booking_id); otherwise the client is matched by ghl_contact_id /
+     * phone / email (never created), their OPEN UPCOMING appointments are
+     * gathered, and a stated date(/time) narrows them. Exactly one → it;
+     * none → 404 (with an idempotent already-cancelled answer for cancel);
+     * several → 409 carrying the list so the AI can ask which.
+     *
+     * @param  array<string, mixed>  $input
+     */
+    private function resolveExistingBooking(Salon $salon, array $input, string $intent): Booking
+    {
+        $client = $input['client'] ?? [];
+        $client = is_array($client) ? $client : [];
+        $phone = trim((string) ($client['phone'] ?? ''));
+        $email = mb_strtolower(trim((string) ($client['email'] ?? '')));
+        $ghlContactId = trim((string) ($input['ghl_contact_id'] ?? ''));
+        $bookingId = $input['booking_id'] ?? null;
+
+        if ($bookingId !== null && trim((string) $bookingId) !== '') {
+            $booking = $salon->bookings()->whereKey((int) $bookingId)
+                ->with(['items.service', 'items.stylist', 'client'])->first();
+
+            if ($booking === null) {
+                throw new ApiError(__('I could not find that appointment reference at :salon.', ['salon' => $salon->name]), 'appointment_not_found', [], 404);
+            }
+
+            return $booking;
+        }
+
+        if ($phone === '' && $email === '' && $ghlContactId === '') {
+            throw ApiError::validation(
+                __('I need the client\'s phone number or email (or a booking reference) to find the appointment.'),
+                'missing_identifier',
+            );
+        }
+
+        $match = null;
+        $match = $ghlContactId !== '' ? $salon->clients()->where('ghl_contact_id', $ghlContactId)->first() : null;
+        $match ??= $phone !== '' ? $salon->clients()->where('phone', $phone)->first() : null;
+        $match ??= $email !== '' ? $salon->clients()->whereRaw('lower(email) = ?', [$email])->first() : null;
+
+        if ($match === null) {
+            throw new ApiError(__('I could not find a client with those details at :salon.', ['salon' => $salon->name]), 'client_not_found', [], 404);
+        }
+
+        [$when, $dateOnly] = $this->statedCurrentTime($salon, $input);
+
+        $candidates = $salon->bookings()
+            ->where('client_id', $match->id)
+            ->whereIn('status', [BookingStatus::Booked->value, BookingStatus::Confirmed->value])
+            ->whereHas('items', fn ($q) => $q->where('starts_at', '>=', now()))
+            ->with(['items.service', 'items.stylist', 'client'])
+            ->get()
+            ->sortBy(fn (Booking $b) => $b->items->min('starts_at'))
+            ->values();
+
+        $tz = $salon->timezone;
+
+        if ($when !== null) {
+            $candidates = $candidates->filter(fn (Booking $b): bool => $b->items->min('starts_at')->equalTo($when))->values();
+        } elseif ($dateOnly !== null) {
+            $candidates = $candidates->filter(fn (Booking $b): bool => $b->items->min('starts_at')->setTimezone($tz)->isSameDay($dateOnly))->values();
+        }
+
+        if ($candidates->count() === 1) {
+            return $candidates->first();
+        }
+
+        if ($candidates->isEmpty()) {
+            // Idempotent cancel: the stated appointment exists but is
+            // ALREADY cancelled — a clean "nothing to do", not a 404.
+            if ($intent === 'cancel' && $when !== null) {
+                $cancelled = $salon->bookings()
+                    ->where('client_id', $match->id)
+                    ->where('status', BookingStatus::Cancelled->value)
+                    ->whereHas('items', fn ($q) => $q->where('starts_at', $when->utc()))
+                    ->with(['items.service', 'items.stylist', 'client'])
+                    ->first();
+
+                if ($cancelled !== null) {
+                    return $cancelled;
+                }
+            }
+
+            throw new ApiError(
+                $when !== null || $dateOnly !== null
+                    ? __('I could not find an upcoming appointment for :name at that time.', ['name' => $match->name])
+                    : __(':name has no upcoming appointments at :salon.', ['name' => $match->name, 'salon' => $salon->name]),
+                'appointment_not_found',
+                [],
+                404,
+            );
+        }
+
+        $options = $candidates->map(function (Booking $b) use ($tz): array {
+            $item = $b->items->sortBy('starts_at')->first();
+
+            return [
+                'booking_id' => $b->id,
+                'service' => $item->service->name,
+                'stylist' => $item->stylist->name,
+                'starts_at' => $item->starts_at->setTimezone($tz)->toIso8601String(),
+                'spoken_time' => $item->starts_at->setTimezone($tz)->format('l, F j \a\t g:i A'),
+            ];
+        })->all();
+
+        throw new ApiError(
+            __(':name has :count upcoming appointments — which one: :list?', [
+                'name' => $match->name,
+                'count' => count($options),
+                'list' => collect($options)->map(fn (array $o): string => $o['service'].' on '.$o['spoken_time'])->implode('; '),
+            ]),
+            'multiple_appointments',
+            ['appointments' => $options],
+            409,
+        );
+    }
+
+    /**
+     * The caller's statement of WHICH appointment ("my Friday 2 PM") as an
+     * exact instant, a date, or nothing.
+     *
+     * @param  array<string, mixed>  $input
+     * @return array{0: CarbonImmutable|null, 1: CarbonImmutable|null}
+     */
+    private function statedCurrentTime(Salon $salon, array $input): array
+    {
+        $tz = $salon->timezone;
+        $datetime = trim((string) ($input['datetime'] ?? ''));
+        $date = trim((string) ($input['date'] ?? ''));
+        $time = trim((string) ($input['time'] ?? ''));
+
+        try {
+            if ($datetime !== '') {
+                return [CarbonImmutable::parse($datetime)->setTimezone($tz), null];
+            }
+
+            if ($date !== '' && $time !== '') {
+                return [CarbonImmutable::parse("{$date} {$time}", $tz), null];
+            }
+
+            if ($date !== '') {
+                return [null, CarbonImmutable::parse($date, $tz)->startOfDay()];
+            }
+        } catch (\Throwable) {
+            throw ApiError::validation(__('I could not understand that date. Please use a date like 2026-07-25.'), 'invalid_date');
+        }
+
+        return [null, null];
+    }
+
+    /** @return array<string, mixed> */
+    private function cancelledResponse(Salon $salon, Booking $booking, bool $alreadyCancelled = false): array
+    {
+        $booking->loadMissing(['items.service', 'items.stylist']);
+        $item = $booking->items->sortBy('starts_at')->first();
+        $spoken = $item->starts_at->setTimezone($salon->timezone)->format('l, F j \a\t g:i A');
+
+        return [
+            'success' => true,
+            'already_cancelled' => $alreadyCancelled,
+            'booking_id' => $booking->id,
+            'cancelled' => [
+                'salon' => $salon->name,
+                'service' => $item->service->name,
+                'stylist' => $item->stylist->name,
+                'starts_at' => $item->starts_at->setTimezone($salon->timezone)->toIso8601String(),
+                'spoken_time' => $spoken,
+            ],
+            'message' => $alreadyCancelled
+                ? __('That appointment — :service on :time — was already cancelled. Nothing more to do.', ['service' => $item->service->name, 'time' => $spoken])
+                : __('Cancelled — your :service with :stylist on :time at :salon. We hope to see you again soon.', ['service' => $item->service->name, 'stylist' => $item->stylist->name, 'time' => $spoken, 'salon' => $salon->name]),
         ];
     }
 }
