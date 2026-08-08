@@ -436,3 +436,70 @@ it('offers Remove test data to the operator whenever test records linger — and
     expect($salon->test_records_expire_at)->toBeNull();
     expect(User::withTrashed()->where('is_test', true)->exists())->toBeFalse();
 });
+
+// ---------------------------------------------------------------------------
+// The fixed 2:00 PM test appointment
+// ---------------------------------------------------------------------------
+
+/** The first upcoming 2:00 PM in the salon's timezone (the check's first choice). */
+function firstUpcomingTwoPm(Salon $salon): CarbonImmutable
+{
+    $now = CarbonImmutable::now($salon->timezone);
+    $today = $now->startOfDay()->setTime(14, 0);
+
+    return $today->gt($now) ? $today : $today->addDay();
+}
+
+it('books the health-check test appointment at exactly 2:00 PM salon time — and reuses it on a re-run', function () {
+    fakeOutboundChecks();
+    $salon = builtSalon();
+    BookingApiToken::generate($salon);
+    $operator = diagnosticsOperator($salon);
+
+    $component = Livewire::actingAs($operator)
+        ->test('pages::salon.check-connections', ['salon' => $salon])
+        ->set('password', 'password')
+        ->call('run')
+        ->assertHasNoErrors();
+
+    $client = Client::withoutGlobalScopes()->where('salon_id', $salon->id)->where('is_test', true)->firstOrFail();
+    $booking = Booking::withoutGlobalScopes()->where('salon_id', $salon->id)->where('client_id', $client->id)->with('items')->sole();
+
+    $start = $booking->items->min('starts_at')->setTimezone($salon->timezone);
+    expect($start->format('g:i A'))->toBe(ConnectionDiagnostics::TEST_BOOKING_TIME);
+    expect($start->toDateString())->toBe(firstUpcomingTwoPm($salon)->toDateString());
+
+    // Second run: the 2:00 PM is already held by the previous test run —
+    // the idempotent engine REUSES it. Still ONE booking, still 2:00 PM.
+    $component->set('password', 'password')->call('run')->assertHasNoErrors();
+    $bookings = Booking::withoutGlobalScopes()->where('salon_id', $salon->id)->where('client_id', $client->id)->with('items')->get();
+    expect($bookings)->toHaveCount(1);
+    expect($bookings->first()->items->min('starts_at')->setTimezone($salon->timezone)->format('g:i A'))->toBe(ConnectionDiagnostics::TEST_BOOKING_TIME);
+});
+
+it('rolls to the NEXT day\'s 2:00 PM when the first choice is occupied by someone else — never another time', function () {
+    fakeOutboundChecks();
+    $salon = builtSalon();
+    BookingApiToken::generate($salon);
+    $operator = diagnosticsOperator($salon);
+
+    // Occupy the first upcoming 2:00 PM on the test stylist with a booking
+    // the idempotent create cannot match (different client).
+    $records = app(ConnectionDiagnostics::class)->ensureTestRecords($salon);
+    $blocked = firstUpcomingTwoPm($salon);
+    makeBooking($salon, salonOwnerOf($salon), $records['stylist'], $records['service'], $blocked->format('Y-m-d H:i'), 'Blocker Bob');
+
+    Livewire::actingAs($operator)
+        ->test('pages::salon.check-connections', ['salon' => $salon])
+        ->set('password', 'password')
+        ->call('run')
+        ->assertHasNoErrors();
+
+    $client = Client::withoutGlobalScopes()->where('salon_id', $salon->id)->where('is_test', true)->firstOrFail();
+    $booking = Booking::withoutGlobalScopes()->where('salon_id', $salon->id)->where('client_id', $client->id)->with('items')->sole();
+    $start = $booking->items->min('starts_at')->setTimezone($salon->timezone);
+
+    // Still exactly 2:00 PM — on the NEXT day, not another time on the first.
+    expect($start->format('g:i A'))->toBe(ConnectionDiagnostics::TEST_BOOKING_TIME);
+    expect($start->toDateString())->toBe($blocked->addDay()->toDateString());
+});
