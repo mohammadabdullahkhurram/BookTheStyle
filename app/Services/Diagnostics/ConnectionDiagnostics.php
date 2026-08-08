@@ -3,6 +3,9 @@
 namespace App\Services\Diagnostics;
 
 use App\Enums\AvailabilityKind;
+use App\Enums\BookedByType;
+use App\Enums\BookingSource;
+use App\Enums\BookingStatus;
 use App\Enums\SalonRole;
 use App\Enums\StaffType;
 use App\Enums\StylistArrangement;
@@ -12,8 +15,10 @@ use App\Models\Client;
 use App\Models\Salon;
 use App\Models\Service;
 use App\Models\User;
+use App\Services\Booking\SlotEngine;
 use App\Services\BookingApi\ApiError;
 use App\Services\BookingApi\VoiceBookingApi;
+use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -47,12 +52,15 @@ class ConnectionDiagnostics
     public const CLIENT_NAME = 'Bluejaypro Test Client';
 
     /**
-     * The health check's test appointment ALWAYS books at this time (salon
-     * timezone) — any date, fixed time — so a salon can keep 2:00 PM clear
-     * during real testing and never collide with it. If a date's 2:00 PM is
-     * unavailable the check reuses the prior test appointment (idempotent
-     * create) or rolls to the NEXT date's 2:00 PM — never another time.
+     * The health check's test appointment is PINNED to one fixed slot —
+     * 28 June 3004 at 2:00 PM, salon timezone. Far-future on purpose: real
+     * booking policy caps advance booking at a year, so nobody can ever
+     * hold this slot, and the test never drifts into or collides with real
+     * testing. A previous run's appointment at the slot is REUSED, never
+     * duplicated, never moved to a different day or time.
      */
+    public const TEST_BOOKING_DATE = '3004-06-28';
+
     public const TEST_BOOKING_TIME = '2:00 PM';
 
     /** Health-check-created/refreshed records expire this soon after a run. */
@@ -147,6 +155,83 @@ class ConnectionDiagnostics
     {
         return Service::withoutGlobalScopes()->where('salon_id', $salon->id)->where('is_test', true)->exists()
             || $salon->memberships()->whereHas('user', fn ($q) => $q->where('is_test', true))->exists();
+    }
+
+    /** The pinned test-appointment instant in the salon's timezone. */
+    public static function testBookingInstant(Salon $salon): CarbonImmutable
+    {
+        return CarbonImmutable::parse(
+            self::TEST_BOOKING_DATE.' '.self::TEST_BOOKING_TIME,
+            $salon->timezone,
+        );
+    }
+
+    /**
+     * Create — or REUSE — the pinned far-future test appointment. The real
+     * booking engine cannot create it (max-advance policy caps a year out,
+     * which is exactly why the slot can never collide with anything real),
+     * so the rows are laid here: validated against the live SlotEngine
+     * (real weekly windows + conflict logic for the test stylist), then the
+     * same field set CreateBooking writes. An existing open appointment for
+     * the test client at the instant is returned as-is. Leak-proofing is
+     * untouched: the client/stylist/service is_test flags exclude it from
+     * every public surface, GHL sync skips it, and teardown/sweep remove it.
+     *
+     * @return array{booking: Booking, reused: bool}
+     */
+    public function ensureTestAppointment(Salon $salon, User $stylist, Service $service, Client $client): array
+    {
+        $start = self::testBookingInstant($salon);
+
+        $existing = Booking::withoutGlobalScopes()
+            ->where('salon_id', $salon->id)
+            ->where('client_id', $client->id)
+            ->where('status', '!=', BookingStatus::Cancelled->value)
+            ->whereHas('items', fn ($q) => $q->where('stylist_id', $stylist->id)->where('starts_at', $start->utc()))
+            ->first();
+
+        if ($existing !== null) {
+            return ['booking' => $existing, 'reused' => true];
+        }
+
+        if (! app(SlotEngine::class)->isAvailable($salon, $stylist->id, $start, $service->duration_min)) {
+            throw new \RuntimeException(__('The pinned test slot (:date at :time) is not open for the test stylist — their availability rows are missing or blocked.', [
+                'date' => self::TEST_BOOKING_DATE, 'time' => self::TEST_BOOKING_TIME,
+            ]));
+        }
+
+        $booking = DB::transaction(function () use ($salon, $stylist, $service, $client, $start): Booking {
+            $booking = $salon->bookings()->create([
+                'client_id' => $client->id,
+                'status' => BookingStatus::Booked,
+                'booked_by_type' => BookedByType::VoiceAi,
+                'booked_by_user_id' => null,
+                'source' => BookingSource::VoiceAi,
+                'is_walkin' => false,
+                'notes' => 'Health check — safe to ignore; cleaned up automatically.',
+                'visit_group_id' => null,
+            ]);
+
+            $booking->items()->create([
+                'salon_id' => $salon->id,
+                'service_id' => $service->id,
+                'stylist_id' => $stylist->id,
+                'starts_at' => $start,
+                'ends_at' => $start->addMinutes($service->duration_min),
+                'buffer_min' => 0,
+            ]);
+
+            $booking->statusEvents()->create([
+                'salon_id' => $salon->id,
+                'from_status' => null,
+                'to_status' => BookingStatus::Booked,
+                'actor_user_id' => null,
+            ]);
+
+            return $booking;
+        });
+
+        return ['booking' => $booking, 'reused' => false];
     }
 
     /**

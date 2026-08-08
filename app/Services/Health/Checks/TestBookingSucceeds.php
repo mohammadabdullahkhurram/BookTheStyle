@@ -2,35 +2,29 @@
 
 namespace App\Services\Health\Checks;
 
-use App\Services\BookingApi\ApiError;
-use App\Services\BookingApi\VoiceBookingApi;
 use App\Services\Diagnostics\ConnectionDiagnostics;
 use App\Services\Health\CheckResult;
 use App\Services\Health\HealthCheck;
 use App\Services\Health\HealthContext;
 use App\Services\Health\NeedsTestRecords;
-use Carbon\CarbonImmutable;
 
 /**
- * THE one sanctioned mutation in the health check: a real booking through
- * the same engine path the Voice AI uses — on the disposable is_test
- * records only, removed at clean-up, invisible to clients throughout.
+ * THE one sanctioned mutation in the health check: the pinned test
+ * appointment — ConnectionDiagnostics::TEST_BOOKING_DATE at
+ * TEST_BOOKING_TIME (28 June 3004, 2:00 PM salon time), on the disposable
+ * is_test records only, invisible to clients, removed at clean-up.
  *
- * The appointment ALWAYS lands at ConnectionDiagnostics::TEST_BOOKING_TIME
- * (2:00 PM, salon timezone) so the salon can keep that time clear during
- * real testing. Date selection: the first day whose 2:00 PM is still ahead;
- * a 2:00 PM already held by a previous test run is REUSED (the engine's
- * idempotent create returns the same confirmation), and any other refusal
- * rolls to the next day's 2:00 PM — the check never books a different time.
- * Only this check changed for the fixed time — the real booking engine,
- * availability, and slot logic are untouched and shared with production.
+ * Far-future by design: real booking policy caps advance booking at a
+ * year, so this slot can NEVER collide with a real appointment — and for
+ * the same reason the appointment is laid by the diagnostics layer after
+ * validation against the live SlotEngine, not through the policy-gated
+ * create path (which rightly refuses year 3004). Re-runs REUSE the same
+ * appointment: same date, same time, never a duplicate, never a shift.
+ * Real booking, availability, and date handling are untouched.
  */
 class TestBookingSucceeds implements HealthCheck, NeedsTestRecords
 {
-    /** Days of 2:00 PMs to try before giving up (full-availability stylist). */
-    private const MAX_DAYS = 7;
-
-    public function __construct(private VoiceBookingApi $api) {}
+    public function __construct(private ConnectionDiagnostics $diagnostics) {}
 
     public function key(): string
     {
@@ -44,53 +38,33 @@ class TestBookingSucceeds implements HealthCheck, NeedsTestRecords
 
     public function run(HealthContext $context): CheckResult
     {
-        if ($context->testClient === null) {
+        if ($context->testStylist === null || $context->testService === null || $context->testClient === null) {
             return CheckResult::warn(__('Skipped — no test records in this run (the scheduled monitor never books).'));
         }
 
-        $now = CarbonImmutable::now($context->salon->timezone);
-        $lastReason = null;
-
-        foreach (range(0, self::MAX_DAYS - 1) as $offset) {
-            $twoPm = $now->startOfDay()->addDays($offset)
-                ->setTimeFromTimeString(ConnectionDiagnostics::TEST_BOOKING_TIME);
-
-            if ($twoPm->lte($now)) {
-                continue; // today's 2:00 PM is already gone — roll forward
-            }
-
-            try {
-                $created = $this->api->create($context->salon, [
-                    'service' => ConnectionDiagnostics::SERVICE_NAME,
-                    'stylist' => ConnectionDiagnostics::STYLIST_NAME,
-                    'date' => $twoPm->format('Y-m-d'),
-                    'time' => ConnectionDiagnostics::TEST_BOOKING_TIME,
-                    'client' => ['name' => ConnectionDiagnostics::CLIENT_NAME, 'phone' => $context->testClient->phone, 'email' => $context->testClient->email],
-                    'notes' => 'Health check — safe to ignore; cleaned up automatically.',
-                ]);
-            } catch (ApiError $e) {
-                // That day's 2:00 PM is not bookable (held, or inside the
-                // salon's notice window) — try the NEXT day's 2:00 PM.
-                $lastReason = $e->toResponse()['message'] ?? $e->errorCode;
-
-                continue;
-            }
-
-            if (($created['success'] ?? false) === true) {
-                return CheckResult::pass(__(':client booked :service with :stylist for :time — the booking engine works end to end. The test appointment is always at 2:00 PM (keep that time clear while testing) and is removed at clean-up.', [
-                    'client' => ConnectionDiagnostics::CLIENT_NAME,
-                    'service' => ConnectionDiagnostics::SERVICE_NAME,
-                    'stylist' => ConnectionDiagnostics::STYLIST_NAME,
-                    'time' => $created['confirmation']['spoken_time'] ?? $twoPm->format('l, F j \a\t g:i A'),
-                ]));
-            }
-
-            $lastReason = $created['message'] ?? __('unknown');
+        try {
+            $result = $this->diagnostics->ensureTestAppointment(
+                $context->salon,
+                $context->testStylist,
+                $context->testService,
+                $context->testClient,
+            );
+        } catch (\RuntimeException $e) {
+            return CheckResult::fail(
+                $e->getMessage(),
+                __('Run the check again — the test records (including the stylist\'s full availability) are recreated on every run.'),
+            );
         }
 
-        return CheckResult::fail(
-            __('No 2:00 PM could be booked in the next :days days: :reason', ['days' => self::MAX_DAYS, 'reason' => $lastReason ?? __('unknown')]),
-            __('Fix the Availability line above (booking policy limits are the usual cause), then run again.'),
-        );
+        $spoken = ConnectionDiagnostics::testBookingInstant($context->salon)->format('l, F j, Y \a\t g:i A');
+
+        return CheckResult::pass($result['reused']
+            ? __('The pinned test appointment for :time is already in place (reused — never duplicated). The engine validated the slot; the appointment is removed at clean-up.', ['time' => $spoken])
+            : __(':client booked :service with :stylist for :time — the slot was validated by the live availability engine and the appointment stored end to end. Pinned far-future on purpose: nobody real can ever book it. Removed at clean-up.', [
+                'client' => ConnectionDiagnostics::CLIENT_NAME,
+                'service' => ConnectionDiagnostics::SERVICE_NAME,
+                'stylist' => ConnectionDiagnostics::STYLIST_NAME,
+                'time' => $spoken,
+            ]));
     }
 }
