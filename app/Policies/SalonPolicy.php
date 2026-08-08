@@ -187,4 +187,16 @@ class SalonPolicy
     {
         return $user->membershipFor($salon)?->salon_role === SalonRole::Owner;
     }
+
+    /**
+     * Permanently delete salon records — staff, clients, appointments,
+     * services — history included. Destructive → highest privilege only:
+     * the salon's OWNER here, agency owners/admins via before(). Managers
+     * and stylists deliberately cannot, for ANY record type; "cancel" and
+     * "deactivate" remain their archive-grade tools.
+     */
+    public function hardDelete(User $user, Salon $salon): bool
+    {
+        return $user->membershipFor($salon)?->salon_role === SalonRole::Owner;
+    }
 }
