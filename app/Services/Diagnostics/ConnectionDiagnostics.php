@@ -3,9 +3,6 @@
 namespace App\Services\Diagnostics;
 
 use App\Enums\AvailabilityKind;
-use App\Enums\BookedByType;
-use App\Enums\BookingSource;
-use App\Enums\BookingStatus;
 use App\Enums\SalonRole;
 use App\Enums\StaffType;
 use App\Enums\StylistArrangement;
@@ -15,7 +12,6 @@ use App\Models\Client;
 use App\Models\Salon;
 use App\Models\Service;
 use App\Models\User;
-use App\Services\Booking\SlotEngine;
 use App\Services\BookingApi\ApiError;
 use App\Services\BookingApi\VoiceBookingApi;
 use Carbon\CarbonImmutable;
@@ -50,6 +46,11 @@ class ConnectionDiagnostics
     public const SERVICE_NAME = 'Bluejaypro Hair Cut';
 
     public const CLIENT_NAME = 'Bluejaypro Test Client';
+
+    /** For MANUAL Voice AI Custom Action end-to-end testing (book/cancel/reschedule). */
+    public const VOICE_CLIENT_NAME = 'Bluejaypro Voice AI Test Client';
+
+    public const VOICE_CLIENT_PHONE = '+1 555 010 0001';
 
     /**
      * The health check's test appointment is PINNED to one fixed slot —
@@ -146,6 +147,14 @@ class ConnectionDiagnostics
                 ['phone' => '+1 555 010 0000', 'email' => 'test-client+'.$salon->id.'@bluejaypro.invalid'],
             );
 
+            // The second designated client: the Voice AI test lane — used
+            // for MANUAL Custom Action round-trips (book/cancel/reschedule
+            // by phone), window-exempt like every is_test client.
+            Client::withoutGlobalScopes()->firstOrCreate(
+                ['salon_id' => $salon->id, 'name' => self::VOICE_CLIENT_NAME, 'is_test' => true],
+                ['phone' => self::VOICE_CLIENT_PHONE, 'email' => 'voice-test-client+'.$salon->id.'@bluejaypro.invalid'],
+            );
+
             return ['stylist' => $stylist, 'service' => $service, 'client' => $client];
         });
     }
@@ -164,74 +173,6 @@ class ConnectionDiagnostics
             self::TEST_BOOKING_DATE.' '.self::TEST_BOOKING_TIME,
             $salon->timezone,
         );
-    }
-
-    /**
-     * Create — or REUSE — the pinned far-future test appointment. The real
-     * booking engine cannot create it (max-advance policy caps a year out,
-     * which is exactly why the slot can never collide with anything real),
-     * so the rows are laid here: validated against the live SlotEngine
-     * (real weekly windows + conflict logic for the test stylist), then the
-     * same field set CreateBooking writes. An existing open appointment for
-     * the test client at the instant is returned as-is. Leak-proofing is
-     * untouched: the client/stylist/service is_test flags exclude it from
-     * every public surface, GHL sync skips it, and teardown/sweep remove it.
-     *
-     * @return array{booking: Booking, reused: bool}
-     */
-    public function ensureTestAppointment(Salon $salon, User $stylist, Service $service, Client $client): array
-    {
-        $start = self::testBookingInstant($salon);
-
-        $existing = Booking::withoutGlobalScopes()
-            ->where('salon_id', $salon->id)
-            ->where('client_id', $client->id)
-            ->where('status', '!=', BookingStatus::Cancelled->value)
-            ->whereHas('items', fn ($q) => $q->where('stylist_id', $stylist->id)->where('starts_at', $start->utc()))
-            ->first();
-
-        if ($existing !== null) {
-            return ['booking' => $existing, 'reused' => true];
-        }
-
-        if (! app(SlotEngine::class)->isAvailable($salon, $stylist->id, $start, $service->duration_min)) {
-            throw new \RuntimeException(__('The pinned test slot (:date at :time) is not open for the test stylist — their availability rows are missing or blocked.', [
-                'date' => self::TEST_BOOKING_DATE, 'time' => self::TEST_BOOKING_TIME,
-            ]));
-        }
-
-        $booking = DB::transaction(function () use ($salon, $stylist, $service, $client, $start): Booking {
-            $booking = $salon->bookings()->create([
-                'client_id' => $client->id,
-                'status' => BookingStatus::Booked,
-                'booked_by_type' => BookedByType::VoiceAi,
-                'booked_by_user_id' => null,
-                'source' => BookingSource::VoiceAi,
-                'is_walkin' => false,
-                'notes' => 'Health check — safe to ignore; cleaned up automatically.',
-                'visit_group_id' => null,
-            ]);
-
-            $booking->items()->create([
-                'salon_id' => $salon->id,
-                'service_id' => $service->id,
-                'stylist_id' => $stylist->id,
-                'starts_at' => $start,
-                'ends_at' => $start->addMinutes($service->duration_min),
-                'buffer_min' => 0,
-            ]);
-
-            $booking->statusEvents()->create([
-                'salon_id' => $salon->id,
-                'from_status' => null,
-                'to_status' => BookingStatus::Booked,
-                'actor_user_id' => null,
-            ]);
-
-            return $booking;
-        });
-
-        return ['booking' => $booking, 'reused' => false];
     }
 
     /**
@@ -278,11 +219,11 @@ class ConnectionDiagnostics
     {
         DB::transaction(function () use ($salon): void {
             $stylist = User::withTrashed()->where('email', 'diagnostics+'.$salon->id.'@bluejaypro.invalid')->first();
-            $client = Client::withoutGlobalScopes()->where('salon_id', $salon->id)->where('is_test', true)->first();
+            $clients = Client::withoutGlobalScopes()->withTrashed()->where('salon_id', $salon->id)->where('is_test', true)->get();
 
             $bookings = Booking::withoutGlobalScopes()->where('salon_id', $salon->id)
                 ->where(fn ($q) => $q
-                    ->when($client !== null, fn ($qq) => $qq->orWhere('client_id', $client->id))
+                    ->when($clients->isNotEmpty(), fn ($qq) => $qq->orWhereIn('client_id', $clients->pluck('id')))
                     ->when($stylist !== null, fn ($qq) => $qq->orWhereHas('items', fn ($i) => $i->where('stylist_id', $stylist->id))))
                 ->get();
             $bookings->each->delete();
@@ -297,7 +238,7 @@ class ConnectionDiagnostics
             // forceDelete: Client/Service are SoftDeletes now (solo-delete
             // tombstones) — disposable test records must actually go.
             Service::withoutGlobalScopes()->where('salon_id', $salon->id)->where('is_test', true)->get()->each->forceDelete();
-            $client?->forceDelete();
+            $clients->each->forceDelete();
 
             $salon->forceFill(['test_records_expire_at' => null])->save();
             Cache::forget(self::lastCallKey($salon));

@@ -2,6 +2,8 @@
 
 namespace App\Services\Health\Checks;
 
+use App\Services\BookingApi\ApiError;
+use App\Services\BookingApi\VoiceBookingApi;
 use App\Services\Diagnostics\ConnectionDiagnostics;
 use App\Services\Health\CheckResult;
 use App\Services\Health\HealthCheck;
@@ -9,22 +11,22 @@ use App\Services\Health\HealthContext;
 use App\Services\Health\NeedsTestRecords;
 
 /**
- * THE one sanctioned mutation in the health check: the pinned test
- * appointment — ConnectionDiagnostics::TEST_BOOKING_DATE at
- * TEST_BOOKING_TIME (28 June 3004, 2:00 PM salon time), on the disposable
- * is_test records only, invisible to clients, removed at clean-up.
+ * THE one sanctioned mutation in the health check: a real booking through
+ * the same engine path the Voice AI uses — on the disposable is_test
+ * records only, invisible to clients, removed at clean-up.
  *
- * Far-future by design: real booking policy caps advance booking at a
- * year, so this slot can NEVER collide with a real appointment — and for
- * the same reason the appointment is laid by the diagnostics layer after
- * validation against the live SlotEngine, not through the policy-gated
- * create path (which rightly refuses year 3004). Re-runs REUSE the same
- * appointment: same date, same time, never a duplicate, never a shift.
- * Real booking, availability, and date handling are untouched.
+ * The appointment is PINNED to ConnectionDiagnostics::TEST_BOOKING_DATE at
+ * TEST_BOOKING_TIME (28 June 3004, 2:00 PM salon time). Real booking
+ * policy caps advance booking at a year — which is exactly why the slot
+ * can never collide with anything real — and designated is_test clients
+ * are exempt from that window (BookingPolicy), so this books through the
+ * FULL policy-gated engine path end to end. Re-runs REUSE the same
+ * appointment via the engine's idempotent create: same date, same time,
+ * never a duplicate, never a shift.
  */
 class TestBookingSucceeds implements HealthCheck, NeedsTestRecords
 {
-    public function __construct(private ConnectionDiagnostics $diagnostics) {}
+    public function __construct(private VoiceBookingApi $api) {}
 
     public function key(): string
     {
@@ -38,29 +40,41 @@ class TestBookingSucceeds implements HealthCheck, NeedsTestRecords
 
     public function run(HealthContext $context): CheckResult
     {
-        if ($context->testStylist === null || $context->testService === null || $context->testClient === null) {
+        if ($context->testClient === null) {
             return CheckResult::warn(__('Skipped — no test records in this run (the scheduled monitor never books).'));
         }
 
+        $instant = ConnectionDiagnostics::testBookingInstant($context->salon);
+
         try {
-            $result = $this->diagnostics->ensureTestAppointment(
-                $context->salon,
-                $context->testStylist,
-                $context->testService,
-                $context->testClient,
-            );
-        } catch (\RuntimeException $e) {
+            $created = $this->api->create($context->salon, [
+                'service' => ConnectionDiagnostics::SERVICE_NAME,
+                'stylist' => ConnectionDiagnostics::STYLIST_NAME,
+                'date' => $instant->format('Y-m-d'),
+                'time' => ConnectionDiagnostics::TEST_BOOKING_TIME,
+                'client' => ['name' => ConnectionDiagnostics::CLIENT_NAME, 'phone' => $context->testClient->phone, 'email' => $context->testClient->email],
+                'notes' => 'Health check — safe to ignore; cleaned up automatically.',
+            ]);
+        } catch (ApiError $e) {
             return CheckResult::fail(
-                $e->getMessage(),
-                __('Run the check again — the test records (including the stylist\'s full availability) are recreated on every run.'),
+                __('The engine refused the pinned test booking (:date at :time): :reason', [
+                    'date' => ConnectionDiagnostics::TEST_BOOKING_DATE,
+                    'time' => ConnectionDiagnostics::TEST_BOOKING_TIME,
+                    'reason' => $e->toResponse()['message'] ?? $e->errorCode,
+                ]),
+                __('Fix the Availability line above, then run again — the test records are recreated on every run.'),
             );
         }
 
-        $spoken = ConnectionDiagnostics::testBookingInstant($context->salon)->format('l, F j, Y \a\t g:i A');
+        if (($created['success'] ?? false) !== true) {
+            return CheckResult::fail(__('The engine did not confirm the booking: :reason', ['reason' => $created['message'] ?? __('unknown')]));
+        }
 
-        return CheckResult::pass($result['reused']
-            ? __('The pinned test appointment for :time is already in place (reused — never duplicated). The engine validated the slot; the appointment is removed at clean-up.', ['time' => $spoken])
-            : __(':client booked :service with :stylist for :time — the slot was validated by the live availability engine and the appointment stored end to end. Pinned far-future on purpose: nobody real can ever book it. Removed at clean-up.', [
+        $spoken = $instant->format('l, F j, Y \a\t g:i A');
+
+        return CheckResult::pass(($created['idempotent'] ?? false)
+            ? __('The pinned test appointment for :time is already in place (reused — never duplicated). The booking engine works end to end; the appointment is removed at clean-up.', ['time' => $spoken])
+            : __(':client booked :service with :stylist for :time through the full engine path — the booking engine works end to end. Pinned far-future on purpose: nobody real can ever book that slot. Removed at clean-up.', [
                 'client' => ConnectionDiagnostics::CLIENT_NAME,
                 'service' => ConnectionDiagnostics::SERVICE_NAME,
                 'stylist' => ConnectionDiagnostics::STYLIST_NAME,

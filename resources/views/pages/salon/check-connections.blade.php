@@ -133,7 +133,7 @@ new #[Title('Health check')] class extends Component {
                 <p class="text-[13.5px] leading-relaxed text-secondary">{{ __('Running the check takes a few seconds. It:') }}</p>
                 <ul class="ms-5 flex list-disc flex-col gap-1 text-[13.5px] leading-relaxed text-secondary">
                     <li>{{ __('creates three temporary test records — “Bluejaypro Stylist”, “Bluejaypro Hair Cut”, and “Bluejaypro Test Client” — invisible to clients, deleted when you finish, at go-live, or automatically when their timer runs out') }}</li>
-                    <li>{{ __('books one test appointment at a pinned far-future slot — 28 June 3004, 2:00 PM — validated by the live availability engine; nobody real can ever book that slot, so it never collides with your testing') }}</li>
+                    <li>{{ __('books one test appointment through the same engine the Voice AI uses, at a pinned far-future slot — 28 June 3004, 2:00 PM — nobody real can ever book that slot, so it never collides with your testing') }}</li>
                     <li>{{ __('checks the booking API — endpoint, token, availability — plus the webhook and the public widget') }}</li>
                     <li>{{ __('checks email settings and the client confirmation/reminder pathway') }}</li>
                     <li>{{ __('checks the scheduler (cron) and the queue are actually running') }}</li>
