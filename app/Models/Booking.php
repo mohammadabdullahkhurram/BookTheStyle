@@ -75,7 +75,8 @@ class Booking extends Model
      */
     public function client(): BelongsTo
     {
-        return $this->belongsTo(Client::class);
+        // Kept appointments of a deleted (tombstoned) client render the name.
+        return $this->belongsTo(Client::class)->withTrashed();
     }
 
     /**

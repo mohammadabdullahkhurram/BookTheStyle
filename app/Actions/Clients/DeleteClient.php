@@ -2,7 +2,6 @@
 
 namespace App\Actions\Clients;
 
-use App\Actions\Bookings\PurgeBookings;
 use App\Models\Client;
 use App\Models\Salon;
 use App\Models\User;
@@ -10,18 +9,17 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 
 /**
- * PERMANENTLY delete a client and every appointment they ever had here —
- * record and history gone (the UI's confirm modal shows the appointment
- * count first). Gated to the salon owner + agency owner/admin
- * (SalonPolicy::hardDelete), salon-scoped, never in the demo. FK-safe
- * order: notes, then each booking's dependents, then the client row.
- * Synced upcoming appointments are cancelled on the GHL side; the GHL
- * CONTACT is deliberately left alone — it belongs to the salon's CRM.
+ * SOLO delete of a client: the client is removed — their APPOINTMENTS ARE
+ * KEPT, every one of them. FK integrity via tombstone: the row soft-deletes
+ * (the kept appointments' name snapshot; SoftDeletes hides it from the
+ * directory, pickers and counts automatically) with contact details
+ * scrubbed; their notes go too — notes are ABOUT the client, not
+ * appointments. Gated to the salon owner + agency owner/admin
+ * (SalonPolicy::hardDelete), salon-scoped, never in the demo. Nothing is
+ * pushed to GHL — no appointment changed.
  */
 class DeleteClient
 {
-    public function __construct(private PurgeBookings $purge) {}
-
     public function handle(User $actor, Salon $salon, Client $client): void
     {
         if ($client->salon_id !== $salon->id) {
@@ -29,13 +27,13 @@ class DeleteClient
         }
 
         if ($salon->is_demo || ! $actor->can('hardDelete', $salon)) {
-            throw new AuthorizationException('You may not permanently delete clients here.');
+            throw new AuthorizationException('You may not delete clients here.');
         }
 
-        DB::transaction(function () use ($salon, $client): void {
-            $this->purge->handle($salon, $client->bookings()->with('items')->get());
+        DB::transaction(function () use ($client): void {
             $client->notes()->delete();
-            $client->delete();
+            $client->forceFill(['phone' => null, 'email' => null])->save();
+            $client->delete(); // soft — the name stays for kept appointments
         });
     }
 }

@@ -2,7 +2,6 @@
 
 namespace App\Actions\Staff;
 
-use App\Actions\Bookings\PurgeBookings;
 use App\Enums\SalonRole;
 use App\Models\Availability;
 use App\Models\Booking;
@@ -16,41 +15,37 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * PERMANENTLY delete a staff member from a salon — record AND history gone.
- * This is the destructive sibling of DeleteStaffUser (which removes the
- * membership but keeps booking history) and of deactivation (the archive
- * path). Everything of theirs in THIS salon goes: their appointments
- * (FK-safe, GHL-cancelled where synced), availability, time off, stylist
- * profile, service assignments, membership. The ACCOUNT is force-deleted
- * only when nothing else references it — a person working at two salons
- * purged from one keeps logging in to the other; cross-salon data is
- * untouched by construction.
+ * SOLO delete of a staff member from a salon: the member is removed —
+ * their APPOINTMENTS ARE KEPT, upcoming ones included (they render with
+ * the stylist's name via the withTrashed relation, and the health check's
+ * integrity spot check flags any upcoming ones for reassignment). What
+ * goes is theirs alone in THIS salon: availability, time off, stylist
+ * profile, service assignments (pure link rows), membership. The ACCOUNT
+ * soft-deletes only when nothing else references it — a person working
+ * at two salons deleted from one keeps logging in to the other; it is
+ * never force-deleted, because kept appointments snapshot their name
+ * through the soft-deleted row.
  *
- * Gates: salon owner + agency owner/admin only (SalonPolicy::hardDelete —
- * managers/stylists cannot), PLUS role authority over the target
- * (SalonStaffRoles::canManage). Never yourself, never the last active
- * owner (transfer first), never in the demo. Future bookings are never
- * deleted silently: open upcoming appointments require the caller's
- * explicit acknowledgment or the whole delete refuses.
+ * Gates: salon owner + agency owner/admin only (SalonPolicy::hardDelete),
+ * PLUS role authority over the target (SalonStaffRoles::canManage).
+ * Never yourself, never the last active owner (transfer first), never in
+ * the demo. Deactivation stays the archive path.
  */
 class PurgeStaffMember
 {
-    public function __construct(
-        private SalonStaffRoles $roles,
-        private PurgeBookings $purge,
-    ) {}
+    public function __construct(private SalonStaffRoles $roles) {}
 
     /**
-     * @return bool whether the ACCOUNT was deleted too (vs this salon only)
+     * @return bool whether the ACCOUNT was removed too (vs this salon only)
      */
-    public function handle(User $actor, Salon $salon, SalonMembership $membership, bool $acknowledgedUpcoming = false): bool
+    public function handle(User $actor, Salon $salon, SalonMembership $membership): bool
     {
         if ($membership->salon_id !== $salon->id) {
             throw new AuthorizationException('That staff member is not in this salon.');
         }
 
         if ($salon->is_demo || ! $actor->can('hardDelete', $salon)) {
-            throw new AuthorizationException('You may not permanently delete staff here.');
+            throw new AuthorizationException('You may not delete staff here.');
         }
 
         if ($membership->user_id === $actor->id) {
@@ -67,19 +62,9 @@ class PurgeStaffMember
             ]);
         }
 
-        $bookings = self::bookingsOf($salon, $membership->user_id);
-
-        if (PurgeBookings::upcoming($bookings)->isNotEmpty() && ! $acknowledgedUpcoming) {
-            throw ValidationException::withMessages([
-                'acknowledge' => __('This staff member has upcoming appointments — confirm you understand they will be permanently deleted.'),
-            ]);
-        }
-
         $user = $membership->user;
 
-        return DB::transaction(function () use ($salon, $membership, $user, $bookings): bool {
-            $this->purge->handle($salon, $bookings);
-
+        return DB::transaction(function () use ($salon, $membership, $user): bool {
             Availability::forSalon($salon)->where('user_id', $user->id)->delete();
             DB::table('time_off')->where('salon_id', $salon->id)->where('user_id', $user->id)->delete();
             DB::table('stylist_profiles')->where('salon_id', $salon->id)->where('user_id', $user->id)->delete();
@@ -90,7 +75,7 @@ class PurgeStaffMember
                 && ! $user->salonMemberships()->exists();
 
             if ($accountRemovable) {
-                $user->forceDelete(); // permanent — the deleted event still strips passkeys
+                $user->delete(); // soft — kept appointments keep their name
             }
 
             return $accountRemovable;
@@ -98,8 +83,8 @@ class PurgeStaffMember
     }
 
     /**
-     * Every booking in THIS salon carrying the member's items — their
-     * blast radius, shared with the confirm UI.
+     * Every booking in THIS salon carrying the member's items — shown in
+     * the confirm UI as what will be KEPT.
      *
      * @return Collection<int, Booking>
      */

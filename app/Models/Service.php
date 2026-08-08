@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * A bookable service offered by a salon (SPEC §4). The price is display/
@@ -27,7 +28,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 class Service extends Model
 {
     /** @use HasFactory<ServiceFactory> */
-    use BelongsToSalon, HasFactory;
+    use BelongsToSalon, HasFactory, SoftDeletes;
 
     protected $fillable = [
         'salon_id',

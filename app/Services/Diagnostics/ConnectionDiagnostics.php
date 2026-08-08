@@ -200,8 +200,10 @@ class ConnectionDiagnostics
                 $stylist->forceDelete();
             }
 
-            Service::withoutGlobalScopes()->where('salon_id', $salon->id)->where('is_test', true)->get()->each->delete();
-            $client?->delete();
+            // forceDelete: Client/Service are SoftDeletes now (solo-delete
+            // tombstones) — disposable test records must actually go.
+            Service::withoutGlobalScopes()->where('salon_id', $salon->id)->where('is_test', true)->get()->each->forceDelete();
+            $client?->forceDelete();
 
             $salon->forceFill(['test_records_expire_at' => null])->save();
             Cache::forget(self::lastCallKey($salon));

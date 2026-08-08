@@ -83,7 +83,8 @@ class BookingItem extends Model
      */
     public function service(): BelongsTo
     {
-        return $this->belongsTo(Service::class);
+        // Kept appointments of a deleted (tombstoned) service render the name.
+        return $this->belongsTo(Service::class)->withTrashed();
     }
 
     /**

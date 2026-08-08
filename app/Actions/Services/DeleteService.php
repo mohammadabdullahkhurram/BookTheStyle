@@ -2,7 +2,6 @@
 
 namespace App\Actions\Services;
 
-use App\Actions\Bookings\PurgeBookings;
 use App\Models\Booking;
 use App\Models\Salon;
 use App\Models\Service;
@@ -10,52 +9,39 @@ use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 
 /**
- * PERMANENTLY delete a service, its stylist associations, and every
- * appointment that used it — record and history gone ("stop offering but
- * keep history" stays SetServiceActive). Gated to the salon owner + agency
- * owner/admin (SalonPolicy::hardDelete), salon-scoped, never in the demo.
- *
- * Future bookings are never deleted silently: when open upcoming
- * appointments use the service, the caller must pass an explicit
- * acknowledgment (the UI's confirm modal surfaces them first) or the
- * whole delete refuses. A multi-service visit is removed WHOLE — an
- * appointment cannot survive with half its work missing.
+ * SOLO delete of a service: the service is removed — every APPOINTMENT
+ * that used it IS KEPT, upcoming ones included. FK integrity via
+ * tombstone: the row soft-deletes (the kept appointments' name snapshot;
+ * SoftDeletes hides it from the menu, widget and pickers automatically).
+ * The stylist⇄service "who offers it" pivot rows are pure links that
+ * cannot exist without the service — removed as FK cleanup; that is not
+ * an appointment. Gated to the salon owner + agency owner/admin
+ * (SalonPolicy::hardDelete), salon-scoped, never in the demo.
+ * "Stop offering but keep it on the menu history" stays SetServiceActive.
  */
 class DeleteService
 {
-    public function __construct(private PurgeBookings $purge) {}
-
-    public function handle(User $actor, Salon $salon, Service $service, bool $acknowledgedUpcoming = false): void
+    public function handle(User $actor, Salon $salon, Service $service): void
     {
         if ($service->salon_id !== $salon->id) {
             throw new AuthorizationException('That service is not in this salon.');
         }
 
         if ($salon->is_demo || ! $actor->can('hardDelete', $salon)) {
-            throw new AuthorizationException('You may not permanently delete services here.');
+            throw new AuthorizationException('You may not delete services here.');
         }
 
-        $bookings = self::bookingsUsing($salon, $service);
-
-        if (PurgeBookings::upcoming($bookings)->isNotEmpty() && ! $acknowledgedUpcoming) {
-            throw ValidationException::withMessages([
-                'acknowledge' => __('This service has upcoming appointments — confirm you understand they will be permanently deleted.'),
-            ]);
-        }
-
-        DB::transaction(function () use ($salon, $service, $bookings): void {
-            $this->purge->handle($salon, $bookings);
-            $service->stylists()->detach();
-            $service->delete();
+        DB::transaction(function () use ($service): void {
+            $service->stylists()->detach(); // pure link rows — FK cleanup only
+            $service->delete(); // soft — the name stays for kept appointments
         });
     }
 
     /**
-     * Every booking with at least one item of this service — the service's
-     * blast radius, shared with the confirm UI.
+     * Every booking with at least one item of this service — shown in the
+     * confirm UI as what will be KEPT.
      *
      * @return Collection<int, Booking>
      */

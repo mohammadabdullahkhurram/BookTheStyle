@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * A salon's client (SPEC §4). Salon-scoped. The profile fields (allergies,
@@ -36,7 +37,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Client extends Model
 {
     /** @use HasFactory<ClientFactory> */
-    use BelongsToSalon, HasFactory;
+    use BelongsToSalon, HasFactory, SoftDeletes;
 
     /** @var list<string> the offered preferred-contact options */
     public const CONTACT_METHODS = ['phone', 'text', 'email'];
