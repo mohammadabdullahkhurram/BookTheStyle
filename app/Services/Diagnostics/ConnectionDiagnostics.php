@@ -46,6 +46,15 @@ class ConnectionDiagnostics
 
     public const CLIENT_NAME = 'Bluejaypro Test Client';
 
+    /**
+     * The health check's test appointment ALWAYS books at this time (salon
+     * timezone) — any date, fixed time — so a salon can keep 2:00 PM clear
+     * during real testing and never collide with it. If a date's 2:00 PM is
+     * unavailable the check reuses the prior test appointment (idempotent
+     * create) or rolls to the NEXT date's 2:00 PM — never another time.
+     */
+    public const TEST_BOOKING_TIME = '2:00 PM';
+
     /** Health-check-created/refreshed records expire this soon after a run. */
     public const TTL_RUN_MINUTES = 60;
 
