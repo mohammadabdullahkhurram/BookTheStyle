@@ -97,9 +97,15 @@ class CreateBooking
             ? CarbonImmutable::now($tz)
             : CarbonImmutable::parse($data['start'] ?? throw ValidationException::withMessages(['start' => __('Choose a start time.')]), $tz);
 
-        $this->policy->assertCreatable($salon, $start, $isWalkin);
+        // The window exemption applies ONLY to designated is_test clients,
+        // and only via their STORED flag (an explicit id) — request input
+        // can never claim it.
+        $forTestClient = isset($data['client']['id'])
+            && (bool) $salon->clients()->whereKey((int) $data['client']['id'])->value('is_test');
 
-        return DB::transaction(function () use ($actor, $salon, $data, $start, $isWalkin, $source, $bookedByType): array {
+        $this->policy->assertCreatable($salon, $start, $isWalkin, $forTestClient);
+
+        return DB::transaction(function () use ($actor, $salon, $data, $start, $isWalkin, $source, $bookedByType, $forTestClient): array {
             $client = $this->resolveClient($salon, $data['client']);
 
             // Lay items sequentially and resolve each stylist.
@@ -126,7 +132,7 @@ class CreateBooking
                 $itemStart = $cursor;
                 if (! $isWalkin && filled($item['start'] ?? null)) {
                     $itemStart = CarbonImmutable::parse((string) $item['start'], $salon->timezone);
-                    $this->policy->assertCreatable($salon, $itemStart, false);
+                    $this->policy->assertCreatable($salon, $itemStart, false, $forTestClient);
                 }
 
                 $stylistId = $this->assertQualified($service, (int) $item['stylist_id']);

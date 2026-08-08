@@ -69,7 +69,7 @@ class RescheduleBooking
 
         $tz = $salon->timezone;
         $newStart = CarbonImmutable::parse($start, $tz);
-        $this->policy->assertCreatable($salon, $newStart, false);
+        $this->policy->assertCreatable($salon, $newStart, false, (bool) $booking->client?->is_test);
 
         $oldStart = $items->first()->starts_at;
         $delta = (int) round($oldStart->diffInSeconds($newStart, false));

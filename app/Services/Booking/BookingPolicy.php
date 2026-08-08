@@ -47,7 +47,15 @@ class BookingPolicy
      * Authoritatively enforce policy when creating a booking. Throws a
      * ValidationException with a clear message on any violation.
      */
-    public function assertCreatable(Salon $salon, CarbonImmutable $start, bool $isWalkin): void
+    /**
+     * $forTestClient (an is_test designated test client) exempts the
+     * TEMPORAL gates — min notice, same-day, and the booking-window
+     * horizon — so the collision-proof far-future test slot (year 3004)
+     * books end to end through the real engine. The past stays refused,
+     * and real clients are NEVER exempt: callers derive the flag from the
+     * stored client record, not from request input.
+     */
+    public function assertCreatable(Salon $salon, CarbonImmutable $start, bool $isWalkin, bool $forTestClient = false): void
     {
         $tz = $salon->timezone;
         $now = CarbonImmutable::now($tz);
@@ -66,6 +74,10 @@ class BookingPolicy
 
         if ($day->lt($today)) {
             $this->fail(__('You cannot book in the past.'));
+        }
+
+        if ($forTestClient) {
+            return; // designated test clients skip the window/notice gates
         }
 
         if ($start->lt($now->addMinutes($salon->min_notice_minutes))) {
