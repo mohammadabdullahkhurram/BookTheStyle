@@ -45,9 +45,11 @@
                 @else
                     <flux:menu.item icon="play-circle" wire:click="toggleActive({{ $m->id }})">{{ __('Reactivate') }}</flux:menu.item>
                 @endif
-                @if ($m->user_id !== Auth::id())
+                @if (($canHardDelete ?? false) && $m->user_id !== Auth::id())
+                    {{-- PERMANENT delete (record + history) — owner/agency
+                         operators only; opens the blast-radius modal. --}}
                     <flux:menu.separator />
-                    <flux:menu.item icon="trash" variant="danger" x-on:click="$store.confirm.ask({ title: {{ Js::from(__('Delete member')) }}, message: {{ Js::from(__('Removed from this salon permanently — and their account is deleted if this is their only access. Past bookings and history are kept under their name. Prefer Deactivate if they might return.')) }}, confirmLabel: {{ Js::from(__('Delete')) }}, danger: true }, () => $wire.deleteMember({{ $m->id }}))">{{ __('Delete') }}</flux:menu.item>
+                    <flux:menu.item icon="trash" variant="danger" wire:click="startDelete({{ $m->id }})">{{ __('Delete permanently') }}</flux:menu.item>
                 @endif
             @endif
         </flux:menu>

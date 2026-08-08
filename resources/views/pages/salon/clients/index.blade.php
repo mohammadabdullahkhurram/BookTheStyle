@@ -2,6 +2,8 @@
 
 use App\Actions\Clients\CreateClient;
 use App\Actions\Clients\UpdateClient;
+use App\Actions\Clients\DeleteClient;
+use App\Actions\Bookings\PurgeBookings;
 use App\Models\Client;
 use App\Models\Salon;
 use App\Services\Clients\ClientDirectory;
@@ -213,6 +215,64 @@ new #[Title('Clients')] class extends Component {
         Flux::toast(variant: 'success', text: __('Client updated.'));
     }
 
+    // ------------------------------------------------------------------
+    // PERMANENT delete — the client AND every appointment they ever had
+    // (blast radius shown first). Owner + agency owner/admin only
+    // (SalonPolicy::hardDelete); managers keep edit but cannot delete.
+
+    public bool $showDelete = false;
+
+    public ?int $deleteClientId = null;
+
+    #[Computed]
+    public function canHardDelete(): bool
+    {
+        return (bool) Auth::user()?->can('hardDelete', $this->salon);
+    }
+
+    /** @return array{name: string, total: int, upcoming: int}|null */
+    #[Computed]
+    public function deleteBlast(): ?array
+    {
+        if ($this->deleteClientId === null) {
+            return null;
+        }
+
+        $client = $this->client($this->deleteClientId);
+        $bookings = $client->bookings()->with('items')->get();
+
+        return [
+            'name' => $client->name,
+            'total' => $bookings->count(),
+            'upcoming' => PurgeBookings::upcoming($bookings)->count(),
+        ];
+    }
+
+    public function startDelete(): void
+    {
+        abort_unless($this->canHardDelete, 403);
+
+        $this->deleteClientId = $this->client((int) $this->editingId)->id;
+        unset($this->deleteBlast);
+        $this->showEdit = false;
+        $this->showDelete = true;
+    }
+
+    public function confirmDelete(DeleteClient $action): void
+    {
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Client changes are disabled in the demo.'))) {
+            return;
+        }
+
+        $client = $this->client((int) $this->deleteClientId);
+        $action->handle(Auth::user(), $this->salon, $client);
+
+        $this->reset(['showDelete', 'deleteClientId', 'editingId']);
+        unset($this->clients, $this->deleteBlast);
+
+        Flux::toast(variant: 'success', text: __('Client permanently deleted, appointments included.'));
+    }
+
     /**
      * Scoped lookup — out-of-salon ids 404 (no IDOR).
      */
@@ -400,10 +460,39 @@ new #[Title('Clients')] class extends Component {
             <flux:input wire:model="editName" :label="__('Name')" required />
             <flux:input wire:model="editPhone" :label="__('Phone')" />
             <flux:input wire:model="editEmail" type="email" :label="__('Email')" />
-            <div class="flex justify-end gap-3">
-                <x-ui.button type="button" variant="secondary" wire:click="$set('showEdit', false)">{{ __('Cancel') }}</x-ui.button>
-                <x-ui.button type="submit">{{ __('Save') }}</x-ui.button>
+            <div class="flex items-center justify-between gap-3">
+                <div>
+                    @if ($this->canHardDelete)
+                        <x-ui.button type="button" variant="danger" wire:click="startDelete">{{ __('Delete permanently') }}</x-ui.button>
+                    @endif
+                </div>
+                <div class="flex gap-3">
+                    <x-ui.button type="button" variant="secondary" wire:click="$set('showEdit', false)">{{ __('Cancel') }}</x-ui.button>
+                    <x-ui.button type="submit">{{ __('Save') }}</x-ui.button>
+                </div>
             </div>
         </form>
     </x-ui.modal>
+
+    {{-- PERMANENT-delete confirmation: the blast radius (appointment count)
+         is shown before anything happens. --}}
+    @if ($this->canHardDelete)
+    <x-ui.modal wire:model="showDelete" class="max-w-md" :heading="__('Delete permanently')">
+        @if ($this->deleteBlast !== null)
+            <div class="flex flex-col gap-4">
+                <p class="text-[13.5px] leading-relaxed text-secondary">{{ __(':name will be permanently deleted — profile, notes, and every appointment they ever had here. This cannot be undone.', ['name' => $this->deleteBlast['name']]) }}</p>
+                <div class="rounded-[10px] border px-4 py-3" style="background-color:#F6E8E1;border-color:#E4C4B3;">
+                    <p class="text-[13.5px] font-semibold" style="color:#8A4B2D;">{{ trans_choice('Also deleted: :count appointment.|Also deleted: :count appointments.', $this->deleteBlast['total'], ['count' => $this->deleteBlast['total']]) }}</p>
+                    @if ($this->deleteBlast['upcoming'] > 0)
+                        <p class="mt-1 text-[13px]" style="color:#8A4B2D;">{{ trans_choice(':count of them is UPCOMING — the client will NOT be notified by BookTheStyle.|:count of them are UPCOMING — the client will NOT be notified by BookTheStyle.', $this->deleteBlast['upcoming'], ['count' => $this->deleteBlast['upcoming']]) }}</p>
+                    @endif
+                </div>
+                <div class="flex justify-end gap-3">
+                    <x-ui.button type="button" variant="secondary" wire:click="$set('showDelete', false)">{{ __('Cancel') }}</x-ui.button>
+                    <x-ui.button variant="danger" wire:click="confirmDelete" loading="confirmDelete">{{ __('Delete permanently') }}</x-ui.button>
+                </div>
+            </div>
+        @endif
+    </x-ui.modal>
+    @endif
 </div>

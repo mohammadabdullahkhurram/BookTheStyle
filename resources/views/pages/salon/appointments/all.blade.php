@@ -103,6 +103,25 @@ new #[Title('Appointments')] class extends Component {
     }
 
 
+    #[Computed]
+    public function canHardDelete(): bool
+    {
+        return (bool) Auth::user()?->can('hardDelete', $this->salon);
+    }
+
+    /** PERMANENT delete, distinct from cancelling — record + history gone. */
+    public function deleteBooking(int $bookingId, \App\Actions\Bookings\DeleteBooking $action): void
+    {
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Booking changes are disabled in the demo.'))) {
+            return;
+        }
+
+        $action->handle(Auth::user(), $this->salon, $this->booking($bookingId));
+        unset($this->bookings);
+
+        Flux::toast(variant: 'success', text: __('Appointment permanently deleted.'));
+    }
+
     public function changeStatus(int $bookingId, string $to, \App\Actions\Bookings\TransitionBookingStatus $action): void
     {
         if (\App\Support\DemoMode::blocksWrite($this->salon, __('Status changes are disabled in the demo.'))) {
@@ -297,6 +316,10 @@ new #[Title('Appointments')] class extends Component {
                                     <button type="button" wire:click="openReschedule({{ $booking->id }})" class="text-[13px] font-medium text-secondary transition hover:text-accent">{{ __('Reschedule') }}</button>
                                 @endif
                                 <button type="button" wire:click="openTimeline({{ $booking->id }})" class="text-[13px] font-medium text-secondary transition hover:text-accent">{{ __('History') }}</button>
+                                @if ($this->canHardDelete)
+                                    {{-- PERMANENT delete — distinct from Cancel: record + history gone. --}}
+                                    <button type="button" x-on:click="$store.confirm.ask({ title: {{ Js::from(__('Delete permanently')) }}, message: {{ Js::from(__('Permanently delete this appointment? Unlike cancelling, the record and its history are gone for good, and the client is NOT notified by BookTheStyle.')) }}, confirmLabel: {{ Js::from(__('Delete permanently')) }}, danger: true }, () => $wire.deleteBooking({{ $booking->id }}))" class="text-[13px] font-medium text-danger transition hover:opacity-80">{{ __('Delete') }}</button>
+                                @endif
                             </div>
                         </div>
                     </div>
