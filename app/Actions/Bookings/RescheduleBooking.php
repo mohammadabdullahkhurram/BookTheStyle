@@ -37,13 +37,19 @@ class RescheduleBooking
     /**
      * @param  string  $start  'Y-m-d H:i' in the salon timezone
      */
-    public function handle(User $actor, Salon $salon, Booking $booking, string $start): Booking
+    /**
+     * A null $actor is a SYSTEM caller (the token-authenticated Booking
+     * API, same convention as CreateBooking): the token already authorizes
+     * the whole salon, so the per-actor gate is skipped and the status
+     * event records no acting user.
+     */
+    public function handle(?User $actor, Salon $salon, Booking $booking, string $start): Booking
     {
         if ($booking->salon_id !== $salon->id) {
             throw new AuthorizationException('That booking is not in this salon.');
         }
 
-        if (! $actor->can('manageBookings', $salon)) {
+        if ($actor !== null && ! $actor->can('manageBookings', $salon)) {
             throw new AuthorizationException('You may not reschedule bookings.');
         }
 
@@ -100,7 +106,7 @@ class RescheduleBooking
                     'from' => $oldStart->setTimezone($tz)->format('M j, g:i A'),
                     'to' => $newStart->setTimezone($tz)->format('M j, g:i A'),
                 ]),
-                'actor_user_id' => $actor->id,
+                'actor_user_id' => $actor?->id,
             ]);
 
             // Bump updated_at so inbound last-change-wins sees this edit.

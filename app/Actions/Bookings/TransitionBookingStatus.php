@@ -23,7 +23,13 @@ use Illuminate\Validation\ValidationException;
  */
 class TransitionBookingStatus
 {
-    public function handle(User $actor, Salon $salon, Booking $booking, BookingStatus $to): Booking
+    /**
+     * A null $actor is a SYSTEM caller (the token-authenticated Booking
+     * API, same convention as CreateBooking): the token already authorizes
+     * the whole salon, so the per-actor gate is skipped and the status
+     * event records no acting user.
+     */
+    public function handle(?User $actor, Salon $salon, Booking $booking, BookingStatus $to): Booking
     {
         if ($booking->salon_id !== $salon->id) {
             throw new AuthorizationException('That booking is not in this salon.');
@@ -32,7 +38,7 @@ class TransitionBookingStatus
         // Managers everywhere; a BOOTH-RENTING stylist runs their own book and
         // may manage the status of bookings that carry THEIR items. Employee
         // stylists never change status, own or otherwise.
-        if (! $actor->can('manageBookings', $salon)) {
+        if ($actor !== null && ! $actor->can('manageBookings', $salon)) {
             $ownBoothBooking = $actor->boothRenterMembershipFor($salon) !== null
                 && $booking->items()->where('stylist_id', $actor->id)->exists();
 
@@ -58,7 +64,7 @@ class TransitionBookingStatus
             'salon_id' => $salon->id,
             'from_status' => $from,
             'to_status' => $to,
-            'actor_user_id' => $actor->id,
+            'actor_user_id' => $actor?->id,
         ]);
 
         // Mirror to GHL whenever the mapped appointment status actually
