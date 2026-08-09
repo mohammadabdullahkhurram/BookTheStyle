@@ -50,67 +50,88 @@ it('bounces unauthenticated guests to login', function () {
     $this->get(route('agency.docs'))->assertRedirect(route('login'));
 });
 
-it('renders the SOP at industry depth: purpose, prerequisites, decision points, verification, troubleshooting, escalation, checklists', function () {
+it('renders the rebuilt SOP: guided parts, expected results, decision points, day-to-day, checklists', function () {
     $response = $this->actingAs(docsAgencyUser(AgencyRole::User))
         ->get(route('agency.docs', ['doc' => 'salon-setup-sop']))
         ->assertOk();
 
     // The full section structure, anchored, with the on-page nav.
-    foreach (['purpose', 'before-you-start', 'part-a-bookthestyle', 'part-b-ghl', 'part-c-connect', 'verification', 'troubleshooting', 'escalation', 'checklist'] as $id) {
+    foreach (['how-it-works', 'before-you-start', 'part-a-bookthestyle', 'part-b-salon-setup', 'part-c-ghl', 'part-d-connect', 'part-e-voice', 'part-f-widget', 'verify-go-live', 'day-to-day', 'troubleshooting', 'escalation', 'checklist'] as $id) {
         $response->assertSee('id="'.$id.'"', false);
     }
     $response->assertSee(__('On this page'))
-        ->assertSee(__('Purpose & scope'))
-        ->assertSee(__('Final verification — the full pass'))
+        ->assertSee(__('How the system fits together'))
+        ->assertSee(__('Test everything & go live'))
+        ->assertSee(__('Running the salon day to day'))
         ->assertSee(__('Troubleshooting — if you see X, do Y'))
         ->assertSee(__('Escalation — who to ask'))
         ->assertSee(__('Go-live checklist'));
 
-    // Steps carry expected results and decision points; kit components render.
+    // Steps carry expected results and decision points; the kit renders.
     $response->assertSee(__('How you know it worked:'))
         ->assertSee(__('Choose the salon type — a decision point'))
         ->assertSee(__('Important'))
         ->assertSee(__('Screenshot to add'))
         ->assertSee('Takes bookings');
 
+    // The load-bearing operational facts, spelled out for the team.
+    $response->assertSee('X-Webhook-Secret')
+        ->assertSee('/v1/')
+        ->assertSee('Bluejaypro Voice AI Test Client')
+        ->assertSee('+1 555 010 0001')
+        ->assertSee('28 June 3004');
+
     // Chair Rental is the terminology — the old term is gone.
     $response->assertSee('Chair Rental')
         ->assertDontSee('Booth');
 
-    // GHL-instance specifics render as visible fill-in slots.
+    // GHL-instance specifics render as visible fill-in slots; an SVG
+    // system-overview diagram is drawn inline.
     $response->assertSee(__('Loopflo snapshot name'));
+    expect(substr_count($response->getContent(), '<svg'))->toBeGreaterThanOrEqual(1);
 });
 
-it('renders the technical reference at industry depth: endpoint/parameter/error tables, token lifecycle, webhook, runbook, glossary', function () {
+it('renders the rebuilt technical reference: engine, all four endpoints, webhook, sync, health, config — from the code', function () {
     $response = $this->actingAs(docsAgencyUser(AgencyRole::Owner))
         ->get(route('agency.docs', ['doc' => 'technical-integration-reference']))
         ->assertOk();
 
     // The full section structure, anchored.
-    foreach (['about', 'prerequisites', 'architecture', 'booking-sequence', 'endpoints', 'auth', 'resilience', 'webhook', 'ghl-side', 'runbook', 'troubleshooting', 'glossary', 'sync'] as $id) {
+    foreach (['about', 'architecture', 'domain-model', 'booking-engine', 'endpoints', 'auth', 'webhook', 'outbound-sync', 'surfaces', 'health', 'security-ops', 'ghl-side', 'runbook', 'troubleshooting', 'glossary', 'sync'] as $id) {
         $response->assertSee('id="'.$id.'"', false);
     }
 
-    // Per-endpoint reference: paths, route names, request examples, and the
-    // error table with real codes — all verified from the codebase.
-    $response->assertSee('/api/v1/booking/availability')
-        ->assertSee('/api/v1/booking/create')
-        ->assertSee('api.booking.availability')
-        ->assertSee(__('Example request:'))
-        ->assertSee(__('Status codes &amp; error responses'), false)
+    // All FOUR endpoints with route names, examples, and the real error codes.
+    foreach (['availability', 'create', 'cancel', 'reschedule'] as $endpoint) {
+        $response->assertSee('/api/v1/booking/'.$endpoint)
+            ->assertSee('api.booking.'.$endpoint);
+    }
+    $response->assertSee(__('Example request:'))
         ->assertSee('slot_unavailable')
+        ->assertSee('multiple_appointments')
+        ->assertSee('cannot_cancel')
+        ->assertSee('client_not_found')
         ->assertSee('unknown_service')
         ->assertSee('ambiguous_stylist')
         ->assertSee('invalid_request');
 
-    // Token lifecycle + resilience + webhook specifics.
+    // Token scheme, webhook contract, engine and sync specifics.
     $response->assertSee('btsk_', false)
         ->assertSee('Authorization: Bearer')
         ->assertSee(__('Rotation / revocation'))
-        ->assertSee(__('Idempotent create'))
-        ->assertSee('60')
         ->assertSee('X-Webhook-Secret')
-        ->assertSee('webhooks.ghl');
+        ->assertSee('webhooks.ghl')
+        ->assertSee('ignored_echo')
+        ->assertSee('ghl_last_pushed_status')
+        ->assertSee('max_advance_days')
+        ->assertSee('SlotEngine');
+
+    // Health/test-lane facts and the config/limit tables.
+    $response->assertSee('28 June 3004')
+        ->assertSee('+1 555 010 0001')
+        ->assertSee('health:monitor')
+        ->assertSee('calendars/events.write')
+        ->assertSee(__('60/min (BOOKING_API_RATE_LIMIT)'));
 
     // Runbook with expected outcomes, glossary, and the sync note.
     $response->assertSee(__('Expected:'))
@@ -123,7 +144,8 @@ it('renders the technical reference at industry depth: endpoint/parameter/error 
         ->assertSee(__('persona'))
         ->assertDontSee('Booth');
 
-    // Diagrams are drawn inline — real SVG, no markdown/mermaid residue.
+    // Diagrams are real inline SVG — at least the system overview and the
+    // status machine; no markdown/mermaid residue.
     expect(substr_count($response->getContent(), '<svg'))->toBeGreaterThanOrEqual(2);
     $response->assertSee('System overview: GoHighLevel handles conversation')
         ->assertDontSee('language-mermaid')
