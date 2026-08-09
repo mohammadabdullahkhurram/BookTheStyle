@@ -1,6 +1,6 @@
 # BookTheStyle — Status & Roadmap
 
-_Updated 2026-07-16. **The app is LIVE in production**: bookthestyle.com on Hostinger Cloud (PHP 8.4, MySQL), Cloudflare-fronted, cron-driven queue, deployed 2026-07-15. Ops runbook: `docs/DEPLOY.md`._
+_Updated 2026-08-09. **The app is LIVE in production**: bookthestyle.com on Hostinger Cloud (PHP 8.4, MySQL), Cloudflare-fronted, cron-driven queue, deployed 2026-07-15. Ops runbook: `docs/DEPLOY.md`._
 
 ## ✅ Live in production
 
@@ -12,6 +12,7 @@ _Updated 2026-07-16. **The app is LIVE in production**: bookthestyle.com on Host
 - **Onboarding wizard** with per-step integration verification.
 - **Integration Test/Verify actions** (Settings → Integrations + wizard): connection, contacts scopes, calendar+mapping, availability read-back, non-destructive booking round-trip (creates → reads back → deletes), webhook self-ping, voice-API end-to-end — each with persisted last-verified results and honest "needs live URL" states.
 - **Themed confirm dialog everywhere**: zero native `wire:confirm`/`confirm()` remain (guard test enforces it); one accessible top-layer `<dialog>`.
+- **Since the July snapshot (Aug 2026)**: managers can optionally **take bookings** (sticky staff-type, self-toggle + edit-modal checkbox); agency operators gained authority over salon owners with an owner-transfer safeguard; **solo permanent deletes** for stylist/client/appointment/service (owner + agency-admin gated, blast-radius confirm modals, appointments always kept via soft-delete tombstones rendered "(removed)"); the **Health check** page (extensible registry: integrations incl. a live GHL token test, SSL/domain, notifications, scheduler/queue, readiness, data-integrity spot checks) with disposable leak-proof `is_test` records, run history, and an **hourly read-only auto-monitor** emailing agency admins on green→red; the health check's test appointment pinned to the collision-proof far-future slot (28 June 3004, 2:00 PM); **Voice AI cancel + reschedule endpoints** (`/api/v1/booking/cancel|reschedule`) with one shared format-blind phone lookup; a designated **Voice AI test client** exempt (is_test-only) from the booking window; the **native-Blade Documentation tab** (salon-setup SOP + technical integration reference, fill-in pills for GHL specifics); Settings' Integrations tab reorganized into a **guided five-step setup**; "Chair Rental" display terminology.
 - **Production/ops hardening**: cron-driven queue worker (`--stop-when-empty --max-time=55 --tries=3`), TrustProxies + Cloudflare real-IP handling (`CF-Connecting-IP`), https URL generation, committed build assets (no Node on the server), `app:factory-reset` (production generates a strong one-time owner password), DemoSalonSeeder refuses to run in production, destructive schema commands prohibited in production, **MySQL migration CI job** (migrates from scratch on MySQL 8 every push) + a migration-order guard test, daily retention pruning for `webhook_events` and `failed_jobs`.
 
 ## 🔜 Outstanding (the real list)

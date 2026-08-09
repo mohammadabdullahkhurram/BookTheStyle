@@ -21,7 +21,7 @@ verification recipe in the appendix.
 | `app/` (175 PHP files) | Actions / Enums / Http / Jobs / Models / Policies / Services / Support (27 files) / Console | Conventional; a few grab-bag and size issues (Tier 2.6) |
 | `routes/` | `web.php` (226 lines, all four hosts), `settings.php`, `console.php` | Works, but one file carries four host groups (Tier 2.1) |
 | `resources/views/` (94 blade files) | `pages/` (Volt SFCs), `components/ui/`, `layouts/`, `partials/`, mail | Three oversized SFCs (Tier 2.2–2.3) |
-| `resources/docs/` + `public/docs-assets/` | The in-app agency Documentation system (markdown + images) | New, working; overlaps *in name only* with the help-video system (Tier 2.4) |
+| `resources/views/docs/` | The in-app agency Documentation system (native Blade pages on the `x-docs.*` kit; the earlier markdown pipeline was removed) | Working; overlaps *in name only* with the help-video system (Tier 2.4) |
 | `public/how-to-documentation/` | In-app help VIDEOS, registry in `config/help.php` | Served content — public path, do not move casually (Tier 2.4) |
 | `video/` | A complete, self-contained Remotion film project (40 tracked files + its own local `node_modules`) | Belongs out of this repo (Tier 2.5) |
 | `scripts/` + `docs/launch-video/` | The screenshot-capture harness (deliberately maintained) | Alive — see Tier 3 |
@@ -79,15 +79,20 @@ as a salon named "app").
 ### 2.2 Pages/views layout + the oversized SFCs
 
 **Now:** `resources/views/pages/**` Volt SFCs are resolved by string
-(`Route::livewire('users', 'pages::salon.users.index')`). Three files carry
-too much: `salon/settings.blade.php` (1,450 lines), `salon/users/index.blade.php`
-(852), `agency/salons/edit.blade.php` (648).
+(`Route::livewire('users', 'pages::salon.users.index')`). Two files still
+carry too much: `salon/users/index.blade.php` (~850 lines) and
+`agency/salons/edit.blade.php` (~650).
 
-**Proposal:** do NOT flatten or rename the pages tree (names are load-bearing
-everywhere); instead shrink the big SFCs in place — see 2.3 for Users; the
-same recipe applies to Settings (tab partials: profile / branding / policy /
-integrations / API token) and the agency salon editor (profile / ownership /
-GHL cards).
+**✅ Done (2026-08-08): Settings.** `salon/settings.blade.php` was shrunk in
+place exactly per this recipe — tab bodies extracted to scope-sharing
+partials under `resources/views/partials/settings/` (deliberately NOT a
+`pages/salon/settings/` directory, which would shadow the component name),
+and the Integrations tab reorganized into a guided five-step flow. Route
+and view name byte-identical; the same recipe remains for Users (2.3) and
+the agency salon editor (profile / ownership / GHL cards).
+
+**Proposal (remaining):** do NOT flatten or rename the pages tree (names are
+load-bearing everywhere); shrink the remaining big SFCs in place.
 
 **Blast radius for ANY page rename:** the 26 route strings in `routes/`,
 **63 test files** referencing `pages::…`, and Blade `@include`/component
@@ -120,8 +125,10 @@ strings update together, which is exactly why this is staged, not done now).
 ### 2.4 Consolidate the "two doc systems" (naming, not merging)
 
 **Now:** two systems that overlap in name only:
-- `resources/docs/` + `public/docs-assets/` → the agency **Documentation
-  tab** (markdown SOPs, `App\Support\AgencyDocs`).
+- `resources/views/docs/` → the agency **Documentation tab** (native Blade
+  pages on the `x-docs.*` kit, `App\Support\AgencyDocs` registry; the
+  markdown + `public/docs-assets/` pipeline was removed when the docs went
+  native).
 - `public/how-to-documentation/` → in-app contextual **help videos**
   (`config/help.php` registry, `x-ui.help-trigger`/`help-modal`).
 

@@ -17,7 +17,7 @@ Two scopes, mirroring GHL's agency/sub-account structure. Enforced server-side o
 
 **Agency scope:** Owner (everything; **exactly one, ever** — never grantable, untouchable by anyone else, edits only their own account) · Admin (near-everything, but cannot touch the owner) · User (only explicitly assigned salons, no console administration).
 
-**Salon scope:** three roles — `salon_owner` | `salon_manager` | `stylist` (front desk was absorbed into manager: functionally identical). **The role carries the permissions; `staff_type` survives as the orthogonal BOOKABILITY flag** (`stylist` or none): a stylist-role member always carries it, a manager never does, and an **owner may also carry it** — the owner-who-cuts-hair case — toggled only by the owner themself on their own row in salon → Users.
+**Salon scope:** three roles — `salon_owner` | `salon_manager` | `stylist` (front desk was absorbed into manager: functionally identical). **The role carries the permissions; `staff_type` survives as the orthogonal BOOKABILITY flag** (`stylist` or none): a stylist-role member always carries it, and a **manager or owner may also carry it** — the manager/owner-who-cuts-hair cases. The owner toggles it only on their own row; a manager's flag is set via the takes-bookings checkbox (add/edit member) or their own row's switch, and it survives role edits (sticky).
 
 **Salon types** (`salons.salon_type` ∈ employee · booth_rental · mix, chosen at creation, changeable by the agency with a consequences-naming confirmation) govern the per-membership stylist **arrangement** (`salon_memberships.arrangement` ∈ employee · booth_rental): Employee salons force employee, BoothRental salons force booth_rental, Mix chooses per stylist. Changing type → employee/booth_rental flips every stylist's arrangement (visibility changes, no data deleted); → mix preserves all arrangements. Owners/managers are unaffected by type — they see and manage everything, always.
 
@@ -32,17 +32,20 @@ Two scopes, mirroring GHL's agency/sub-account structure. Enforced server-side o
 | Edit availability | anyone's | anyone's | own | own |
 | Services / Users / Settings / Widgets / Setup | ✓ | ✓ | ✗ (403 server-side) | ✗ (403 server-side) |
 | GHL connection + integration checks | ✓ | ✓ | ✗ | ✗ |
-| Bookable (takes bookings) | optional (self-toggled) | never | always | always |
+| Bookable (takes bookings) | optional (self-toggled) | optional (checkbox / self-toggled) | always | always |
 
 Booth renters are separate businesses under the salon's roof: they must never see each other's books, clients, notes, or revenue — CalendarData, ClientDirectory, and SalonReport all enforce the scope server-side.
 
 | Capability | Owner | Manager | Stylist (both arrangements) |
 |---|---|---|---|
 | Touch the salon OWNER | edit self (account settings) | ✗ | ✗ |
-| Delete users | managers + stylists | managers + stylists (never the owner) | ✗ |
+| Deactivate users (archive) | managers + stylists | managers + stylists (never the owner) | ✗ |
+| **Permanently delete** (staff / clients / appointments / services) | ✓ (+ agency owner/admin) | ✗ | ✗ |
 | Delete own account | ✓ | ✗ (salon-managed) | ✗ (salon-managed) |
 | Delete/deactivate the salon | — (no in-app delete; policy reserves it) | ✗ | ✗ |
 | Personal ICS feed | ✓ | ✓ | ✓ |
+
+**Deletes are SOLO** (owner + agency owner/admin only, blast-radius confirm modals): removing a service/client/stylist never deletes an appointment — the record soft-deletes as a tombstone (name kept, hidden from directories/pickers/widget by scope) and kept appointments render the name marked "(removed)". Cancel and Deactivate remain the archive-grade tools; deleting an APPOINTMENT is the one true removal (and mirrors a cancellation to GHL when synced).
 
 **Owner editability:** the AGENCY owner/admin may edit the salon owner's details (name/email/phone — salon Users screen and the salon profile's Owner details); they may never demote/deactivate/delete the owner outside the ownership-transfer path. Salon managers and stylists can never touch the owner. The agency owner remains untouchable by everyone.
 
@@ -91,7 +94,7 @@ Automation (per-salon policy): auto-no-show after a grace period (opt-in) and au
 ## 5. Availability & the slot engine
 
 - **App-managed availability is the single source of truth.** Weekly work/break windows + dated overrides per stylist, edited only in the app (a GHL-side edit is overwritten on the next push — one-way by design, so there is exactly one authority and no merge problem).
-- The **slot engine** (`app/Services/Booking/`) computes bookable slots on a 15-minute grid from: work windows minus breaks/time-off, existing booking items + buffers, per-stylist service duration overrides, and the salon booking policy (walk-ins, same-day, max advance days, min notice). DST-safe (salon timezone, UTC storage).
+- The **slot engine** (`app/Services/Booking/`) computes bookable slots on a 15-minute grid from: work windows minus breaks/time-off, existing booking items + buffers, per-stylist service duration overrides, and the salon booking policy (walk-ins, same-day, max advance days, min notice). DST-safe (salon timezone, UTC storage). Designated `is_test` clients (the disposable Bluejaypro test set) are exempt from the temporal policy gates — derived from the stored flag only, never request input — so the collision-proof far-future test slot books through the real engine; real clients always keep the window.
 - "Any available" stylist selection assigns the least-busy qualifying stylist. Multi-service visits validate each service line independently (independent times allowed; same-stylist overlaps refused at finalize, named per service).
 - Booking writes re-validate the slot under a lock — the engine is authoritative for every surface, including GHL-originated bookings pushed with `ignoreFreeSlotValidation` (the app already validated).
 
