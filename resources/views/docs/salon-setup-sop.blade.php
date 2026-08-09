@@ -122,32 +122,32 @@
 </x-docs.section>
 
 <x-docs.section id="part-d-connect" :title="__('Part D — Connect the two')">
-    <p>{{ __('Everything in this part lives on ONE screen: the salon → Settings → Integrations, organized as a numbered five-step flow with a Done / Not set up chip on every step. Work top to bottom; the Setup wizard\'s GHL steps mirror the same work.') }}</p>
+    <p>{{ __('Everything in this part lives on ONE screen: the salon → Settings → Integrations, organized as sub-tabs (Connection · Calendar & staff · Booking token · Webhook · Sync & testing), each with a status dot — green means done. Work through them left to right; the Setup wizard\'s GHL steps mirror the same work.') }}</p>
 
     <x-docs.step n="11" :title="__('Connect: Location ID + token, then test')">
-        <p>{{ __('Step 1 of the flow: paste the sub-account\'s Location ID and the PIT, save, then press "Test connection" — BookTheStyle makes a real call to GHL with the stored token and tells you plainly whether it worked. The token is stored encrypted and never shown again.') }}</p>
+        <p>{{ __('On the Connection tab: paste the sub-account\'s Location ID and the PIT, save, then press "Test connection" — BookTheStyle makes a real call to GHL with the stored token and tells you plainly whether it worked. The token is stored encrypted and never shown again.') }}</p>
         <x-docs.screenshot :capture="__('Settings → Integrations, step 1 showing the connection card Connected')" />
-        <p><strong>{{ __('How you know it worked:') }}</strong> {{ __('the card shows Connected with a last-verified time, and step 1\'s chip turns Done.') }}</p>
+        <p><strong>{{ __('How you know it worked:') }}</strong> {{ __('the card shows Connected with a last-verified time, and the Connection tab\'s dot turns green.') }}</p>
     </x-docs.step>
 
     <x-docs.step n="12" :title="__('Map the calendar and the team')">
-        <p>{{ __('Step 2: press "Load from GoHighLevel", pick the master calendar, and match each BookTheStyle stylist to their GHL team member (email matches are pre-suggested — check them). Other staff (owner, managers) link to GHL users for attribution only; that never makes them bookable. Save, then "Verify mapping".') }}</p>
+        <p>{{ __('On the Calendar & staff tab: press "Load from GoHighLevel", pick the master calendar, and match each BookTheStyle stylist to their GHL team member (email matches are pre-suggested — check them). Other staff (owner, managers) link to GHL users for attribution only; that never makes them bookable. Save, then "Verify mapping".') }}</p>
         <p>{{ __('A stylist missing from a dropdown is not a team member on that calendar in GHL — fix it there (edit calendar → team members), reload, map again.') }}</p>
     </x-docs.step>
 
     <x-docs.step n="13" :title="__('The webhook — GHL changes flow back')">
-        <p>{{ __('Step 4 of the flow: press "Generate secret". Then in GHL build the inbound workflow: trigger on appointment changes, action = Webhook (POST) to the URL shown on the card, with a custom header named X-Webhook-Secret set to the shown secret. Publish it. Back in BookTheStyle press "Test delivery" — the app pings its own public address exactly the way GHL will.') }}</p>
+        <p>{{ __('On the Webhook tab: press "Generate secret". Then in GHL build the inbound workflow: trigger on appointment changes, action = Webhook (POST) to the URL shown on the card, with a custom header named X-Webhook-Secret set to the shown secret. Publish it. Back in BookTheStyle press "Test delivery" — the app pings its own public address exactly the way GHL will.') }}</p>
         <p><strong>{{ __('How you know it worked:') }}</strong> {{ __('Test delivery reports success (it only runs on the live site, and says so honestly otherwise).') }}</p>
     </x-docs.step>
 
     <x-docs.step n="14" :title="__('Push the schedules into GHL')">
-        <p>{{ __('Step 5: press "Sync availability to GoHighLevel". Each mapped stylist\'s weekly hours and time off are mirrored into GHL so its calendars and AI only ever offer times BookTheStyle would allow. Every stylist row should end up marked Synced; "Verify in GoHighLevel" reads the schedules back as proof.') }}</p>
+        <p>{{ __('On the Sync & testing tab: press "Sync availability to GoHighLevel". Each mapped stylist\'s weekly hours and time off are mirrored into GHL so its calendars and AI only ever offer times BookTheStyle would allow. Every stylist row should end up marked Synced; "Verify in GoHighLevel" reads the schedules back as proof.') }}</p>
     </x-docs.step>
 </x-docs.section>
 
 <x-docs.section id="part-e-voice" :title="__('Part E — The Voice AI')">
     <x-docs.step n="15" :title="__('Generate the booking token')">
-        <p>{{ __('Step 3 of the Integrations flow: press "Generate token". This is the key the Voice AI uses to book through the salon\'s own engine. It is shown ONCE — keep it on screen (or in the password manager) until the Custom Actions in the next step are saved. Regenerating later invalidates the old token immediately.') }}</p>
+        <p>{{ __('On the Booking token tab: press "Generate token". This is the key the Voice AI uses to book through the salon\'s own engine. It is shown ONCE — keep it on screen (or in the password manager) until the Custom Actions in the next step are saved. Regenerating later invalidates the old token immediately.') }}</p>
     </x-docs.step>
 
     <x-docs.step n="16" :title="__('Wire the four Custom Actions in GHL')">

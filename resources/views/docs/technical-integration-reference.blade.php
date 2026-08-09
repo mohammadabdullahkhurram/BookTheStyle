@@ -282,7 +282,7 @@ Content-Type: application/json
         <p>{{ __('Create via the agency console (owner auto-provisioned; test records seeded); staff/services/availability via the wizard. Expected: the readiness checks go green.') }}</p>
     </x-docs.step>
     <x-docs.step n="3" :title="__('GHL wiring')">
-        <p>{{ __('Sub-account from the snapshot → PIT with the exact scope list → connect + Test connection → Load directory, map calendar + stylists, Verify mapping → webhook secret + workflow + Test delivery → availability sync. Expected: each Integrations step chip turns Done; the wizard\'s GHL steps verify themselves.') }}</p>
+        <p>{{ __('Sub-account from the snapshot → PIT with the exact scope list → connect + Test connection → Load directory, map calendar + stylists, Verify mapping → webhook secret + workflow + Test delivery → availability sync. Expected: each Integrations sub-tab\'s status dot turns green; the wizard\'s GHL steps verify themselves.') }}</p>
     </x-docs.step>
     <x-docs.step n="4" :title="__('Voice AI + token')">
         <p>{{ __('Generate the booking token (shown once) and wire the FOUR Custom Actions (URLs with /v1/, Bearer header, date + time separate). Expected: a test call books the Voice AI test client at any far date; a cancel by the same phone cancels it.') }}</p>

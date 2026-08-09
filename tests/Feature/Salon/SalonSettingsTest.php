@@ -168,23 +168,34 @@ it('rejects an invalid timezone', function () {
     expect($salon->fresh()->timezone)->not->toBe('Mars/Olympus_Mons');
 });
 
-it('renders the Integrations tab as the guided five-step flow with live statuses — same route, same view name', function () {
+it('renders the Integrations tab as sub-tabs — one section at a time, live status dots, same route, same view name', function () {
     $salon = Salon::factory()->create();
     $owner = salonOwnerOf($salon);
 
-    // Fresh salon: every step visible, numbered, and honestly not done.
     $response = $this->actingAs($owner)->get(route('salon.settings', $salon))->assertOk();
-    $response->assertSeeInOrder([
-        __('Set up your integrations, step by step'),
-        __('Step :n — :title', ['n' => 1, 'title' => __('Connect GoHighLevel')]),
-        __('Step :n — :title', ['n' => 2, 'title' => __('Pick the calendar and link your team')]),
-        __('Step :n — :title', ['n' => 3, 'title' => __('Get your booking token')]),
-        __('Step :n — :title', ['n' => 4, 'title' => __('Set up the webhook')]),
-        __('Step :n — :title', ['n' => 5, 'title' => __('Sync and test it')]),
-    ]);
-    $response->assertSee(__('Not set up'))->assertSee(__('0 of 5 steps done.'));
 
-    // Connect + token + webhook secret → those steps read Done.
+    // The five sub-tabs, in order, each with an accessible status label.
+    $response->assertSeeInOrder([
+        __('Integration sections'),
+        __('Connection'),
+        __('Calendar & staff'),
+        __('Booking token'),
+        __('Webhook'),
+        __('Sync & testing'),
+    ]);
+    $response->assertSee(__('Connection').' — '.__('Not set up'))
+        ->assertSee(__('Sync & testing').' — '.__('Not set up'));
+
+    // One section visible at a time: every section is x-show-gated on the
+    // sub-tab state (the app's standard Alpine tab pattern), content in DOM.
+    expect(substr_count($response->getContent(), 'x-show="sub ==='))->toBe(5);
+    $response->assertSee('x-data="{ sub: \'connect\' }"', false);
+
+    // The step-flow chrome is gone.
+    $response->assertDontSee(__('Set up your integrations, step by step'))
+        ->assertDontSee(__('Step :n — :title', ['n' => 1, 'title' => __('Connect GoHighLevel')]));
+
+    // Connect + token + webhook secret → those tabs read Done.
     SalonGhlConnection::factory()->for($salon)->create([
         'location_id' => 'loc_1', 'private_integration_token' => 'pit-x', 'webhook_secret' => 'sec-x',
     ]);
@@ -192,11 +203,18 @@ it('renders the Integrations tab as the guided five-step flow with live statuses
 
     $this->actingAs($owner)->get(route('salon.settings', $salon))
         ->assertOk()
-        ->assertSee(__('Done'))
-        ->assertSee(__('3 of 5 steps done.'));
+        ->assertSee(__('Connection').' — '.__('Done'))
+        ->assertSee(__('Booking token').' — '.__('Done'))
+        ->assertSee(__('Webhook').' — '.__('Done'));
 
-    // Stylists cannot reach settings at all (gating unchanged: mount
-    // authorizes 'manage'; the Integrations tab additionally needs
-    // manageGhlConnection).
+    // Every existing surface is still present under the tabs — nothing removed.
+    $this->actingAs($owner)->get(route('salon.settings', $salon))
+        ->assertSee(__('Master calendar and staff mapping'))
+        ->assertSee(__('Voice AI booking API'))
+        ->assertSee(__('Inbound webhook'))
+        ->assertSee(__('Availability sync'))
+        ->assertSee(__('Sync issues'));
+
+    // Stylists cannot reach settings at all (gating unchanged).
     $this->actingAs(stylistOf($salon))->get(route('salon.settings', $salon))->assertForbidden();
 });
