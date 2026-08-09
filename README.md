@@ -17,15 +17,18 @@ Multi-tenant booking platform for hair/beauty salons, operated by one **agency**
 | [`DESIGN-TOKENS.md`](DESIGN-TOKENS.md) | The design system contract (exact tokens, build to it) |
 | [`CLAUDE.md`](CLAUDE.md) | Working agreement for AI-assisted changes |
 
-Agency-facing SOPs and integration docs live **in-app** (the agency console's
-Documentation tab), authored as markdown in [`resources/docs/`](resources/docs/)
-with images in `public/docs-assets/` — see `app/Support/AgencyDocs.php`.
+Agency-facing SOPs and the technical integration reference live **in-app**
+(the agency console's Documentation tab), authored as native Blade pages in
+[`resources/views/docs/`](resources/views/docs/) on the `x-docs.*` component
+kit — registry in `app/Support/AgencyDocs.php`. GHL-instance specifics render
+as fill-in pills, never guessed.
 
 ## Architecture in brief
 
 - **Multi-tenant, subdomain-per-salon.** Four hostnames off one Laravel app: apex (marketing), `app.` (auth, agency console, `/cal` feeds, `/webhooks`, voice API), `register.` (public book-a-call), `{slug}.` (salon tenants). The active salon resolves from the request Host; `ResolveSalon` middleware + a `salon_id` global scope enforce isolation server-side.
 - **Two-way GHL sync per salon.** Each salon connects its own GHL sub-account via a Private Integration Token (encrypted at rest). Bookings push out (reminders, voice AI, chat live in GHL); GHL-side bookings flow back in via webhook; an hourly reconcile repairs drift. Echo-loop protection is the load-bearing piece — see `docs/ARCHITECTURE.md`.
-- **The app is the booking engine.** GHL's voice AI books through the app's own `/api/v1/booking/*` endpoints (per-salon bearer token); the embeddable widget books through slug-scoped public endpoints. One slot engine serves every path.
+- **The app is the booking engine.** GHL's voice AI books, cancels, and reschedules through the app's own `/api/v1/booking/{availability,create,cancel,reschedule}` endpoints (per-salon bearer token; one shared format-blind phone lookup); the embeddable widget books through slug-scoped public endpoints. One slot engine serves every path.
+- **Self-checking.** Every salon has an agency-operator Health check (Settings → Integrations → Health check): 20+ registry checks across integrations/notifications/schedule/readiness/data-integrity/system, disposable leak-proof `is_test` records (incl. a pinned far-future test appointment and a designated Voice AI test client, both exempt from the booking window), run history, and an hourly read-only monitor that emails agency admins on green→red transitions.
 - **Theme system.** Salon app: Marble (default) or Classic per salon; agency/auth surfaces use the brand palette; widgets carry per-widget branding. Registry: `app/Support/ThemeRegistry.php`.
 - **Shared-hosting-shaped ops.** Database queue drained by a single per-minute cron (no supervisor); assets built locally and committed (no Node on the server); Cloudflare terminates TLS.
 
@@ -65,7 +68,7 @@ Key env vars (all documented inline in `.env.example`, including the production 
 
 ```
 app/
-  Actions/           # write operations, one class per use case (Bookings, Salons, Staff, …)
+  Actions/           # write operations, one class per use case (Bookings, Clients, Salons, Services, Staff, …) — incl. the owner-gated solo deletes
   Console/Commands/  # bookings:close-elapsed, ghl:reconcile, app:factory-reset, ghl repair
   Enums/             # roles, staff types, BookingStatus/Source, AvailabilityKind
   Http/Middleware/   # ResolveSalon (tenant boundary), TrustCloudflareClientIp, SecurityHeaders, …
@@ -76,7 +79,9 @@ app/
     Booking/         # slot engine + booking policy (the one engine every surface uses)
     BookingApi/      # voice-AI booking API (VoiceBookingApi, VoiceInput wire tolerance)
     Calendar/        # calendar data + ICS feed generation
+    Diagnostics/     # the health check's disposable is_test records + teardown/TTL
     Ghl/             # client, pushers, inbound sync, reconcile, integration checks
+    Health/          # extensible health-check registry, monitor, green→red alerts
   Support/           # ThemeRegistry, AccentPalette, WidgetBranding, PublicUrl, HelpDocs, …
 resources/views/
   components/ui/     # the design-system primitives (build screens from these)
