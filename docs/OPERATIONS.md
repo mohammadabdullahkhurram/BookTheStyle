@@ -40,8 +40,9 @@ Settings → Integrations (or the wizard's GHL steps):
 ## 5. Voice AI
 
 1. Settings → Voice AI booking API → **Generate token** (shown once — run **Test booking API** while it's still on screen for the full 200-with-slots proof).
-2. In GHL (AI Agents → the voice agent → Custom Actions) configure the two actions exactly as the wizard's "Voice AI custom actions" step lists them (URLs, `Authorization: Bearer <token>`, and **date + time as separate parameters** — GHL rejects combined ISO datetimes).
-3. *Gotchas:* regenerating the token invalidates the old one immediately (update the custom actions); Cloudflare must skip WAF/bot challenges on `/api/v1/booking/*` (see DEPLOY.md).
+2. In GHL (AI Agents → the voice agent → Custom Actions) configure the actions — **availability, book, cancel, reschedule** — per the in-app technical reference (Documentation tab → endpoint reference): URLs incl. the `/v1/` segment, `Authorization: Bearer <token>`, and **date + time as separate parameters** — GHL rejects combined ISO datetimes.
+3. End-to-end testing without touching real data: book/cancel/reschedule as **Bluejaypro Voice AI Test Client** (`+1 555 010 0001`, part of the health check's disposable test set) — designated `is_test` clients are exempt from the booking window, so any date works, including the collision-proof far-future test slot.
+4. *Gotchas:* the URL must include `/v1/` (`/api/booking/…` 404s); regenerating the token invalidates the old one immediately (update the custom actions); Cloudflare must skip WAF/bot challenges on `/api/v1/booking/*` (see DEPLOY.md).
 
 ## 6. Booking widget
 

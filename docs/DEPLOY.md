@@ -61,8 +61,11 @@ php artisan config:cache && php artisan route:cache && php artisan view:cache
 
 Everything scheduled — the database **queue worker** (drained every minute:
 `queue:work --stop-when-empty --max-time=55 --tries=3`, no supervisor
-needed), `bookings:close-elapsed`, `ghl:reconcile` — runs off a single line
-(hPanel → Advanced → Cron Jobs, every minute):
+needed), `bookings:close-elapsed`, `ghl:reconcile`, the hourly read-only
+`health:monitor` (records history, emails agency admins on green→red),
+`diagnostics:sweep-test-records` (TTL cleanup of the health check's
+disposable records), the demo sweep/reset, and the nightly prunes — runs
+off a single line (hPanel → Advanced → Cron Jobs, every minute):
 
 ```
 * * * * * cd ~/bookthestyle && php artisan schedule:run >> /dev/null 2>&1
@@ -160,7 +163,8 @@ terminates public TLS itself.
 - **WAF / Bot Fight / challenge rules must SKIP these paths** — they are
   fetched by machines, and a challenge page breaks them:
   - `/webhooks/ghl` — the GHL workflow webhook
-  - `/api/v1/booking/*` — the GHL voice-AI custom actions
+  - `/api/v1/booking/*` — the GHL voice-AI custom actions (availability,
+    create, cancel, reschedule)
   - `/api/widget/*` on every `{slug}` subdomain — the embedded booking
     widget's JSON (called from visitors' browsers on third-party sites)
   - `/cal/*` — calendar feed fetchers (Google/Apple/Outlook)
@@ -193,6 +197,7 @@ terminates public TLS itself.
 | `Unknown column` on `migrate --force` | A migration references a column not yet in history — CI's `mysql-migrations` job + `MigrationOrderTest` catch this class; fix the migration, never reorder ones already run |
 | Every visitor rate-limited / none are | Proxy trust broken — verify Cloudflare proxying is on and `CF-Connecting-IP` reaches the origin; see `TrustCloudflareClientIp` |
 | Voice AI / webhook suddenly failing with challenge pages | A Cloudflare WAF/bot rule stopped skipping the machine paths (list above) |
+| Voice AI custom action 404s on every call | The action's URL is missing the **`/v1/`** segment — the full path is `https://app.bookthestyle.com/api/v1/booking/{availability\|create\|cancel\|reschedule}`; `/api/booking/…` does not exist |
 | `http://` URLs appearing anywhere | `APP_ENV` isn't `production` or `APP_URL` isn't https in the server `.env` |
 | Errors after a rollback | `composer install --no-dev` + the full clear/cache sequence + an opcache reset must re-run after `git reset` |
 
