@@ -2,6 +2,7 @@
 
 use App\Actions\AgencyUsers\CreateAgencyUser;
 use App\Actions\AgencyUsers\DeleteAgencyUser;
+use App\Actions\Salons\SetSalonOwner;
 use App\Actions\Staff\DeleteStaffUser;
 use App\Actions\Staff\InviteStaff;
 use App\Enums\AgencyRole;
@@ -81,7 +82,7 @@ it('refuses deleting the sole owner even for agency operators — until ownershi
     expect($owner->fresh()->trashed())->toBeFalse();
 
     // After a transfer the ex-owner is an ordinary member and deletable.
-    app(\App\Actions\Salons\SetSalonOwner::class)->handle($agencyOwner, $salon, [
+    app(SetSalonOwner::class)->handle($agencyOwner, $salon, [
         'membership_id' => $manager->membershipFor($salon)->id,
     ]);
     expect(deleteStaff($agencyOwner, $salon, $ownerMembership->fresh()))->toBeTrue();
