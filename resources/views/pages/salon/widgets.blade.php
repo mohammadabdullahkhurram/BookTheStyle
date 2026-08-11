@@ -380,13 +380,6 @@ new #[Title('Widgets')] class extends Component {
                     <x-ui.copy-field :label="__('For builders that only accept an iframe')" :value="$iframeSnippet" />
                 </div>
 
-                <div class="rounded-[11px] bg-muted px-3 py-2.5 text-[13px] text-body">
-                    <p class="font-semibold text-ink">{{ __('Options (script embed)') }}</p>
-                    <ul class="mt-1 list-disc space-y-1 ps-4">
-                        <li>{{ __('data-accent="#RRGGBB" — one-off accent override for that page.') }}</li>
-                        <li>{{ __('data-service="ID" — pre-select a service and skip straight to stylist choice.') }}</li>
-                    </ul>
-                </div>
             </x-ui.card>
 
             @if ($widgets->count() > 1)
@@ -411,7 +404,11 @@ new #[Title('Widgets')] class extends Component {
          message the widget page already posts for public embeds — SIZING
          ONLY, never re-theming. Same behavior in demo (inert) and real
          salons (non-committal submit). --}}
-    <x-ui.modal wire:model="showPreview" class="max-w-[min(960px,95vw)] !p-0"
+    {{-- Wide enough for the widget's full DESKTOP layout (the two-pane
+         shell + the Calendly times column need ~1024px inside the frame);
+         the standard modal header gives the Flux × its own zone so it
+         never overlaps the preview content. --}}
+    <x-ui.modal wire:model="showPreview" class="max-w-[min(1180px,96vw)]" :heading="__('Widget preview')"
                 x-data="{
                     fit(e) {
                         if (!e.data || e.data.type !== 'bts:resize') return;
