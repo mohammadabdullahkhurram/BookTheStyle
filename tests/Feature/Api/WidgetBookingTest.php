@@ -591,7 +591,14 @@ it('renders the solid branded split container with the inline calendar — no na
         ->assertSee('grid-template-columns: repeat(7, minmax(0, 1fr))', false)
         ->assertSee("wb-day[aria-pressed='true'] { background: var(--accent)", false)
         ->assertSee('color-mix(in srgb, var(--accent) 16%, transparent)', false)
-        ->assertSee('color-mix(in srgb, var(--accent) 70%, transparent)', false)
+        // The Atelier redesign: the Calendly-style times column (opens right
+        // of the calendar on date pick) with its themed thin scrollbar, the
+        // editorial list rows, pill slot buttons, and underline fields.
+        ->assertSee('bts-times-col', false)
+        ->assertSee('wb-timegrid', false)
+        ->assertSee('scrollbar-color: var(--wb-line) transparent', false)
+        ->assertSee('border-bottom: 1px solid var(--wb-line);', false)
+        ->assertSee('border-radius: 99px', false)
         ->assertSee('api\/widget\/month', false)
         // The calendar window: today through the booking horizon (salon tz).
         ->assertSee('"2026-06-22"', false)
