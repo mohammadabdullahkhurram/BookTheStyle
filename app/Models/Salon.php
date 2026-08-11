@@ -116,6 +116,7 @@ class Salon extends Model
             'onboarding' => 'array',
             'onboarded_at' => 'immutable_datetime',
             'test_records_expire_at' => 'immutable_datetime',
+            'voice_ai_settings' => 'array',
             'allow_walkins' => 'boolean',
             'allow_same_day' => 'boolean',
             'max_advance_days' => 'integer',
