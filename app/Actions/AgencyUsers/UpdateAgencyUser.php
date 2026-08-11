@@ -10,30 +10,41 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Edit an agency user's name, role, and (for agency_users) salon assignments.
- * The actor must have authority over both the current and the new role, the
- * target must belong to the actor's agency, and an actor cannot change their
- * own role (no self-escalation / lockout).
+ * Edit an agency user's account (name/email/password), role, and (for
+ * agency_users) salon assignments. The actor must have MANAGE authority over
+ * the target (which excludes the agency owner as a target — the owner's
+ * record is view-only in the users area and self-served via account
+ * settings); CHANGING the role additionally needs GRANT authority over both
+ * the old and the new role; an actor cannot change their own role (no
+ * self-escalation / lockout).
+ *
+ * THE SHARED-ACCOUNT GUARD (same rule as Staff\UpdateMemberDetails): email
+ * is the login identifier account-wide, so when the target also holds salon
+ * memberships under ANOTHER agency, an email CHANGE is refused — only the
+ * account holder may re-point their login. Re-submitting the unchanged
+ * email passes; the guard fires on change, not presence.
+ *
+ * An admin-set password behaves like the invite/reset flows: it lands
+ * hashed with must_change_password raised, so the person picks their own
+ * secret at next sign-in and the admin-known value never lingers.
  */
 class UpdateAgencyUser
 {
     public function __construct(private AgencyUserRoles $roles) {}
 
     /**
-     * @param  array{name: string, agency_role: string, salon_ids?: array<int, int|string>}  $data
+     * @param  array{name: string, email?: string, password?: string|null, agency_role: string, salon_ids?: array<int, int|string>}  $data
      */
     public function handle(User $actor, Agency $agency, User $target, array $data): User
     {
+        $email = $data['email'] ?? $target->email; // omitted = unchanged
+
         if ($target->agency_id !== $agency->id) {
             throw new AuthorizationException('That user is not in this agency.');
         }
 
         $newRole = AgencyRole::from($data['agency_role']);
 
-        // TOUCHING the user needs the manage axis; CHANGING their role
-        // additionally needs grant authority over BOTH the old and the new
-        // role — an admin may edit a fellow admin's details but can neither
-        // promote to Admin nor demote a peer.
         if ($target->agency_role === null || ! $this->roles->canManage($actor, $target->agency_role)) {
             throw new AuthorizationException('You may not manage that user.');
         }
@@ -49,10 +60,27 @@ class UpdateAgencyUser
             ]);
         }
 
-        $target->update([
+        if (strcasecmp($target->email, $email) !== 0
+            && $target->sharedOutsideAgency($agency->id)) {
+            throw ValidationException::withMessages([
+                'email' => __("This account also belongs to another agency's salon, so its login email can only be changed by the account holder."),
+            ]);
+        }
+
+        $target->forceFill([
             'name' => $data['name'],
+            'email' => $email,
             'agency_role' => $newRole,
         ]);
+
+        if (($data['password'] ?? '') !== '' && $data['password'] !== null) {
+            $target->forceFill([
+                'password' => $data['password'],
+                'must_change_password' => $actor->id !== $target->id,
+            ]);
+        }
+
+        $target->save();
 
         if ($newRole === AgencyRole::User) {
             $target->assignedSalons()->sync($this->validSalonIds($agency, $data['salon_ids'] ?? []));

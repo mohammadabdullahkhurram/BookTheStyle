@@ -194,7 +194,9 @@ new #[Title('Users')] class extends Component {
                                         @endif
                                     </td>
                                     <td class="px-6 py-4 text-right">
-                                        <a href="{{ route('agency.users.edit', $user) }}" wire:navigate class="text-[13px] font-semibold text-accent transition hover:text-accent-hover">{{ __('Edit') }}</a>
+                                        {{-- The agency owner's record is view-only (self-served via
+                                             account settings) — no Edit offered, so no 403 to hit. --}}
+                                        <a href="{{ route('agency.users.edit', $user) }}" wire:navigate class="text-[13px] font-semibold text-accent transition hover:text-accent-hover">{{ $user->agency_role === \App\Enums\AgencyRole::Owner ? __('View details') : __('Edit') }}</a>
                                     </td>
                                 </tr>
                             @empty

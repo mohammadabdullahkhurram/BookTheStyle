@@ -15,6 +15,7 @@ use App\Models\SalonMembership;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
@@ -270,6 +271,94 @@ it('renders the logo in every mailable: absolute PNG URL, brand alt text', funct
     expect($m[0] ?? '')->toContain('height="38"');
 });
 
+it('lets agency owner AND admin fully edit a member — email, password, name, role — from the users area', function () {
+    $agency = Agency::factory()->create();
+    $owner = User::factory()->create(['agency_id' => $agency->id, 'agency_role' => AgencyRole::Owner]);
+    $admin = User::factory()->create(['agency_id' => $agency->id, 'agency_role' => AgencyRole::Admin]);
+    $member = User::factory()->create(['agency_id' => $agency->id, 'agency_role' => AgencyRole::User]);
+
+    // The admin rewrites everything but the role (grant axis unchanged)…
+    Livewire::actingAs($admin)
+        ->test('pages::agency.users.edit', ['user' => $member])
+        ->set('name', 'Renamed Member')
+        ->set('email', 'renamed.member@example.com')
+        ->set('password', 'brand-new-secret-9')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $member->refresh();
+    expect($member->name)->toBe('Renamed Member');
+    expect($member->email)->toBe('renamed.member@example.com');
+    expect(Hash::check('brand-new-secret-9', $member->password))->toBeTrue();
+    expect($member->must_change_password)->toBeTrue(); // admin-known password never lingers
+
+    // …and the owner can additionally change the role in the same save.
+    Livewire::actingAs($owner)
+        ->test('pages::agency.users.edit', ['user' => $member])
+        ->set('email', 'promoted@example.com')
+        ->set('agency_role', 'agency_admin')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $member->refresh();
+    expect($member->email)->toBe('promoted@example.com');
+    expect($member->agency_role)->toBe(AgencyRole::Admin);
+
+    // A colliding email is a validation error, not a silent overwrite.
+    Livewire::actingAs($owner)
+        ->test('pages::agency.users.edit', ['user' => $member])
+        ->set('email', $admin->email)
+        ->call('save')
+        ->assertHasErrors(['email']);
+});
+
+it('shows View details (not Edit) on the agency owner row, and keeps the cross-agency email guard', function () {
+    $agency = Agency::factory()->create();
+    $owner = User::factory()->create(['agency_id' => $agency->id, 'agency_role' => AgencyRole::Owner, 'name' => 'Olga Owner']);
+    $admin = User::factory()->create(['agency_id' => $agency->id, 'agency_role' => AgencyRole::Admin]);
+
+    // The list offers View details for the owner row, Edit for everyone else.
+    Livewire::actingAs($admin)
+        ->test('pages::agency.users.index')
+        ->assertSee(__('View details'))
+        ->assertSee(__('Edit'));
+
+    // Opening the owner is a clean read-only page even for the owner
+    // themselves — never a 403 — and a forged save is refused.
+    foreach ([$owner, $admin] as $viewer) {
+        $this->actingAs($viewer)->get(route('agency.users.edit', $owner))
+            ->assertOk()
+            ->assertSee('Olga Owner')
+            ->assertDontSee(__('Save changes'));
+    }
+    Livewire::actingAs($admin)
+        ->test('pages::agency.users.edit', ['user' => $owner])
+        ->assertSet('readOnly', true)
+        ->call('save')
+        ->assertForbidden();
+
+    // THE SHARED-ACCOUNT GUARD: a member who also works in another
+    // agency's salon keeps their login email — a change is refused, while
+    // re-submitting the unchanged email (name-only edit) passes.
+    $member = User::factory()->create(['agency_id' => $agency->id, 'agency_role' => AgencyRole::User]);
+    $foreignSalon = Salon::factory()->create(); // its own (different) agency
+    stylistOf($foreignSalon, $member);
+
+    Livewire::actingAs($admin)
+        ->test('pages::agency.users.edit', ['user' => $member])
+        ->set('email', 'stolen-login@example.com')
+        ->call('save')
+        ->assertHasErrors(['email']);
+    expect($member->refresh()->email)->not->toBe('stolen-login@example.com');
+
+    Livewire::actingAs($admin)
+        ->test('pages::agency.users.edit', ['user' => $member])
+        ->set('name', 'Same Email New Name')
+        ->call('save')
+        ->assertHasNoErrors();
+    expect($member->refresh()->name)->toBe('Same Email New Name');
+});
+
 it('lets agency admins OPEN and EDIT fellow admins (the manage axis) while role changes stay owner-only', function () {
     $agency = Agency::factory()->create();
     $owner = User::factory()->create(['agency_id' => $agency->id, 'agency_role' => AgencyRole::Owner]);
@@ -300,11 +389,19 @@ it('lets agency admins OPEN and EDIT fellow admins (the manage axis) while role 
     ]))->toThrow(AuthorizationException::class);
 
     // The owner still changes roles freely (admin ↔ user), and stays
-    // untouchable themselves; a delegated agency_user edits nobody.
+    // untouchable themselves — their row renders VIEW-ONLY (200, no form,
+    // save refused server-side), never a 403; a delegated agency_user
+    // edits nobody (the operator gate, still a hard 403).
     app(UpdateAgencyUser::class)->handle($owner, $agency, $peer, [
         'name' => $peer->name, 'agency_role' => 'agency_user',
     ]);
     expect($peer->refresh()->agency_role)->toBe(AgencyRole::User);
-    $this->actingAs($admin)->get(route('agency.users.edit', $owner))->assertForbidden();
+    $this->actingAs($admin)->get(route('agency.users.edit', $owner))
+        ->assertOk()
+        ->assertSee(__('The agency owner\'s record is view-only here. The owner updates their own details in account settings.'))
+        ->assertDontSee(__('Save changes'));
+    expect(fn () => app(UpdateAgencyUser::class)->handle($admin, $agency, $owner, [
+        'name' => 'Hijacked Owner', 'agency_role' => 'agency_owner',
+    ]))->toThrow(AuthorizationException::class);
     $this->actingAs($delegated)->get(route('agency.users.edit', $peer))->assertForbidden();
 });
