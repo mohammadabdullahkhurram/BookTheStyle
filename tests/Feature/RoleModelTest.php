@@ -269,3 +269,42 @@ it('renders the logo in every mailable: absolute PNG URL, brand alt text', funct
     expect($m[0] ?? '')->toContain('src="http');
     expect($m[0] ?? '')->toContain('height="38"');
 });
+
+it('lets agency admins OPEN and EDIT fellow admins (the manage axis) while role changes stay owner-only', function () {
+    $agency = Agency::factory()->create();
+    $owner = User::factory()->create(['agency_id' => $agency->id, 'agency_role' => AgencyRole::Owner]);
+    $admin = User::factory()->create(['agency_id' => $agency->id, 'agency_role' => AgencyRole::Admin]);
+    $peer = User::factory()->create(['agency_id' => $agency->id, 'agency_role' => AgencyRole::Admin]);
+    $delegated = User::factory()->create(['agency_id' => $agency->id, 'agency_role' => AgencyRole::User]);
+
+    // The regression: owner AND admin open every editable user without a 403.
+    foreach ([[$owner, $admin], [$owner, $delegated], [$admin, $delegated], [$admin, $peer]] as [$actor, $target]) {
+        $this->actingAs($actor)->get(route('agency.users.edit', $target))->assertOk();
+    }
+
+    // Submitting an edit that KEEPS the peer's role works for an admin…
+    Livewire::actingAs($admin)
+        ->test('pages::agency.users.edit', ['user' => $peer])
+        ->set('name', 'Renamed Peer')
+        ->call('save')
+        ->assertHasNoErrors();
+    expect($peer->refresh()->name)->toBe('Renamed Peer');
+    expect($peer->agency_role)->toBe(AgencyRole::Admin);
+
+    // …but an admin can neither demote a peer nor promote a user to Admin.
+    expect(fn () => app(UpdateAgencyUser::class)->handle($admin, $agency, $peer, [
+        'name' => $peer->name, 'agency_role' => 'agency_user',
+    ]))->toThrow(AuthorizationException::class);
+    expect(fn () => app(UpdateAgencyUser::class)->handle($admin, $agency, $delegated, [
+        'name' => $delegated->name, 'agency_role' => 'agency_admin',
+    ]))->toThrow(AuthorizationException::class);
+
+    // The owner still changes roles freely (admin ↔ user), and stays
+    // untouchable themselves; a delegated agency_user edits nobody.
+    app(UpdateAgencyUser::class)->handle($owner, $agency, $peer, [
+        'name' => $peer->name, 'agency_role' => 'agency_user',
+    ]);
+    expect($peer->refresh()->agency_role)->toBe(AgencyRole::User);
+    $this->actingAs($admin)->get(route('agency.users.edit', $owner))->assertForbidden();
+    $this->actingAs($delegated)->get(route('agency.users.edit', $peer))->assertForbidden();
+});

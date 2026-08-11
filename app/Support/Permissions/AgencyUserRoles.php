@@ -37,4 +37,29 @@ class AgencyUserRoles
     {
         return in_array($role, $this->assignable($actor), true);
     }
+
+    /**
+     * TARGET authority — which roles an actor may TOUCH (open the editor,
+     * update name/salon assignments). Broader than what they may GRANT,
+     * mirroring the salon-side SalonStaffRoles split: admins manage their
+     * peers' details, but a role CHANGE additionally requires canAssign()
+     * over both the old and the new role — so an admin can neither promote
+     * to Admin nor demote a fellow admin. The Owner stays untouchable on
+     * every axis.
+     *
+     * @return list<AgencyRole>
+     */
+    public function manageable(User $actor): array
+    {
+        return match ($actor->agency_role) {
+            AgencyRole::Owner => [AgencyRole::Admin, AgencyRole::User],
+            AgencyRole::Admin => [AgencyRole::Admin, AgencyRole::User],
+            default => [],
+        };
+    }
+
+    public function canManage(User $actor, AgencyRole $role): bool
+    {
+        return in_array($role, $this->manageable($actor), true);
+    }
 }

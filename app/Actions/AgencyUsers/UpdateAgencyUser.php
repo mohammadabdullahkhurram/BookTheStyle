@@ -30,10 +30,17 @@ class UpdateAgencyUser
 
         $newRole = AgencyRole::from($data['agency_role']);
 
-        if ($target->agency_role === null
-            || ! $this->roles->canAssign($actor, $target->agency_role)
-            || ! $this->roles->canAssign($actor, $newRole)) {
+        // TOUCHING the user needs the manage axis; CHANGING their role
+        // additionally needs grant authority over BOTH the old and the new
+        // role — an admin may edit a fellow admin's details but can neither
+        // promote to Admin nor demote a peer.
+        if ($target->agency_role === null || ! $this->roles->canManage($actor, $target->agency_role)) {
             throw new AuthorizationException('You may not manage that user.');
+        }
+
+        if ($newRole !== $target->agency_role
+            && (! $this->roles->canAssign($actor, $target->agency_role) || ! $this->roles->canAssign($actor, $newRole))) {
+            throw new AuthorizationException('You may not change that user\'s role.');
         }
 
         if ($actor->id === $target->id && $newRole !== $target->agency_role) {

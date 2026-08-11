@@ -26,8 +26,10 @@ new #[Title('Edit agency user')] class extends Component {
         $this->authorize('manageUsers', $user->agency);
         abort_if($user->agency_role === null, 404);
 
-        // The actor must have authority over the target's current role.
-        abort_unless((new AgencyUserRoles)->canAssign(Auth::user(), $user->agency_role), 403);
+        // The actor must have authority over the target's current role —
+        // the MANAGE axis (canAssign is the narrower GRANT axis; using it
+        // here 403'd an admin opening a fellow admin, the regression).
+        abort_unless((new AgencyUserRoles)->canManage(Auth::user(), $user->agency_role), 403);
 
         $this->user = $user;
         $this->name = $user->name;
@@ -54,7 +56,12 @@ new #[Title('Edit agency user')] class extends Component {
     {
         $this->authorize('manageUsers', $this->user->agency);
 
-        $allowed = array_map(fn (AgencyRole $r) => $r->value, $this->assignableRoles());
+        // Grantable roles PLUS the target's current role — keeping the role
+        // unchanged is always legal for anyone who may manage the target.
+        $allowed = array_unique([
+            ...array_map(fn (AgencyRole $r) => $r->value, $this->assignableRoles()),
+            $this->user->agency_role->value,
+        ]);
 
         $validated = $this->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -89,7 +96,7 @@ new #[Title('Edit agency user')] class extends Component {
             <flux:input wire:model="name" :label="__('Name')" required />
 
             <flux:select wire:model.live="agency_role" :label="__('Agency role')">
-                @foreach ($this->assignableRoles as $role)
+                @foreach (collect($this->assignableRoles)->push($user->agency_role)->unique() as $role)
                     <flux:select.option value="{{ $role->value }}">{{ $role->label() }}</flux:select.option>
                 @endforeach
             </flux:select>
@@ -113,7 +120,10 @@ new #[Title('Edit agency user')] class extends Component {
         </form>
         </x-ui.card>
 
-        @if ($user->id !== Auth::id())
+        {{-- Deletion stays on the narrow GRANT axis (an admin manages a
+             peer's details but cannot delete them) — hide the card when
+             the action would refuse. --}}
+        @if ($user->id !== Auth::id() && (new AgencyUserRoles)->canAssign(Auth::user(), $user->agency_role))
             <x-ui.card class="flex flex-col gap-3">
                 <h2 class="bts-card-title">{{ __('Delete user') }}</h2>
                 <flux:text class="text-sm text-secondary">{{ __('Permanently removes this account and its salon access. Anything they created — bookings, notes, history — is kept under their name. Prefer editing their salon scope if they just need less access.') }}</flux:text>
