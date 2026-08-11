@@ -262,6 +262,10 @@ Content-Type: application/json
     <p>{{ __('The single cron line drives everything: per-minute queue drain + scheduler heartbeat; bookings:close-elapsed every 5 min; ghl:reconcile, health:monitor, diagnostics:sweep-test-records, demo:sweep hourly; nightly prunes + demo reset.') }}</p>
 </x-docs.section>
 
+<x-docs.section id="voice-ai-prompts" :title="__('The Voice AI Prompts tab (KB article generator)')">
+    <p>{{ __('Each salon\'s GHL knowledge base needs four per-salon articles (team, policies, location & hours, services rules). Instead of hand-editing placeholder text, salon Settings → Voice AI Prompts (after Integrations; same manageGhlConnection gate as the Integrations tab, so demo salons and salon staff never see it) holds a fill-once form — team rows prefill from the salon\'s bookable staff, the spoken address and hours prefill as drafts from the profile and the staff\'s working hours (App\Services\VoiceAi\VoiceAiDefaults + SpokenHours) — and VoiceAiPromptGenerator renders the four articles as copy-paste {title, body} cards. Copy each into the salon\'s GHL knowledge base; the three static texts (Joy\'s agent prompt, the KB trigger, the conduct-rules article — config/voice_ai_prompts.php, identical for every salon) sit read-only below them, so the whole GHL setup for a salon lives on that one page. Settings persist in salons.voice_ai_settings (JSON); the generator\'s output shape is what a future push-to-GHL will consume.') }}</p>
+</x-docs.section>
+
 <x-docs.section id="ghl-side" :title="__('GHL side (fill from the live instance)')">
     <ul>
         <li>{{ __('Sub-account / location: one per salon, provisioned from the Loopflo snapshot') }} <x-docs.fill-in>{{ __('snapshot name') }}</x-docs.fill-in></li>

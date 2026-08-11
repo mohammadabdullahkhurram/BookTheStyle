@@ -65,6 +65,7 @@ class AgencyDocs
                 ['id' => 'surfaces', 'title' => 'Widget, feeds & demo'],
                 ['id' => 'health', 'title' => 'Health & monitoring'],
                 ['id' => 'security-ops', 'title' => 'Security & config'],
+                ['id' => 'voice-ai-prompts', 'title' => 'Voice AI Prompts tab'],
                 ['id' => 'ghl-side', 'title' => 'GHL side'],
                 ['id' => 'runbook', 'title' => 'Provisioning runbook'],
                 ['id' => 'troubleshooting', 'title' => 'Troubleshooting'],
