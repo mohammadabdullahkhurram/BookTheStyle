@@ -416,7 +416,7 @@ new #[Title('Widgets')] class extends Component {
                         const frame = $refs.previewFrame;
                         if (!frame || e.source !== frame.contentWindow) return;
                         const h = parseInt(e.data.height, 10);
-                        if (h > 0) frame.style.height = Math.min(h + 2, window.innerHeight * 0.85) + 'px';
+                        if (h > 0) frame.style.height = Math.min(Math.max(h + 2, 560), window.innerHeight * 0.85) + 'px';
                     },
                 }"
                 x-on:message.window="fit($event)">
@@ -425,7 +425,7 @@ new #[Title('Widgets')] class extends Component {
                     src="{{ route('salon.widget.preview', ['salon' => $salon, 'widget' => $current->public_id, 'fresh' => $previewNonce]) }}"
                     title="{{ __('Widget preview') }}"
                     class="block w-full"
-                    style="height: min(360px, 70dvh); border: 0"></iframe>
+                    style="height: min(560px, 75dvh); border: 0"></iframe>
         @endif
     </x-ui.modal>
 

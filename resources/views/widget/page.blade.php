@@ -79,7 +79,10 @@
             color: var(--wb-ink);
             border-radius: 24px;
             overflow: hidden;
-            box-shadow: 0 16px 44px rgb(12 12 18 / .16), 0 2px 8px rgb(12 12 18 / .08);
+            /* Even on all sides and tight enough to fade out inside the
+               page padding — a big downward offset gets clipped by the
+               iframe edge and reads as a hard line under the card. */
+            box-shadow: 0 0 20px rgb(12 12 18 / .12), 0 1px 5px rgb(12 12 18 / .07);
         }
         .wb-info { padding: 26px 22px; }
         .wb-book { padding: 22px; }
