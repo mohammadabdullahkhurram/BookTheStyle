@@ -72,7 +72,21 @@ off a single line (hPanel → Advanced → Cron Jobs, every minute):
 ```
 
 GHL syncs therefore land within ~1 minute of the action that queued them —
-expected and fine.
+expected and fine. **Login-critical mail does not ride this queue**: password
+resets, temporary passwords, invites, account-created mail, and health
+alerts all send synchronously in the request/command that triggers them, so
+they arrive in seconds regardless of queue state. Only GHL syncs and the
+courtesy salon-added mail are queued.
+
+**Stall self-healing:** every scheduled job passes an explicit
+`withoutOverlapping(N)` expiry. Without one, Laravel's overlap mutex lives
+24 hours — if the host hard-kills a run (CloudLinux process killer, OOM, a
+mid-deploy restart) the lock is never released and the scheduler silently
+skips that job on every following tick while cron itself looks healthy;
+this once left queued mail sitting for hours. With the expiry, a stale
+queue-worker lock clears within 10 minutes (2 hours for the hourly/daily
+jobs), so a stall is bounded, not open-ended. The health check's Queue
+check flags a backlog older than 10 minutes.
 
 ## Updating (every release)
 
@@ -192,7 +206,8 @@ terminates public TLS itself.
 |---|---|
 | "I deployed but nothing changed" / new views hitting old code | **Opcache is stale** — reset it (section above); the artisan cache commands alone never clear it |
 | Config/route changes not taking effect | Caches are stale — run the full clear-then-cache sequence after every pull, then reset opcache |
-| GHL syncs / emails not happening | The cron isn't running — check hPanel → Cron Jobs; `php artisan schedule:run` by hand and watch output; inspect `jobs` / `failed_jobs` tables |
+| GHL syncs / queued mail not happening | The cron isn't running (check hPanel → Cron Jobs; run `php artisan schedule:run` by hand and watch output) **or** a stale `queue:work` overlap mutex is skipping the drain — it now self-clears within 10 minutes; `php artisan queue:work --stop-when-empty` by hand drains immediately; inspect `jobs` / `failed_jobs` tables |
+| Password-reset / invite emails slow or missing | These send synchronously and never touch the queue — if they're slow or absent the problem is the SMTP transport itself: check `MAIL_*` in `.env` and `laravel.log` for transport errors |
 | Styles/JS look stale after deploy | Assets are committed — the LOCAL build step was skipped before push (`npm run build` locally → commit `public/build` → push → pull) |
 | `Unknown column` on `migrate --force` | A migration references a column not yet in history — CI's `mysql-migrations` job + `MigrationOrderTest` catch this class; fix the migration, never reorder ones already run |
 | Every visitor rate-limited / none are | Proxy trust broken — verify Cloudflare proxying is on and `CF-Connecting-IP` reaches the origin; see `TrustCloudflareClientIp` |

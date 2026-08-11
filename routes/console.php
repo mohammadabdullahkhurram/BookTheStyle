@@ -19,6 +19,10 @@ Artisan::command('inspire', function () {
 // failures before failed_jobs. Net effect: jobs run within ~1 minute of
 // dispatch — that delay on GHL syncs is expected and acceptable. Locally
 // `composer dev` runs queue:listen instead, so jobs process live.
+// LOGIN-CRITICAL MAIL (password reset, temp password, invite, account
+// created) and health alerts do NOT ride this queue — they send
+// synchronously (app/Mail, ResetPasswordNotification), so a stalled drain
+// can never delay them. Only GHL syncs and courtesy mail queue here.
 // Health-check heartbeat: proves the cron itself is alive. The scheduler
 // stamps this cache every tick; the SchedulerHeartbeat check reads it —
 // the direct guard against the past cron-silently-dead failure.
@@ -26,9 +30,16 @@ Schedule::call(fn () => Heartbeat::beat(Heartbeat::SCHEDULER))
     ->name('health-heartbeat')
     ->everyMinute();
 
+// withoutOverlapping(N) — ALWAYS pass the expiry. The default mutex lives
+// 24 HOURS: if the host hard-kills a run (CloudLinux process killer, OOM,
+// mid-deploy restart) the lock is never released and the scheduler silently
+// skips this event on every following tick while cron itself looks healthy
+// — the queue backs up and queued mail/syncs sit for hours (this happened).
+// With an explicit expiry a stale lock self-heals on the next tick after N
+// minutes, bounding any stall.
 Schedule::command('queue:work --stop-when-empty --max-time=55 --tries=3')
     ->everyMinute()
-    ->withoutOverlapping();
+    ->withoutOverlapping(10);
 
 // Close out elapsed bookings: still-booked → no-show (mirrored to GHL via
 // the queue above) and checked-in → completed (no GHL change — both map to
@@ -36,7 +47,7 @@ Schedule::command('queue:work --stop-when-empty --max-time=55 --tries=3')
 // `php artisan schedule:work` or run bookings:close-elapsed directly.
 Schedule::command('bookings:close-elapsed')
     ->everyFiveMinutes()
-    ->withoutOverlapping()
+    ->withoutOverlapping(10)
     ->onSuccess(fn () => Heartbeat::beat(Heartbeat::taskKey('bookings:close-elapsed')));
 
 // Safety net for missed webhooks: hourly, pull each connected salon's GHL
@@ -46,7 +57,7 @@ Schedule::command('bookings:close-elapsed')
 // `php artisan ghl:reconcile` any time for an on-demand pass.
 Schedule::command('ghl:reconcile')
     ->hourly()
-    ->withoutOverlapping()
+    ->withoutOverlapping(120)
     ->onSuccess(fn () => Heartbeat::beat(Heartbeat::taskKey('ghl:reconcile')));
 
 // Retention pruning (shared hosting: unbounded rows eat the inode/disk
@@ -57,11 +68,11 @@ Schedule::command('ghl:reconcile')
 // failures visible for debugging (QUEUE_FAILED_RETENTION_HOURS), old ones
 // go. The same single crontab line drives both.
 // Expired public-demo salons are hard-deleted hourly (blast-radius control).
-Schedule::command('demo:sweep')->hourly()->withoutOverlapping();
+Schedule::command('demo:sweep')->hourly()->withoutOverlapping(120);
 
 // Abandoned "Check connections" test records (stylist/service/client)
 // are torn down after 24h so no live salon keeps a phantom test stylist.
-Schedule::command('diagnostics:sweep-test-records')->hourly()->withoutOverlapping()
+Schedule::command('diagnostics:sweep-test-records')->hourly()->withoutOverlapping(120)
     ->onSuccess(fn () => Heartbeat::beat(Heartbeat::taskKey('diagnostics:sweep-test-records')));
 
 // The demo showcase resets nightly: visitor-created bookings (the demo's
@@ -72,18 +83,18 @@ Schedule::command('diagnostics:sweep-test-records')->hourly()->withoutOverlappin
 // admins. Never creates test records, never books, never emails clients.
 Schedule::command('health:monitor')
     ->hourly()
-    ->withoutOverlapping()
+    ->withoutOverlapping(120)
     ->onSuccess(fn () => Heartbeat::beat(Heartbeat::taskKey('health:monitor')));
 
 Schedule::command('demo:reset-showcase')
     ->dailyAt('03:30')
-    ->withoutOverlapping()
+    ->withoutOverlapping(120)
     ->onSuccess(fn () => Heartbeat::beat(Heartbeat::taskKey('demo:reset-showcase')));
 
 Schedule::command('model:prune')
     ->dailyAt('03:10')
-    ->withoutOverlapping();
+    ->withoutOverlapping(120);
 
 Schedule::command('queue:prune-failed --hours='.(int) config('queue.failed_retention_hours', 720))
     ->dailyAt('03:20')
-    ->withoutOverlapping();
+    ->withoutOverlapping(120);
