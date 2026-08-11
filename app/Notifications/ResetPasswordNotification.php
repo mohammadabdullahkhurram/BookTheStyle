@@ -3,20 +3,18 @@
 namespace App\Notifications;
 
 use Illuminate\Auth\Notifications\ResetPassword;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 
 /**
  * Branded password-reset email (login-critical, app-direct — never GHL).
  * Extends Laravel's stock notification, so Fortify's broker, token and URL
  * handling are untouched; only the rendered message changes (BookTheStyle
- * markdown theme + copy) and delivery is queued.
+ * markdown theme + copy). Sent SYNCHRONOUSLY — a reset link must arrive in
+ * seconds, and on this host the queue drains on a cron cadence at best; a
+ * stalled drain once meant hours. Login-critical mail never queues.
  */
-class ResetPasswordNotification extends ResetPassword implements ShouldQueue
+class ResetPasswordNotification extends ResetPassword
 {
-    use Queueable;
-
     /**
      * LOGIN-CRITICAL host fix: the parent builds url(route(..., false)) — a
      * relative path glued onto APP_URL, which is the APEX (marketing) host.

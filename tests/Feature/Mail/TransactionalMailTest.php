@@ -16,12 +16,16 @@ use App\Notifications\ResetPasswordNotification;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Markdown;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Queue;
 
 /*
 | Transactional emails, app-direct (never GHL — login-critical mail must not
 | depend on a connection): account created, temporary password, password
-| reset, staff invite, salon added. All queued markdown mailables in the
-| BookTheStyle theme, fail-safe so a broken transport never locks anyone out.
+| reset, staff invite, salon added. Login-critical mail sends SYNCHRONOUSLY
+| (the shared-host queue drains on a cron cadence and a stalled drain once
+| delayed mail for hours); only the courtesy salon-added mail queues. All
+| markdown mailables in the BookTheStyle theme, fail-safe so a broken
+| transport never locks anyone out.
 */
 
 function mailAgency(): Agency
@@ -49,9 +53,9 @@ it('emails a welcome and a temporary password when an agency user is created', f
         'name' => 'Ava Agency', 'email' => 'ava@example.com', 'agency_role' => 'agency_user',
     ]);
 
-    Mail::assertQueued(AccountCreatedMail::class, fn ($mail) => $mail->hasTo('ava@example.com')
+    Mail::assertSent(AccountCreatedMail::class, fn ($mail) => $mail->hasTo('ava@example.com')
         && $mail->workplaceName === 'Bluejaypro');
-    Mail::assertQueued(TemporaryPasswordMail::class, fn ($mail) => $mail->hasTo('ava@example.com')
+    Mail::assertSent(TemporaryPasswordMail::class, fn ($mail) => $mail->hasTo('ava@example.com')
         && $mail->temporaryPassword === $result->temporaryPassword);
 });
 
@@ -64,8 +68,8 @@ it('emails a welcome and a credentialed invite to NEW salon staff, invite-only t
         'name' => 'Nina New', 'email' => 'nina@example.com', 'salon_role' => 'stylist', 'staff_type' => 'stylist',
     ]);
 
-    Mail::assertQueued(AccountCreatedMail::class, fn ($mail) => $mail->hasTo('nina@example.com'));
-    Mail::assertQueued(StaffInviteMail::class, fn ($mail) => $mail->hasTo('nina@example.com')
+    Mail::assertSent(AccountCreatedMail::class, fn ($mail) => $mail->hasTo('nina@example.com'));
+    Mail::assertSent(StaffInviteMail::class, fn ($mail) => $mail->hasTo('nina@example.com')
         && $mail->salonName === $salon->name
         && $mail->temporaryPassword === $new->temporaryPassword);
 
@@ -75,9 +79,9 @@ it('emails a welcome and a credentialed invite to NEW salon staff, invite-only t
         'name' => 'Nina New', 'email' => 'nina@example.com', 'salon_role' => 'stylist', 'staff_type' => 'stylist',
     ]);
 
-    Mail::assertQueued(StaffInviteMail::class, fn ($mail) => $mail->salonName === $other->name
+    Mail::assertSent(StaffInviteMail::class, fn ($mail) => $mail->salonName === $other->name
         && $mail->temporaryPassword === null);
-    Mail::assertQueued(AccountCreatedMail::class, 1); // still just the first one
+    Mail::assertSent(AccountCreatedMail::class, 1); // still just the first one
 });
 
 it('emails a reset temporary password from the admin reset action', function () {
@@ -89,7 +93,7 @@ it('emails a reset temporary password from the admin reset action', function () 
 
     $plain = app(ResetStaffPassword::class)->handle($owner, $salon, $membership);
 
-    Mail::assertQueued(TemporaryPasswordMail::class, fn ($mail) => $mail->hasTo($stylist->email)
+    Mail::assertSent(TemporaryPasswordMail::class, fn ($mail) => $mail->hasTo($stylist->email)
         && $mail->reason === 'reset'
         && $mail->temporaryPassword === $plain);
 });
@@ -162,16 +166,32 @@ it('renders every mailable with its key content and a plain-text alternative', f
     }
 });
 
-it('builds a branded, queued password-reset notification with the reset link', function () {
+it('builds a branded password-reset notification, sent synchronously, with the reset link', function () {
     $user = User::factory()->create();
 
     $notification = new ResetPasswordNotification('fake-token');
     $message = $notification->toMail($user);
 
-    expect($notification)->toBeInstanceOf(ShouldQueue::class);
+    // Deliberately NOT ShouldQueue: a reset link must arrive in seconds,
+    // and the shared-host queue drains on a cron cadence at best.
+    expect($notification)->not->toBeInstanceOf(ShouldQueue::class);
     expect($message->subject)->toContain('Reset your');
     expect($message->actionUrl)->toContain('fake-token');
     expect($message->actionText)->toBe('Reset password');
+});
+
+it('delivers the password-reset email end-to-end without touching the queue', function () {
+    Queue::fake(); // a queued notification would be captured here and never sent
+
+    $user = User::factory()->create();
+    $this->post(route('password.request'), ['email' => $user->email]);
+
+    Queue::assertNothingPushed();
+
+    // …and the message actually left through the (array) transport, now.
+    $sent = app('mail.manager')->mailer()->getSymfonyTransport()->messages();
+    expect($sent)->toHaveCount(1);
+    expect((string) $sent[0]->getOriginalMessage()->getSubject())->toContain('Reset your');
 });
 
 // ---------------------------------------------------------------------------

@@ -111,7 +111,9 @@ class HealthMonitor
 
         foreach ($recipients as $recipient) {
             try {
-                Mail::to($recipient->email)->queue(new HealthAlertMail($recipient->name, $salon, $regressions));
+                // Sent inline, not queued: a stalled queue is exactly the kind
+                // of failure this alert reports, so it must not ride on it.
+                Mail::to($recipient->email)->send(new HealthAlertMail($recipient->name, $salon, $regressions));
             } catch (\Throwable $e) {
                 report($e); // alerting must never break the run that found the problem
             }

@@ -94,7 +94,7 @@ it('issues a temp password + forces change for new staff, and emails it', functi
     expect($result->user->must_change_password)->toBeTrue();
     expect($result->user->salonMemberships()->where('salon_id', $salon->id)->exists())->toBeTrue();
 
-    Mail::assertQueued(StaffInviteMail::class, fn ($mail) => $mail->hasTo('new.stylist@example.com')
+    Mail::assertSent(StaffInviteMail::class, fn ($mail) => $mail->hasTo('new.stylist@example.com')
         && $mail->temporaryPassword === $result->temporaryPassword);
 
     // Forced to change on first login.

@@ -66,7 +66,7 @@ it('provisions the owner from Owner details on an ownerless salon — the produc
 
     expect($result)->not->toBeNull();
     expect($result->temporaryPassword)->not->toBeNull();
-    Mail::assertQueued(StaffInviteMail::class);
+    Mail::assertSent(StaffInviteMail::class);
 
     $owner = User::where('email', 'owner@example.com')->firstOrFail();
     expect($owner->name)->toBe('Abdullah Salon Owner');

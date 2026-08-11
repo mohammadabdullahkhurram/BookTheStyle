@@ -258,8 +258,8 @@ it('demotes the owner by provisioning a NEW owner inline — the standard add-us
     expect($newOwner->must_change_password)->toBeTrue();
 
     // The normal add-user mails, exactly like any invite.
-    Mail::assertQueued(AccountCreatedMail::class, fn ($mail) => $mail->hasTo('nadia@example.com'));
-    Mail::assertQueued(StaffInviteMail::class, fn ($mail) => $mail->hasTo('nadia@example.com')
+    Mail::assertSent(AccountCreatedMail::class, fn ($mail) => $mail->hasTo('nadia@example.com'));
+    Mail::assertSent(StaffInviteMail::class, fn ($mail) => $mail->hasTo('nadia@example.com')
         && $mail->temporaryPassword !== null);
 
     // The outgoing owner got the demote role chosen in the edit modal.

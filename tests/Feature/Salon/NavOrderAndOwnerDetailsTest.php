@@ -103,7 +103,7 @@ it('provisions the Owner-details person as the salon owner at creation, with the
     expect($owner->membershipFor($salon)->salon_role)->toBe(SalonRole::Owner);
     expect($owner->must_change_password)->toBeTrue();
 
-    Mail::assertQueued(StaffInviteMail::class, fn ($mail) => $mail->temporaryPassword !== null);
+    Mail::assertSent(StaffInviteMail::class, fn ($mail) => $mail->temporaryPassword !== null);
 });
 
 // ---------------------------------------------------------------------------

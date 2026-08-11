@@ -159,7 +159,7 @@ it('proves the emailed plaintext matches the stored hash', function () {
 
     // …and the invite email carries that exact plaintext, character for
     // character, in its rendered HTML.
-    Mail::assertQueued(StaffInviteMail::class, function (StaffInviteMail $mail) use ($temp) {
+    Mail::assertSent(StaffInviteMail::class, function (StaffInviteMail $mail) use ($temp) {
         return $mail->temporaryPassword === $temp
             && str_contains($mail->render(), e($temp));
     });

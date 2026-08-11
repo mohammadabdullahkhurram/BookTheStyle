@@ -68,10 +68,10 @@ it('targets the app host in every login link a mailable carries', function () {
         'salon_role' => 'stylist', 'staff_type' => 'stylist',
     ]);
 
-    Mail::assertQueued(StaffInviteMail::class, function ($mail) {
+    Mail::assertSent(StaffInviteMail::class, function ($mail) {
         return emailHostOf($mail->loginUrl) === 'app.'.config('app.domain');
     });
-    Mail::assertQueued(AccountCreatedMail::class, function ($mail) {
+    Mail::assertSent(AccountCreatedMail::class, function ($mail) {
         return emailHostOf($mail->loginUrl) === 'app.'.config('app.domain');
     });
 });

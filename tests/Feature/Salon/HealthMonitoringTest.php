@@ -231,20 +231,20 @@ it('fires the green→red alert to agency owners and admins only — once, on th
     expect($red->regressions[0]['label'])->toBe('Booking widget');
     expect($red->regressions[0]['was'])->toBe('pass');
 
-    Mail::assertQueued(HealthAlertMail::class, fn (HealthAlertMail $mail) => $mail->hasTo($admin->email));
-    Mail::assertQueued(HealthAlertMail::class, fn (HealthAlertMail $mail) => $mail->hasTo($agencyOwner->email));
-    Mail::assertQueued(HealthAlertMail::class, 2); // …and NOBODY else — not salon staff, never clients
-    Mail::assertNotQueued(HealthAlertMail::class, fn (HealthAlertMail $mail) => $mail->hasTo($salonOwner->email));
+    Mail::assertSent(HealthAlertMail::class, fn (HealthAlertMail $mail) => $mail->hasTo($admin->email));
+    Mail::assertSent(HealthAlertMail::class, fn (HealthAlertMail $mail) => $mail->hasTo($agencyOwner->email));
+    Mail::assertSent(HealthAlertMail::class, 2); // …and NOBODY else — not salon staff, never clients
+    Mail::assertNotSent(HealthAlertMail::class, fn (HealthAlertMail $mail) => $mail->hasTo($salonOwner->email));
 
     // Still failing on the next run → no repeat alert; recovery then a new
     // flip alerts again.
     $stillRed = $monitor->record($salon, syntheticReport('fail'), HealthMonitor::SOURCE_SCHEDULED);
     expect($stillRed->regressions)->toBeNull();
-    Mail::assertQueued(HealthAlertMail::class, 2);
+    Mail::assertSent(HealthAlertMail::class, 2);
 
     $monitor->record($salon, syntheticReport('pass'), HealthMonitor::SOURCE_SCHEDULED);
     $monitor->record($salon, syntheticReport('fail'), HealthMonitor::SOURCE_SCHEDULED);
-    Mail::assertQueued(HealthAlertMail::class, 4);
+    Mail::assertSent(HealthAlertMail::class, 4);
 });
 
 it('runs the scheduled monitor read-only: live salons recorded, nothing mutated, no test records, setup and demo salons skipped', function () {

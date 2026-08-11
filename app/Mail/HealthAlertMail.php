@@ -4,7 +4,6 @@ namespace App\Mail;
 
 use App\Models\Salon;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -16,7 +15,7 @@ use Illuminate\Queue\SerializesModels;
  * a link to the salon's health-check page. Agency staff only — this mail
  * never goes to salon staff or clients.
  */
-class HealthAlertMail extends Mailable implements ShouldQueue
+class HealthAlertMail extends Mailable
 {
     use Queueable, SerializesModels;
 

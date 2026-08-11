@@ -3,7 +3,6 @@
 namespace App\Mail;
 
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -14,7 +13,7 @@ use Illuminate\Queue\SerializesModels;
  * who set it up, where to sign in. Credentials travel separately (the
  * temporary-password / staff-invite email), so this one carries no secrets.
  */
-class AccountCreatedMail extends Mailable implements ShouldQueue
+class AccountCreatedMail extends Mailable
 {
     use Queueable, SerializesModels;
 

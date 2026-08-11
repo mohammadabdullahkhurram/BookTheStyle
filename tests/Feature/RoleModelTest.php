@@ -130,8 +130,8 @@ it('provisions the contact person as salon OWNER at creation, with the standard 
     expect($contact->must_change_password)->toBeTrue();
 
     // The EXISTING provisioning path: welcome + credentialed invite.
-    Mail::assertQueued(AccountCreatedMail::class, fn ($mail) => $mail->hasTo($salon->contact_email));
-    Mail::assertQueued(StaffInviteMail::class, fn ($mail) => $mail->hasTo($salon->contact_email)
+    Mail::assertSent(AccountCreatedMail::class, fn ($mail) => $mail->hasTo($salon->contact_email));
+    Mail::assertSent(StaffInviteMail::class, fn ($mail) => $mail->hasTo($salon->contact_email)
         && $mail->temporaryPassword !== null);
 });
 
@@ -146,7 +146,7 @@ it('links an EXISTING account — including the agency owner\'s own — as salon
 
     expect($agencyOwner->membershipFor($salon)->salon_role)->toBe(SalonRole::Owner);
     expect($agencyOwner->fresh()->must_change_password)->toBeFalse();
-    Mail::assertQueued(StaffInviteMail::class, fn ($mail) => $mail->hasTo($agencyOwner->email)
+    Mail::assertSent(StaffInviteMail::class, fn ($mail) => $mail->hasTo($agencyOwner->email)
         && $mail->temporaryPassword === null);
 });
 
