@@ -1,11 +1,15 @@
 {{--
     The embeddable public booking page — the salon's ONLY customer-facing
-    booking surface. Visual language: one cohesive branded container (owner-
-    approved reference look) — a generously rounded shell filled with the
-    salon's SOLID branded background, split by a hairline divider into the
-    info pane and the scheduling pane, all colours branding-driven with the
-    foreground family DERIVED from the surface by WCAG contrast
-    (WidgetBranding::mode).
+    booking surface. Visual language (owner-picked "Atelier" direction,
+    2026-08): an editorial, horizontal layout — the branded shell splits
+    into the info/summary rail and the scheduling pane by a hairline;
+    services and stylists render as quiet LIST ROWS (hairline-separated,
+    not raised cards); the time step is a Calendly-style split — calendar
+    left, and picking a date opens the day's times as a vertical pill
+    column to its RIGHT (themed thin scrollbar); pill CTAs and
+    underline-only form fields. Every colour/font stays branding-driven
+    with the foreground family DERIVED from the surface by WCAG contrast
+    (WidgetBranding::mode) — no hardcoded palette.
 
     Flow: a PER-SERVICE loop. The right pane repeats service → stylist for
     THAT service → date & time for THAT service (inline availability
@@ -93,49 +97,77 @@
         }
         .wb-logo { max-height: 56px; max-width: 190px; width: auto; object-fit: contain; margin-bottom: 14px; }
 
-        /* Rows / options: raised cells on the branded surface. */
+        /* Rows / options: editorial LIST ROWS — hairline-separated, no cards.
+           Hover nudges the row inward instead of raising it. */
         .wb-opt {
             display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px;
-            border-radius: 14px; padding: 12px 14px; text-align: start; font-size: 15px; font-weight: 600;
+            border-radius: 0; padding: 15px 2px; text-align: start; font-size: 15px; font-weight: 600;
             color: var(--wb-ink);
-            background: var(--wb-cell);
-            border: 1.5px solid var(--wb-line);
-            transition: border-color .15s ease, background-color .15s ease;
-            cursor: pointer; min-height: 48px;
+            background: transparent;
+            border: none; border-bottom: 1px solid var(--wb-line);
+            transition: padding-left .15s ease, background-color .15s ease;
+            cursor: pointer; min-height: 52px;
         }
-        .wb-opt:hover { border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
+        .wb-opt:hover { padding-left: 12px; }
         .wb-opt[aria-pressed='true'] {
-            border-color: var(--accent);
-            background: color-mix(in srgb, var(--accent) 16%, var(--wb-surface));
+            border-radius: 10px;
+            background: color-mix(in srgb, var(--accent) 14%, var(--wb-surface));
         }
+        .wb-opt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 10px; }
 
-        /* Time slots: accent-bordered rounded buttons (the reference look). */
+        /* Time slots: full-width pills in the day column (Calendly-style). */
         .wb-chip {
-            border-radius: 12px; padding: 10px 14px; font-size: 14px; font-weight: 600;
-            color: var(--wb-ink); background: transparent; cursor: pointer; min-height: 44px;
-            border: 1.5px solid color-mix(in srgb, var(--accent) 70%, transparent);
+            display: block; width: 100%; text-align: center;
+            border-radius: 99px; padding: 10px 14px; font-size: 14px; font-weight: 600;
+            color: var(--wb-ink); background: var(--wb-cell); cursor: pointer; min-height: 44px;
+            border: 1.5px solid var(--wb-line);
             transition: background-color .15s ease, border-color .15s ease;
         }
-        .wb-chip:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); border-color: var(--accent); }
+        .wb-chip:hover { background: color-mix(in srgb, var(--accent) 14%, var(--wb-cell)); border-color: var(--accent); }
 
-        .wb-field {
-            width: 100%; min-height: 48px; border-radius: 11px; padding: 10px 13px; font-size: 15px;
-            color: var(--wb-ink); background: var(--wb-cell); border: 1.5px solid var(--wb-line);
+        /* Calendly-style date→times split: calendar left, the picked day's
+           times open as a hairline-separated column on the RIGHT. Stacks
+           below 700px (the column follows the calendar). */
+        .wb-timegrid { display: grid; gap: 0; align-items: start; margin-top: 12px; }
+        @media (min-width: 700px) {
+            .wb-timegrid { grid-template-columns: minmax(280px, 400px) minmax(210px, 1fr); }
+            .wb-times { border-left: 1px solid var(--wb-line); padding-left: 24px; margin-left: 24px; }
         }
-        .wb-field:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+        @media (max-width: 699.98px) {
+            .wb-times { border-top: 1px solid var(--wb-line); padding-top: 16px; margin-top: 16px; }
+        }
+        .wb-times {
+            max-height: 430px; overflow-y: auto; padding-right: 6px;
+            scrollbar-width: thin; scrollbar-color: var(--wb-line) transparent;
+        }
+        .wb-times::-webkit-scrollbar { width: 6px; }
+        .wb-times::-webkit-scrollbar-track { background: transparent; }
+        .wb-times::-webkit-scrollbar-thumb { background: var(--wb-line); border-radius: 99px; }
+        .wb-times::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+        .wb-day-label { font-family: var(--wb-display); font-size: 15px; font-weight: 600; margin-bottom: 10px; }
+        .wb-slot-list { display: grid; gap: 8px; }
+
+        /* Underline-only fields — the editorial signature. */
+        .wb-field {
+            width: 100%; min-height: 46px; border-radius: 0; padding: 10px 2px; font-size: 15px;
+            color: var(--wb-ink); background: transparent;
+            border: none; border-bottom: 1.5px solid var(--wb-line);
+            transition: border-color .15s ease;
+        }
+        .wb-field:focus { outline: none; border-bottom-color: var(--accent); }
 
         .wb-cta {
             display: flex; width: 100%; min-height: 48px; align-items: center; justify-content: center;
-            border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer;
+            border-radius: 99px; font-size: 15px; font-weight: 600; letter-spacing: .01em; cursor: pointer;
             color: var(--wb-accent-ink); background: var(--accent); border: 1px solid transparent;
-            box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 35%, transparent);
+            box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 30%, transparent);
             transition: background-color .15s ease;
         }
         .wb-cta:hover { background: var(--accent-hover); }
         .wb-cta:disabled { opacity: .5; pointer-events: none; }
         .wb-ghost {
             display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 8px;
-            border-radius: 11px; padding: 0 18px; font-size: 14px; font-weight: 600; cursor: pointer;
+            border-radius: 99px; padding: 0 20px; font-size: 14px; font-weight: 600; cursor: pointer;
             color: var(--wb-muted); background: transparent; border: 1.5px solid var(--wb-line);
         }
         .wb-ghost:hover { color: var(--wb-ink); border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
@@ -251,22 +283,28 @@
                 <section data-step="time" hidden>
                     <h2 class="wb-display text-[17px] font-semibold">{{ __('Select date & time') }}</h2>
                     <p class="wb-muted mt-0.5 text-[13.5px]" id="bts-time-sub"></p>
-                    <div id="bts-cal" class="mt-3">
-                        <div class="wb-cal-head">
-                            <button type="button" id="bts-cal-prev" class="wb-cal-nav" aria-label="{{ __('Previous month') }}">
-                                <svg viewBox="0 0 20 20" fill="currentColor" class="size-5" aria-hidden="true"><path fill-rule="evenodd" d="M12.79 5.23a.75.75 0 0 1-.02 1.06L8.832 10l3.938 3.71a.75.75 0 1 1-1.04 1.08l-4.5-4.25a.75.75 0 0 1 0-1.08l4.5-4.25a.75.75 0 0 1 1.06.02Z" clip-rule="evenodd"/></svg>
-                            </button>
-                            <h3 id="bts-cal-title" class="wb-display text-[15px] font-semibold" aria-live="polite"></h3>
-                            <button type="button" id="bts-cal-next" class="wb-cal-nav" aria-label="{{ __('Next month') }}">
-                                <svg viewBox="0 0 20 20" fill="currentColor" class="size-5" aria-hidden="true"><path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z" clip-rule="evenodd"/></svg>
-                            </button>
+                    {{-- Calendly-style split: calendar left; the picked
+                         day's times open in the column to its right. --}}
+                    <div class="wb-timegrid">
+                        <div id="bts-cal">
+                            <div class="wb-cal-head">
+                                <button type="button" id="bts-cal-prev" class="wb-cal-nav" aria-label="{{ __('Previous month') }}">
+                                    <svg viewBox="0 0 20 20" fill="currentColor" class="size-5" aria-hidden="true"><path fill-rule="evenodd" d="M12.79 5.23a.75.75 0 0 1-.02 1.06L8.832 10l3.938 3.71a.75.75 0 1 1-1.04 1.08l-4.5-4.25a.75.75 0 0 1 0-1.08l4.5-4.25a.75.75 0 0 1 1.06.02Z" clip-rule="evenodd"/></svg>
+                                </button>
+                                <h3 id="bts-cal-title" class="wb-display text-[15px] font-semibold" aria-live="polite"></h3>
+                                <button type="button" id="bts-cal-next" class="wb-cal-nav" aria-label="{{ __('Next month') }}">
+                                    <svg viewBox="0 0 20 20" fill="currentColor" class="size-5" aria-hidden="true"><path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z" clip-rule="evenodd"/></svg>
+                                </button>
+                            </div>
+                            <div id="bts-cal-dow" class="wb-cal-dow" aria-hidden="true"></div>
+                            <div id="bts-cal-grid" class="wb-cal-grid" role="group" aria-label="{{ __('Choose a date') }}"></div>
                         </div>
-                        <div id="bts-cal-dow" class="wb-cal-dow" aria-hidden="true"></div>
-                        <div id="bts-cal-grid" class="wb-cal-grid" role="group" aria-label="{{ __('Choose a date') }}"></div>
+                        <div class="wb-times" id="bts-times-col" hidden>
+                            <p id="bts-day-label" class="wb-day-label hidden"></p>
+                            <div id="bts-slots" class="wb-slot-list" aria-live="polite"></div>
+                            <p id="bts-slots-empty" class="wb-muted mt-2 hidden text-[14px]">{{ __('No open times for this service that day — try another date.') }}</p>
+                        </div>
                     </div>
-                    <p id="bts-day-label" class="wb-muted mt-3 hidden text-[13px] font-semibold"></p>
-                    <div id="bts-slots" class="mt-2 flex flex-wrap gap-2" aria-live="polite"></div>
-                    <p id="bts-slots-empty" class="wb-muted mt-2 hidden text-[14px]">{{ __('No open times for this service that day — try another date.') }}</p>
                     <p class="wb-faint mt-3 text-[12.5px]">{{ __('Times shown in :timezone', ['timezone' => $salon->timezone]) }}</p>
                 </section>
 
@@ -533,6 +571,7 @@
             $('bts-slots').textContent = '';
             $('bts-slots-empty').classList.add('hidden');
             $('bts-day-label').classList.add('hidden');
+            $('bts-times-col').hidden = true; // opens when a date is picked
             state.date = null;
             show('time');
             openCalendar();
@@ -685,6 +724,7 @@
 
         // -- the selected day's slots for THIS service --------------------------
         function loadSlots() {
+            $('bts-times-col').hidden = false; // the Calendly column opens
             var wrap = $('bts-slots');
             wrap.textContent = I18N.loading;
             $('bts-slots-empty').classList.add('hidden');
