@@ -596,6 +596,13 @@ it('renders the solid branded split container with the inline calendar — no na
         // editorial list rows, pill slot buttons, and underline fields.
         ->assertSee('bts-times-col', false)
         ->assertSee('wb-timegrid', false)
+        // Embed correctness: the OUTER canvas is transparent (html must be
+        // overridden — app.css paints it) so the host page shows through,
+        // and the posted height measures the BODY (content) — html's
+        // scrollHeight floors at the viewport, which reserved a screen of
+        // empty space below the card.
+        ->assertSee('html { background: transparent; }', false)
+        ->assertSee('document.body.scrollHeight', false)
         ->assertSee('scrollbar-color: var(--wb-line) transparent', false)
         ->assertSee('border-bottom: 1px solid var(--wb-line);', false)
         ->assertSee('border-radius: 99px', false)

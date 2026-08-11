@@ -68,6 +68,10 @@
         }
 
         /* ── One rounded, solid-branded container (host page shows around it) ── */
+        /* The OUTER canvas is transparent — the embedding page shows through;
+           only .wb-shell carries the branded surface. app.css paints html
+           with --color-paper for the app, so the override must name html. */
+        html { background: transparent; }
         body { font-family: var(--wb-body); background: transparent; color: var(--wb-ink); }
         .wb-shell {
             display: grid;
@@ -403,7 +407,11 @@
 
         // -- auto-resize: tell the parent loader our height ---------------
         function postHeight() {
-            var h = document.documentElement.scrollHeight;
+            // BODY scrollHeight is the content's real height. The html
+            // element's scrollHeight floors at the VIEWPORT height, so a
+            // short widget in a tall iframe posted the viewport and the
+            // frame reserved a screen of empty space below the card.
+            var h = document.body.scrollHeight;
             window.parent.postMessage({ type: 'bts:resize', height: h }, '*');
         }
         if (window.ResizeObserver) {

@@ -36,7 +36,7 @@
         iframe.style.width = '100%';
         iframe.style.border = '0';
         iframe.style.display = 'block';
-        iframe.style.minHeight = '480px';
+        iframe.style.minHeight = '180px'; // pre-load placeholder only — the first bts:resize sets the exact content height
         iframe.setAttribute('scrolling', 'no');
 
         container.appendChild(iframe);

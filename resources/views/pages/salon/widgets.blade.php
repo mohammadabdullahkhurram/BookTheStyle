@@ -425,7 +425,7 @@ new #[Title('Widgets')] class extends Component {
                     src="{{ route('salon.widget.preview', ['salon' => $salon, 'widget' => $current->public_id, 'fresh' => $previewNonce]) }}"
                     title="{{ __('Widget preview') }}"
                     class="block w-full"
-                    style="height: min(680px, 80dvh); border: 0"></iframe>
+                    style="height: min(360px, 70dvh); border: 0"></iframe>
         @endif
     </x-ui.modal>
 
