@@ -873,7 +873,7 @@ new #[Title('Salon settings')] class extends Component {
              instead of matching no panel (blank page); back/forward work via
              the hashchange listener. --}}
         <div x-data="{
-                 tabs: ['general', 'policy', 'branding'@can('manageGhlConnection', $salon), 'integrations'@endcan],
+                 tabs: ['general', 'policy', 'branding'@can('manageGhlConnection', $salon), 'integrations', 'voice'@endcan],
                  tab: 'general',
                  resolve(hash) { return this.tabs.includes(hash) ? hash : 'general' },
                  pick(name) { this.tab = name; window.location.hash = name },
@@ -892,6 +892,8 @@ new #[Title('Salon settings')] class extends Component {
                     @can('manageGhlConnection', $salon)
                         <button type="button" x-on:click="pick('integrations')" :aria-current="tab === 'integrations' ? 'page' : null"
                                 class="bts-nav-item shrink-0 text-left" :class="tab === 'integrations' && 'bts-nav-item-active'">{{ __('Integrations') }}</button>
+                        <button type="button" x-on:click="pick('voice')" :aria-current="tab === 'voice' ? 'page' : null"
+                                class="bts-nav-item shrink-0 text-left" :class="tab === 'voice' && 'bts-nav-item-active'">{{ __('Voice AI Prompts') }}</button>
                     @endcan
                 </nav>
             </div>
@@ -919,6 +921,14 @@ new #[Title('Salon settings')] class extends Component {
         {{-- Integrations: GoHighLevel connection, mapping, inbound webhook. --}}
         <section x-show="tab === 'integrations'" x-cloak class="flex flex-col gap-6">
         @include('partials.settings.integrations')
+        </section>
+
+        {{-- Voice AI Prompts: its own nested component (the Settings
+             component stays this size) — same gate as Integrations. --}}
+        <section x-show="tab === 'voice'" x-cloak class="flex flex-col gap-6">
+        @can('manageGhlConnection', $salon)
+            @livewire('pages::salon.voice-ai-prompts', ['salon' => $salon], key('voice-ai-'.$salon->id))
+        @endcan
         </section>
 
             </div>
