@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Salons\ChangeSalonType;
+use App\Actions\Salons\DeleteSalon;
 use App\Actions\Salons\DisconnectGhl;
 use App\Actions\Salons\SetSalonActive;
 use App\Actions\Salons\SetSalonOwner;
@@ -238,6 +239,44 @@ new #[Title('Edit salon')] class extends Component {
         $this->salon->refresh();
 
         Flux::toast(variant: 'success', text: $this->salon->active ? __('Salon reactivated.') : __('Salon deactivated.'));
+    }
+
+    // ------------------------------------------------------------------
+    // Delete salon — the most destructive action in the app. Agency
+    // owner/admin only (the whole page already requires manageSalons);
+    // typed-name confirmation, blast radius shown first, demo refused.
+
+    public bool $showDeleteSalon = false;
+
+    public string $confirmName = '';
+
+    /** @return array<string, int> */
+    #[Computed]
+    public function deleteBlast(): array
+    {
+        return DeleteSalon::blastRadius($this->salon);
+    }
+
+    public function startDeleteSalon(): void
+    {
+        $this->authorize('manageSalons', $this->salon->agency);
+        abort_if($this->salon->is_demo, 403);
+
+        $this->confirmName = '';
+        $this->resetErrorBag();
+        unset($this->deleteBlast);
+        $this->showDeleteSalon = true;
+    }
+
+    public function deleteSalon(DeleteSalon $action): void
+    {
+        $this->authorize('manageSalons', $this->salon->agency);
+        $this->resetErrorBag();
+
+        $action->handle(Auth::user(), $this->salon, $this->confirmName);
+
+        session()->flash('status', __(':salon was permanently deleted.', ['salon' => $this->salon->name]));
+        $this->redirectRoute('dashboard', navigate: true);
     }
 
     /**
@@ -532,6 +571,42 @@ new #[Title('Edit salon')] class extends Component {
                                 {{ $salon->active ? __('Deactivate') : __('Reactivate') }}
                             </button>
                         </x-ui.card>
+
+                        {{-- The most destructive action in the app: permanent
+                             salon deletion. Deactivation above is the
+                             recoverable archive; this removes everything. --}}
+                        <x-ui.card padding="p-5" class="flex items-center justify-between gap-4" style="border-color:#E4C4B3;">
+                            <div>
+                                <h3 class="text-[16px] font-semibold" style="color:#8A4B2D;">{{ __('Delete salon permanently') }}</h3>
+                                <p class="text-[14px] text-secondary">{{ __('Removes the salon and everything in it — staff access, services, clients, appointments, settings, and the GoHighLevel connection. This cannot be undone. Prefer Deactivate above to pause it instead.') }}</p>
+                            </div>
+                            <button type="button" wire:click="startDeleteSalon" class="bts-btn bts-btn-sm shrink-0 border border-input-border bg-card text-danger hover:border-danger">{{ __('Delete…') }}</button>
+                        </x-ui.card>
+
+                        <x-ui.modal wire:model="showDeleteSalon" class="max-w-md" :heading="__('Delete :salon permanently', ['salon' => $salon->name])">
+                            <div class="flex flex-col gap-4">
+                                <div class="rounded-[10px] border px-4 py-3" style="background-color:#F6E8E1;border-color:#E4C4B3;">
+                                    <p class="text-[13.5px] font-semibold" style="color:#8A4B2D;">{{ __('This deletes, permanently:') }}</p>
+                                    <ul class="ms-4 mt-1 list-disc text-[13px]" style="color:#8A4B2D;">
+                                        <li>{{ trans_choice(':count staff membership (accounts used nowhere else are archived)|:count staff memberships (accounts used nowhere else are archived)', $this->deleteBlast['staff'], ['count' => $this->deleteBlast['staff']]) }}</li>
+                                        <li>{{ trans_choice(':count service|:count services', $this->deleteBlast['services'], ['count' => $this->deleteBlast['services']]) }}</li>
+                                        <li>{{ trans_choice(':count client|:count clients', $this->deleteBlast['clients'], ['count' => $this->deleteBlast['clients']]) }}</li>
+                                        <li>{{ trans_choice(':count appointment, past and future|:count appointments, past and future', $this->deleteBlast['appointments'], ['count' => $this->deleteBlast['appointments']]) }}</li>
+                                        <li>{{ trans_choice(':count booking widget (embeds on the salon\'s website stop working)|:count booking widgets (embeds on the salon\'s website stop working)', $this->deleteBlast['widgets'], ['count' => $this->deleteBlast['widgets']]) }}</li>
+                                        <li>{{ __('All settings, the booking API token, and the GoHighLevel connection') }}</li>
+                                    </ul>
+                                    <p class="mt-1.5 text-[13px]" style="color:#8A4B2D;">{{ __('The GHL sub-account itself and the hPanel subdomain are NOT touched — clean those up by hand.') }}</p>
+                                </div>
+                                <div class="flex flex-col gap-1.5">
+                                    <flux:input wire:model="confirmName" :label="__('Type the salon\'s name to confirm')" :placeholder="$salon->name" autocomplete="off" />
+                                    @error('confirmName')<p class="text-[13px] font-medium text-danger">{{ $message }}</p>@enderror
+                                </div>
+                                <div class="flex justify-end gap-3">
+                                    <x-ui.button type="button" variant="secondary" wire:click="$set('showDeleteSalon', false)">{{ __('Cancel') }}</x-ui.button>
+                                    <x-ui.button variant="danger" wire:click="deleteSalon" loading="deleteSalon">{{ __('Delete this salon forever') }}</x-ui.button>
+                                </div>
+                            </div>
+                        </x-ui.modal>
                     </section>
 
                     {{-- Booking policy & type: defaults + how stylists work here. --}}
