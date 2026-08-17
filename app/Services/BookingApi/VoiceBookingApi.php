@@ -17,6 +17,7 @@ use App\Models\User;
 use App\Services\Booking\DurationResolver;
 use App\Services\Booking\ResolvedDuration;
 use App\Services\Booking\SlotEngine;
+use App\Services\Diagnostics\ConnectionDiagnostics;
 use App\Support\PhoneNumber;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Log;
@@ -1345,6 +1346,17 @@ class VoiceBookingApi
                 'phone' => $phone,
                 'email' => $email,
             ]);
+        }
+
+        // THE TEST-FLAG GUARANTEE: the designated test clients are booked
+        // by NAME/PHONE through this very funnel (voice Custom Actions, the
+        // health check), so a re-creation that raced a sweep used to mint
+        // an UNFLAGGED row — no TEST badge, invisible to every is_test-
+        // keyed cleanup. Any client resolving to a designated identity is
+        // (re)flagged here, which also self-heals rows that lost the flag.
+        if (! $client->is_test
+            && ConnectionDiagnostics::isDesignatedTestClient($client->name, $client->phone)) {
+            $client->forceFill(['is_test' => true])->save();
         }
 
         if ($ghlContactId !== null && $ghlContactId !== '' && $client->ghl_contact_id === null) {

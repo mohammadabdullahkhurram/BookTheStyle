@@ -14,6 +14,7 @@ use App\Models\Service;
 use App\Models\User;
 use App\Services\BookingApi\ApiError;
 use App\Services\BookingApi\VoiceBookingApi;
+use App\Support\PhoneNumber;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Cache;
@@ -144,21 +145,49 @@ class ConnectionDiagnostics
             // stylist unreachable through every real service.
             $service->stylists()->sync([$stylist->id => ['salon_id' => $salon->id]]);
 
-            $client = Client::withoutGlobalScopes()->firstOrCreate(
-                ['salon_id' => $salon->id, 'name' => self::CLIENT_NAME, 'is_test' => true],
-                ['phone' => self::CLIENT_PHONE, 'email' => 'test-client+'.$salon->id.'@bluejaypro.invalid'],
+            // Both designated clients match by NAME alone and get the flag
+            // FORCED — an unflagged survivor is reclaimed, never duplicated.
+            $client = Client::withoutGlobalScopes()->withTrashed()->firstOrCreate(
+                ['salon_id' => $salon->id, 'name' => self::CLIENT_NAME],
+                ['is_test' => true, 'phone' => self::CLIENT_PHONE, 'email' => 'test-client+'.$salon->id.'@bluejaypro.invalid'],
             );
+            $client->forceFill(['is_test' => true, 'deleted_at' => null])->save();
 
             // The second designated client: the Voice AI test lane — used
             // for MANUAL Custom Action round-trips (book/cancel/reschedule
             // by phone), window-exempt like every is_test client.
-            Client::withoutGlobalScopes()->firstOrCreate(
-                ['salon_id' => $salon->id, 'name' => self::VOICE_CLIENT_NAME, 'is_test' => true],
-                ['phone' => self::VOICE_CLIENT_PHONE, 'email' => 'voice-test-client+'.$salon->id.'@bluejaypro.invalid'],
-            );
+            Client::withoutGlobalScopes()->withTrashed()->firstOrCreate(
+                ['salon_id' => $salon->id, 'name' => self::VOICE_CLIENT_NAME],
+                ['is_test' => true, 'phone' => self::VOICE_CLIENT_PHONE, 'email' => 'voice-test-client+'.$salon->id.'@bluejaypro.invalid'],
+            )->forceFill(['is_test' => true, 'deleted_at' => null])->save();
 
             return ['stylist' => $stylist, 'service' => $service, 'client' => $client];
         });
+    }
+
+    /**
+     * Whether a client identity IS one of the two designated test clients —
+     * matched by reserved name (exact) or designated phone (format-blind).
+     * This is the single authority every creation funnel and the teardown
+     * consult, so a test client can never exist unflagged: the voice lane
+     * and the health check book these clients by NAME/PHONE through the
+     * shared engine, and a re-creation that raced a sweep used to mint an
+     * unflagged row — invisible to the badge and to every is_test-keyed
+     * cleanup.
+     */
+    public static function isDesignatedTestClient(?string $name, ?string $phone): bool
+    {
+        if (in_array(trim((string) $name), [self::CLIENT_NAME, self::VOICE_CLIENT_NAME], true)) {
+            return true;
+        }
+
+        foreach ([self::CLIENT_PHONE, self::VOICE_CLIENT_PHONE] as $designated) {
+            if ($phone !== null && trim($phone) !== '' && PhoneNumber::matches($phone, $designated)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -176,14 +205,13 @@ class ConnectionDiagnostics
             $salon->forceFill(['test_records_expire_at' => $expiry])->save();
         }
 
+        // Match by NAME alone: a designated row that somehow lost its flag
+        // is reclaimed and re-flagged, never duplicated.
         $client = Client::withoutGlobalScopes()->withTrashed()->firstOrCreate(
-            ['salon_id' => $salon->id, 'name' => self::CLIENT_NAME, 'is_test' => true],
-            ['phone' => self::CLIENT_PHONE, 'email' => 'test-client+'.$salon->id.'@bluejaypro.invalid'],
+            ['salon_id' => $salon->id, 'name' => self::CLIENT_NAME],
+            ['is_test' => true, 'phone' => self::CLIENT_PHONE, 'email' => 'test-client+'.$salon->id.'@bluejaypro.invalid'],
         );
-
-        if ($client->trashed()) {
-            $client->restore();
-        }
+        $client->forceFill(['is_test' => true, 'deleted_at' => null])->save();
 
         return $client;
     }
@@ -248,7 +276,14 @@ class ConnectionDiagnostics
     {
         DB::transaction(function () use ($salon): void {
             $stylist = User::withTrashed()->where('email', 'diagnostics+'.$salon->id.'@bluejaypro.invalid')->first();
-            $clients = Client::withoutGlobalScopes()->withTrashed()->where('salon_id', $salon->id)->where('is_test', true)->get();
+            // is_test OR the reserved designated names: the names are minted
+            // only by this class, so a row that lost its flag is still test
+            // data and must go — real clients can never carry these names.
+            $clients = Client::withoutGlobalScopes()->withTrashed()->where('salon_id', $salon->id)
+                ->where(fn ($q) => $q
+                    ->where('is_test', true)
+                    ->orWhereIn('name', [self::CLIENT_NAME, self::VOICE_CLIENT_NAME]))
+                ->get();
 
             $bookings = Booking::withoutGlobalScopes()->where('salon_id', $salon->id)
                 ->where(fn ($q) => $q
