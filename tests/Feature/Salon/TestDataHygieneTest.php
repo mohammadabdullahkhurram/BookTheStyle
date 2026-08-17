@@ -175,3 +175,53 @@ it('the hourly sweep clears both clients through the same teardown', function ()
     expect(Client::withoutGlobalScopes()->withTrashed()->where('salon_id', $salon->id)->count())->toBe(0);
     expect($salon->refresh()->test_records_expire_at)->toBeNull();
 });
+
+it('gives both test clients their FIXED non-deliverable contacts — created and backfilled alike', function () {
+    $salon = bookingSalon();
+
+    // Fresh creation: exactly the canonical values.
+    app(ConnectionDiagnostics::class)->ensureTestRecords($salon);
+    $main = Client::withoutGlobalScopes()->where('salon_id', $salon->id)->where('name', ConnectionDiagnostics::CLIENT_NAME)->sole();
+    $voice = Client::withoutGlobalScopes()->where('salon_id', $salon->id)->where('name', ConnectionDiagnostics::VOICE_CLIENT_NAME)->sole();
+
+    expect($main->email)->toBe('bjptestclient@bluejaypro.invalid');
+    expect($main->phone)->toBe('+1 555 010 0000');
+    expect($voice->email)->toBe('bjpvoiceaitestclient@bluejaypro.invalid');
+    expect($voice->phone)->toBe('+1 555 010 0001');
+    expect($main->is_test && $voice->is_test)->toBeTrue();
+
+    // Existing rows with old generated/missing contact normalize: via the
+    // ensure path…
+    $main->forceFill(['email' => 'test-client+96@bluejaypro.invalid', 'phone' => null])->save();
+    $voice->forceFill(['email' => null])->save();
+    app(ConnectionDiagnostics::class)->ensureTestRecords($salon);
+    expect($main->refresh()->email)->toBe(ConnectionDiagnostics::CLIENT_EMAIL);
+    expect($main->phone)->toBe(ConnectionDiagnostics::CLIENT_PHONE);
+    expect($voice->refresh()->email)->toBe(ConnectionDiagnostics::VOICE_CLIENT_EMAIL);
+
+    // …and via the deploy-time backfill, which never touches a real client.
+    $main->forceFill(['email' => 'test-client+96@bluejaypro.invalid'])->save();
+    $real = Client::withoutGlobalScopes()->create([
+        'salon_id' => $salon->id, 'name' => 'Rhea Real', 'phone' => '+1 555 777 8888', 'email' => 'rhea@example.com',
+    ]);
+    (require database_path('migrations/2026_08_17_000002_normalize_designated_test_client_contacts.php'))->up();
+    expect($main->refresh()->email)->toBe(ConnectionDiagnostics::CLIENT_EMAIL);
+    expect($real->refresh()->email)->toBe('rhea@example.com');
+    expect($real->phone)->toBe('+1 555 777 8888');
+});
+
+it('keeps the two phones distinct so phone lookups resolve the right client', function () {
+    $salon = bookingSalon();
+    app(ConnectionDiagnostics::class)->ensureTestRecords($salon);
+
+    // findClientByPhone is the engine's private lookup — reflect for a
+    // direct assertion of exactly which client each phone resolves to.
+    $lookup = new ReflectionMethod(VoiceBookingApi::class, 'findClientByPhone');
+    $api = app(VoiceBookingApi::class);
+    $byMain = $lookup->invoke($api, $salon, '5550100000');
+    $byVoice = $lookup->invoke($api, $salon, '+1 (555) 010-0001');
+
+    expect($byMain?->name)->toBe(ConnectionDiagnostics::CLIENT_NAME);
+    expect($byVoice?->name)->toBe(ConnectionDiagnostics::VOICE_CLIENT_NAME);
+    expect($byMain->id)->not->toBe($byVoice->id);
+});

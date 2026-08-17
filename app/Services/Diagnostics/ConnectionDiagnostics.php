@@ -50,10 +50,14 @@ class ConnectionDiagnostics
 
     public const CLIENT_PHONE = '+1 555 010 0000';
 
+    public const CLIENT_EMAIL = 'bjptestclient@bluejaypro.invalid';
+
     /** For MANUAL Voice AI Custom Action end-to-end testing (book/cancel/reschedule). */
     public const VOICE_CLIENT_NAME = 'Bluejaypro Voice AI Test Client';
 
     public const VOICE_CLIENT_PHONE = '+1 555 010 0001';
+
+    public const VOICE_CLIENT_EMAIL = 'bjpvoiceaitestclient@bluejaypro.invalid';
 
     /**
      * The health check's test appointment is PINNED to one fixed slot —
@@ -149,17 +153,23 @@ class ConnectionDiagnostics
             // FORCED — an unflagged survivor is reclaimed, never duplicated.
             $client = Client::withoutGlobalScopes()->withTrashed()->firstOrCreate(
                 ['salon_id' => $salon->id, 'name' => self::CLIENT_NAME],
-                ['is_test' => true, 'phone' => self::CLIENT_PHONE, 'email' => 'test-client+'.$salon->id.'@bluejaypro.invalid'],
+                ['is_test' => true],
             );
-            $client->forceFill(['is_test' => true, 'deleted_at' => null])->save();
+            $client->forceFill([
+                'is_test' => true, 'deleted_at' => null,
+                'phone' => self::CLIENT_PHONE, 'email' => self::CLIENT_EMAIL,
+            ])->save();
 
             // The second designated client: the Voice AI test lane — used
             // for MANUAL Custom Action round-trips (book/cancel/reschedule
             // by phone), window-exempt like every is_test client.
             Client::withoutGlobalScopes()->withTrashed()->firstOrCreate(
                 ['salon_id' => $salon->id, 'name' => self::VOICE_CLIENT_NAME],
-                ['is_test' => true, 'phone' => self::VOICE_CLIENT_PHONE, 'email' => 'voice-test-client+'.$salon->id.'@bluejaypro.invalid'],
-            )->forceFill(['is_test' => true, 'deleted_at' => null])->save();
+                ['is_test' => true],
+            )->forceFill([
+                'is_test' => true, 'deleted_at' => null,
+                'phone' => self::VOICE_CLIENT_PHONE, 'email' => self::VOICE_CLIENT_EMAIL,
+            ])->save();
 
             return ['stylist' => $stylist, 'service' => $service, 'client' => $client];
         });
@@ -209,9 +219,12 @@ class ConnectionDiagnostics
         // is reclaimed and re-flagged, never duplicated.
         $client = Client::withoutGlobalScopes()->withTrashed()->firstOrCreate(
             ['salon_id' => $salon->id, 'name' => self::CLIENT_NAME],
-            ['is_test' => true, 'phone' => self::CLIENT_PHONE, 'email' => 'test-client+'.$salon->id.'@bluejaypro.invalid'],
+            ['is_test' => true],
         );
-        $client->forceFill(['is_test' => true, 'deleted_at' => null])->save();
+        $client->forceFill([
+            'is_test' => true, 'deleted_at' => null,
+            'phone' => self::CLIENT_PHONE, 'email' => self::CLIENT_EMAIL,
+        ])->save();
 
         return $client;
     }
