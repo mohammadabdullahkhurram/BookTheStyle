@@ -10,6 +10,7 @@ use App\Models\Service;
 use App\Models\User;
 use App\Support\DemoMode;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Crypt;
 use Tests\TestCase;
 
 pest()->extend(TestCase::class)
@@ -21,6 +22,45 @@ pest()->extend(TestCase::class)->in('Unit');
 /*
 | Shared salon-role helpers used across feature tests.
 */
+
+/*
+| Shared widget helpers (WidgetBookingTest + ChatWidgetTest): the frozen
+| clock both suites use is Mon 2026-06-22 12:00 UTC.
+*/
+
+/** @return array{0: Salon, 1: User, 2: Service} */
+function widgetSalon(): array
+{
+    $salon = bookingSalon();
+    $stylist = stylistWithHours($salon, 0, 9 * 60, 17 * 60); // Monday 9–5
+    $service = serviceFor($salon, $stylist, 60);
+    $service->update(['name' => 'Haircut', 'price_cents' => 4500]);
+
+    return [$salon, $stylist, $service];
+}
+
+/** A page token like the widget page embeds, backdated $ageSeconds. */
+function widgetToken(Salon $salon, int $ageSeconds = 30): string
+{
+    return Crypt::encryptString((string) json_encode([
+        'salon' => $salon->id,
+        'iat' => now()->timestamp - $ageSeconds,
+    ]));
+}
+
+/** A valid book payload for the salon's Haircut at 2 PM. */
+function widgetPayload(Salon $salon, array $overrides = []): array
+{
+    return array_merge([
+        'service' => $salon->services()->firstOrFail()->id,
+        'stylist' => 'any',
+        'date' => '2026-06-22',
+        'time' => '2:00 PM',
+        'client' => ['name' => 'Widget Wendy', 'phone' => '+15550301'],
+        'token' => widgetToken($salon),
+        'website' => '',
+    ], $overrides);
+}
 
 /** Seed (idempotently) and return THE canonical demo showcase salon. */
 function demoShowcase(): Salon

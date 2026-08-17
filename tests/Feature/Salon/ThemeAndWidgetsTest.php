@@ -322,20 +322,21 @@ it('sets a widget theme from the picker, refusing locked ones, and keeps at leas
 });
 
 // ---------------------------------------------------------------------------
-// Widget TYPES: booking today; chat / lead form / reviews coming soon
+// Widget TYPES: booking + chat live; lead form / reviews coming soon
 // ---------------------------------------------------------------------------
 
-it('registers widget types: Booking available, the rest locked coming-soon previews', function () {
+it('registers widget types: Booking and Chat available, the rest locked coming-soon previews', function () {
     expect(WidgetTypeRegistry::TYPES['booking']['status'])->toBe('available');
+    expect(WidgetTypeRegistry::TYPES['chat']['status'])->toBe('available');
 
     $comingSoon = collect(WidgetTypeRegistry::TYPES)->where('status', 'coming_soon');
-    expect($comingSoon->count())->toBeGreaterThanOrEqual(3);
-    expect($comingSoon->keys()->all())->toContain('chat');
+    expect($comingSoon->count())->toBeGreaterThanOrEqual(2);
 
     expect(WidgetTypeRegistry::selectable('booking'))->toBeTrue();
-    expect(WidgetTypeRegistry::selectable('chat'))->toBeFalse();
+    expect(WidgetTypeRegistry::selectable('chat'))->toBeTrue();
     expect(WidgetTypeRegistry::selectable('nope'))->toBeFalse();
     expect(WidgetTypeRegistry::name('booking'))->toBe('Booking widget');
+    expect(WidgetTypeRegistry::name('chat'))->toBe('Chat widget');
 });
 
 it('defaults every widget to the booking type — existing rows included', function () {
@@ -361,14 +362,15 @@ it('creates widgets through the type picker: booking proceeds, coming-soon types
 
     $component = Livewire::actingAs($owner)->test('pages::salon.widgets', ['salon' => $salon]);
 
-    // The picker modal offers the types: booking selectable, the rest locked.
+    // The picker modal offers the types: booking + chat selectable, the
+    // rest locked.
     $component->set('showTypePicker', true)
         ->assertSee('What kind of widget?')
         ->assertSee('Chat widget')
         ->assertSee('Coming soon');
 
     // Coming-soon and unknown types never create anything.
-    $component->call('createWidget', 'chat');
+    $component->call('createWidget', 'lead_form');
     $component->call('createWidget', 'bogus');
     expect($salon->widgets()->count())->toBe(1); // the default only
 

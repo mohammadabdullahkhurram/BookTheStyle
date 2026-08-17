@@ -13,7 +13,6 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Bus;
-use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Storage;
 
 /*
@@ -28,39 +27,9 @@ beforeEach(function () {
 });
 afterEach(fn () => Carbon::setTestNow());
 
-/** @return array{0: Salon, 1: User, 2: Service} */
-function widgetSalon(): array
-{
-    $salon = bookingSalon();
-    $stylist = stylistWithHours($salon, 0, 9 * 60, 17 * 60); // Monday 9–5
-    $service = serviceFor($salon, $stylist, 60);
-    $service->update(['name' => 'Haircut', 'price_cents' => 4500]);
-
-    return [$salon, $stylist, $service];
-}
-
-/** A page token like the widget page embeds, backdated $ageSeconds. */
-function widgetToken(Salon $salon, int $ageSeconds = 30): string
-{
-    return Crypt::encryptString((string) json_encode([
-        'salon' => $salon->id,
-        'iat' => now()->timestamp - $ageSeconds,
-    ]));
-}
-
-/** A valid book payload for the salon's Haircut at 2 PM. */
-function widgetPayload(Salon $salon, array $overrides = []): array
-{
-    return array_merge([
-        'service' => $salon->services()->firstOrFail()->id,
-        'stylist' => 'any',
-        'date' => '2026-06-22',
-        'time' => '2:00 PM',
-        'client' => ['name' => 'Widget Wendy', 'phone' => '+15550301'],
-        'token' => widgetToken($salon),
-        'website' => '',
-    ], $overrides);
-}
+// widgetSalon / widgetToken / widgetPayload moved to tests/Pest.php —
+// they are shared with ChatWidgetTest and must exist in EVERY parallel
+// test process, not just the ones that load this file.
 
 // ---------------------------------------------------------------------------
 // Widget page + framing headers
