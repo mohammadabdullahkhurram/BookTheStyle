@@ -288,14 +288,20 @@ it('runs the scheduled monitor read-only: live salons recorded, nothing mutated,
     Mail::assertNothingOutgoing();
 });
 
-it('keeps the page agency-operator-only with history present', function () {
+it('keeps the tab agency-operator-only with history present in its Settings home', function () {
     $salon = monitoredSalon();
     app(HealthMonitor::class)->record($salon, syntheticReport('pass'), HealthMonitor::SOURCE_SCHEDULED);
 
-    $this->actingAs(salonOwnerOf($salon))->get(route('salon.check-connections', $salon))->assertForbidden();
-    $this->actingAs(stylistOf($salon))->get(route('salon.check-connections', $salon))->assertForbidden();
+    // Salon roles: no tab, and the component refuses a direct mount.
+    Livewire::actingAs(salonOwnerOf($salon))
+        ->test('pages::salon.check-connections', ['salon' => $salon])
+        ->assertForbidden();
+    Livewire::actingAs(stylistOf($salon))
+        ->test('pages::salon.check-connections', ['salon' => $salon])
+        ->assertForbidden();
 
-    $this->actingAs(monitorOperator($salon))->get(route('salon.check-connections', $salon))
+    // The operator sees the history inside the Settings tab.
+    $this->actingAs(monitorOperator($salon))->get(route('salon.settings', $salon))
         ->assertOk()
         ->assertSee(__('Last checked & history'))
         ->assertSee(__('Auto monitor'));

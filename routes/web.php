@@ -218,7 +218,11 @@ Route::domain('{salon}.'.$central)->middleware([AuthenticateUnlessDemo::class, '
     Route::livewire('settings', 'pages::salon.settings')->name('salon.settings');
     // "Check connections" diagnostics — agency admin/owner ONLY (the page
     // authorises runDiagnostics; salon roles and the demo are refused).
-    Route::livewire('settings/check-connections', 'pages::salon.check-connections')->name('salon.check-connections');
+    // The health check now lives as a Settings TAB (agency-op-gated there
+    // and in the component's own mount). The old URL stays registered as a
+    // redirect — email links and bookmarks keep working — via the
+    // framework's RedirectController, so route:cache stays possible.
+    Route::redirect('settings/check-connections', '/settings#health')->name('salon.check-connections');
     Route::livewire('widgets', 'pages::salon.widgets')->name('salon.widgets');
     Route::livewire('account', 'pages::salon.account')->name('salon.account');
     Route::livewire('setup', 'pages::salon.onboarding')->name('salon.onboarding');

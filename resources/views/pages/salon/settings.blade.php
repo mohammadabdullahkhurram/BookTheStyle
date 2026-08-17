@@ -873,7 +873,7 @@ new #[Title('Salon settings')] class extends Component {
              instead of matching no panel (blank page); back/forward work via
              the hashchange listener. --}}
         <div x-data="{
-                 tabs: ['general', 'policy', 'branding'@can('manageGhlConnection', $salon), 'integrations', 'voice'@endcan],
+                 tabs: ['general', 'policy', 'branding'@can('manageGhlConnection', $salon), 'integrations', 'voice'@endcan @can('runDiagnostics', $salon), 'health' @endcan],
                  tab: 'general',
                  resolve(hash) { return this.tabs.includes(hash) ? hash : 'general' },
                  pick(name) { this.tab = name; window.location.hash = name },
@@ -894,6 +894,12 @@ new #[Title('Salon settings')] class extends Component {
                                 class="bts-nav-item shrink-0 text-left" :class="tab === 'integrations' && 'bts-nav-item-active'">{{ __('Integrations') }}</button>
                         <button type="button" x-on:click="pick('voice')" :aria-current="tab === 'voice' ? 'page' : null"
                                 class="bts-nav-item shrink-0 text-left" :class="tab === 'voice' && 'bts-nav-item-active'">{{ __('Voice AI Prompts') }}</button>
+                    @endcan
+                    {{-- Agency owner/admin ONLY (runDiagnostics — salon roles,
+                         delegated agency_users, and the demo guest never pass). --}}
+                    @can('runDiagnostics', $salon)
+                        <button type="button" x-on:click="pick('health')" :aria-current="tab === 'health' ? 'page' : null"
+                                class="bts-nav-item shrink-0 text-left" :class="tab === 'health' && 'bts-nav-item-active'">{{ __('Health check') }}</button>
                     @endcan
                 </nav>
             </div>
@@ -928,6 +934,16 @@ new #[Title('Salon settings')] class extends Component {
         <section x-show="tab === 'voice'" x-cloak class="flex flex-col gap-6">
         @can('manageGhlConnection', $salon)
             @livewire('pages::salon.voice-ai-prompts', ['salon' => $salon], key('voice-ai-'.$salon->id))
+        @endcan
+        </section>
+
+        {{-- Health check: the whole existing diagnostics feature, nested
+             unchanged (checks, test records, password confirm, report).
+             Double-gated: this @can hides it, and the component's own mount
+             authorizes runDiagnostics + refuses demo salons. --}}
+        <section x-show="tab === 'health'" x-cloak class="flex flex-col gap-6">
+        @can('runDiagnostics', $salon)
+            @livewire('pages::salon.check-connections', ['salon' => $salon], key('health-check-'.$salon->id))
         @endcan
         </section>
 

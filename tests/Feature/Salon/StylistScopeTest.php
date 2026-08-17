@@ -30,7 +30,6 @@ function stylistRouteMatrix(): array
         'salon.settings' => false,
         'salon.widgets' => false,
         'salon.onboarding' => false,      // setup wizard
-        'salon.check-connections' => false, // agency-operator diagnostics
     ];
 }
 
@@ -43,6 +42,10 @@ it('classifies every salon route in the stylist matrix (no route unaccounted)', 
         // previews, and the client param route.
         ->reject(fn (string $name) => $name === 'salon.widget' || str_starts_with($name, 'salon.widget.'))
         ->reject(fn (string $name) => $name === 'salon.chat' || str_starts_with($name, 'salon.chat.'))
+        // A redirect alias to Settings#health (its gate lives on the
+        // destination — salon.settings is in the matrix; the health tab
+        // itself is agency-op-only via runDiagnostics).
+        ->reject(fn (string $name) => $name === 'salon.check-connections')
         ->reject(fn (string $name) => $name === 'salon.client') // covered via salon.clients + param below
         // POST-only, demo-salons-only (the controller 403s real salons).
         ->reject(fn (string $name) => $name === 'salon.demo.reset')

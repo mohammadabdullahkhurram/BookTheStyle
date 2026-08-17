@@ -51,33 +51,54 @@ function fakeOutboundChecks(): void
     ]);
 }
 
-it('opens for agency owner and admin only — every salon role, delegated users, guests, and demo are refused', function () {
+it('lives as an agency-only Settings TAB — visible to owner and admin, hidden and unreachable for everyone else', function () {
     $salon = builtSalon();
 
+    // Agency operators: the tab shows in Settings and the feature renders
+    // inside it (the nested component IS the existing page, unchanged).
     foreach ([AgencyRole::Owner, AgencyRole::Admin] as $role) {
         $operator = User::factory()->create(['agency_id' => $salon->agency_id, 'agency_role' => $role]);
-        $this->actingAs($operator)->get(route('salon.check-connections', $salon))
+        $this->actingAs($operator)->get(route('salon.settings', $salon))
             ->assertOk()
-            ->assertSee(__('Health check'));
+            ->assertSee(__('Health check'))
+            ->assertSee(__('Run health check'))
+            ->assertSee("pick('health')", escape: false); // the tab's nav button
     }
 
-    // Salon roles — the salon's own OWNER included — are refused.
-    foreach ([salonOwnerOf($salon), salonAdminOf($salon), stylistOf($salon)] as $actor) {
-        $this->actingAs($actor)->get(route('salon.check-connections', $salon))->assertForbidden();
+    // Salon roles — the salon's own OWNER included — never see the tab,
+    // and the component itself refuses a direct Livewire mount.
+    foreach ([salonOwnerOf($salon), salonAdminOf($salon)] as $actor) {
+        $this->actingAs($actor)->get(route('salon.settings', $salon))
+            ->assertOk()
+            ->assertDontSee(__('Run health check'))
+            ->assertDontSee("pick('health')", escape: false);
+        Livewire::actingAs($actor)
+            ->test('pages::salon.check-connections', ['salon' => $salon])
+            ->assertForbidden();
     }
+    Livewire::actingAs(stylistOf($salon))
+        ->test('pages::salon.check-connections', ['salon' => $salon])
+        ->assertForbidden();
 
     // A delegated agency_user is not an operator.
     $delegated = User::factory()->create(['agency_id' => $salon->agency_id, 'agency_role' => AgencyRole::User]);
     $delegated->assignedSalons()->attach($salon->id);
-    $this->actingAs($delegated)->get(route('salon.check-connections', $salon))->assertForbidden();
+    Livewire::actingAs($delegated)
+        ->test('pages::salon.check-connections', ['salon' => $salon])
+        ->assertForbidden();
 
-    // Demo salons are unreachable even for their own agency operator: the
-    // demo slug never resolves as a tenant host (ResolveSalon refuses), and
-    // mount 404s is_demo as belt-and-suspenders besides.
+    // The OLD standalone URL survives as a redirect to the tab (email
+    // links, bookmarks) — the destination then applies its own gates.
+    $operator = User::factory()->create(['agency_id' => $salon->agency_id, 'agency_role' => AgencyRole::Owner]);
+    $this->actingAs($operator)->get(route('salon.check-connections', $salon))
+        ->assertRedirect('/settings#health');
+
+    // Demo salons: the component 404s is_demo even for an agency operator.
     $demo = demoShowcase();
     $demoOperator = User::factory()->create(['agency_id' => $demo->agency_id, 'agency_role' => AgencyRole::Owner]);
-    $status = $this->actingAs($demoOperator)->get(route('salon.check-connections', $demo))->getStatusCode();
-    expect(in_array($status, [403, 404], true))->toBeTrue();
+    Livewire::actingAs($demoOperator)
+        ->test('pages::salon.check-connections', ['salon' => $demo])
+        ->assertStatus(404);
 });
 
 it('requires the operator\'s own password before running — wrong password creates nothing', function () {

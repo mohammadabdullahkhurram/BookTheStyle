@@ -5,5 +5,7 @@
         <h2 class="bts-card-title">{{ __('Health check') }}</h2>
         <p class="mt-1 text-[13.5px] text-secondary">{{ __('Validate the whole setup — integrations, notifications, scheduler & queue, salon readiness, system — with disposable test records.') }}</p>
     </div>
-    <x-ui.button :href="route('salon.check-connections', $salon)" wire:navigate>{{ __('Open') }}</x-ui.button>
+    {{-- Same page — the hash flips the top-level tab via the settings
+         hashchange listener. --}}
+    <x-ui.button href="#health">{{ __('Open') }}</x-ui.button>
 </x-ui.card>
