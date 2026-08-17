@@ -238,7 +238,7 @@ new #[Title('Widgets')] class extends Component {
 <div class="mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 sm:p-6">
     <div>
         <h1 class="bts-page-title">{{ __('Widgets') }}</h1>
-        <p class="mt-1 text-[14px] text-secondary">{{ __('Embeddable booking widgets for your websites — each with its own name, look, theme and embed code. Bookings land here like any other, tagged "Booking widget".') }}</p>
+        <p class="mt-1 text-[14px] text-secondary">{{ __('Embeddable widgets for your websites — booking forms and the chat bubble, each with its own name, look and embed code. Bookings land here like any other, tagged by the widget that made them.') }}</p>
     </div>
 
     <div class="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
@@ -316,7 +316,10 @@ new #[Title('Widgets')] class extends Component {
                 </form>
             </x-ui.card>
 
-            {{-- Widget theme: live cards select; coming-soon are locked previews. --}}
+            {{-- Widget theme: live cards select; coming-soon are locked previews.
+                 Booking widgets only — the chat panel derives everything from
+                 the branding colours above. --}}
+            @if ($current->type !== 'chat')
             <x-ui.card class="flex flex-col gap-5">
                 <div>
                     <h2 class="bts-card-title">{{ __('Widget theme') }}</h2>
@@ -357,6 +360,7 @@ new #[Title('Widgets')] class extends Component {
                     @endforeach
                 </div>
             </x-ui.card>
+            @endif
 
             {{-- Embed code — unique to THIS widget. --}}
             <x-ui.card class="flex flex-col gap-5">
@@ -367,18 +371,28 @@ new #[Title('Widgets')] class extends Component {
                 {{-- Inline php directives only — a literal script tag never
                      appears inside this single-file component. --}}
                 @php($tag = 'scr'.'ipt')
-                @php($scriptSnippet = '<div data-bookthestyle-salon="'.$salon->slug.'" data-bookthestyle-widget="'.$current->public_id.'"></div>'.PHP_EOL.'<'.$tag.' src="'.route('widget.script').'" async></'.$tag.'>')
-                @php($iframeSnippet = '<iframe src="'.route('salon.widget', ['salon' => $salon, 'widget' => $current->public_id]).'" style="width:100%;border:0;min-height:640px" title="Book an appointment"></iframe>')
+                @if ($current->type === 'chat')
+                    @php($chatSnippet = '<'.$tag.' src="'.route('chat.script').'" data-bookthestyle-chat="'.$salon->slug.'" data-bookthestyle-widget="'.$current->public_id.'" async></'.$tag.'>')
 
-                <div class="flex flex-col gap-2">
-                    <h3 class="text-[14px] font-semibold text-ink">{{ __('Recommended: script embed (auto-sizes to content)') }}</h3>
-                    <x-ui.copy-field :label="__('Paste where the form should appear')" :value="$scriptSnippet" />
-                </div>
+                    <div class="flex flex-col gap-2">
+                        <h3 class="text-[14px] font-semibold text-ink">{{ __('One line, anywhere on the page') }}</h3>
+                        <p class="text-[13px] text-secondary">{{ __('Paste this once before the closing body tag (or into an HTML/embed block). The chat bubble appears in the bottom corner of every page it loads on.') }}</p>
+                        <x-ui.copy-field :label="__('The chat bubble snippet')" :value="$chatSnippet" />
+                    </div>
+                @else
+                    @php($scriptSnippet = '<div data-bookthestyle-salon="'.$salon->slug.'" data-bookthestyle-widget="'.$current->public_id.'"></div>'.PHP_EOL.'<'.$tag.' src="'.route('widget.script').'" async></'.$tag.'>')
+                    @php($iframeSnippet = '<iframe src="'.route('salon.widget', ['salon' => $salon, 'widget' => $current->public_id]).'" style="width:100%;border:0;min-height:640px" title="Book an appointment"></iframe>')
 
-                <div class="flex flex-col gap-2">
-                    <h3 class="text-[14px] font-semibold text-ink">{{ __('Alternative: plain iframe') }}</h3>
-                    <x-ui.copy-field :label="__('For builders that only accept an iframe')" :value="$iframeSnippet" />
-                </div>
+                    <div class="flex flex-col gap-2">
+                        <h3 class="text-[14px] font-semibold text-ink">{{ __('Recommended: script embed (auto-sizes to content)') }}</h3>
+                        <x-ui.copy-field :label="__('Paste where the form should appear')" :value="$scriptSnippet" />
+                    </div>
+
+                    <div class="flex flex-col gap-2">
+                        <h3 class="text-[14px] font-semibold text-ink">{{ __('Alternative: plain iframe') }}</h3>
+                        <x-ui.copy-field :label="__('For builders that only accept an iframe')" :value="$iframeSnippet" />
+                    </div>
+                @endif
 
             </x-ui.card>
 
@@ -421,11 +435,20 @@ new #[Title('Widgets')] class extends Component {
                 }"
                 x-on:message.window="fit($event)">
         @if ($showPreview)
-            <iframe x-ref="previewFrame"
-                    src="{{ route('salon.widget.preview', ['salon' => $salon, 'widget' => $current->public_id, 'fresh' => $previewNonce]) }}"
-                    title="{{ __('Widget preview') }}"
-                    class="block w-full"
-                    style="height: min(560px, 75dvh); border: 0"></iframe>
+            @if ($current->type === 'chat')
+                <div class="flex justify-center">
+                    <iframe src="{{ route('salon.chat.preview', ['salon' => $salon, 'widget' => $current->public_id, 'fresh' => $previewNonce]) }}"
+                            title="{{ __('Chat widget preview') }}"
+                            class="block rounded-[16px] border border-border shadow-lg"
+                            style="width: min(382px, 92vw); height: min(640px, 75dvh)"></iframe>
+                </div>
+            @else
+                <iframe x-ref="previewFrame"
+                        src="{{ route('salon.widget.preview', ['salon' => $salon, 'widget' => $current->public_id, 'fresh' => $previewNonce]) }}"
+                        title="{{ __('Widget preview') }}"
+                        class="block w-full"
+                        style="height: min(560px, 75dvh); border: 0"></iframe>
+            @endif
         @endif
     </x-ui.modal>
 
