@@ -73,6 +73,25 @@ new #[Title('Health check')] class extends Component {
         unset($this->history);
     }
 
+    /**
+     * Create JUST the disposable test records — stylist, service, both
+     * designated clients — without running any checks and without booking
+     * anything: the operator makes their own test bookings via the widget
+     * preview / Voice AI. Reuses the exact creation the full run uses
+     * (idempotent by construction), on the longer 48h setup TTL the
+     * new-salon lane uses, so manual GHL round-trip testing has room.
+     */
+    public function addTestData(ConnectionDiagnostics $diagnostics): void
+    {
+        $this->authorize('runDiagnostics', $this->salon);
+        abort_if($this->salon->is_demo, 404);
+
+        $diagnostics->ensureTestRecords($this->salon, now()->addHours(ConnectionDiagnostics::TTL_SETUP_HOURS));
+        unset($this->hasTestRecords);
+
+        Flux::toast(variant: 'success', text: __('Test records ready — book against them from the widget preview or the Voice AI, then remove them here.'));
+    }
+
     public function finish(ConnectionDiagnostics $diagnostics): void
     {
         $this->authorize('runDiagnostics', $this->salon);
@@ -121,8 +140,8 @@ new #[Title('Health check')] class extends Component {
 }; ?>
 
 <div>
-    <div class="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-7">
-        <x-ui.page-header :overline="__('Integrations')" :title="__('Health check')">
+    <div class="flex w-full max-w-4xl flex-col gap-6">
+        <x-ui.page-header :overline="__('Diagnostics')" :title="__('Health check')">
             <x-slot:subtitle>{{ __('Validate this salon\'s whole setup and the site\'s operational health — with disposable test records nothing a client can ever see.') }}</x-slot:subtitle>
         </x-ui.page-header>
 
@@ -184,14 +203,24 @@ new #[Title('Health check')] class extends Component {
         </x-ui.card>
 
         @if ($summary === null && $this->hasTestRecords)
-            {{-- Test records exist (from setup or an earlier run) without a
-                 report on screen — offer the manual cleanup directly. --}}
+            {{-- Test records exist (from setup, an earlier run, or Add test
+                 data) without a report on screen — offer the cleanup. --}}
             <div class="flex flex-col gap-3 rounded-[14px] border px-5 py-4 sm:flex-row sm:items-center sm:justify-between" style="background-color:#F6EFE2;border-color:#E2CFA4;">
                 <div>
                     <p class="text-[14px] font-semibold" style="color:#7A5B1F;">{{ __('This salon currently has test data') }}</p>
-                    <p class="text-[13px]" style="color:#7A5B1F;">{{ __('Bluejaypro Stylist, Bluejaypro Hair Cut, and Bluejaypro Test Client are set up (badged TEST, invisible to clients). They disappear at go-live, when removed here, or automatically when their timer runs out.') }}</p>
+                    <p class="text-[13px]" style="color:#7A5B1F;">{{ __('Bluejaypro Stylist, Bluejaypro Hair Cut, and both test clients are set up (badged TEST, invisible to clients). They disappear at go-live, when removed here, or automatically when their timer runs out.') }}</p>
                 </div>
                 <x-ui.button variant="secondary" wire:click="finish" loading="finish" class="shrink-0 whitespace-nowrap">{{ __('Remove test data') }}</x-ui.button>
+            </div>
+        @elseif ($summary === null)
+            {{-- No test data: offer the standalone setup — records only, no
+                 checks, no auto-booked appointment. --}}
+            <div class="flex flex-col gap-3 rounded-[14px] border border-divider bg-card px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <p class="text-[14px] font-semibold text-body">{{ __('Need the test records without a full check?') }}</p>
+                    <p class="text-[13px] text-secondary">{{ __('Sets up Bluejaypro Stylist (full availability), Bluejaypro Hair Cut, and both test clients — ready to book against from the widget preview or the Voice AI. No checks run, no appointment made; remove them here when done.') }}</p>
+                </div>
+                <x-ui.button variant="secondary" wire:click="addTestData" loading="addTestData" class="shrink-0 whitespace-nowrap">{{ __('Add test data') }}</x-ui.button>
             </div>
         @endif
 

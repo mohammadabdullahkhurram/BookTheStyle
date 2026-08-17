@@ -5,6 +5,7 @@ use App\Enums\AgencyRole;
 use App\Models\Agency;
 use App\Models\Booking;
 use App\Models\Client;
+use App\Models\HealthCheckRun;
 use App\Models\Salon;
 use App\Models\Service;
 use App\Models\User;
@@ -99,6 +100,73 @@ it('lives as an agency-only Settings TAB — visible to owner and admin, hidden 
     Livewire::actingAs($demoOperator)
         ->test('pages::salon.check-connections', ['salon' => $demo])
         ->assertStatus(404);
+});
+
+it('adds the test records standalone — no checks run, no appointment made, idempotent, agency-only', function () {
+    $salon = builtSalon();
+    $operator = diagnosticsOperator($salon);
+
+    $component = Livewire::actingAs($operator)
+        ->test('pages::salon.check-connections', ['salon' => $salon])
+        ->call('addTestData')
+        ->assertHasNoErrors();
+
+    // All four records exist, flagged — the same creation the full run uses.
+    expect(User::where('is_test', true)->where('name', ConnectionDiagnostics::STYLIST_NAME)->exists())->toBeTrue();
+    expect(Service::withoutGlobalScopes()->where('salon_id', $salon->id)->where('is_test', true)->where('name', ConnectionDiagnostics::SERVICE_NAME)->exists())->toBeTrue();
+    foreach ([ConnectionDiagnostics::CLIENT_NAME, ConnectionDiagnostics::VOICE_CLIENT_NAME] as $name) {
+        expect(Client::withoutGlobalScopes()->where('salon_id', $salon->id)->where('name', $name)->sole()->is_test)->toBeTrue();
+    }
+
+    // No checks ran, no report recorded, and NO appointment was auto-made.
+    expect($component->get('summary'))->toBeNull();
+    expect(HealthCheckRun::where('salon_id', $salon->id)->count())->toBe(0);
+    expect(Booking::withoutGlobalScopes()->where('salon_id', $salon->id)->count())->toBe(0);
+
+    // The 48h setup TTL is armed, and the strip flips to Remove test data.
+    expect($salon->refresh()->test_records_expire_at->isAfter(now()->addHours(24)))->toBeTrue();
+    $component->assertSee(__('This salon currently has test data'))
+        ->assertSee(__('Remove test data'));
+
+    // Running it again duplicates nothing.
+    $component->call('addTestData')->assertHasNoErrors();
+    expect(Client::withoutGlobalScopes()->where('salon_id', $salon->id)->where('is_test', true)->count())->toBe(2);
+    expect(Service::withoutGlobalScopes()->where('salon_id', $salon->id)->where('is_test', true)->count())->toBe(1);
+    expect(User::where('is_test', true)->count())->toBe(1);
+
+    // And the existing Remove still clears everything it made.
+    $component->call('finish')->assertHasNoErrors();
+    expect(Client::withoutGlobalScopes()->withTrashed()->where('salon_id', $salon->id)->where('is_test', true)->exists())->toBeFalse();
+    expect(User::withTrashed()->where('is_test', true)->exists())->toBeFalse();
+});
+
+it('blocks the standalone add for salon roles and the demo — same gate as the tab', function () {
+    $salon = builtSalon();
+
+    // Salon roles never even mount the component (403 before any action).
+    foreach ([salonOwnerOf($salon), salonAdminOf($salon), stylistOf($salon)] as $actor) {
+        Livewire::actingAs($actor)
+            ->test('pages::salon.check-connections', ['salon' => $salon])
+            ->assertForbidden();
+    }
+
+    // Demo: 404 even for the demo agency's own operator.
+    $demo = demoShowcase();
+    $demoOperator = User::factory()->create(['agency_id' => $demo->agency_id, 'agency_role' => AgencyRole::Owner]);
+    Livewire::actingAs($demoOperator)
+        ->test('pages::salon.check-connections', ['salon' => $demo])
+        ->assertStatus(404);
+
+    expect(User::where('is_test', true)->exists())->toBeFalse();
+});
+
+it('wears its own Diagnostics eyebrow — not the Integrations tab\'s', function () {
+    $salon = builtSalon();
+
+    Livewire::actingAs(diagnosticsOperator($salon))
+        ->test('pages::salon.check-connections', ['salon' => $salon])
+        ->assertSee(__('Diagnostics'))
+        ->assertSee(__('Add test data'));
 });
 
 it('requires the operator\'s own password before running — wrong password creates nothing', function () {
