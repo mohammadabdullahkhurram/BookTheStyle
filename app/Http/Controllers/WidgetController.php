@@ -123,7 +123,7 @@ class WidgetController extends Controller
      *
      * @return list<array{id: int, name: string, duration_minutes: int, price: string|null, price_cents: int|null, stylists: non-empty-array<int, array{id: int, name: string}>}>
      */
-    private function catalogue(Salon $salon, bool $includeTest = false): array
+    protected function catalogue(Salon $salon, bool $includeTest = false): array
     {
         // Health-check test records never surface PUBLICLY — but the
         // authenticated in-app PREVIEW includes them, so the operator can
@@ -319,6 +319,10 @@ class WidgetController extends Controller
                 'notes' => ['nullable', 'string', 'max:500'],
                 'token' => ['required', 'string', 'max:2048'],
                 'website' => ['nullable', 'string', 'max:255'], // honeypot
+                // Which embed surface submitted — tags the booking's source
+                // (chat bubble vs the classic booking widget). Cosmetic
+                // labelling only; every rule and guard is identical.
+                'surface' => ['nullable', 'in:chat'],
             ]);
         } catch (ValidationException $e) {
             return $this->invalid($e);
@@ -348,6 +352,9 @@ class WidgetController extends Controller
             ], 201);
         }
 
+        $source = ($input['surface'] ?? null) === 'chat' ? BookingSource::ChatWidget : BookingSource::WebWidget;
+        $bookedBy = ($input['surface'] ?? null) === 'chat' ? BookedByType::ChatWidget : BookedByType::WebWidget;
+
         try {
             if (array_key_exists('items', $input) && is_array($input['items'])) {
                 $result = $this->api->createItinerary(
@@ -362,8 +369,8 @@ class WidgetController extends Controller
                         'client' => $input['client'],
                         'notes' => $input['notes'] ?? null,
                     ],
-                    BookingSource::WebWidget,
-                    BookedByType::WebWidget,
+                    $source,
+                    $bookedBy,
                 );
 
                 return response()->json($result, $result['success'] ? 201 : 409);
@@ -385,8 +392,8 @@ class WidgetController extends Controller
                     'client' => $input['client'],
                     'notes' => $input['notes'] ?? null,
                 ],
-                BookingSource::WebWidget,
-                BookedByType::WebWidget,
+                $source,
+                $bookedBy,
             );
 
             return response()->json($result, $result['success'] ? 201 : 409);
@@ -462,7 +469,7 @@ class WidgetController extends Controller
      *
      * @param  array<string, mixed>  $input
      */
-    private function botCheck(Salon $salon, array $input): ?string
+    protected function botCheck(Salon $salon, array $input): ?string
     {
         if (trim((string) ($input['website'] ?? '')) !== '') {
             return 'honeypot';
@@ -493,7 +500,7 @@ class WidgetController extends Controller
         return null;
     }
 
-    private function issueToken(Salon $salon): string
+    protected function issueToken(Salon $salon): string
     {
         return Crypt::encryptString((string) json_encode([
             'salon' => $salon->id,
@@ -504,7 +511,7 @@ class WidgetController extends Controller
     // -- Helpers --------------------------------------------------------------
 
     /** Resolve the ACTIVE salon from the subdomain slug; 404 otherwise. */
-    private function salon(string $slug): Salon
+    protected function salon(string $slug): Salon
     {
         // Demo salons never expose a public booking surface: a real
         // customer must not be able to book into (or via) a demo.
@@ -512,7 +519,7 @@ class WidgetController extends Controller
     }
 
     /** A validated ?accent= override (hex or preset name), else null. */
-    private function accentOverride(Request $request): ?string
+    protected function accentOverride(Request $request): ?string
     {
         $accent = trim((string) $request->query('accent', ''));
 
@@ -527,7 +534,7 @@ class WidgetController extends Controller
         return array_key_exists($accent, AccentPalette::PRESETS) ? $accent : null;
     }
 
-    private function refused(Salon $salon, string $endpoint, ApiError $e): JsonResponse
+    protected function refused(Salon $salon, string $endpoint, ApiError $e): JsonResponse
     {
         Log::info('Widget API request refused', [
             'category' => 'widget',
@@ -539,7 +546,7 @@ class WidgetController extends Controller
         return response()->json($e->toResponse(), $e->status);
     }
 
-    private function invalid(ValidationException $e): JsonResponse
+    protected function invalid(ValidationException $e): JsonResponse
     {
         return response()->json([
             'success' => false,

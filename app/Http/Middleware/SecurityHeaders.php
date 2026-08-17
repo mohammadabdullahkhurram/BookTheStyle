@@ -92,11 +92,12 @@ class SecurityHeaders
             $connect .= " {$http} {$ws}";
         }
 
-        // The public booking widget page is the ONE surface built to be
-        // iframed by external sites (salon websites on Wix/WordPress/etc.),
-        // so it alone allows any frame ancestor. Everything else keeps the
-        // strict self-only framing (clickjacking protection).
-        $embeddable = $request->route()?->getName() === 'salon.widget';
+        // The public booking widget page and the chat widget's panel page
+        // are the only surfaces built to be iframed by external sites
+        // (salon websites on Wix/WordPress/etc.), so they alone allow any
+        // frame ancestor. Everything else keeps the strict self-only
+        // framing (clickjacking protection).
+        $embeddable = in_array($request->route()?->getName(), ['salon.widget', 'salon.chat'], true);
 
         $csp = implode('; ', [
             "default-src 'self'",

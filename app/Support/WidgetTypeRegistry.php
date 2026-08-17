@@ -9,7 +9,8 @@ namespace App\Support;
  * locked preview cards in the type picker. Adding a future type = add the
  * entry here, flip its status when it ships, and give it a renderer.
  *
- * Only `booking` is real today — the existing booking widget IS this type.
+ * Live today: `booking` (the classic widget) and `chat` (the guided
+ * conversational bubble).
  */
 final class WidgetTypeRegistry
 {
@@ -27,9 +28,9 @@ final class WidgetTypeRegistry
         ],
         'chat' => [
             'name' => 'Chat widget',
-            'description' => 'A chat bubble for your site that answers questions and books through the voice-AI brain.',
+            'description' => 'A chat bubble for your site that books appointments conversationally and answers the basics — services, hours, location.',
             'icon' => 'chat-bubble-left-right',
-            'status' => 'coming_soon',
+            'status' => 'available',
         ],
         'lead_form' => [
             'name' => 'Lead form',

@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\VoiceBookingController;
 use App\Http\Controllers\Auth\PasswordChangeController;
 use App\Http\Controllers\CalendarFeedController;
+use App\Http\Controllers\ChatWidgetController;
 use App\Http\Controllers\DemoController;
 use App\Http\Controllers\Dev\CaptureLoginController;
 use App\Http\Controllers\GhlWebhookController;
@@ -170,6 +171,10 @@ require __DIR__.'/settings.php';
 */
 Route::domain('{salon}.'.$central)->middleware('throttle:widget-api')->group(function () {
     Route::get('widget/{widget?}', [WidgetController::class, 'page'])->name('salon.widget');
+    // The conversational CHAT widget's panel page — the bottom-corner
+    // bubble's iframe (chat.js below). Same host, same throttle, same
+    // salon() gate; it books through the api/widget/* endpoints above.
+    Route::get('chat-widget/{widget?}', [ChatWidgetController::class, 'page'])->name('salon.chat');
     Route::prefix('api/widget')->group(function () {
         Route::get('services', [WidgetController::class, 'services'])->name('salon.widget.services');
         Route::get('availability', [WidgetController::class, 'availability'])->name('salon.widget.availability');
@@ -179,6 +184,7 @@ Route::domain('{salon}.'.$central)->middleware('throttle:widget-api')->group(fun
 });
 
 Route::domain($app)->get('widget.js', [WidgetController::class, 'script'])->name('widget.script');
+Route::domain($app)->get('chat.js', [ChatWidgetController::class, 'chatScript'])->name('chat.script');
 
 /*
 |--------------------------------------------------------------------------
@@ -223,6 +229,7 @@ Route::domain('{salon}.'.$central)->middleware([AuthenticateUnlessDemo::class, '
     // refuses demo salons). Real-salon submits are non-committal; demo
     // submits create ordinary inert demo bookings (WidgetController).
     Route::get('widgets/preview/{widget?}', [WidgetController::class, 'previewPage'])->name('salon.widget.preview');
+    Route::get('widgets/chat-preview/{widget?}', [ChatWidgetController::class, 'previewPage'])->name('salon.chat.preview');
     Route::prefix('api/widget-preview')->group(function () {
         Route::get('availability', [WidgetController::class, 'previewAvailability'])->name('salon.widget.preview.availability');
         Route::get('month', [WidgetController::class, 'previewMonth'])->name('salon.widget.preview.month');
