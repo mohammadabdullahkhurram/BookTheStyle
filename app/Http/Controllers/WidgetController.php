@@ -4,11 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Enums\BookedByType;
 use App\Enums\BookingSource;
+use App\Models\Client;
 use App\Models\Salon;
 use App\Models\Service;
 use App\Models\User;
 use App\Services\BookingApi\ApiError;
 use App\Services\BookingApi\VoiceBookingApi;
+use App\Services\Diagnostics\ConnectionDiagnostics;
 use App\Support\AccentPalette;
 use App\Support\Money;
 use App\Support\WidgetBranding;
@@ -280,18 +282,39 @@ class WidgetController extends Controller
     }
 
     /**
-     * Preview submit. A DEMO salon commits for real — the booking is a demo
-     * booking like any other (isolated, inert: no GHL, no mail). A REAL
-     * salon is deliberately non-committal: the full flow runs (validation +
-     * bot gate) but nothing persists, so an owner poking at their settings
-     * never plants junk appointments in their live calendar.
+     * Preview submit — three lanes, none of them the public path:
+     *
+     * DEMO salon: commits for real — an ordinary inert demo booking (no
+     * GHL, no mail), exactly as before.
+     *
+     * REAL salon + AGENCY OPERATOR (the runDiagnostics gate — the same
+     * agency-only test lane as Check connections): commits a TRUE
+     * end-to-end TEST booking through the shared engine, but on the
+     * designated is_test client — so it lands, shows badged TEST to the
+     * operator, never syncs to GHL (SyncBookingToGhl skips is_test
+     * clients), and the diagnostics teardown/sweep removes it. Whatever
+     * name the operator typed in the preview is discarded for the booking:
+     * the test client's identity is what gets stored.
+     *
+     * REAL salon + salon roles: deliberately non-committal (the full flow
+     * runs, nothing persists) — unchanged.
      */
     public function previewBook(Request $request, Salon $salon): JsonResponse
     {
-        return $this->bookFor($request, $salon, commit: $salon->is_demo, allowTest: true);
+        if ($salon->is_demo) {
+            return $this->bookFor($request, $salon, commit: true, allowTest: true);
+        }
+
+        if ($request->user()?->can('runDiagnostics', $salon) === true) {
+            $testClient = app(ConnectionDiagnostics::class)->ensureTestClient($salon);
+
+            return $this->bookFor($request, $salon, commit: true, allowTest: true, asClient: $testClient);
+        }
+
+        return $this->bookFor($request, $salon, commit: false, allowTest: true);
     }
 
-    private function bookFor(Request $request, Salon $salon, bool $commit, bool $allowTest = false): JsonResponse
+    private function bookFor(Request $request, Salon $salon, bool $commit, bool $allowTest = false, ?Client $asClient = null): JsonResponse
     {
         try {
             $input = $request->validate([
@@ -352,6 +375,18 @@ class WidgetController extends Controller
             ], 201);
         }
 
+        if ($asClient !== null) {
+            // Test lane: the booking belongs to the designated test client,
+            // never to whatever identity was typed into the preview.
+            // resolveClient matches the stored phone, so the row is reused
+            // untouched.
+            $input['client'] = [
+                'name' => $asClient->name,
+                'phone' => $asClient->phone,
+                'email' => $asClient->email,
+            ];
+        }
+
         $source = ($input['surface'] ?? null) === 'chat' ? BookingSource::ChatWidget : BookingSource::WebWidget;
         $bookedBy = ($input['surface'] ?? null) === 'chat' ? BookedByType::ChatWidget : BookedByType::WebWidget;
 
@@ -373,7 +408,7 @@ class WidgetController extends Controller
                     $bookedBy,
                 );
 
-                return response()->json($result, $result['success'] ? 201 : 409);
+                return response()->json($this->markTest($result, $asClient), $result['success'] ? 201 : 409);
             }
 
             if (! $allowTest) {
@@ -396,10 +431,29 @@ class WidgetController extends Controller
                 $bookedBy,
             );
 
-            return response()->json($result, $result['success'] ? 201 : 409);
+            return response()->json($this->markTest($result, $asClient), $result['success'] ? 201 : 409);
         } catch (ApiError $e) {
             return $this->refused($salon, 'book', $e);
         }
+    }
+
+    /**
+     * Stamp a successful test-lane booking so the preview UIs can announce
+     * what actually happened.
+     *
+     * @param  array<string, mixed>  $result
+     * @return array<string, mixed>
+     */
+    private function markTest(array $result, ?Client $asClient): array
+    {
+        if ($asClient === null || ($result['success'] ?? false) !== true) {
+            return $result;
+        }
+
+        $result['test'] = true;
+        $result['message'] = __('Test booking created — it lands on :client, badged TEST, never syncs to GHL, and the test-data sweep removes it automatically.', ['client' => $asClient->name]);
+
+        return $result;
     }
 
     /**

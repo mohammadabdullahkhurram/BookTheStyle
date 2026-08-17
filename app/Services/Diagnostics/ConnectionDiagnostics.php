@@ -47,6 +47,8 @@ class ConnectionDiagnostics
 
     public const CLIENT_NAME = 'Bluejaypro Test Client';
 
+    public const CLIENT_PHONE = '+1 555 010 0000';
+
     /** For MANUAL Voice AI Custom Action end-to-end testing (book/cancel/reschedule). */
     public const VOICE_CLIENT_NAME = 'Bluejaypro Voice AI Test Client';
 
@@ -144,7 +146,7 @@ class ConnectionDiagnostics
 
             $client = Client::withoutGlobalScopes()->firstOrCreate(
                 ['salon_id' => $salon->id, 'name' => self::CLIENT_NAME, 'is_test' => true],
-                ['phone' => '+1 555 010 0000', 'email' => 'test-client+'.$salon->id.'@bluejaypro.invalid'],
+                ['phone' => self::CLIENT_PHONE, 'email' => 'test-client+'.$salon->id.'@bluejaypro.invalid'],
             );
 
             // The second designated client: the Voice AI test lane — used
@@ -157,6 +159,33 @@ class ConnectionDiagnostics
 
             return ['stylist' => $stylist, 'service' => $service, 'client' => $client];
         });
+    }
+
+    /**
+     * The designated test client ALONE (no stylist/service/availability) —
+     * what the widget-preview test booking rides on. Same identity keys as
+     * ensureTestRecords, so the two lanes share one client; the sweep TTL
+     * is stamped (extended, never shortened) so an abandoned preview
+     * booking ages out through the exact same teardown as everything else.
+     */
+    public function ensureTestClient(Salon $salon): Client
+    {
+        $expiry = now()->addMinutes(self::TTL_RUN_MINUTES);
+
+        if ($salon->test_records_expire_at === null || $salon->test_records_expire_at->lt($expiry)) {
+            $salon->forceFill(['test_records_expire_at' => $expiry])->save();
+        }
+
+        $client = Client::withoutGlobalScopes()->withTrashed()->firstOrCreate(
+            ['salon_id' => $salon->id, 'name' => self::CLIENT_NAME, 'is_test' => true],
+            ['phone' => self::CLIENT_PHONE, 'email' => 'test-client+'.$salon->id.'@bluejaypro.invalid'],
+        );
+
+        if ($client->trashed()) {
+            $client->restore();
+        }
+
+        return $client;
     }
 
     /** Whether this salon currently holds any disposable test records. */

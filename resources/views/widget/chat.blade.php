@@ -557,7 +557,11 @@
                 .then(function (result) {
                     if (result.status === 201 && result.data.success) {
                         var detail = dayLabel(state.date) + ' · ' + state.slot.time;
-                        bot(I18N.booked.replace(':detail', detail), { then: function () {
+                        // Preview test lane: the server explains the TEST
+                        // booking — use its message verbatim. (data.test is
+                        // never set on the public widget path.)
+                        var msg = result.data.test ? result.data.message : I18N.booked.replace(':detail', detail);
+                        bot(msg, { then: function () {
                             menu(I18N.bookedMore);
                         } });
                         return;

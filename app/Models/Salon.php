@@ -24,6 +24,7 @@ use Illuminate\Support\Carbon;
  * @property SalonType $salon_type
  * @property bool $is_demo
  * @property Carbon|null $demo_expires_at
+ * @property CarbonImmutable|null $test_records_expire_at
  * @property string $currency
  * @property bool $active
  * @property array<string, mixed>|null $branding
