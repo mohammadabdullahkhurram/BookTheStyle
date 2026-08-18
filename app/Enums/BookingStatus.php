@@ -42,7 +42,7 @@ enum BookingStatus: string
     public function actionLabel(): string
     {
         return match ($this) {
-            self::Booked => 'Rebook',
+            self::Booked => 'Undo no-show',
             self::Confirmed => 'Confirm',
             self::Arrived => 'Check in',
             self::InService => 'Start service',
@@ -56,6 +56,7 @@ enum BookingStatus: string
     public function actionToast(): string
     {
         return match ($this) {
+            self::Booked => 'No-show undone — the booking is active again.',
             self::Arrived => 'Checked in.',
             self::InService => 'Service started.',
             self::Completed => 'Booking completed.',
@@ -73,7 +74,7 @@ enum BookingStatus: string
     {
         return match ($this) {
             self::Cancelled => "Cancel this booking? The client's appointment is removed and GoHighLevel is updated. This cannot be undone.",
-            self::NoShow => 'Mark this booking as a no-show? This is recorded on the client and synced to GoHighLevel. This cannot be undone.',
+            self::NoShow => 'Mark this booking as a no-show? This is recorded on the client and synced to GoHighLevel. You can undo it afterwards if it was a mistake.',
             default => null,
         };
     }
@@ -102,15 +103,20 @@ enum BookingStatus: string
     public function allowedTransitions(): array
     {
         return match ($this) {
-            // The four salon actions: checked in / no show / cancel
+            // The salon actions: checked in / no show / cancel
             // (+ reschedule, which is a time change, not a status).
             self::Booked => [self::Arrived, self::NoShow, self::Cancelled],
             // Legacy pre-arrival state behaves like Booked.
             self::Confirmed => [self::Arrived, self::NoShow, self::Cancelled],
-            self::Arrived => [self::Cancelled],
+            // Checked in → checked out (the front desk's manual close-out;
+            // the auto-complete sweep still promotes elapsed ones) or cancel.
+            self::Arrived => [self::Completed, self::Cancelled],
             // Legacy in-progress state can still be cancelled.
             self::InService => [self::Cancelled],
-            self::Completed, self::Cancelled, self::NoShow => [],
+            // No-show is a FLAG, not a verdict: the salon can undo it —
+            // manual or automatic — restoring the active booking.
+            self::NoShow => [self::Booked],
+            self::Completed, self::Cancelled => [],
         };
     }
 
