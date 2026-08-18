@@ -78,8 +78,10 @@ it('seeds a complete demo salon: staff, services, availability, clients, booking
     expect(Booking::query()->where('salon_id', '!=', $salon->id)->whereIn('id', $salon->bookings()->pluck('id'))->count())->toBe(0);
     expect(DB::table('booking_items')->whereIn('booking_id', $salon->bookings()->pluck('id'))->where('salon_id', '!=', $salon->id)->count())->toBe(0);
 
-    // The Widgets area has a row to show.
-    expect($salon->widgets()->count())->toBe(1);
+    // The Widgets area shows one of EACH live type — the booking widget
+    // and the conversational chat bubble.
+    expect($salon->widgets()->count())->toBe(2);
+    expect($salon->widgets()->pluck('type')->sort()->values()->all())->toBe(['booking', 'chat']);
 });
 
 it('is idempotent and strictly additive — existing data survives, nothing duplicates', function () {

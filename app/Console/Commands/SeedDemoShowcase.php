@@ -66,13 +66,19 @@ class SeedDemoShowcase extends Command
             'onboarded_at' => $salon->onboarded_at ?? now(),
         ])->save();
 
+        // Widgets top up ALWAYS (idempotent): an already-populated showcase
+        // gains newly-shipped widget types at the next deploy's seed run
+        // without waiting for the nightly reset.
+        $builder = new DemoSalonBuilder(
+            emailDomain: 'showcase.demo.invalid',
+            password: TemporaryPassword::generate(),
+        );
+        $builder->widgets($salon);
+
         // Populate once — a busy calendar, services, staff, clients. A salon
         // that already has bookings is left exactly as it is (idempotent).
         if ($salon->bookings()->doesntExist()) {
-            $summary = (new DemoSalonBuilder(
-                emailDomain: 'showcase.demo.invalid',
-                password: TemporaryPassword::generate(),
-            ))->populate($salon);
+            $summary = $builder->populate($salon);
 
             $this->info(sprintf(
                 'Showcase salon seeded: %d services, %d clients, %d bookings.',

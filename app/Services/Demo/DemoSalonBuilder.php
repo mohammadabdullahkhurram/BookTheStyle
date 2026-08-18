@@ -19,6 +19,7 @@ use App\Models\Service;
 use App\Models\StylistProfile;
 use App\Models\TimeOff;
 use App\Models\User;
+use App\Models\Widget;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -71,6 +72,7 @@ class DemoSalonBuilder
         $this->availability($salon, $stylists, $bookableManager);
         $clients = $this->clients($salon, $stylists);
         $bookings = $this->bookings($salon, $owner, $stylists, $services, $clients);
+        $this->widgets($salon);
         $this->alignPreferredStylists($salon);
 
         // Mix salons show both arrangements: Jonah and Elise rent booths.
@@ -402,8 +404,11 @@ class DemoSalonBuilder
         // A completed multi-service visit last week (cut then blowout, Maya).
         $make($pick(2), $maya, [$cut, $blowout], $today->subDays(5)->setTime(14, 0), BookingStatus::Completed, BookingSource::VoiceAi);
 
-        // Today: the check-in flow in every state.
+        // Today: the check-in flow in every state — the front-desk view
+        // shows a completed visit, one in the chair, one checked in, one
+        // still to come, and an early no-show (with its undo affordance).
         $make($pick(0), $maya, [$cut], $today->setTime(9, 0), BookingStatus::Completed, BookingSource::InApp);
+        $make($pick(9), $sofia, [$cut], $today->setTime(10, 0), BookingStatus::NoShow, BookingSource::ChatWidget);
         $make($pick(4), $elise, [$nails], $today->setTime(12, 0), BookingStatus::InService, BookingSource::WebWidget);
         $make($pick(6), $sofia, [$blowout], $today->setTime(13, 0), BookingStatus::Arrived, BookingSource::InApp);
         $make($pick(8), $jonah, [$cut], $today->setTime(15, 0), BookingStatus::Booked, BookingSource::VoiceAi);
@@ -421,6 +426,26 @@ class DemoSalonBuilder
         $make($pick(10), $sofia, [$colour, $blowout], $today->addDays(4)->setTime(10, 0), BookingStatus::Booked, BookingSource::InApp);
 
         return $count;
+    }
+
+    /**
+     * One embeddable widget of EACH live type, so the Widgets area
+     * showcases both the booking widget and the conversational chat
+     * bubble. Idempotent by name+type — safe as a top-up on an
+     * already-populated showcase (the seed command calls this even when
+     * the bookings guard skips a re-populate).
+     */
+    public function widgets(Salon $salon): void
+    {
+        foreach ([
+            ['type' => 'booking', 'name' => 'Website booking form'],
+            ['type' => 'chat', 'name' => 'Website chat bubble'],
+        ] as $widget) {
+            $salon->widgets()->firstOrCreate(
+                ['type' => $widget['type'], 'name' => $widget['name']],
+                ['public_id' => Widget::newPublicId(), 'branding' => null, 'theme' => 'marble'],
+            );
+        }
     }
 
     /**
