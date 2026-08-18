@@ -71,7 +71,7 @@ it('reschedules from the check-in tab: times move, history notes it, GHL gets an
     expect($booking->fresh()->ghl_appointment_id)->toBe('ghl_a1');
 
     Livewire::actingAs($owner)
-        ->test('pages::salon.appointments.index', ['salon' => $salon])
+        ->test('pages::salon.appointments.all', ['salon' => $salon])
         ->call('openReschedule', $booking->id)
         ->set('rescheduleDate', '2026-06-22')
         ->set('rescheduleTime', '15:00')
@@ -235,8 +235,9 @@ it('offers only slots where the whole multi-service visit fits, on both reschedu
     expect($slots)->not->toContain('15:00'); // visit would run past 17:00 close
     expect($slots)->not->toContain('16:00');
 })->with([
+    // Rescheduling lives on Calendar/Appointments only — the Check-in tab
+    // is the day-of front-desk view and deliberately offers none.
     'appointments list' => 'pages::salon.appointments.all',
-    'check-in' => 'pages::salon.appointments.index',
 ]);
 
 it('commits a multi-service reschedule at an offered slot, moving every item as one block', function () {

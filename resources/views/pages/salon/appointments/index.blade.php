@@ -92,89 +92,35 @@ new #[Title('Check-in')] class extends Component {
     }
 
 
-    // --- Reschedule (front-desk level; same stylist + services) -----------
+    // --- Check out (payments placeholder) ---------------------------------
 
-    public bool $showReschedule = false;
+    /** The "coming soon" checkout popup — no payment logic exists yet. */
+    public bool $showCheckout = false;
 
-    public ?int $rescheduleId = null;
+    public ?int $checkoutId = null;
 
-    public string $rescheduleDate = '';
-
-    /** The SELECTED (not yet committed) start time, 'H:i'. */
-    public string $rescheduleTime = '';
-
-    public function openReschedule(int $bookingId): void
+    public function openCheckout(int $bookingId): void
     {
-        abort_unless(Auth::user()->can('manageBookings', $this->salon), 403);
-        $booking = $this->booking($bookingId);
-
-        $this->resetErrorBag(['start', 'rescheduleTime']);
-        $this->rescheduleId = $booking->id;
-        $this->rescheduleTime = '';
-        $this->rescheduleDate = $booking->items()->orderBy('starts_at')->first()
-            ?->starts_at->setTimezone($this->salon->timezone)->format('Y-m-d')
-            ?? CarbonImmutable::now($this->salon->timezone)->format('Y-m-d');
-        $this->showReschedule = true;
+        $this->booking($bookingId); // authorise scope
+        $this->checkoutId = $bookingId;
+        $this->showCheckout = true;
     }
 
-    /** A picked date change invalidates any previously selected time. */
-    public function updatedRescheduleDate(): void
+    /** Close the visit without payment: Checked in → Completed. */
+    public function completeVisit(TransitionBookingStatus $action): void
     {
-        $this->rescheduleTime = '';
-        $this->resetErrorBag(['start', 'rescheduleTime']);
-    }
-
-    /**
-     * Real slot-engine start times on the picked date where the WHOLE visit
-     * fits — every service item, in order, with its stylist and buffers — not
-     * just the first service. The booking's own current slots are excluded
-     * from conflicts (so nearby times stay offered).
-     *
-     * @return list<string>
-     */
-    #[Computed]
-    public function rescheduleSlots(): array
-    {
-        if ($this->rescheduleId === null || $this->rescheduleDate === '') {
-            return [];
-        }
-
-        $booking = $this->salon->bookings()->with('items')->whereKey($this->rescheduleId)->first();
-        if ($booking === null) {
-            return [];
-        }
-
-        $tz = $this->salon->timezone;
-
-        return array_map(
-            fn ($slot): string => $slot->setTimezone($tz)->format('H:i'),
-            app(\App\Services\Booking\RescheduleSlots::class)
-                ->startTimes($this->salon, $booking, $this->rescheduleDate),
-        );
-    }
-
-    /** Commits the SELECTED time — chips only select; this button confirms. */
-    public function reschedule(\App\Actions\Bookings\RescheduleBooking $action): void
-    {
-        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Rescheduling is disabled in the demo.'))) {
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Status changes are disabled in the demo.'))) {
             return;
         }
 
-        $this->validate(
-            ['rescheduleTime' => ['required', 'date_format:H:i']],
-            ['rescheduleTime.required' => __('Pick a new start time first.')],
-        );
+        $booking = $this->booking((int) $this->checkoutId);
+        $action->handle(Auth::user(), $this->salon, $booking, BookingStatus::Completed);
 
-        $booking = $this->booking((int) $this->rescheduleId);
-
-        $action->handle(Auth::user(), $this->salon, $booking, "{$this->rescheduleDate} {$this->rescheduleTime}");
-
-        $this->showReschedule = false;
-        $this->rescheduleId = null;
-        $this->rescheduleTime = '';
+        $this->showCheckout = false;
+        $this->checkoutId = null;
         unset($this->bookings);
 
-        Flux::toast(variant: 'success', text: __('Booking rescheduled.'));
+        Flux::toast(variant: 'success', text: __('Checked out — visit complete.'));
     }
 
     private function booking(int $id): Booking
@@ -247,20 +193,25 @@ new #[Title('Check-in')] class extends Component {
                         </div>
 
                         <div class="flex flex-col items-end gap-2">
+                            {{-- The visit-state flow, hand-rolled per state (no
+                                 rescheduling here — that lives on Calendar /
+                                 Appointments): Scheduled → Check in → Check out;
+                                 Cancel / No-show close out; no-show is undoable.
+                                 Check out sits LAST so the payment flow slots in
+                                 behind it later with no layout change. --}}
                             <div class="flex flex-wrap justify-end gap-2">
-                                @foreach ($booking->status->allowedTransitions() as $next)
-                                    @if ($next === \App\Enums\BookingStatus::Arrived)
-                                        <x-ui.button size="sm" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')">{{ __($next->actionLabel()) }}</x-ui.button>
-                                    @elseif ($next->confirmMessage())
-                                        {{-- Themed confirm (replaces wire:confirm) — confirmable transitions (cancel / no-show) are destructive, hence danger. --}}
-                                        <x-ui.button size="sm" variant="secondary" x-on:click="$store.confirm.ask({ title: {{ Js::from(__($next->actionLabel())) }}, message: {{ Js::from(__($next->confirmMessage())) }}, confirmLabel: {{ Js::from(__($next->actionLabel())) }}, danger: true }, () => $wire.changeStatus({{ $booking->id }}, {{ Js::from($next->value) }}))">{{ __($next->actionLabel()) }}</x-ui.button>
-                                    @else
-                                        <x-ui.button size="sm" variant="secondary" wire:click="changeStatus({{ $booking->id }}, '{{ $next->value }}')">{{ __($next->actionLabel()) }}</x-ui.button>
-                                    @endif
-                                @endforeach
+                                @if (in_array($booking->status, [\App\Enums\BookingStatus::Booked, \App\Enums\BookingStatus::Confirmed], true))
+                                    <x-ui.button size="sm" variant="secondary" x-on:click="$store.confirm.ask({ title: {{ Js::from(__('Mark no-show')) }}, message: {{ Js::from(__(\App\Enums\BookingStatus::NoShow->confirmMessage())) }}, confirmLabel: {{ Js::from(__('Mark no-show')) }}, danger: true }, () => $wire.changeStatus({{ $booking->id }}, 'no_show'))">{{ __('Mark no-show') }}</x-ui.button>
+                                    <x-ui.button size="sm" variant="secondary" x-on:click="$store.confirm.ask({ title: {{ Js::from(__('Cancel booking')) }}, message: {{ Js::from(__(\App\Enums\BookingStatus::Cancelled->confirmMessage())) }}, confirmLabel: {{ Js::from(__('Cancel booking')) }}, danger: true }, () => $wire.changeStatus({{ $booking->id }}, 'cancelled'))">{{ __('Cancel booking') }}</x-ui.button>
+                                    <x-ui.button size="sm" wire:click="changeStatus({{ $booking->id }}, 'arrived')">{{ __('Check in') }}</x-ui.button>
+                                @elseif ($booking->status === \App\Enums\BookingStatus::Arrived)
+                                    <x-ui.button size="sm" variant="secondary" x-on:click="$store.confirm.ask({ title: {{ Js::from(__('Cancel booking')) }}, message: {{ Js::from(__(\App\Enums\BookingStatus::Cancelled->confirmMessage())) }}, confirmLabel: {{ Js::from(__('Cancel booking')) }}, danger: true }, () => $wire.changeStatus({{ $booking->id }}, 'cancelled'))">{{ __('Cancel booking') }}</x-ui.button>
+                                    <x-ui.button size="sm" wire:click="openCheckout({{ $booking->id }})">{{ __('Check out') }}</x-ui.button>
+                                @elseif ($booking->status === \App\Enums\BookingStatus::NoShow)
+                                    <x-ui.button size="sm" variant="secondary" wire:click="changeStatus({{ $booking->id }}, 'booked')">{{ __('Undo no-show') }}</x-ui.button>
+                                @endif
                             </div>
                             <div class="flex items-center gap-3">
-                                <button type="button" wire:click="openReschedule({{ $booking->id }})" class="text-[13px] font-medium text-secondary transition hover:text-accent">{{ __('Reschedule') }}</button>
                                 <button type="button" wire:click="openTimeline({{ $booking->id }})" class="text-[13px] font-medium text-secondary transition hover:text-accent">{{ __('History') }}</button>
                             </div>
                         </div>
@@ -274,9 +225,24 @@ new #[Title('Check-in')] class extends Component {
         </div>
     </div>
 
-    @can('manageBookings', $salon)
-        @include('partials.booking-reschedule-modal')
-    @endcan
+    {{-- Check out: the payments PLACEHOLDER — no payment logic exists.
+         "Mark visit complete" is the only real action (Arrived → Completed);
+         the checkout/payment flow plugs into this modal later. --}}
+    <x-ui.modal wire:model="showCheckout" class="max-w-md" :heading="__('Check out')">
+        <div class="flex flex-col gap-4">
+            <div class="flex items-start gap-3 rounded-[12px] border border-divider bg-muted/40 px-4 py-3">
+                <flux:icon.credit-card variant="mini" class="mt-0.5 shrink-0 text-faint" />
+                <div>
+                    <p class="text-[14px] font-semibold text-ink">{{ __('In-app payments are coming soon') }}</p>
+                    <p class="text-[13.5px] leading-relaxed text-secondary">{{ __('Taking payment at check-out — card, cash, totals and receipts — is on the way. For now, take payment the way you usually do and mark the visit complete.') }}</p>
+                </div>
+            </div>
+            <div class="flex items-center justify-end gap-2">
+                <x-ui.button variant="secondary" wire:click="$set('showCheckout', false)">{{ __('Close') }}</x-ui.button>
+                <x-ui.button wire:click="completeVisit" loading="completeVisit">{{ __('Mark visit complete') }}</x-ui.button>
+            </div>
+        </div>
+    </x-ui.modal>
 
     <x-ui.modal wire:model="showTimeline" class="max-w-md" :heading="__('Status history')">
         <div class="flex flex-col gap-3">

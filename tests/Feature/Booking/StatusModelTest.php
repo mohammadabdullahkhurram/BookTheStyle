@@ -110,17 +110,26 @@ it('offers exactly the four actions on both tabs — never a confirmed button', 
 
     $booking = $salon->bookings()->firstOrFail();
 
-    foreach (['pages::salon.appointments.index', 'pages::salon.appointments.all'] as $page) {
-        Livewire::actingAs($owner)
-            ->test($page, ['salon' => $salon])
-            ->assertSee('Check in')
-            ->assertSee('Mark no-show')
-            ->assertSee('Cancel booking')
-            ->assertSee('Reschedule')
-            // No confirm action anywhere (the legacy label may still appear
-            // in the status FILTER; the button wiring must not exist).
-            ->assertDontSeeHtml("changeStatus({$booking->id}, 'confirmed')");
-    }
+    // Check-in (front desk): the status actions WITHOUT reschedule — that
+    // lives on Calendar/Appointments only.
+    Livewire::actingAs($owner)
+        ->test('pages::salon.appointments.index', ['salon' => $salon])
+        ->assertSee('Check in')
+        ->assertSee('Mark no-show')
+        ->assertSee('Cancel booking')
+        ->assertDontSee('Reschedule')
+        ->assertDontSeeHtml("changeStatus({$booking->id}, 'confirmed')");
+
+    // Appointments list: the full toolset, reschedule included.
+    Livewire::actingAs($owner)
+        ->test('pages::salon.appointments.all', ['salon' => $salon])
+        ->assertSee('Check in')
+        ->assertSee('Mark no-show')
+        ->assertSee('Cancel booking')
+        ->assertSee('Reschedule')
+        // No confirm action anywhere (the legacy label may still appear
+        // in the status FILTER; the button wiring must not exist).
+        ->assertDontSeeHtml("changeStatus({$booking->id}, 'confirmed')");
 });
 
 it('never lets a booked status transition to the removed confirmed action', function () {

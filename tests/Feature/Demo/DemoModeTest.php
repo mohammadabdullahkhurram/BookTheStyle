@@ -186,7 +186,7 @@ it('blocks every demo mutation EXCEPT booking creation', function () {
         ->assertHasNoErrors();
 
     Livewire::actingAs($owner)
-        ->test('pages::salon.appointments.index', ['salon' => $salon])
+        ->test('pages::salon.appointments.all', ['salon' => $salon])
         ->call('openReschedule', $booked->id)
         ->call('reschedule')
         ->assertHasNoErrors();

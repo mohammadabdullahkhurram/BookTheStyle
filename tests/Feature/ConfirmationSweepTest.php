@@ -173,8 +173,8 @@ it('selecting a reschedule chip does NOT move the booking — only the confirm b
     $page->call('reschedule')->assertHasNoErrors()->assertSet('showReschedule', false);
     expect($booking->fresh()->items()->first()->starts_at->setTimezone($salon->timezone)->format('H:i'))->toBe('15:00');
 })->with([
+    // Reschedule no longer exists on the Check-in tab (front-desk view).
     'appointments' => 'pages::salon.appointments.all',
-    'check-in' => 'pages::salon.appointments.index',
 ]);
 
 it('refuses to commit a reschedule with no time selected', function () {
