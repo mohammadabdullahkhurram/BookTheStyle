@@ -110,6 +110,9 @@ it('groups a multi-booking client into EXACTLY ONE block listing every service l
     // …with BOTH services as lines inside it, and both start times.
     expect($html)->toContain('Signature Cut')->toContain('Radiance Facial');
     expect($html)->toContain('2:00 PM')->toContain('4:00 PM');
+    // ONE History link — never the numbered per-appointment variants.
+    expect(substr_count($html, '>'.__('History').'<'))->toBe(1);
+    expect($html)->not->toContain('History 1')->not->toContain('History 2');
 
     // Checking the client in checks in BOTH visits at once.
     Livewire::actingAs($owner)
@@ -118,6 +121,34 @@ it('groups a multi-booking client into EXACTLY ONE block listing every service l
         ->assertHasNoErrors();
     expect($booking->refresh()->status)->toBe(BookingStatus::Arrived);
     expect($second->refresh()->status)->toBe(BookingStatus::Arrived);
+});
+
+it('opens ONE combined History per client — every visit\'s events, chronologically, visit-labelled', function () {
+    ['salon' => $salon, 'owner' => $owner, 'stylist' => $stylist, 'today' => $booking] = frontDesk();
+
+    // A second separate visit for the same client, then a transition on
+    // EACH visit so both histories carry events.
+    $facial = serviceFor($salon, $stylist, 30);
+    $facial->update(['name' => 'Radiance Facial']);
+    $second = makeBooking($salon, $owner, $stylist, $facial, '2026-06-22 16:00');
+    $second->update(['client_id' => $booking->client_id]);
+
+    $transition = app(TransitionBookingStatus::class);
+    $transition->handle($owner, $salon, $booking->refresh(), BookingStatus::Arrived);
+    $transition->handle($owner, $salon, $second->refresh(), BookingStatus::NoShow);
+
+    $component = Livewire::actingAs($owner)
+        ->test('pages::salon.appointments.index', ['salon' => $salon])
+        ->call('openClientTimeline', $booking->client_id)
+        ->assertSet('showTimeline', true);
+
+    $timeline = $component->instance()->timeline;
+    // Both visits' events are in the ONE stream, oldest first…
+    expect($timeline->pluck('to_status')->all())->toContain(BookingStatus::Arrived, BookingStatus::NoShow);
+    expect($timeline->pluck('created_at')->map->getTimestamp()->all())
+        ->toBe($timeline->pluck('created_at')->map->getTimestamp()->sort()->values()->all());
+    // …each labelled with its visit's start so the merge stays readable.
+    expect($timeline->pluck('visit_label')->unique()->filter()->all())->toContain('2:00 PM', '4:00 PM');
 });
 
 it('renders a single-appointment client as one block with one service line and the Check out button', function () {

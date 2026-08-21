@@ -16,7 +16,7 @@ new #[Title('Check-in')] class extends Component {
     public string $search = '';
 
     public bool $showTimeline = false;
-    public ?int $timelineId = null;
+    public ?int $timelineClientId = null;
 
     public function mount(Salon $salon): void
     {
@@ -162,24 +162,40 @@ new #[Title('Check-in')] class extends Component {
         Flux::toast(variant: 'success', text: __($status->actionToast()));
     }
 
-    public function openTimeline(int $bookingId): void
+    /** One History per CLIENT block — combined across all their visits today. */
+    public function openClientTimeline(int $clientId): void
     {
-        $this->booking($bookingId); // authorise scope
-        $this->timelineId = $bookingId;
+        $this->salon->clients()->whereKey($clientId)->firstOrFail(); // authorise scope
+        $this->timelineClientId = $clientId;
         $this->showTimeline = true;
     }
 
+    /**
+     * The combined status history of the client's TODAY visits, merged
+     * chronologically. Each event carries its visit's start label so a
+     * multi-visit client's merged stream still reads unambiguously.
+     */
     #[Computed]
     public function timeline()
     {
-        if ($this->timelineId === null) {
+        if ($this->timelineClientId === null) {
             return collect();
         }
 
-        return $this->salon->bookings()
-            ->whereKey($this->timelineId)
-            ->first()?->statusEvents()
-            ->with('actor:id,name')->orderBy('created_at')->get() ?? collect();
+        $bookings = $this->bookings->where('client_id', $this->timelineClientId);
+        $multiVisit = $bookings->count() > 1;
+
+        return $bookings
+            ->flatMap(function (Booking $booking) use ($multiVisit) {
+                $visitLabel = $multiVisit
+                    ? $booking->items->min('starts_at')?->setTimezone($this->salon->timezone)->format('g:i A')
+                    : null;
+
+                return $booking->statusEvents()->with('actor:id,name')->get()
+                    ->each(fn ($event) => $event->setAttribute('visit_label', $visitLabel));
+            })
+            ->sortBy('created_at')
+            ->values();
     }
 
 
@@ -313,9 +329,9 @@ new #[Title('Check-in')] class extends Component {
                                 <x-ui.button size="sm" wire:click="openCheckout({{ $block->client->id }})">{{ __('Check out') }}</x-ui.button>
                             </div>
                             <div class="flex items-center gap-3">
-                                @foreach ($block->bookings as $booking)
-                                    <button type="button" wire:click="openTimeline({{ $booking->id }})" class="text-[13px] font-medium text-secondary transition hover:text-accent">{{ $block->bookings->count() > 1 ? __('History :n', ['n' => $loop->iteration]) : __('History') }}</button>
-                                @endforeach
+                                {{-- ONE History per client — the modal merges
+                                     every visit's events chronologically. --}}
+                                <button type="button" wire:click="openClientTimeline({{ $block->client->id }})" class="text-[13px] font-medium text-secondary transition hover:text-accent">{{ __('History') }}</button>
                             </div>
                         </div>
                     </div>
@@ -355,6 +371,9 @@ new #[Title('Check-in')] class extends Component {
                 <div class="flex flex-col gap-1">
                     <div class="flex items-center justify-between gap-3 text-[14px]">
                         <x-ui.status-pill :status="$event->to_status" />
+                        @if ($event->visit_label)
+                            <span class="bts-pill" style="background-color:#F0EEEA;color:#6B6862;">{{ __(':time visit', ['time' => $event->visit_label]) }}</span>
+                        @endif
                         <span class="flex-1 truncate text-secondary">{{ $event->actor?->name }}</span>
                         <span class="text-[12.5px] text-faint">{{ $event->created_at?->setTimezone($salon->timezone)->format('M j, g:i A') }}</span>
                     </div>
