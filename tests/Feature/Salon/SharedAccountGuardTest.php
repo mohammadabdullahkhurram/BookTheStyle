@@ -165,11 +165,19 @@ it('keeps regular flows untouched: membership edits on a shared account, and the
         ->assertHasNoErrors();
     expect($membership->fresh()->salon_role)->toBe(SalonRole::Manager);
 
-    // Salon roles still can't reach the details surface at all.
+    // A salon manager CAN open the details modal now (role editing lives
+    // there) — but the ACCOUNT fields are agency-only: their save writes no
+    // account data, so the shared login's email cannot be touched.
+    $emailBefore = $shared->fresh()->email;
     Livewire::actingAs($manager)
         ->test('pages::salon.users.index', ['salon' => $salon])
         ->call('startOwnerEdit', $membership->id)
-        ->assertForbidden();
+        ->assertSet('showOwnerEdit', true)
+        ->set('ownerEmail', 'stolen-login@example.com')
+        ->set('ownerEditRole', 'stylist')
+        ->call('saveOwnerDetails')
+        ->assertHasNoErrors();
+    expect($shared->fresh()->email)->toBe($emailBefore); // untouched
 
     // Tenant isolation: a cross-agency operator is refused at the action.
     $foreignOperator = sharedGuardOperator($foreignSalon);

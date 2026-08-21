@@ -135,11 +135,11 @@ it('lets agency owner and admin edit the salon owner details; salon roles never'
     expect($fresh->phone)->toBe('+1 555 010 4242');
     expect($ownerMembership->fresh()->salon_role)->toBe(SalonRole::Owner); // details only — never the role
 
-    // Salon manager: no affordance, and the server 403s a forged call.
+    // Salon manager: the details modal exists for rows they MANAGE (role
+    // editing lives there now) — but the OWNER row stays out of reach.
     $manager = salonAdminOf($salon);
     Livewire::actingAs($manager)
         ->test('pages::salon.users.index', ['salon' => $salon])
-        ->assertDontSee(__('Edit details'))
         ->call('startOwnerEdit', $ownerMembership->id)
         ->assertForbidden();
 

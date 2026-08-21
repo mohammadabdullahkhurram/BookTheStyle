@@ -391,6 +391,10 @@ new #[Title('Users')] class extends Component {
      *  inherently bookable and show no box. */
     public bool $ownerEditIsManager = false;
     public bool $ownerEditTakesBookings = false;
+    /** The ROLE selector in the details modal — same assignable-role rules
+     *  and owner-transfer path as the Edit-user modal. */
+    public string $ownerEditRole = 'stylist';
+    public bool $ownerEditIsOwnerRow = false;
     /** The target account also exists under another agency (memberships or
      *  console role elsewhere): name/phone edits apply account-wide, and the
      *  login email is locked to the account holder (UpdateMemberDetails
@@ -406,7 +410,11 @@ new #[Title('Users')] class extends Component {
     public function startOwnerEdit(int $membershipId): void
     {
         $membership = $this->membership($membershipId);
-        abort_unless($this->canEditMemberDetails(), 403);
+        // The MANAGE axis (not agency-only any more): agency owner/admin,
+        // salon owner, and salon manager open it for rows they hold
+        // authority over — the same rule as the Edit action. Account
+        // fields stay agency-only inside (canEditMemberDetails).
+        abort_unless((new SalonStaffRoles)->canManage(Auth::user(), $this->salon, $membership->salon_role), 403);
 
         $this->ownerEditId = $membership->id;
         $this->ownerName = $membership->user->name;
@@ -415,6 +423,8 @@ new #[Title('Users')] class extends Component {
         $this->ownerEditShared = $membership->user->sharedOutsideAgency($this->salon->agency_id);
         $this->ownerEditIsManager = $membership->salon_role === SalonRole::Manager;
         $this->ownerEditTakesBookings = $membership->staff_type === StaffType::Stylist;
+        $this->ownerEditRole = $membership->salon_role->value;
+        $this->ownerEditIsOwnerRow = $membership->salon_role === SalonRole::Owner;
         $this->resetErrorBag();
         $this->showOwnerEdit = true;
     }
@@ -426,46 +436,81 @@ new #[Title('Users')] class extends Component {
         }
 
         $membership = $this->membership((int) $this->ownerEditId);
-        abort_unless($this->canEditMemberDetails(), 403);
+        abort_unless((new SalonStaffRoles)->canManage(Auth::user(), $this->salon, $membership->salon_role), 403);
+
+        $isOwnerRow = $membership->salon_role === SalonRole::Owner;
+        $roleRules = [...array_map(fn (SalonRole $r) => $r->value, $this->assignableRoles()), ...($isOwnerRow ? [SalonRole::Owner->value] : [])];
 
         $validated = $this->validate([
-            'ownerName' => ['required', 'string', 'max:255'],
-            'ownerEmail' => ['required', 'string', 'email', 'max:255', \Illuminate\Validation\Rule::unique('users', 'email')->ignore($membership->user_id)->withoutTrashed()],
-            'ownerPhone' => ['nullable', 'string', 'max:32'],
+            'ownerEditRole' => ['required', Rule::in($roleRules)],
             'ownerEditTakesBookings' => ['boolean'],
+            // Account fields are AGENCY-OPERATOR-only (they apply to the
+            // login account everywhere) — salon roles submit them disabled
+            // and unchanged, so they are not validated or written below.
+            ...($this->canEditMemberDetails() ? [
+                'ownerName' => ['required', 'string', 'max:255'],
+                'ownerEmail' => ['required', 'string', 'email', 'max:255', \Illuminate\Validation\Rule::unique('users', 'email')->ignore($membership->user_id)->withoutTrashed()],
+                'ownerPhone' => ['nullable', 'string', 'max:32'],
+            ] : []),
         ]);
 
-        try {
-            $action->handle(Auth::user(), $this->salon, $membership, [
-                'name' => $validated['ownerName'],
-                'email' => $validated['ownerEmail'],
-                'phone' => $validated['ownerPhone'] ?: null,
-            ]);
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            // The action speaks in account-field names; this form's inputs
-            // are owner-prefixed. Re-key so errors land under the field.
-            throw \Illuminate\Validation\ValidationException::withMessages(
-                collect($e->errors())->mapWithKeys(fn ($messages, $key) => [
-                    'owner'.ucfirst($key) => $messages,
-                ])->all(),
-            );
-        }
-
-        // MANAGER members: the details modal also carries the takes-bookings
-        // box (this modal has no role selector, so it keys off the member's
-        // existing role). Applied through the same UpdateStaffMembership
-        // mechanism as every other surface — only when it actually changed.
-        $wantsType = $this->ownerEditTakesBookings ? StaffType::Stylist : null;
-        if ($membership->salon_role === SalonRole::Manager && $membership->staff_type !== $wantsType) {
+        if ($this->canEditMemberDetails()) {
             try {
-                $membershipAction->handle(Auth::user(), $this->salon, $membership, [
-                    'salon_role' => SalonRole::Manager->value,
-                    'staff_type' => $wantsType?->value,
+                // UpdateMemberDetails keeps its own agency gate AND the
+                // cross-agency shared-account email guard — unchanged.
+                $action->handle(Auth::user(), $this->salon, $membership, [
+                    'name' => $validated['ownerName'],
+                    'email' => $validated['ownerEmail'],
+                    'phone' => $validated['ownerPhone'] ?: null,
                 ]);
             } catch (\Illuminate\Validation\ValidationException $e) {
+                // The action speaks in account-field names; this form's inputs
+                // are owner-prefixed. Re-key so errors land under the field.
                 throw \Illuminate\Validation\ValidationException::withMessages(
-                    ['ownerEditTakesBookings' => collect($e->errors())->flatten()->all()],
+                    collect($e->errors())->mapWithKeys(fn ($messages, $key) => [
+                        'owner'.ucfirst($key) => $messages,
+                    ])->all(),
                 );
+            }
+        }
+
+        // ── The ROLE (and manager bookability) ─────────────────────────
+        // Stripping Owner is an ownership TRANSFER: same invariant-keeping
+        // flow as the Edit-user modal — a replacement is designated first.
+        if ($isOwnerRow) {
+            if ($this->ownerEditRole !== SalonRole::Owner->value) {
+                $this->showOwnerEdit = false;
+                $this->ownerEditId = null;
+
+                $this->startOwnerTransfer(
+                    $membership->id,
+                    'demote',
+                    $this->ownerEditRole,
+                    demoteBookable: $this->ownerEditRole === SalonRole::Manager->value && $this->ownerEditTakesBookings,
+                );
+
+                return;
+            }
+        } else {
+            $wantsType = $this->ownerEditTakesBookings ? StaffType::Stylist : null;
+            $roleChanged = $this->ownerEditRole !== $membership->salon_role->value;
+            $bookableChanged = $this->ownerEditRole === SalonRole::Manager->value && $membership->staff_type !== $wantsType;
+
+            if ($roleChanged || $bookableChanged) {
+                $data = ['salon_role' => $this->ownerEditRole];
+                if ($this->ownerEditRole === SalonRole::Manager->value) {
+                    $data['staff_type'] = $wantsType?->value;
+                }
+
+                try {
+                    // Server-side authority: canManage over the current role
+                    // AND canAssign over the new one — enforced inside.
+                    $membershipAction->handle(Auth::user(), $this->salon, $membership, $data);
+                } catch (\Illuminate\Validation\ValidationException $e) {
+                    throw \Illuminate\Validation\ValidationException::withMessages(
+                        ['ownerEditRole' => collect($e->errors())->flatten()->all()],
+                    );
+                }
             }
         }
 
@@ -735,7 +780,7 @@ new #[Title('Users')] class extends Component {
                             </td>
                             <td class="px-6 py-4">
                                 <div class="flex items-center justify-end gap-3">
-                                    @include('pages.salon.users.partials.row-actions', ['m' => $m, 'canManage' => $this->canManageMembership($m), 'canEditDetails' => $this->canEditMemberDetails(), 'canHardDelete' => $this->canHardDelete])
+                                    @include('pages.salon.users.partials.row-actions', ['m' => $m, 'canManage' => $this->canManageMembership($m), 'canEditDetails' => $this->canManageMembership($m), 'canHardDelete' => $this->canHardDelete])
                                 </div>
                             </td>
                         </tr>
@@ -763,7 +808,7 @@ new #[Title('Users')] class extends Component {
                             <div class="truncate text-[12.5px] text-faint">{{ $m->user->email }}</div>
                         </div>
                         <div class="flex shrink-0 items-center gap-3">
-                            @include('pages.salon.users.partials.row-actions', ['m' => $m, 'canManage' => $this->canManageMembership($m), 'canEditDetails' => $this->canEditMemberDetails(), 'canHardDelete' => $this->canHardDelete])
+                            @include('pages.salon.users.partials.row-actions', ['m' => $m, 'canManage' => $this->canManageMembership($m), 'canEditDetails' => $this->canManageMembership($m), 'canHardDelete' => $this->canHardDelete])
                         </div>
                     </div>
                     <div class="flex flex-wrap items-center gap-2 ps-11 text-[13px] text-secondary">
@@ -871,14 +916,31 @@ new #[Title('Users')] class extends Component {
                     {{ __('This person also works at a salon under another agency; changes to their name and phone apply to their account everywhere. Their login email can only be changed by the account holder.') }}
                 </div>
             @endif
-            <flux:input wire:model="ownerName" :label="__('Name')" required />
-            <flux:input wire:model="ownerEmail" type="email" :label="__('Email')" required :disabled="$ownerEditShared" />
-            <flux:input wire:model="ownerPhone" type="tel" :label="__('Phone')" />
-            @if ($ownerEditIsManager)
-                {{-- Managers only: the same staff_type flag as the Edit-user
-                     modal and the self-row switch, editable where members
-                     are actually edited. Owners keep their own controls;
-                     stylists are inherently bookable. --}}
+            @php($accountEditable = $this->canEditMemberDetails())
+            @unless ($accountEditable)
+                <div class="rounded-[10px] border border-divider bg-muted/40 px-3.5 py-2.5 text-[13px] leading-relaxed text-secondary">
+                    {{ __('Account details (name, email, phone) apply everywhere this person works and are managed by your agency — you can change their role here.') }}
+                </div>
+            @endunless
+            <flux:input wire:model="ownerName" :label="__('Name')" required :disabled="! $accountEditable" />
+            <flux:input wire:model="ownerEmail" type="email" :label="__('Email')" required :disabled="$ownerEditShared || ! $accountEditable" />
+            <flux:input wire:model="ownerPhone" type="tel" :label="__('Phone')" :disabled="! $accountEditable" />
+            {{-- The ROLE — the same assignable-role rules and owner-transfer
+                 path as the Edit-user modal. Stripping Owner opens the
+                 transfer flow (a salon always keeps exactly one owner);
+                 Owner itself is never grantable here. --}}
+            <flux:select wire:model.live="ownerEditRole" :label="__('Role')"
+                :description="$ownerEditIsOwnerRow ? __('Choosing another role transfers ownership — you will pick the new owner first.') : null">
+                @if ($ownerEditIsOwnerRow)
+                    <flux:select.option value="{{ \App\Enums\SalonRole::Owner->value }}">{{ __('Owner (current)') }}</flux:select.option>
+                @endif
+                @foreach ($this->assignableRoles as $r)
+                    <flux:select.option value="{{ $r->value }}">{{ $r->label() }}</flux:select.option>
+                @endforeach
+            </flux:select>
+            @if ($ownerEditRole === 'salon_manager')
+                {{-- The same staff_type flag as the Edit-user modal and the
+                     self-row switch — keyed off the SELECTED role. --}}
                 <flux:checkbox wire:model="ownerEditTakesBookings" :label="__('Takes bookings')"
                     :description="__('Bookable like a stylist — a schedule and calendar column, with full manager permissions.')" />
             @endif
