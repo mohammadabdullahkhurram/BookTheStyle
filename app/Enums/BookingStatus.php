@@ -59,7 +59,7 @@ enum BookingStatus: string
             self::Booked => 'No-show undone — the booking is active again.',
             self::Arrived => 'Checked in.',
             self::InService => 'Service started.',
-            self::Completed => 'Booking completed.',
+            self::Completed => 'Checked out — visit complete.',
             self::Cancelled => 'Booking cancelled.',
             self::NoShow => 'Marked as no-show.',
             default => 'Booking updated.',

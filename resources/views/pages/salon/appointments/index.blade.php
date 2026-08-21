@@ -57,6 +57,97 @@ new #[Title('Check-in')] class extends Component {
             ->values();
     }
 
+    /**
+     * ONE BLOCK PER CLIENT: today's bookings grouped by client, each block
+     * carrying every service line (time · service · stylist) plus the
+     * aggregate flags the action row is built from. A client with two
+     * separately-booked visits today is still one block — never two rows.
+     */
+    #[Computed]
+    public function clientBlocks()
+    {
+        $active = [BookingStatus::Booked, BookingStatus::Confirmed];
+
+        return $this->bookings
+            ->groupBy('client_id')
+            ->map(function ($group) use ($active) {
+                $bookings = $group->sortBy(fn (Booking $b) => $b->items->min('starts_at'))->values();
+                $statuses = $bookings->pluck('status');
+
+                return (object) [
+                    'client' => $bookings->first()->client,
+                    'bookings' => $bookings,
+                    'start' => $bookings->first()->items->min('starts_at'),
+                    'hasBooked' => $statuses->contains(fn (BookingStatus $s) => in_array($s, $active, true)),
+                    'hasArrived' => $statuses->contains(BookingStatus::Arrived),
+                    'hasNoShow' => $statuses->contains(BookingStatus::NoShow),
+                    'isWalkin' => $bookings->contains(fn (Booking $b) => $b->is_walkin),
+                    'syncFailed' => $bookings->contains(fn (Booking $b) => $b->ghl_sync_status === 'failed'),
+                    // The header pill: the most action-relevant state wins.
+                    'overall' => match (true) {
+                        $statuses->contains(BookingStatus::Arrived) => BookingStatus::Arrived,
+                        $statuses->contains(BookingStatus::InService) => BookingStatus::InService,
+                        $statuses->contains(fn (BookingStatus $s) => in_array($s, $active, true)) => BookingStatus::Booked,
+                        $statuses->contains(BookingStatus::NoShow) => BookingStatus::NoShow,
+                        $statuses->contains(BookingStatus::Completed) => BookingStatus::Completed,
+                        default => BookingStatus::Cancelled,
+                    },
+                    'closed' => $statuses->every(fn (BookingStatus $s) => in_array($s, [BookingStatus::Completed, BookingStatus::Cancelled, BookingStatus::NoShow], true)),
+                ];
+            })
+            ->sortBy('start')
+            ->values();
+    }
+
+    /** This client's TODAY bookings currently in one of the given states. */
+    private function clientBookingsIn(int $clientId, array $statuses)
+    {
+        return $this->bookings
+            ->where('client_id', $clientId)
+            ->filter(fn (Booking $b) => in_array($b->status, $statuses, true));
+    }
+
+    /**
+     * Block-level transition: the client arrived / didn't / cancelled —
+     * applied to every one of their today bookings the move is valid for.
+     */
+    private function transitionClient(int $clientId, array $from, BookingStatus $to, TransitionBookingStatus $action): void
+    {
+        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Status changes are disabled in the demo.'))) {
+            return;
+        }
+
+        $bookings = $this->clientBookingsIn($clientId, $from);
+        abort_if($bookings->isEmpty(), 404);
+
+        foreach ($bookings as $booking) {
+            $action->handle(Auth::user(), $this->salon, $this->booking($booking->id), $to);
+        }
+
+        unset($this->bookings, $this->clientBlocks);
+        Flux::toast(variant: 'success', text: __($to->actionToast()));
+    }
+
+    public function checkInClient(int $clientId, TransitionBookingStatus $action): void
+    {
+        $this->transitionClient($clientId, [BookingStatus::Booked, BookingStatus::Confirmed], BookingStatus::Arrived, $action);
+    }
+
+    public function markNoShowClient(int $clientId, TransitionBookingStatus $action): void
+    {
+        $this->transitionClient($clientId, [BookingStatus::Booked, BookingStatus::Confirmed], BookingStatus::NoShow, $action);
+    }
+
+    public function cancelClient(int $clientId, TransitionBookingStatus $action): void
+    {
+        $this->transitionClient($clientId, [BookingStatus::Booked, BookingStatus::Confirmed, BookingStatus::Arrived, BookingStatus::InService], BookingStatus::Cancelled, $action);
+    }
+
+    public function undoNoShowClient(int $clientId, TransitionBookingStatus $action): void
+    {
+        $this->transitionClient($clientId, [BookingStatus::NoShow], BookingStatus::Booked, $action);
+    }
+
     public function changeStatus(int $bookingId, string $to, TransitionBookingStatus $action): void
     {
         if (\App\Support\DemoMode::blocksWrite($this->salon, __('Status changes are disabled in the demo.'))) {
@@ -97,30 +188,31 @@ new #[Title('Check-in')] class extends Component {
     /** The "coming soon" checkout popup — no payment logic exists yet. */
     public bool $showCheckout = false;
 
-    public ?int $checkoutId = null;
+    public ?int $checkoutClientId = null;
 
-    public function openCheckout(int $bookingId): void
+    public function openCheckout(int $clientId): void
     {
-        $this->booking($bookingId); // authorise scope
-        $this->checkoutId = $bookingId;
+        $this->salon->clients()->whereKey($clientId)->firstOrFail(); // authorise scope
+        $this->checkoutClientId = $clientId;
         $this->showCheckout = true;
     }
 
-    /** Close the visit without payment: Checked in → Completed. */
+    /** Whether the checkout client has checked-in visits to complete. */
+    #[Computed]
+    public function checkoutCanComplete(): bool
+    {
+        return $this->checkoutClientId !== null
+            && $this->clientBookingsIn($this->checkoutClientId, [BookingStatus::Arrived])->isNotEmpty();
+    }
+
+    /** Close the visit without payment: every Checked in → Completed. */
     public function completeVisit(TransitionBookingStatus $action): void
     {
-        if (\App\Support\DemoMode::blocksWrite($this->salon, __('Status changes are disabled in the demo.'))) {
-            return;
-        }
-
-        $booking = $this->booking((int) $this->checkoutId);
-        $action->handle(Auth::user(), $this->salon, $booking, BookingStatus::Completed);
+        $clientId = (int) $this->checkoutClientId;
+        $this->transitionClient($clientId, [BookingStatus::Arrived], BookingStatus::Completed, $action);
 
         $this->showCheckout = false;
-        $this->checkoutId = null;
-        unset($this->bookings);
-
-        Flux::toast(variant: 'success', text: __('Checked out — visit complete.'));
+        $this->checkoutClientId = null;
     }
 
     private function booking(int $id): Booking
@@ -155,64 +247,75 @@ new #[Title('Check-in')] class extends Component {
 
         <div wire:loading.class="pointer-events-none opacity-60" wire:target="search"
              class="flex flex-col gap-3 transition-opacity">
-            @forelse ($this->bookings as $booking)
-                @php($start = $booking->items->min('starts_at'))
-                @php($dimmed = in_array($booking->status, [\App\Enums\BookingStatus::Completed, \App\Enums\BookingStatus::NoShow, \App\Enums\BookingStatus::Cancelled], true))
-                @php($seed = $booking->items->first()?->stylist_id ?? 0)
-                <x-ui.card padding="p-5" class="{{ $dimmed ? '!bg-paper' : '' }}">
+            @forelse ($this->clientBlocks as $block)
+                @php($seed = $block->bookings->first()->items->first()?->stylist_id ?? 0)
+                <x-ui.card padding="p-5" class="{{ $block->closed ? '!bg-paper' : '' }}" wire:key="client-{{ $block->client->id }}">
                     <div class="flex flex-wrap items-start justify-between gap-4">
                         <div class="flex items-start gap-4">
-                            <div class="w-16 shrink-0 pt-0.5 text-[14px] font-medium text-faint">{{ $start?->setTimezone($salon->timezone)->format('g:i A') }}</div>
-                            <x-ui.avatar :name="$booking->client->name" :seed="$seed" size="sm" class="mt-0.5" />
+                            <div class="w-16 shrink-0 pt-0.5 text-[14px] font-medium text-faint">{{ $block->start?->setTimezone($salon->timezone)->format('g:i A') }}</div>
+                            <x-ui.avatar :name="$block->client->name" :seed="$seed" size="sm" class="mt-0.5" />
                             <div class="flex flex-col gap-1.5">
                                 <div class="flex flex-wrap items-center gap-2">
-                                    @if ($booking->client->trashed())
-                                        <span class="text-[15px] font-semibold text-ink">{{ $booking->client->name }} <span class="font-normal text-faint">{{ __('(removed)') }}</span></span>
+                                    @if ($block->client->trashed())
+                                        <span class="text-[15px] font-semibold text-ink">{{ $block->client->name }} <span class="font-normal text-faint">{{ __('(removed)') }}</span></span>
                                     @else
-                                        <a href="{{ route('salon.client', ['salon' => $salon, 'clientId' => $booking->client_id]) }}" wire:navigate class="text-[15px] font-semibold text-ink transition hover:text-accent">{{ $booking->client->name }}</a>
+                                        <a href="{{ route('salon.client', ['salon' => $salon, 'clientId' => $block->client->id]) }}" wire:navigate class="text-[15px] font-semibold text-ink transition hover:text-accent">{{ $block->client->name }}</a>
                                     @endif
-                                    <x-ui.status-pill :status="$booking->status" />
-                                    @if ($booking->is_walkin)<span class="bts-pill" style="background-color:#F0EEEA;color:#6B6862;">{{ __('Walk-in') }}</span>@endif
-                                    @if ($booking->client->is_test)<span class="bts-pill" style="background-color:#FBEFD6;color:#8A5A1E;" title="{{ __('Created by a connection check or widget preview — never synced to GHL, swept automatically.') }}">{{ __('TEST') }}</span>@endif
+                                    <x-ui.status-pill :status="$block->overall" />
+                                    @if ($block->isWalkin)<span class="bts-pill" style="background-color:#F0EEEA;color:#6B6862;">{{ __('Walk-in') }}</span>@endif
+                                    @if ($block->client->is_test)<span class="bts-pill" style="background-color:#FBEFD6;color:#8A5A1E;" title="{{ __('Created by a connection check or widget preview — never synced to GHL, swept automatically.') }}">{{ __('TEST') }}</span>@endif
                                     @can('manage', $salon)
-                                        @if ($booking->ghl_sync_status === 'failed')
-                                            <span class="bts-pill" style="background-color:#F8E3E3;color:#A23A3A;" title="{{ $booking->ghl_sync_error }}">{{ __('Sync failed') }}</span>
+                                        @if ($block->syncFailed)
+                                            <span class="bts-pill" style="background-color:#F8E3E3;color:#A23A3A;">{{ __('Sync failed') }}</span>
                                         @endif
                                     @endcan
                                 </div>
-                                <div class="text-[14px] text-secondary">
-                                    @foreach ($booking->items as $item)
-                                        <span class="inline-flex items-center gap-1.5">
-                                            <span class="size-2 rounded-full" style="background-color: {{ $item->service->palette()['dot'] }}"></span>
-                                            {{ $item->service->name }}@if ($item->service->trashed()) {{ __('(removed)') }}@endif · {{ $item->stylist->name }}@if ($item->stylist->trashed()) {{ __('(removed)') }}@endif@if (! $loop->last), @endif
-                                        </span>
+                                {{-- EVERY service the client has today, one line each —
+                                     a client with several bookings is still THIS one
+                                     block. Per-visit pills appear only when the visits
+                                     are in different states. --}}
+                                <div class="flex flex-col gap-1 text-[14px] text-secondary">
+                                    @foreach ($block->bookings as $booking)
+                                        @foreach ($booking->items->sortBy('starts_at') as $item)
+                                            <div class="flex flex-wrap items-center gap-1.5" wire:key="line-{{ $item->id }}">
+                                                <span class="w-16 shrink-0 text-[12.5px] text-faint">{{ $item->starts_at->setTimezone($salon->timezone)->format('g:i A') }}</span>
+                                                <span class="size-2 rounded-full" style="background-color: {{ $item->service->palette()['dot'] }}"></span>
+                                                <span>{{ $item->service->name }}@if ($item->service->trashed()) {{ __('(removed)') }}@endif · {{ $item->stylist->name }}@if ($item->stylist->trashed()) {{ __('(removed)') }}@endif</span>
+                                                @if ($block->bookings->count() > 1 && $loop->first && $booking->status !== $block->overall)
+                                                    <x-ui.status-pill :status="$booking->status" />
+                                                @endif
+                                            </div>
+                                        @endforeach
                                     @endforeach
                                 </div>
-                                <div class="text-[12.5px] text-faint">{{ __('Booked by') }} {{ $booking->bookedBy?->name ?? $booking->booked_by_type->label() }} · {{ $booking->source->label() }}</div>
+                                <div class="text-[12.5px] text-faint">{{ __('Booked by') }} {{ $block->bookings->first()->bookedBy?->name ?? $block->bookings->first()->booked_by_type->label() }} · {{ $block->bookings->map(fn ($b) => $b->source->label())->unique()->join(', ') }}</div>
                             </div>
                         </div>
 
                         <div class="flex flex-col items-end gap-2">
-                            {{-- The visit-state flow, hand-rolled per state (no
-                                 rescheduling here — that lives on Calendar /
-                                 Appointments): Scheduled → Check in → Check out;
-                                 Cancel / No-show close out; no-show is undoable.
-                                 Check out sits LAST so the payment flow slots in
+                            {{-- Client-level visit flow (no rescheduling here — that
+                                 lives on Calendar/Appointments). Check out is on EVERY
+                                 block and stays LAST, so the payment flow slots in
                                  behind it later with no layout change. --}}
                             <div class="flex flex-wrap justify-end gap-2">
-                                @if (in_array($booking->status, [\App\Enums\BookingStatus::Booked, \App\Enums\BookingStatus::Confirmed], true))
-                                    <x-ui.button size="sm" variant="secondary" x-on:click="$store.confirm.ask({ title: {{ Js::from(__('Mark no-show')) }}, message: {{ Js::from(__(\App\Enums\BookingStatus::NoShow->confirmMessage())) }}, confirmLabel: {{ Js::from(__('Mark no-show')) }}, danger: true }, () => $wire.changeStatus({{ $booking->id }}, 'no_show'))">{{ __('Mark no-show') }}</x-ui.button>
-                                    <x-ui.button size="sm" variant="secondary" x-on:click="$store.confirm.ask({ title: {{ Js::from(__('Cancel booking')) }}, message: {{ Js::from(__(\App\Enums\BookingStatus::Cancelled->confirmMessage())) }}, confirmLabel: {{ Js::from(__('Cancel booking')) }}, danger: true }, () => $wire.changeStatus({{ $booking->id }}, 'cancelled'))">{{ __('Cancel booking') }}</x-ui.button>
-                                    <x-ui.button size="sm" wire:click="changeStatus({{ $booking->id }}, 'arrived')">{{ __('Check in') }}</x-ui.button>
-                                @elseif ($booking->status === \App\Enums\BookingStatus::Arrived)
-                                    <x-ui.button size="sm" variant="secondary" x-on:click="$store.confirm.ask({ title: {{ Js::from(__('Cancel booking')) }}, message: {{ Js::from(__(\App\Enums\BookingStatus::Cancelled->confirmMessage())) }}, confirmLabel: {{ Js::from(__('Cancel booking')) }}, danger: true }, () => $wire.changeStatus({{ $booking->id }}, 'cancelled'))">{{ __('Cancel booking') }}</x-ui.button>
-                                    <x-ui.button size="sm" wire:click="openCheckout({{ $booking->id }})">{{ __('Check out') }}</x-ui.button>
-                                @elseif ($booking->status === \App\Enums\BookingStatus::NoShow)
-                                    <x-ui.button size="sm" variant="secondary" wire:click="changeStatus({{ $booking->id }}, 'booked')">{{ __('Undo no-show') }}</x-ui.button>
+                                @if ($block->hasBooked)
+                                    <x-ui.button size="sm" variant="secondary" x-on:click="$store.confirm.ask({ title: {{ Js::from(__('Mark no-show')) }}, message: {{ Js::from(__(\App\Enums\BookingStatus::NoShow->confirmMessage())) }}, confirmLabel: {{ Js::from(__('Mark no-show')) }}, danger: true }, () => $wire.markNoShowClient({{ $block->client->id }}))">{{ __('Mark no-show') }}</x-ui.button>
                                 @endif
+                                @if ($block->hasBooked || $block->hasArrived)
+                                    <x-ui.button size="sm" variant="secondary" x-on:click="$store.confirm.ask({ title: {{ Js::from(__('Cancel booking')) }}, message: {{ Js::from(__(\App\Enums\BookingStatus::Cancelled->confirmMessage())) }}, confirmLabel: {{ Js::from(__('Cancel booking')) }}, danger: true }, () => $wire.cancelClient({{ $block->client->id }}))">{{ __('Cancel booking') }}</x-ui.button>
+                                @endif
+                                @if ($block->hasBooked)
+                                    <x-ui.button size="sm" variant="secondary" wire:click="checkInClient({{ $block->client->id }})">{{ __('Check in') }}</x-ui.button>
+                                @endif
+                                @if (! $block->hasBooked && ! $block->hasArrived && $block->hasNoShow)
+                                    <x-ui.button size="sm" variant="secondary" wire:click="undoNoShowClient({{ $block->client->id }})">{{ __('Undo no-show') }}</x-ui.button>
+                                @endif
+                                <x-ui.button size="sm" wire:click="openCheckout({{ $block->client->id }})">{{ __('Check out') }}</x-ui.button>
                             </div>
                             <div class="flex items-center gap-3">
-                                <button type="button" wire:click="openTimeline({{ $booking->id }})" class="text-[13px] font-medium text-secondary transition hover:text-accent">{{ __('History') }}</button>
+                                @foreach ($block->bookings as $booking)
+                                    <button type="button" wire:click="openTimeline({{ $booking->id }})" class="text-[13px] font-medium text-secondary transition hover:text-accent">{{ $block->bookings->count() > 1 ? __('History :n', ['n' => $loop->iteration]) : __('History') }}</button>
+                                @endforeach
                             </div>
                         </div>
                     </div>
@@ -239,7 +342,9 @@ new #[Title('Check-in')] class extends Component {
             </div>
             <div class="flex items-center justify-end gap-2">
                 <x-ui.button variant="secondary" wire:click="$set('showCheckout', false)">{{ __('Close') }}</x-ui.button>
-                <x-ui.button wire:click="completeVisit" loading="completeVisit">{{ __('Mark visit complete') }}</x-ui.button>
+                @if ($this->checkoutCanComplete)
+                    <x-ui.button wire:click="completeVisit" loading="completeVisit">{{ __('Mark visit complete') }}</x-ui.button>
+                @endif
             </div>
         </div>
     </x-ui.modal>

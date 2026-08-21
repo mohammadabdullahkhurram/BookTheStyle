@@ -57,19 +57,20 @@ it('shows only TODAY, client by client with services — and offers no reschedul
     expect(method_exists(Livewire::new('pages::salon.appointments.index'), 'openReschedule'))->toBeFalse();
 });
 
-it('walks the visit-state flow: Scheduled → Checked in → Checked out; no-show closes out and UNDOES', function () {
+it('walks the visit-state flow at CLIENT level: Scheduled → Checked in → Checked out; no-show closes out and UNDOES', function () {
     ['salon' => $salon, 'owner' => $owner, 'today' => $booking] = frontDesk();
+    $clientId = $booking->client_id;
 
     $component = Livewire::actingAs($owner)
         ->test('pages::salon.appointments.index', ['salon' => $salon]);
 
-    // Check in.
-    $component->call('changeStatus', $booking->id, 'arrived')->assertHasNoErrors();
+    // Check in — the client arrived.
+    $component->call('checkInClient', $clientId)->assertHasNoErrors();
     expect($booking->refresh()->status)->toBe(BookingStatus::Arrived);
     $component->assertSee(__('Checked in'))->assertSee(__('Check out'));
 
     // Check out — via the placeholder modal's one real action.
-    $component->call('openCheckout', $booking->id)
+    $component->call('openCheckout', $clientId)
         ->assertSet('showCheckout', true)
         ->assertSee(__('In-app payments are coming soon'))
         ->call('completeVisit')
@@ -80,25 +81,76 @@ it('walks the visit-state flow: Scheduled → Checked in → Checked out; no-sho
     // No-show closes out — and is undoable back to an active booking.
     ['salon' => $salon2, 'owner' => $owner2, 'today' => $booking2] = frontDesk();
     $c2 = Livewire::actingAs($owner2)->test('pages::salon.appointments.index', ['salon' => $salon2]);
-    $c2->call('changeStatus', $booking2->id, 'no_show')->assertHasNoErrors();
+    $c2->call('markNoShowClient', $booking2->client_id)->assertHasNoErrors();
     expect($booking2->refresh()->status)->toBe(BookingStatus::NoShow);
     $c2->assertSee(__('Undo no-show'));
-    $c2->call('changeStatus', $booking2->id, 'booked')->assertHasNoErrors();
+    $c2->call('undoNoShowClient', $booking2->client_id)->assertHasNoErrors();
     expect($booking2->refresh()->status)->toBe(BookingStatus::Booked);
     $c2->assertSee(__('Check in')); // active again, full flow restored
 });
 
+it('groups a multi-booking client into EXACTLY ONE block listing every service line', function () {
+    ['salon' => $salon, 'owner' => $owner, 'stylist' => $stylist, 'today' => $booking] = frontDesk();
+
+    // The same client booked a SECOND separate visit today (the Abdullah
+    // case: an 8:15 facial and an 8:30 cut as two bookings).
+    $facial = serviceFor($salon, $stylist, 30);
+    $facial->update(['name' => 'Radiance Facial']);
+    $second = makeBooking($salon, $owner, $stylist, $facial, '2026-06-22 16:00');
+    $second->update(['client_id' => $booking->client_id]);
+    $second->items()->update(['booking_id' => $second->id]);
+
+    $html = Livewire::actingAs($owner)
+        ->test('pages::salon.appointments.index', ['salon' => $salon])
+        ->call('$refresh')
+        ->html();
+
+    // ONE block: the client's name renders exactly once…
+    expect(substr_count($html, 'Tina Today'))->toBe(1);
+    // …with BOTH services as lines inside it, and both start times.
+    expect($html)->toContain('Signature Cut')->toContain('Radiance Facial');
+    expect($html)->toContain('2:00 PM')->toContain('4:00 PM');
+
+    // Checking the client in checks in BOTH visits at once.
+    Livewire::actingAs($owner)
+        ->test('pages::salon.appointments.index', ['salon' => $salon])
+        ->call('checkInClient', $booking->client_id)
+        ->assertHasNoErrors();
+    expect($booking->refresh()->status)->toBe(BookingStatus::Arrived);
+    expect($second->refresh()->status)->toBe(BookingStatus::Arrived);
+});
+
+it('renders a single-appointment client as one block with one service line and the Check out button', function () {
+    ['salon' => $salon, 'owner' => $owner] = frontDesk();
+
+    $html = Livewire::actingAs($owner)
+        ->test('pages::salon.appointments.index', ['salon' => $salon])
+        ->html();
+
+    expect(substr_count($html, 'Tina Today'))->toBe(1);
+    expect(substr_count($html, 'Signature Cut'))->toBe(1);
+    expect($html)->toContain(__('Check out')); // present on every block
+});
+
 it('keeps the Check out button a pure coming-soon placeholder — nothing money-related exists', function () {
     ['salon' => $salon, 'owner' => $owner, 'today' => $booking] = frontDesk();
-    app(TransitionBookingStatus::class)->handle($owner, $salon, $booking, BookingStatus::Arrived);
 
-    $component = Livewire::actingAs($owner)
+    // Even before check-in the button exists on the block; the popup is
+    // informational only (no complete action offered).
+    Livewire::actingAs($owner)
         ->test('pages::salon.appointments.index', ['salon' => $salon])
-        ->call('openCheckout', $booking->id)
+        ->call('openCheckout', $booking->client_id)
+        ->assertSee(__('In-app payments are coming soon'))
+        ->assertDontSee(__('Mark visit complete'));
+    expect($booking->refresh()->status)->toBe(BookingStatus::Booked);
+
+    // Checked in: the popup offers the one real action, opening changes nothing.
+    app(TransitionBookingStatus::class)->handle($owner, $salon, $booking, BookingStatus::Arrived);
+    Livewire::actingAs($owner)
+        ->test('pages::salon.appointments.index', ['salon' => $salon])
+        ->call('openCheckout', $booking->client_id)
         ->assertSee(__('In-app payments are coming soon'))
         ->assertSee(__('Mark visit complete'));
-
-    // Opening the popup changes NOTHING — no state moved, no charge path.
     expect($booking->refresh()->status)->toBe(BookingStatus::Arrived);
 });
 
@@ -114,7 +166,7 @@ it('auto-flags an elapsed unarrived booking as no-show — undoable, never charg
     // A FLAG, not a verdict: the salon undoes it from the front-desk view.
     Livewire::actingAs($owner)
         ->test('pages::salon.appointments.index', ['salon' => $salon])
-        ->call('changeStatus', $booking->id, 'booked')
+        ->call('undoNoShowClient', $booking->client_id)
         ->assertHasNoErrors();
     expect($booking->refresh()->status)->toBe(BookingStatus::Booked);
 });

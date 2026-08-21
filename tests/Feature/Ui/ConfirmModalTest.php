@@ -125,9 +125,11 @@ it('appointment cancel / no-show buttons act only through the confirm callback',
 
     Livewire::actingAs($owner)
         ->test($component, ['salon' => $salon])
-        // The destructive action only runs from inside the confirm callback.
+        // The destructive action only runs from inside the confirm callback
+        // (the check-in tab wires client-level actions; the list wires
+        // per-booking changeStatus).
         ->assertSeeHtml('$store.confirm.ask')
-        ->assertSeeHtml('$wire.changeStatus(')
+        ->assertSeeHtml($component === 'pages::salon.appointments.index' ? '$wire.cancelClient(' : '$wire.changeStatus(')
         ->assertDontSeeHtml('wire:confirm')
         // Copy comes verbatim from BookingStatus::confirmMessage().
         ->assertSee('Cancel this booking?')

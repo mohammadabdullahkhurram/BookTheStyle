@@ -44,7 +44,7 @@ it('keeps the check-out flow inert for the demo: the popup opens, completing cha
 
     Livewire::actingAs($viewer)
         ->test('pages::salon.appointments.index', ['salon' => $salon])
-        ->call('openCheckout', $arrived->id)
+        ->call('openCheckout', $arrived->client_id)
         ->assertSet('showCheckout', true)
         ->assertSee(__('In-app payments are coming soon'))
         ->call('completeVisit')
